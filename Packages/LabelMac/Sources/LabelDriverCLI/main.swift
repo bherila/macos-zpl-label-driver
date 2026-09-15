@@ -6,6 +6,8 @@ import LabelMac
 /// printer endpoint; CUPS integration has a separate, unimplemented boundary.
 @main
 struct LabelDriverCLI {
+    private static let maximumTicketBytes = 64 * 1024
+
     private enum Exit: Int32 {
         case success = 0
         case usage = 64
@@ -132,13 +134,30 @@ struct LabelDriverCLI {
     }
 
     private static func readInput(_ url: URL) throws -> Data {
-        do { return try Data(contentsOf: url, options: [.mappedIfSafe]) }
+        do { return try readBoundedRegularFile(url, maximumBytes: OfflineConversion.maximumInputBytes) }
         catch { throw CLIError.input("cannot read input PDF") }
     }
 
     private static func readTicket(_ url: URL) throws -> OfflineConversionTicket {
-        do { return try OfflineConversionTicket(jsonData: Data(contentsOf: url, options: [.mappedIfSafe])) }
+        do {
+            return try OfflineConversionTicket(
+                jsonData: readBoundedRegularFile(url, maximumBytes: maximumTicketBytes)
+            )
+        }
         catch { throw CLIError.input("invalid job ticket: \(String(describing: error))") }
+    }
+
+    private static func readBoundedRegularFile(_ url: URL, maximumBytes: Int) throws -> Data {
+        let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+        guard values.isRegularFile == true, let fileSize = values.fileSize,
+              fileSize >= 0, fileSize <= maximumBytes else {
+            throw CLIError.input("input file exceeds its resource contract")
+        }
+        let data = try Data(contentsOf: url, options: [.mappedIfSafe])
+        guard data.count <= maximumBytes else {
+            throw CLIError.input("input file changed beyond its resource contract")
+        }
+        return data
     }
 
     private static func validateNewDestination(_ url: URL) throws {
