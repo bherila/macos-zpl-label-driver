@@ -220,6 +220,7 @@ public struct PlannedExtractionLabel: Equatable, Sendable {
     public let sourcePage: Int
     public let regionIndex: Int
     public let regionID: String
+    public let normalizedRect: NormalizedRect
     public let sourceRect: PDFSourceRect
     public let rotation: ExtractionRotation
     public let scalePolicy: ExtractionScalePolicy
@@ -328,6 +329,7 @@ public enum ExtractionPlanner {
                 sourcePage: identity.sourcePage,
                 regionIndex: identity.region,
                 regionID: region.id,
+                normalizedRect: region.normalizedRect,
                 sourceRect: sourceRect,
                 rotation: region.rotation,
                 scalePolicy: region.scalePolicy,
