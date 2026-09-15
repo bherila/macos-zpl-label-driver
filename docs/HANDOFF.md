@@ -861,6 +861,18 @@ accelerator passes with 116 LabelCore and 56 Python tests. This closes M4-AC08
 at automated level only; UI storage/import interaction and later migrations are
 not claimed.
 
+At `69dd2f5`, M4 connected immutable planned regions to the native Core
+Graphics path. The renderer re-derives and verifies geometry from the original
+PDF, selects the canonical upright region, applies only physical uniform fit,
+and draws vectors directly into the final dot canvas. It handles all four
+right-angle output rotations and a source page with `/Rotate 90`, rejects stale
+plan geometry, output-stock mismatch, and unbounded transforms, and creates its
+PBM preview from the exact packed bitmap passed to the encoder. Six focused
+native tests and the complete debug/release CI-equivalent sequence pass. This
+closes M4-AC02 and M4-AC07 at automated level; native analysis generation, UI,
+application/browser capture, scheduler integration, and physical output remain
+unverified.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
