@@ -380,6 +380,15 @@ only. It does not yet bind a real scheduler job, persist/recover a held job,
 choose a transport, emit a media command, install a queue, or establish device
 delivery/physical acceptance.
 
+At `fcfc264`, explicit width, length, and origin requests gained a typed
+control representation. Nonpositive dimensions fail at construction; valid
+requests from either job or workflow defaults fail against the GC420d reference
+until a measured calibration and cited ordinary-job mapping exist. This closes
+the silent-drop path without turning the 813×1219 planning face into `^LL`,
+`^PW`, or offset output. It is portable partial M3-AC02/M3-AC03/M3-AC04/
+M3-AC13 evidence only. Darkness/tracking/media command qualification, queue
+option propagation, USB delivery, and physical validation remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

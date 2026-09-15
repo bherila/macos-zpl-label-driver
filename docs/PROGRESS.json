@@ -67,7 +67,8 @@
         "d4233ede88d548cdd58b8526cc87e32e4e416535 (deterministic raw-TCP timeout/disconnect outcome vectors; additional partial M3-AC05/M3-AC09 only)",
         "8c22965 (profile identity and speed-invariant rejection vectors; additional partial M3-AC01/M3-AC02 only)",
         "722dd5e (typed nominal-media and unobserved-calibration profile vectors; additional partial M3-AC01/M3-AC02/M3-AC13 only)",
-        "a390ab4 (immutable typed profile/media snapshot bound to delivery receipt; additional partial M1-AC07/M3-AC01/M3-AC09 only)"
+        "a390ab4 (immutable typed profile/media snapshot bound to delivery receipt; additional partial M1-AC07/M3-AC01/M3-AC09 only)",
+        "fcfc264 (typed unqualified media-control rejection vectors; additional partial M3-AC02/M3-AC03/M3-AC04/M3-AC13 only)"
       ],
       "blockers": []
     },
