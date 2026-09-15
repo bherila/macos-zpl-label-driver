@@ -14,9 +14,9 @@ SCRIPT = ROOT / "scripts" / "m1-discard-file-sink.sh"
 PPD = ROOT / "experiments" / "cups-probe" / "labelprobe-native.ppd"
 FILTER = "/Library/Printers/LabelPrinterDriver-M1/labelcapture-filter"
 PPD_HASHES = {
-    "labelprobe-native.ppd": "cceed46e91e0fdfe6714132085e2ffe066feedaafd33f36f430cd15ca5349ada",
-    "labelprobe-letter.ppd": "18ef9a332ba898ea17c727303a42684f1f6c1e3eff19cd110ee34bf79023eb18",
-    "labelprobe-a4.ppd": "4c0ba022ac562051cf9d5779c0ecfe1a4c639bb27d7ee9fca7829ef3fcdc7dac",
+    "labelprobe-native.ppd": "1ef382b536c71d38a8b6d02efbab8944959c538d107c084ede6519da1e8bffdb",
+    "labelprobe-letter.ppd": "e58416fb84554546cf8f86c3f446be9e06f8c3d3f1f46f64cc40c9cd31e00d8a",
+    "labelprobe-a4.ppd": "13ce96f08150b7a932ba3527296275aca0e1bb6092aaa6bf54a212bfd265df63",
 }
 
 
@@ -55,6 +55,19 @@ class M1DiscardFileSinkTests(unittest.TestCase):
             self.assertIn(expected_hash, script_text)
         self.assertIn("exactly two cupsFilter2 declarations", script_text)
         self.assertIn("must not contain a legacy cupsFilter declaration", script_text)
+
+    def test_read_only_validation_accepts_each_exact_candidate_and_rejects_mutation(self) -> None:
+        for name in PPD_HASHES:
+            candidate = ROOT / "experiments" / "cups-probe" / name
+            subprocess.run(["bash", str(SCRIPT), "--validate-ppd", str(candidate)], check=True, capture_output=True)
+        with tempfile.TemporaryDirectory() as directory:
+            modified = Path(directory) / "modified.ppd"
+            modified.write_bytes(PPD.read_bytes() + b"\n*% unexpected mutation\n")
+            result = subprocess.run(
+                ["bash", str(SCRIPT), "--validate-ppd", str(modified)], capture_output=True, text=True
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("do not match a supplied experiment candidate", result.stderr)
 
     def test_invalid_filter_cleans_private_snapshot_before_sudo(self) -> None:
         if sys.platform != "darwin":
