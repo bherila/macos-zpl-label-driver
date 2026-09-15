@@ -752,6 +752,22 @@ cases, and one inert pipeline case. This closes the reviewed R3/R5 defects at th
 portable automated-test level; it does not establish live transport, scheduler,
 or physical-printer behavior.
 
+At `e700f2c`, review finding R4 received a native transport-concurrency fix.
+One serial attempt state machine now owns connection start, send admission,
+timeout, task cancellation, connection termination, send completion, and final
+settlement. The send call occurs on that serialized boundary immediately after
+admission, eliminating the stale split-lock classification that could previously
+report a retryable pre-send timeout after send had begun. Cancellation before
+send becomes an explicit cancelled-before-transmission receipt; cancellation or
+timeout after admission is uncertain and cannot authorize automatic replay.
+Deterministic semaphore-barrier regressions enqueue timeout and cancellation
+while the admitted send is paused, and a real loopback task proves Swift task
+cancellation enters the state machine. The cancellation test passed five
+repeated focused runs; complete LabelMac debug and release suites each pass 43
+tests. This closes R4 at native automated-test level only. Network-framework
+loopback does not establish a printer receipt, production endpoint reliability,
+USB behavior, or physical output.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

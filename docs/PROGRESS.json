@@ -94,7 +94,8 @@
         "e716fe6 (raw-TCP prepared-label snapshot handoff vectors; additional partial M1-AC07/M3-AC05/M3-AC09 only)",
         "ab97ab3 (typed opaque connection-identity state and redaction vectors; additional partial M3-AC01/M3-AC12/M3-AC13 only)",
         "6f6e190 (installed-transport/profile-connection consistency rejection vector; additional partial M3-AC01/M3-AC13 only)",
-        "01406ca (zero-side-effect delivery preflight, exact prepared-payload binding, and monotonic accepted-byte regressions; additional partial M3-AC09 evidence)"
+        "01406ca (zero-side-effect delivery preflight, exact prepared-payload binding, and monotonic accepted-byte regressions; additional partial M3-AC09 evidence)",
+        "e700f2c (serialized raw-TCP start/send/timeout/cancellation settlement with deterministic race and real Task-cancellation regressions; additional partial M3-AC05/M3-AC09 evidence)"
       ],
       "blockers": []
     },
