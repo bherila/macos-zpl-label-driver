@@ -662,6 +662,16 @@ reader rerun passes three tests. This adds partial automated M2-AC09/M2-AC10
 filesystem-safety evidence, not a claim that every hostile filesystem or installed
 CUPS spool-file behavior has been qualified.
 
+At `46a6ec0`, cancellation is exercised through the real CLI signal boundary rather
+than only by calling the worker coordinator. The regression launches an under-limit
+8,192×4,000-dot photographic conversion, waits until the CLI has created its private
+worker scratch, sends SIGTERM to the CLI, and requires a normal exit 130 with the
+stable `CANCELLED` error. It also proves stdout is empty, neither final ZPL nor PBM
+exists, and the newly observed scratch directory is removed. The test passes alone
+and in the complete 37-test LabelMac debug and release suites. This strengthens
+automated M2-AC09/M2-AC10 evidence for the offline executable; installed scheduler
+signal delivery and filter exit interpretation still require M1 integration evidence.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
