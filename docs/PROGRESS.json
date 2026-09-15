@@ -55,7 +55,8 @@
         "37d1a0e88bba2bac5e014b519c685b95db00fc80 (bounded, provenance-backed tear-off/speed control encoding; portable regression vectors only)",
         "5026353212f7d26933904cc6d93ec711a0339601 (portable delivery-state and no-blind-replay regression vectors only)",
         "f20620ddfef9d6b4871fe34163f6de9bf9191f69 (portable bounded short-write/zero-write delivery vectors only)",
-        "cbb62f842b932a41ec3ab046efb076c711476290 (portable complete prepared-label envelope vectors only)"
+        "cbb62f842b932a41ec3ab046efb076c711476290 (portable complete prepared-label envelope vectors only)",
+        "25f33ed79ff8ccb669854f446c647399dba5da74 (explicit raw-TCP endpoint, bounded timeout and localhost-only transmission vectors; partial M3-AC05/M3-AC09 only)"
       ],
       "blockers": []
     },

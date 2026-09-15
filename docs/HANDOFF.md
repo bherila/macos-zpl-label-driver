@@ -227,6 +227,28 @@ configuration errors through the throwing initializer rather than crashing if
 future bounds change. The existing 81-core-test suite passes; this is a safety
 fix with no device or transport effect.
 
+At `25f33ed79ff8ccb669854f446c647399dba5da74`, M3.3 gains an explicitly
+configured `Network.framework` raw-TCP delivery boundary. It validates a
+bounded host/port and timeout without scanning or logging endpoints, sends one
+prepared byte stream, and records only local transport completion. The
+localhost-only regression uses an ephemeral listener to prove the exact payload
+arrives and that the result is `transmitted`, never device-confirmed. A timeout
+or send failure after invoking the network send operation now maps to the new
+zero-count *uncertain attempt* state: zero is unknown rather than a safe retry
+signal. Endpoint and timeout rejection vectors also pass. This advances only
+portable/macOS simulation portions of M3-AC05 and M3-AC09. It has no printer
+discovery, printer connection, USB path, scheduler/backend integration,
+cross-process coordination, status protocol, or hardware evidence.
+
+The full local gate passed on Tahoe ARM after this slice: accelerator checks;
+repository preflight; 34 Python tests; 82 LabelCore tests; 11 LabelMac tests
+(including the loopback TCP vector); and `scripts/ci-swift.sh` (132
+cross-language ZPL/PBM/analytic round-trips, with its documented inert output).
+The expected malformed-PDF Core Graphics diagnostic was observed in its
+negative test. The next safe M3 work is a bounded simulated-fault harness for
+the remaining raw-TCP failure modes, followed by the separate cross-process
+ownership boundary; neither unlocks USB or physical acceptance.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
