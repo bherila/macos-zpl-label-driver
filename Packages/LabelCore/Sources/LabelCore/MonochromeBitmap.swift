@@ -81,7 +81,7 @@ public struct MonochromeBitmap: Equatable, Sendable {
         guard !overflow, required == grayscale.count else { throw ValidationError.invalidGrayscaleLength }
         var packed = [UInt8](repeating: 0, count: layout.byteCount)
         for y in 0..<height {
-            for x in 0..<width where grayscale[y * stride + x] < threshold {
+            for x in 0..<width where grayscale[grayscale.index(grayscale.startIndex, offsetBy: y * stride + x)] < threshold {
                 packed[y * layout.bytesPerRow + x / 8] |= UInt8(0x80 >> (x % 8))
             }
         }
