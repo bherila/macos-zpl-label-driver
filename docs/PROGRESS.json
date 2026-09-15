@@ -63,7 +63,8 @@
         "cbb62f842b932a41ec3ab046efb076c711476290 (portable complete prepared-label envelope vectors only)",
         "25f33ed79ff8ccb669854f446c647399dba5da74 (explicit raw-TCP endpoint, bounded timeout and localhost-only transmission vectors; partial M3-AC05/M3-AC09 only)",
         "f579d3164a8ce84ef422cc681461573b4bb5e816 (opaque kernel-managed cross-process lease with child-termination regression; partial M3-AC07/M3-AC08 only)",
-        "d4233ede88d548cdd58b8526cc87e32e4e416535 (deterministic raw-TCP timeout/disconnect outcome vectors; additional partial M3-AC05/M3-AC09 only)"
+        "d4233ede88d548cdd58b8526cc87e32e4e416535 (deterministic raw-TCP timeout/disconnect outcome vectors; additional partial M3-AC05/M3-AC09 only)",
+        "8c22965 (profile identity and speed-invariant rejection vectors; additional partial M3-AC01/M3-AC02 only)"
       ],
       "blockers": []
     },
