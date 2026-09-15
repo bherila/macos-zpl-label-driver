@@ -736,6 +736,22 @@ green with 93 LabelCore tests. This addresses R1/R2 at source/harness level only
 `--apply` and `--remove` remain NOT RUN pending review and exact-head CI, so
 scheduler acceptance is not claimed.
 
+At `01406ca`, review findings R3/R5 received portable correctness fixes.
+`BoundedDelivery` now validates the tracker's initial state and, for prepared
+labels, the exact bound payload before the first sink call. Reusing a transmitted
+tracker, delivering through an unprepared tracker, or substituting equal-length
+bytes therefore produces zero external writes. Accepted-byte totals may only
+increase. The byte-sink contract now explicitly excludes transports whose thrown
+errors cannot establish that the current call accepted zero bytes; those require
+the separate uncertain-attempt state. Both monochrome conversion paths now index
+`Data` relative to its actual `startIndex`, with regressions proving sliced and
+rebased buffers match. Focused tests pass 29 cases; complete debug and release
+LabelCore suites pass 97 cases. The complete offline accelerator also passes 53
+Python checks, 132 independent round trips, 15 backend ABI cases, ten filter ABI
+cases, and one inert pipeline case. This closes the reviewed R3/R5 defects at the
+portable automated-test level; it does not establish live transport, scheduler,
+or physical-printer behavior.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
