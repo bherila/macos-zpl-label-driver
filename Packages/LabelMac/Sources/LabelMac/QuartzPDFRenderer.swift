@@ -10,6 +10,7 @@ public enum QuartzPDFRenderer {
         case inputTooLarge(actual: Int, limit: Int)
         case malformedOrUnsupportedPDF
         case encryptedPDF
+        case sourcePageLimitExceeded(actual: Int, limit: Int)
         case pageOutOfRange(requested: Int, pageCount: Int)
         case annotationsUnsupported
         case pixelLimitExceeded(actual: Int, limit: Int)
@@ -30,6 +31,9 @@ public enum QuartzPDFRenderer {
         public let canvas: DotCanvas
         public let annotationPolicy: AnnotationPolicy
         public let maximumInputBytes: Int
+        /// Bounds document traversal independently from the selected page and
+        /// destination-pixel budget.
+        public let maximumSourcePages: Int
         public let maximumPixels: Int
 
         public init(
@@ -38,6 +42,7 @@ public enum QuartzPDFRenderer {
             canvas: DotCanvas,
             annotationPolicy: AnnotationPolicy = .reject,
             maximumInputBytes: Int = 100 * 1024 * 1024,
+            maximumSourcePages: Int = 1_000,
             maximumPixels: Int = 32 * 1024 * 1024
         ) {
             self.originalPDF = originalPDF
@@ -45,6 +50,7 @@ public enum QuartzPDFRenderer {
             self.canvas = canvas
             self.annotationPolicy = annotationPolicy
             self.maximumInputBytes = maximumInputBytes
+            self.maximumSourcePages = maximumSourcePages
             self.maximumPixels = maximumPixels
         }
     }
@@ -65,7 +71,7 @@ public enum QuartzPDFRenderer {
     }
 
     public static func render(_ request: Request) throws -> GrayscaleBitmap {
-        guard request.maximumInputBytes > 0, request.maximumPixels > 0 else {
+        guard request.maximumInputBytes > 0, request.maximumSourcePages > 0, request.maximumPixels > 0 else {
             throw Error.invalidLimits
         }
         guard request.originalPDF.count <= request.maximumInputBytes else {
@@ -82,6 +88,9 @@ public enum QuartzPDFRenderer {
             throw Error.malformedOrUnsupportedPDF
         }
         guard !document.isEncrypted || document.isUnlocked else { throw Error.encryptedPDF }
+        guard document.numberOfPages <= request.maximumSourcePages else {
+            throw Error.sourcePageLimitExceeded(actual: document.numberOfPages, limit: request.maximumSourcePages)
+        }
         guard let page = document.page(at: request.pageNumber) else {
             throw Error.pageOutOfRange(requested: request.pageNumber, pageCount: document.numberOfPages)
         }
