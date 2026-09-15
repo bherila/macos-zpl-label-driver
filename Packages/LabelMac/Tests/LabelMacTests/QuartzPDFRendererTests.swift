@@ -128,5 +128,44 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertGreaterThan(shifted.pixels.filter { $0 < 255 }.count, 0)
     }
 
+    func testOfflineTicketDecodesExplicitSchemaAndPreparesExactPreview() throws {
+        let ticket = try OfflineConversionTicket(jsonData: Data("""
+        {
+          "schemaVersion": 1,
+          "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "textAndBarcodeThreshold", "cutoff": 128 }
+        }
+        """.utf8))
+        let prepared = try OfflineConversion.prepare(originalPDF: try lowerHalfBlackPDF(), ticket: ticket)
+        XCTAssertEqual(prepared.bitmap.layout.width, 10)
+        XCTAssertEqual(prepared.bitmap.layout.height, 10)
+        XCTAssertEqual(prepared.previewPBM, prepared.bitmap.pbmData())
+        XCTAssertTrue(String(decoding: prepared.zpl, as: UTF8.self).hasPrefix("^XA\n^FO0,0^GFA,"))
+        XCTAssertTrue(String(decoding: prepared.zpl, as: UTF8.self).hasSuffix("^XZ\n"))
+    }
+
+    func testOfflineTicketRejectsUnknownSchemaAndBadConversion() {
+        let unsupported = Data("""
+        { "schemaVersion": 2, "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "photographicOrderedDither4x4" } }
+        """.utf8)
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: unsupported)) {
+            XCTAssertEqual($0 as? OfflineConversionTicket.TicketError, .unsupportedSchemaVersion(2))
+        }
+        let invalidMode = Data("""
+        { "schemaVersion": 1, "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "unknown" } }
+        """.utf8)
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: invalidMode)) {
+            XCTAssertEqual($0 as? OfflineConversionTicket.TicketError, .malformedJSON)
+        }
+    }
+
     private enum TestError: Error { case unavailable }
 }
