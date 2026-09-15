@@ -25,6 +25,15 @@ final class DeliveryStateTests: XCTestCase {
         XCTAssertNoThrow(try tracker.requireExplicitRetryReview())
     }
 
+    func testTimedOutAcceptedSendAttemptIsUncertainEvenWithoutByteCount() throws {
+        var tracker = try DeliveryTracker(expectedBytes: 10, profileRevision: 3)
+        try tracker.prepared(); try tracker.waiting()
+        try tracker.transportAttemptBecameAmbiguous()
+        XCTAssertEqual(tracker.receipt.state, .uncertain(bytesAccepted: 0))
+        XCTAssertFalse(tracker.receipt.mayRetryAutomatically)
+        XCTAssertThrowsError(try tracker.requireExplicitRetryReview())
+    }
+
     func testInvalidTransitionsAndByteCountsFail() throws {
         var tracker = try DeliveryTracker(expectedBytes: 10, profileRevision: 3)
         XCTAssertThrowsError(try tracker.waiting())

@@ -73,6 +73,14 @@ public struct DeliveryTracker: Sendable {
         receipt = DeliveryReceipt(state: .uncertain(bytesAccepted: bytes), expectedBytes: receipt.expectedBytes, profileRevision: receipt.profileRevision)
     }
 
+    /// Use this when a transport API accepted a send attempt but cannot say
+    /// whether any bytes reached its peer. Zero is unknown here, not proof
+    /// that no bytes were accepted, so automatic retry remains forbidden.
+    public mutating func transportAttemptBecameAmbiguous() throws {
+        guard case .waiting = receipt.state else { throw DeliveryStateError.invalidTransition }
+        receipt = DeliveryReceipt(state: .uncertain(bytesAccepted: 0), expectedBytes: receipt.expectedBytes, profileRevision: receipt.profileRevision)
+    }
+
     public mutating func failedOrCancelledBeforeTransmission(cancelled: Bool) throws {
         guard case .waiting = receipt.state else { throw DeliveryStateError.invalidTransition }
         receipt = DeliveryReceipt(state: cancelled ? .cancelledBeforeTransmission : .failedBeforeTransmission,
