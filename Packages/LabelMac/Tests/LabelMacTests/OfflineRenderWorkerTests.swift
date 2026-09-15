@@ -108,6 +108,35 @@ final class OfflineRenderWorkerTests: XCTestCase {
         }
     }
 
+    func testEncryptedFixtureAndTruncatedSourceRemainDistinctThroughWorker() throws {
+        let encrypted = try Data(contentsOf: repositoryRoot().appending(path: "Fixtures/generated/encrypted-input.pdf"))
+        XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(
+            originalPDF: encrypted,
+            ticketJSON: ticket,
+            workerExecutable: try workerExecutable(),
+            deadlineSeconds: 5
+        )) {
+            XCTAssertEqual(
+                $0 as? OfflineRenderWorkerProcess.Error,
+                .jobRejected(code: .inputEncrypted)
+            )
+        }
+
+        let source = try Data(contentsOf: repositoryRoot().appending(path: "Fixtures/generated/native-vector.pdf"))
+        let truncated = Data(source.prefix(source.count / 2))
+        XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(
+            originalPDF: truncated,
+            ticketJSON: ticket,
+            workerExecutable: try workerExecutable(),
+            deadlineSeconds: 5
+        )) {
+            XCTAssertEqual(
+                $0 as? OfflineRenderWorkerProcess.Error,
+                .jobRejected(code: .inputUnsupported)
+            )
+        }
+    }
+
     func testFailureClassificationKeepsEncryptedAndMalformedDistinct() {
         XCTAssertEqual(
             OfflineRenderWorkerProcess.classifyFailure(QuartzPDFRenderer.Error.encryptedPDF).code,

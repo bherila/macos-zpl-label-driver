@@ -168,6 +168,13 @@ final class QuartzPDFRendererTests: XCTestCase {
         }
     }
 
+    func testRejectsPasswordProtectedFixtureAsEncrypted() throws {
+        let source = try fixture(named: "encrypted-input")
+        XCTAssertThrowsError(try QuartzPDFRenderer.render(request(pdf: source))) {
+            XCTAssertEqual($0 as? QuartzPDFRenderer.Error, .encryptedPDF)
+        }
+    }
+
     func testTransparencyCompositesAgainstTheExplicitWhiteLabelBackground() throws {
         let source = try fixture(named: "transparency")
         let bitmap = try QuartzPDFRenderer.render(request(pdf: source, width: 288, height: 432))
@@ -359,6 +366,34 @@ final class QuartzPDFRendererTests: XCTestCase {
         let ticketResult = try runCLI(["validate", source.path, "--job-ticket", oversizedTicket.path, "--json"])
         XCTAssertEqual(ticketResult.status, 65)
         XCTAssertTrue(ticketResult.stdout.isEmpty)
+    }
+
+    func testOfflineCLIReportsEncryptedInputAndWritesNoFinalArtifacts() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "LabelDriverCLIEncrypted-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let ticket = directory.appending(path: "ticket.json")
+        try Data("""
+        { "schemaVersion": 1, "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "textAndBarcodeThreshold", "cutoff": 128 } }
+        """.utf8).write(to: ticket)
+        let output = directory.appending(path: "output.zpl")
+        let result = try runCLI([
+            "convert", repositoryRoot().appending(path: "Fixtures/generated/encrypted-input.pdf").path,
+            "--job-ticket", ticket.path,
+            "--output", output.path,
+            "--preview-dir", directory.path,
+            "--json",
+        ])
+
+        XCTAssertEqual(result.status, 65)
+        XCTAssertTrue(result.stdout.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: output.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appending(path: "page-0001.pbm").path))
+        let error = try JSONSerialization.jsonObject(with: result.stderr) as? [String: Any]
+        XCTAssertEqual(error?["code"] as? String, "INPUT_ENCRYPTED")
     }
 
     private enum TestError: Error { case unavailable }

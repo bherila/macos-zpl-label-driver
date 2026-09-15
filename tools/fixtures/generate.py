@@ -6,9 +6,12 @@ No customer data, provider artwork, external assets or printer I/O.
 """
 from __future__ import annotations
 import argparse
+import copy
 import hashlib
 import io
 import json
+import shutil
+import subprocess
 from pathlib import Path
 
 from PIL import Image
@@ -186,6 +189,29 @@ def write_annotation_form_pdf():
             'license':'MIT','physicalQualification':'not-run'}
 
 
+def write_encrypted_pdf(source):
+    """Wrap a synthetic source in deterministic test-only PDF encryption."""
+    qpdf=shutil.which('qpdf')
+    if qpdf is None:
+        raise RuntimeError('qpdf is required to generate the encrypted test fixture')
+    path=OUT/'encrypted-input.pdf'
+    password='LPD-TEST-ONLY'
+    subprocess.run([
+        qpdf,'--allow-weak-crypto','--static-id','--encrypt',password,
+        'LPD-TEST-OWNER','128','--use-aes=n','--',
+        str(REPO/source['path']),str(path),
+    ],check=True,timeout=30)
+    item=copy.deepcopy(source)
+    item.update(
+        id='encrypted-input',family='damaged-encrypted',path=str(path.relative_to(REPO)),
+        sha256=hashlib.sha256(path.read_bytes()).hexdigest(),bytes=path.stat().st_size,
+        note='Password-protected input must be rejected; RC4 is deterministic test-fixture encoding only, not a security recommendation.',
+        provenance='Original synthetic project artwork encrypted deterministically by qpdf from native-vector.pdf',
+        encryptionExpectation='reject-without-password',syntheticFixturePassword=password,
+    )
+    return item
+
+
 def browser_html(name, sheet):
     # Inline SVG rect geometry, no external assets, JS, tracking or live courier site.
     bar=code128.Code128('LPD-BROWSER-001',barWidth=1,barHeight=38,quiet=True)
@@ -236,6 +262,7 @@ def main():
     def add(id,pages,family=None,note='',match='explicit-profile'):
         fixtures.append(write_pdf(id,pages,family or id,note,match))
     add('native-vector',[make_page()])
+    fixtures.append(write_encrypted_pdf(fixtures[0]))
     add('letter-one',[make_page((612,792),[(36,180,1,'A')])])
     add('a4-one',[make_page((595.275590551,841.88976378),[(36,210,1,'A')])])
     add('sheet-two',[make_page((792,612),[(36,90,1,'A'),(432,90,1,'B')])])
