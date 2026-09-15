@@ -366,6 +366,12 @@ final class QuartzPDFRendererTests: XCTestCase {
         let ticketResult = try runCLI(["validate", source.path, "--job-ticket", oversizedTicket.path, "--json"])
         XCTAssertEqual(ticketResult.status, 65)
         XCTAssertTrue(ticketResult.stdout.isEmpty)
+
+        let linkedSource = directory.appending(path: "linked-source.pdf")
+        try FileManager.default.createSymbolicLink(at: linkedSource, withDestinationURL: source)
+        let linkedResult = try runCLI(["validate", linkedSource.path, "--job-ticket", ticket.path, "--json"])
+        XCTAssertEqual(linkedResult.status, 65)
+        XCTAssertTrue(linkedResult.stdout.isEmpty)
     }
 
     func testOfflineCLIReportsEncryptedInputAndWritesNoFinalArtifacts() throws {
