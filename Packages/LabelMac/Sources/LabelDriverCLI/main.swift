@@ -155,8 +155,27 @@ struct LabelDriverCLI {
     }
 
     private static func writeNew(_ data: Data, to url: URL) throws {
-        do { try data.write(to: url, options: .withoutOverwriting) }
-        catch { throw CLIError.output("cannot create output") }
+        // Foundation rejects combining .atomic with .withoutOverwriting. Stage
+        // under an unguessable same-directory name, then use Darwin's exclusive
+        // rename so the final path is never partial and is never replaced.
+        let temporary = url.deletingLastPathComponent().appending(
+            path: ".label-driver-\(UUID().uuidString).tmp"
+        )
+        do {
+            try data.write(to: temporary, options: .withoutOverwriting)
+            defer { try? FileManager.default.removeItem(at: temporary) }
+            let result = temporary.path.withCString { source in
+                url.path.withCString { destination in
+                    renameatx_np(AT_FDCWD, source, AT_FDCWD, destination, UInt32(RENAME_EXCL))
+                }
+            }
+            guard result == 0 else { throw CLIError.output("cannot create output") }
+        } catch let error as CLIError {
+            throw error
+        } catch {
+            try? FileManager.default.removeItem(at: temporary)
+            throw CLIError.output("cannot create output")
+        }
     }
 
     /// Commits the exact preview before the printer-language bytes. If the

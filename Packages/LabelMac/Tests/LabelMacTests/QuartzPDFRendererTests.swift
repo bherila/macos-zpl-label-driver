@@ -301,6 +301,10 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertTrue(result.stdout.isEmpty)
         XCTAssertFalse(FileManager.default.fileExists(atPath: impossibleOutput.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: previewDirectory.appending(path: "page-0001.pbm").path))
+        let parentEntries = try FileManager.default.contentsOfDirectory(atPath: directory.path)
+        let previewEntries = try FileManager.default.contentsOfDirectory(atPath: previewDirectory.path)
+        XCTAssertFalse(parentEntries.contains { $0.hasPrefix(".label-driver-") })
+        XCTAssertFalse(previewEntries.contains { $0.hasPrefix(".label-driver-") })
         let error = try JSONSerialization.jsonObject(with: result.stderr) as? [String: Any]
         XCTAssertEqual(error?["code"] as? String, "OUTPUT_ERROR")
         XCTAssertEqual(error?["message"] as? String, "conversion outputs were not retained")
