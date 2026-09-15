@@ -135,6 +135,13 @@ preview-name collision now exits 73 with no stdout payload and leaves the ZPL
 path absent; a post-preflight filesystem race remains reported honestly rather
 than being represented as a complete conversion.
 
+At `a017234e1ba2ae99a18879c5ae74e60bd9c8c0cf`, a native executable-level
+regression invokes the real `label-driver` binary. It proves `validate` creates
+no artifacts, `convert` creates exactly the requested ZPL/PBM pair, and a
+repeat conversion exits 73 with no stdout payload. The test uses only a
+temporary directory and a synthetic PDF/ticket; it does not enumerate or
+contact a printer.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
