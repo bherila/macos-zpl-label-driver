@@ -19,10 +19,28 @@ public enum DeliveryStateError: Error, Equatable, Sendable {
     case retryRequiresExplicitReview
 }
 
+/// The immutable profile facts bound at job acceptance. This value is copied
+/// into a receipt; later profile/default edits therefore cannot rewrite a
+/// queued job's declared media or revision.
+public struct JobProfileSnapshot: Equatable, Sendable {
+    public let schemaVersion: Int
+    public let revision: Int
+    public let media: MediaConfiguration
+
+    public init(profile: PrinterProfile) {
+        schemaVersion = profile.schemaVersion
+        revision = profile.revision
+        media = profile.media
+    }
+}
+
 public struct DeliveryReceipt: Equatable, Sendable {
     public let state: DeliveryState
     public let expectedBytes: Int
     public let profileRevision: Int
+    /// Present only when the caller supplied the complete typed profile rather
+    /// than a legacy revision token. A transport receipt cannot manufacture it.
+    public let profileSnapshot: JobProfileSnapshot?
 
     public var mayRetryAutomatically: Bool {
         if case .failedBeforeTransmission = state { return true }
@@ -35,7 +53,23 @@ public struct DeliveryTracker: Sendable {
 
     public init(expectedBytes: Int, profileRevision: Int) throws {
         guard expectedBytes > 0, profileRevision > 0 else { throw DeliveryStateError.invalidByteCount }
-        receipt = DeliveryReceipt(state: .accepted, expectedBytes: expectedBytes, profileRevision: profileRevision)
+        receipt = DeliveryReceipt(
+            state: .accepted,
+            expectedBytes: expectedBytes,
+            profileRevision: profileRevision,
+            profileSnapshot: nil
+        )
+    }
+
+    public init(expectedBytes: Int, profile: PrinterProfile) throws {
+        guard expectedBytes > 0 else { throw DeliveryStateError.invalidByteCount }
+        let snapshot = JobProfileSnapshot(profile: profile)
+        receipt = DeliveryReceipt(
+            state: .accepted,
+            expectedBytes: expectedBytes,
+            profileRevision: snapshot.revision,
+            profileSnapshot: snapshot
+        )
     }
 
     public mutating func prepared() throws { try transition(from: .accepted, to: .prepared) }
@@ -45,7 +79,7 @@ public struct DeliveryTracker: Sendable {
         guard byteCount >= 0, byteCount <= receipt.expectedBytes else { throw DeliveryStateError.invalidByteCount }
         switch receipt.state {
         case .waiting, .transmitting:
-            receipt = DeliveryReceipt(state: .transmitting(bytesAccepted: byteCount), expectedBytes: receipt.expectedBytes, profileRevision: receipt.profileRevision)
+            receipt = receipt.replacingState(.transmitting(bytesAccepted: byteCount))
         default: throw DeliveryStateError.invalidTransition
         }
     }
@@ -54,12 +88,12 @@ public struct DeliveryTracker: Sendable {
         guard case let .transmitting(bytes) = receipt.state, bytes == receipt.expectedBytes else {
             throw DeliveryStateError.invalidTransition
         }
-        receipt = DeliveryReceipt(state: .transmitted(bytesAccepted: bytes), expectedBytes: receipt.expectedBytes, profileRevision: receipt.profileRevision)
+        receipt = receipt.replacingState(.transmitted(bytesAccepted: bytes))
     }
 
     public mutating func deviceConfirmed() throws {
         guard case .transmitted = receipt.state else { throw DeliveryStateError.invalidTransition }
-        receipt = DeliveryReceipt(state: .deviceConfirmed, expectedBytes: receipt.expectedBytes, profileRevision: receipt.profileRevision)
+        receipt = receipt.replacingState(.deviceConfirmed)
     }
 
     /// A disconnect, crash, or cancellation after any accepted byte is not
@@ -70,7 +104,7 @@ public struct DeliveryTracker: Sendable {
         case let .transmitting(count), let .transmitted(count): bytes = count
         default: throw DeliveryStateError.invalidTransition
         }
-        receipt = DeliveryReceipt(state: .uncertain(bytesAccepted: bytes), expectedBytes: receipt.expectedBytes, profileRevision: receipt.profileRevision)
+        receipt = receipt.replacingState(.uncertain(bytesAccepted: bytes))
     }
 
     /// Use this when a transport API accepted a send attempt but cannot say
@@ -78,13 +112,12 @@ public struct DeliveryTracker: Sendable {
     /// that no bytes were accepted, so automatic retry remains forbidden.
     public mutating func transportAttemptBecameAmbiguous() throws {
         guard case .waiting = receipt.state else { throw DeliveryStateError.invalidTransition }
-        receipt = DeliveryReceipt(state: .uncertain(bytesAccepted: 0), expectedBytes: receipt.expectedBytes, profileRevision: receipt.profileRevision)
+        receipt = receipt.replacingState(.uncertain(bytesAccepted: 0))
     }
 
     public mutating func failedOrCancelledBeforeTransmission(cancelled: Bool) throws {
         guard case .waiting = receipt.state else { throw DeliveryStateError.invalidTransition }
-        receipt = DeliveryReceipt(state: cancelled ? .cancelledBeforeTransmission : .failedBeforeTransmission,
-                                  expectedBytes: receipt.expectedBytes, profileRevision: receipt.profileRevision)
+        receipt = receipt.replacingState(cancelled ? .cancelledBeforeTransmission : .failedBeforeTransmission)
     }
 
     public func requireExplicitRetryReview() throws {
@@ -93,6 +126,17 @@ public struct DeliveryTracker: Sendable {
 
     private mutating func transition(from: DeliveryState, to: DeliveryState) throws {
         guard receipt.state == from else { throw DeliveryStateError.invalidTransition }
-        receipt = DeliveryReceipt(state: to, expectedBytes: receipt.expectedBytes, profileRevision: receipt.profileRevision)
+        receipt = receipt.replacingState(to)
+    }
+}
+
+private extension DeliveryReceipt {
+    func replacingState(_ state: DeliveryState) -> DeliveryReceipt {
+        DeliveryReceipt(
+            state: state,
+            expectedBytes: expectedBytes,
+            profileRevision: profileRevision,
+            profileSnapshot: profileSnapshot
+        )
     }
 }
