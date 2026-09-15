@@ -808,6 +808,20 @@ coverage, network fault completeness, USB, cross-process integration,
 scheduler-visible uncertainty, privacy/status framing, and physical behavior
 remain open at their prescribed evidence levels.
 
+At `306bb32`, M4.1 gained a bounded immutable extraction profile and planner
+instead of a parallel placeholder. It reuses `NormalizedRect`, `PDFPageBox`,
+and `LabelOrderPlan`; keeps expected input-sheet geometry separate from named
+output stock; permits only uniform fit; maps regions through the canonical
+origin/rotation transform; preserves an explicit global label order through
+collated/uncollated expansion; and requires every source page to be extracted
+or explicitly reported as a non-label skip. Changed Letter/A4 geometry,
+missing/unaccounted pages, duplicate identifiers/orders, invalid copy policy,
+and count overflow fail before rendering or delivery. The full offline
+accelerator passes with 104 LabelCore and 56 Python tests. This is partial
+M4-AC01/02/03/04/05/13 evidence only; no M4 acceptance row is checked until
+reference workflows, validators, native rendering/preview, import, UI, queue,
+browser, and physical evidence satisfy their exact criteria.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
