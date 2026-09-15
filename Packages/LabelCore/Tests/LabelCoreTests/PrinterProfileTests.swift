@@ -15,6 +15,13 @@ final class PrinterProfileTests: XCTestCase {
         XCTAssertNil(profile.installedHardware.currentDarkness)
         XCTAssertNil(profile.installedHardware.currentTracking)
         XCTAssertEqual(profile.installedHardware.transport, .usb)
+        XCTAssertEqual(profile.media.form, .observed(.preCut, evidence: .reportedInstallation))
+        XCTAssertEqual(profile.media.nominalLabelFace, .observed(
+            try PhysicalSize(width: Millimeters.inches(4), height: Millimeters.inches(6)),
+            evidence: .reportedInstallation
+        ))
+        XCTAssertEqual(profile.media.configuredTracking, .unobserved)
+        XCTAssertEqual(profile.media.calibration, .unobserved)
     }
 
     func testGC420dAcceptsOnlyDocumentedSpeedChoicesAndTearOff() throws {
@@ -59,7 +66,8 @@ final class PrinterProfileTests: XCTestCase {
             schemaVersion: 2,
             revision: 1,
             capabilities: reference.capabilities,
-            installedHardware: reference.installedHardware
+            installedHardware: reference.installedHardware,
+            media: reference.media
         )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidProfileVersion) }
     }
 
@@ -81,7 +89,8 @@ final class PrinterProfileTests: XCTestCase {
                 schemaVersion: 1,
                 revision: 1,
                 capabilities: capabilities,
-                installedHardware: reference.installedHardware
+                installedHardware: reference.installedHardware,
+                media: reference.media
             )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidModelIdentifier) }
         }
 
@@ -99,7 +108,8 @@ final class PrinterProfileTests: XCTestCase {
             schemaVersion: 1,
             revision: 1,
             capabilities: invalidChoices,
-            installedHardware: reference.installedHardware
+            installedHardware: reference.installedHardware,
+            media: reference.media
         )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidPrintSpeedChoice) }
 
         let impossibleObservation = InstalledHardware(
@@ -115,8 +125,26 @@ final class PrinterProfileTests: XCTestCase {
             schemaVersion: 1,
             revision: 1,
             capabilities: reference.capabilities,
-            installedHardware: impossibleObservation
+            installedHardware: impossibleObservation,
+            media: reference.media
         )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidInstalledPrintSpeed) }
+    }
+
+    func testMediaCalibrationCannotBeInventedFromNominalStock() throws {
+        XCTAssertThrowsError(try MediaCalibration(
+            widthDots: 0,
+            lengthDots: 1,
+            originXDot: 0,
+            originYDot: 0
+        )) { XCTAssertEqual($0 as? MediaConfigurationError, .invalidCalibrationDimensions) }
+
+        let profile = try PrinterProfile.gc420dUSBReference()
+        guard case .observed(let face, evidence: .reportedInstallation) = profile.media.nominalLabelFace else {
+            return XCTFail("expected the reported nominal face")
+        }
+        XCTAssertEqual(face.width.value, 101.6, accuracy: 0.000_001)
+        XCTAssertEqual(face.height.value, 152.4, accuracy: 0.000_001)
+        XCTAssertEqual(profile.media.calibration, .unobserved)
     }
 
     func testResolutionBindsProfileRevisionAndPreservesUnknownSettings() throws {
