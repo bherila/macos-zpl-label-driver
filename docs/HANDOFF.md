@@ -212,6 +212,15 @@ write, post-send disconnect, crash, and cancellation ambiguity become
 invalid state/byte transitions. This is portable partial M3-AC09 evidence only;
 no scheduler retry behavior, backend, USB, network, or physical test has run.
 
+At `f20620d`, `BoundedDelivery` connects a bounded byte-sink contract to the
+delivery tracker. It consumes short writes until all expected bytes are locally
+accepted, rejects zero and out-of-range write counts, marks failure before any
+accepted byte as retryable, and converts later failures to `uncertain`. Its
+in-memory regressions cover 2+2+1 byte delivery, a zero-byte pre-send failure,
+and a zero-byte failure after two accepted bytes. This is partial portable
+M3-AC05/M3-AC09 evidence only; it is not raw TCP, USB, scheduler, or hardware
+validation.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
