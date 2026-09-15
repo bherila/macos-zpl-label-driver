@@ -151,7 +151,9 @@ public enum QuartzPDFRenderer {
     private static func pageContainsAnnotations(_ page: CGPDFPage) -> Bool {
         guard let dictionary = page.dictionary else { return false }
         var annotations: CGPDFArrayRef?
-        return CGPDFDictionaryGetArray(dictionary, "Annots", &annotations)
+        guard CGPDFDictionaryGetArray(dictionary, "Annots", &annotations),
+              let annotations else { return false }
+        return CGPDFArrayGetCount(annotations) > 0
     }
 
     private static func physicalSize(of page: CGPDFPage) throws -> PhysicalSize {

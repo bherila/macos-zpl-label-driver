@@ -51,9 +51,12 @@ public extension PrinterProfile {
     ) throws -> ResolvedPrinterControls {
         let thermal = job.thermalMethod ?? workflowDefaults.thermalMethod ?? .directThermal
         let finishing = job.finishing ?? workflowDefaults.finishing ?? installedHardware.selectedFinishing
-        let speed = job.printSpeedIps ?? workflowDefaults.printSpeedIps ?? installedHardware.currentSpeedIps
-        let darkness = job.darkness ?? workflowDefaults.darkness ?? installedHardware.currentDarkness
-        let tracking = job.tracking ?? workflowDefaults.tracking ?? installedHardware.currentTracking
+        // Read-only observations are deliberately absent from this precedence
+        // chain. Only explicit job choices and qualified configured defaults
+        // authorize commands; otherwise the device setting is left unchanged.
+        let speed = job.printSpeedIps ?? workflowDefaults.printSpeedIps
+        let darkness = job.darkness ?? workflowDefaults.darkness
+        let tracking = job.tracking ?? workflowDefaults.tracking
         let mediaGeometry = job.mediaGeometry ?? workflowDefaults.mediaGeometry
 
         try validate(.init(

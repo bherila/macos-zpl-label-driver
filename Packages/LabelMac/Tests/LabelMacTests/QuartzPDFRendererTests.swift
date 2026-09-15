@@ -86,6 +86,29 @@ final class QuartzPDFRendererTests: XCTestCase {
         return data as Data
     }
 
+    private func emptyAnnotationsPDF() -> Data {
+        let content = "0 0 0 rg 0 0 10 5 re f\n"
+        let objects = [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> /Annots [] /Contents 4 0 R >>",
+            "<< /Length \(content.utf8.count) >>\nstream\n\(content)endstream",
+        ]
+        var result = Data("%PDF-1.4\n".utf8)
+        var offsets: [Int] = [0]
+        for (index, object) in objects.enumerated() {
+            offsets.append(result.count)
+            result.append(Data("\(index + 1) 0 obj\n\(object)\nendobj\n".utf8))
+        }
+        let xrefOffset = result.count
+        result.append(Data("xref\n0 \(objects.count + 1)\n0000000000 65535 f \n".utf8))
+        for offset in offsets.dropFirst() {
+            result.append(Data(String(format: "%010d 00000 n \n", offset).utf8))
+        }
+        result.append(Data("trailer\n<< /Size \(objects.count + 1) /Root 1 0 R >>\nstartxref\n\(xrefOffset)\n%%EOF\n".utf8))
+        return result
+    }
+
     private func request(pdf: Data, page: Int = 1, width: Int = 10, height: Int = 10) throws -> QuartzPDFRenderer.Request {
         let dotsPerMillimeter = 72.0 / 25.4
         let canvas = try DotCanvas(
@@ -220,6 +243,12 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertThrowsError(try QuartzPDFRenderer.render(request(pdf: source))) {
             XCTAssertEqual($0 as? QuartzPDFRenderer.Error, .annotationsUnsupported)
         }
+    }
+
+    func testEmptyAnnotationsArrayDoesNotRejectPageContent() throws {
+        let bitmap = try QuartzPDFRenderer.render(request(pdf: emptyAnnotationsPDF()))
+        XCTAssertTrue(bitmap.pixels.contains { $0 == 0 })
+        XCTAssertTrue(bitmap.pixels.contains { $0 == 255 })
     }
 
     func testRejectsPasswordProtectedFixtureAsEncrypted() throws {

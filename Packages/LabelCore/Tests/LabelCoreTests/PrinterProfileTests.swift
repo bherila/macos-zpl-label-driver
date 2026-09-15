@@ -11,9 +11,9 @@ final class PrinterProfileTests: XCTestCase {
         XCTAssertEqual(profile.capabilities.cutter.state, .unknown)
         XCTAssertEqual(profile.installedHardware.cutter.state, .unsupported)
         XCTAssertEqual(profile.installedHardware.peeler.state, .unknown)
-        XCTAssertNil(profile.installedHardware.currentSpeedIps)
-        XCTAssertNil(profile.installedHardware.currentDarkness)
-        XCTAssertNil(profile.installedHardware.currentTracking)
+        XCTAssertNil(profile.installedHardware.observedSpeedIps)
+        XCTAssertNil(profile.installedHardware.observedDarkness)
+        XCTAssertNil(profile.installedHardware.observedTracking)
         XCTAssertEqual(profile.installedHardware.transport, .usb)
         XCTAssertEqual(profile.media.form, .observed(.preCut, evidence: .reportedInstallation))
         XCTAssertEqual(profile.media.nominalLabelFace, .observed(
@@ -59,7 +59,7 @@ final class PrinterProfileTests: XCTestCase {
     func testAbsentControlMeansLeaveUnchangedRatherThanGuessedDefault() throws {
         let profile = try PrinterProfile.gc420dUSBReference()
         XCTAssertNoThrow(try profile.validate(.init()))
-        XCTAssertNil(profile.installedHardware.currentSpeedIps)
+        XCTAssertNil(profile.installedHardware.observedSpeedIps)
     }
 
     func testProfileVersionIsBounded() throws {
@@ -122,9 +122,9 @@ final class PrinterProfileTests: XCTestCase {
             selectedFinishing: reference.installedHardware.selectedFinishing,
             cutter: reference.installedHardware.cutter,
             peeler: reference.installedHardware.peeler,
-            currentSpeedIps: 0,
-            currentDarkness: reference.installedHardware.currentDarkness,
-            currentTracking: reference.installedHardware.currentTracking
+            observedSpeedIps: 0,
+            observedDarkness: reference.installedHardware.observedDarkness,
+            observedTracking: reference.installedHardware.observedTracking
         )
         XCTAssertThrowsError(try PrinterProfile(
             schemaVersion: 1,
@@ -205,6 +205,46 @@ final class PrinterProfileTests: XCTestCase {
         XCTAssertEqual(resolved.printSpeedIps, .leaveUnchanged)
         XCTAssertEqual(resolved.darkness, .leaveUnchanged)
         XCTAssertEqual(resolved.tracking, .leaveUnchanged)
+    }
+
+    func testObservationsNeitherAuthorizeCommandsNorBreakUnchangedJobs() throws {
+        let reference = try PrinterProfile.gc420dUSBReference(revision: 42)
+        let observedHardware = InstalledHardware(
+            transport: reference.installedHardware.transport,
+            selectedFinishing: reference.installedHardware.selectedFinishing,
+            cutter: reference.installedHardware.cutter,
+            peeler: reference.installedHardware.peeler,
+            observedSpeedIps: 3,
+            observedDarkness: 12,
+            observedTracking: .gap
+        )
+        let observedProfile = try PrinterProfile(
+            schemaVersion: reference.schemaVersion,
+            revision: reference.revision,
+            capabilities: reference.capabilities,
+            installedHardware: observedHardware,
+            media: reference.media,
+            connection: reference.connection
+        )
+
+        let unchanged = try observedProfile.resolveControls(job: .init())
+        XCTAssertEqual(unchanged.printSpeedIps, .leaveUnchanged)
+        XCTAssertEqual(unchanged.darkness, .leaveUnchanged)
+        XCTAssertEqual(unchanged.tracking, .leaveUnchanged)
+        XCTAssertEqual(
+            String(decoding: try ZPLControlEncoder().encode(unchanged), as: UTF8.self),
+            "^MMT\n"
+        )
+        XCTAssertEqual(
+            try observedProfile.resolveControls(job: .init(printSpeedIps: 3)).printSpeedIps,
+            .value(3)
+        )
+        XCTAssertThrowsError(try observedProfile.resolveControls(job: .init(darkness: 12))) {
+            XCTAssertEqual($0 as? PrinterProfileError, .unavailableDarkness)
+        }
+        XCTAssertThrowsError(try observedProfile.resolveControls(job: .init(tracking: .gap))) {
+            XCTAssertEqual($0 as? PrinterProfileError, .unavailableTracking(.gap))
+        }
     }
 
     func testJobControlsOverrideWorkflowDefaultsAndUnsupportedDefaultsFail() throws {
