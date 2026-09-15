@@ -8,9 +8,9 @@ readonly uri='file:///dev/null'
 readonly root='/Library/Printers/LabelPrinterDriver-M1'
 readonly filter="$root/labelcapture-filter"
 readonly ownership="$root/OWNERSHIP"
-readonly native_ppd_sha256='cceed46e91e0fdfe6714132085e2ffe066feedaafd33f36f430cd15ca5349ada'
-readonly letter_ppd_sha256='18ef9a332ba898ea17c727303a42684f1f6c1e3eff19cd110ee34bf79023eb18'
-readonly a4_ppd_sha256='4c0ba022ac562051cf9d5779c0ecfe1a4c639bb27d7ee9fca7829ef3fcdc7dac'
+readonly native_ppd_sha256='1ef382b536c71d38a8b6d02efbab8944959c538d107c084ede6519da1e8bffdb'
+readonly letter_ppd_sha256='e58416fb84554546cf8f86c3f446be9e06f8c3d3f1f46f64cc40c9cd31e00d8a'
+readonly a4_ppd_sha256='13ce96f08150b7a932ba3527296275aca0e1bb6092aaa6bf54a212bfd265df63'
 temporary=''
 
 die() { echo "ERROR: $*" >&2; exit 2; }
@@ -68,6 +68,7 @@ usage() {
 Usage:
   scripts/m1-discard-file-sink.sh --plan
   scripts/m1-discard-file-sink.sh --validate-filter FILTER_BINARY
+  scripts/m1-discard-file-sink.sh --validate-ppd CANDIDATE_PPD
   scripts/m1-discard-file-sink.sh --apply FILTER_BINARY CANDIDATE_PPD
   scripts/m1-discard-file-sink.sh --remove
 
@@ -84,6 +85,12 @@ validate_filter_command() {
   [[ -f "$candidate" && ! -L "$candidate" && -x "$candidate" ]] || die 'filter must be an executable regular non-symlink file'
   verify_local_adhoc_arm64 "$candidate" || die 'filter is not local-ad-hoc ARM with a macOS 26.0 minimum'
   echo 'Validated local-ad-hoc ARM filter with macOS 26.0 minimum. No system state changed.'
+}
+
+validate_ppd_command() {
+  [[ $# -eq 1 ]] || die '--validate-ppd needs CANDIDATE_PPD'
+  validate_ppd "$1"
+  echo 'Validated exact supplied experiment PPD bytes and filter declarations. No system state changed.'
 }
 
 is_supplied_ppd_sha() {
@@ -244,6 +251,7 @@ remove() {
 case "${1:-}" in
   --plan) [[ $# -eq 1 ]] || die '--plan takes no arguments'; plan ;;
   --validate-filter) shift; validate_filter_command "$@" ;;
+  --validate-ppd) shift; validate_ppd_command "$@" ;;
   --apply) shift; apply "$@" ;;
   --remove) [[ $# -eq 1 ]] || die '--remove takes no arguments'; remove ;;
   *) usage >&2; exit 2 ;;

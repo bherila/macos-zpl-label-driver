@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import tempfile
+import threading
 import time
 from pathlib import Path
 
@@ -13,7 +14,11 @@ from pathlib import Path
 def verify(binary: Path) -> int:
     binary = binary.resolve()
     marker = "PRIVATE-ADDRESS-DO-NOT-LOG"
-    env = dict(os.environ, CONTENT_TYPE="application/pdf")
+    env = dict(
+        os.environ,
+        CONTENT_TYPE="application/pdf",
+        FINAL_CONTENT_TYPE="application/vnd.labelprobe",
+    )
     args = [
         str(binary), "1", marker, marker, "2",
         "ProbeSpeed='3' ProbeWorkflow=\"Letter\" Private='" + marker + "'",
@@ -39,6 +44,7 @@ def verify(binary: Path) -> int:
         assert result.stdout == data
         assert record["bytesObserved"] == len(data) and record["input"] == "file"
         assert record["knownOptions"] == {"ProbeSpeed": "3", "ProbeWorkflow": "Letter"}
+        assert record["finalContentType"] == "application/vnd.labelprobe"
         assert record["payloadRetained"] is False and record["physicalOutput"] is False
         tests += 1
         result = run(args, data)
@@ -87,6 +93,59 @@ def verify(binary: Path) -> int:
         os.close(writer)
         _, stderr = broken.communicate(data, timeout=3)
         assert broken.returncode != 0
+        assert marker.encode() not in stderr
+        tests += 1
+
+        # Begin with a completely full output pipe. A consumer starts after one
+        # 250 ms poll interval, so the filter must continue polling until its
+        # actual deadline instead of treating one quiet interval as failure.
+        reader, writer = os.pipe()
+        os.set_blocking(writer, False)
+        prefix = bytearray()
+        try:
+            while True:
+                chunk = b"X" * 4096
+                prefix.extend(chunk[: os.write(writer, chunk)])
+        except BlockingIOError:
+            pass
+        os.set_blocking(writer, True)
+        observed = bytearray()
+
+        def delayed_consumer() -> None:
+            time.sleep(0.5)
+            while chunk := os.read(reader, 8192):
+                observed.extend(chunk)
+
+        consumer = threading.Thread(target=delayed_consumer)
+        consumer.start()
+        delayed = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=writer, stderr=subprocess.PIPE, env=env)
+        os.close(writer)
+        _, stderr = delayed.communicate(data, timeout=3)
+        consumer.join(timeout=3)
+        os.close(reader)
+        assert not consumer.is_alive()
+        assert delayed.returncode == 0
+        report(subprocess.CompletedProcess(args, delayed.returncode, b"", stderr))
+        assert bytes(observed) == bytes(prefix) + data
+        tests += 1
+
+        # A permanently stalled consumer must end at the real ten-second
+        # resource deadline; the nonblocking write may never outlive it.
+        reader, writer = os.pipe()
+        os.set_blocking(writer, False)
+        try:
+            while True:
+                os.write(writer, b"X" * 4096)
+        except BlockingIOError:
+            pass
+        os.set_blocking(writer, True)
+        stalled = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=writer, stderr=subprocess.PIPE, env=env)
+        os.close(writer)
+        started = time.monotonic()
+        _, stderr = stalled.communicate(data, timeout=12)
+        elapsed = time.monotonic() - started
+        os.close(reader)
+        assert stalled.returncode != 0 and 9.0 <= elapsed < 12.0
         assert marker.encode() not in stderr
         tests += 1
     return tests
