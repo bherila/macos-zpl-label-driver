@@ -840,6 +840,16 @@ payloads until a reviewed profile exists. Input widths remain distinct at
 and all 108 LabelCore tests pass. This adds partial M4-AC01/04/13 evidence only;
 structural matching and profile persistence remain the next portable work.
 
+At `60c1551`, extraction rules gained bounded local structural-anchor
+validation without making analysis output a print source. Observations contain
+only typed anchor kinds and normalized rectangles, not decoded barcode data.
+Analysis-not-run, observed no-match, shifted layout, and competing candidates
+fail distinctly before a plan exists. A successful match still derives the
+render rectangle from the original page box and immutable profile region. The
+full accelerator passes with 112 LabelCore and 56 Python tests. This is partial
+M4-AC04/07 evidence; profile persistence and native fixture-backed analysis are
+still required.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
