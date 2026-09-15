@@ -14,6 +14,10 @@ struct LabelRenderWorker {
                 in: URL(fileURLWithPath: arguments[1], isDirectory: true)
             )
         } catch {
+            try? OfflineRenderWorkerProcess.recordFailure(
+                error,
+                in: URL(fileURLWithPath: arguments[1], isDirectory: true)
+            )
             fail(status: 65)
         }
     }
