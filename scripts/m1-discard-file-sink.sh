@@ -34,6 +34,7 @@ usage() {
   cat <<'EOF'
 Usage:
   scripts/m1-discard-file-sink.sh --plan
+  scripts/m1-discard-file-sink.sh --validate-filter FILTER_BINARY
   scripts/m1-discard-file-sink.sh --apply FILTER_BINARY CANDIDATE_PPD
   scripts/m1-discard-file-sink.sh --remove
 
@@ -44,12 +45,32 @@ authorization. Do not use it for a physical printer or ordinary documents.
 EOF
 }
 
+validate_filter_command() {
+  [[ $# -eq 1 ]] || die '--validate-filter needs FILTER_BINARY'
+  local candidate="$1"
+  [[ -f "$candidate" && ! -L "$candidate" && -x "$candidate" ]] || die 'filter must be an executable regular non-symlink file'
+  verify_local_adhoc_arm64 "$candidate" || die 'filter is not local-ad-hoc ARM with a macOS 26.0 minimum'
+  echo 'Validated local-ad-hoc ARM filter with macOS 26.0 minimum. No system state changed.'
+}
+
 validate_ppd() {
   local ppd="$1"
   [[ -f "$ppd" && ! -L "$ppd" ]] || die 'candidate PPD must be a regular non-symlink file'
   /usr/bin/cupstestppd -q "$ppd" || die 'candidate PPD failed cupstestppd'
   grep -Fqx '*cupsFilter2: "application/pdf application/vnd.labelprobe 0 -"' "$ppd" || die 'candidate PPD lacks the expected PDF pass-through declaration'
   grep -Fqx '*cupsFilter2: "application/vnd.cups-pdf application/vnd.labelprobe 0 -"' "$ppd" || die 'candidate PPD lacks the expected CUPS-PDF pass-through declaration'
+}
+
+verify_local_adhoc_arm64() {
+  local binary="$1" signature_info build_info
+  /usr/bin/codesign --verify --strict --verbose=2 "$binary" >/dev/null 2>&1 || return 1
+  signature_info="$(/usr/bin/codesign --display --verbose=4 "$binary" 2>&1)" || return 1
+  printf '%s\n' "$signature_info" | /usr/bin/grep -Fqx 'Signature=adhoc' || return 1
+  if printf '%s\n' "$signature_info" | /usr/bin/grep -q '^Authority='; then return 1; fi
+  /usr/bin/lipo "$binary" -verify_arch arm64 >/dev/null 2>&1 || return 1
+  build_info="$(/usr/bin/xcrun vtool -show-build "$binary" 2>/dev/null)" || return 1
+  printf '%s\n' "$build_info" | /usr/bin/grep -Eq '^[[:space:]]+platform MACOS$' || return 1
+  printf '%s\n' "$build_info" | /usr/bin/grep -Eq '^[[:space:]]+minos 26\.0$' || return 1
 }
 
 render_ppd() {
@@ -113,7 +134,7 @@ apply() {
   /bin/cp -p "$source_filter" "$snapshot"
   /bin/cp -p "$source_ppd" "$ppd_snapshot"
   [[ -f "$snapshot" && ! -L "$snapshot" && -x "$snapshot" ]] || die 'private filter snapshot is invalid'
-  /usr/bin/codesign --verify --strict --verbose=2 "$snapshot" >/dev/null
+  verify_local_adhoc_arm64 "$snapshot" || die 'filter snapshot is not local-ad-hoc ARM with a macOS 26.0 minimum'
   local approved_sha
   approved_sha="$(/usr/bin/shasum -a 256 "$snapshot" | /usr/bin/awk '{ print $1 }')"
   validate_ppd "$ppd_snapshot"
@@ -128,7 +149,7 @@ apply() {
   root_created=1
   /usr/bin/sudo /usr/bin/install -o root -g wheel -m 0755 "$snapshot" "$filter"
   filter_staged=1
-  /usr/bin/sudo /usr/bin/codesign --verify --strict --verbose=2 "$filter" >/dev/null
+  verify_local_adhoc_arm64 "$filter" || fail_after_apply 'staged filter signature or platform contract is invalid'
   [[ "$(/usr/bin/sudo /usr/bin/shasum -a 256 "$filter" | /usr/bin/awk '{ print $1 }')" == "$approved_sha" ]] || fail_after_apply 'staged filter bytes do not match the approved snapshot'
   /usr/bin/sudo /usr/bin/cupstestppd -q "$generated" || fail_after_apply 'generated experiment PPD failed strict validation after staging'
   {
@@ -164,6 +185,7 @@ remove() {
 
 case "${1:-}" in
   --plan) [[ $# -eq 1 ]] || die '--plan takes no arguments'; plan ;;
+  --validate-filter) shift; validate_filter_command "$@" ;;
   --apply) shift; apply "$@" ;;
   --remove) [[ $# -eq 1 ]] || die '--remove takes no arguments'; remove ;;
   *) usage >&2; exit 2 ;;

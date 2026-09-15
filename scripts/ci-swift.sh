@@ -9,6 +9,8 @@ fi
 export MACOSX_DEPLOYMENT_TARGET=26.0
 python3 scripts/run-accelerator-checks.py
 python3 scripts/run-accelerator-checks.py --configuration release
+core_bin_dir="$(xcrun swift build --package-path Packages/LabelCore --configuration release --show-bin-path)"
+bash scripts/m1-discard-file-sink.sh --validate-filter "$core_bin_dir/labelcapture-filter"
 xcrun swift test --package-path Packages/LabelMac
 xcrun swift test --package-path Packages/LabelMac --configuration release
 xcrun swift build --package-path Packages/LabelMac --configuration release

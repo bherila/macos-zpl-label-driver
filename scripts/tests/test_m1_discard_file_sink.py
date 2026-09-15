@@ -19,6 +19,7 @@ class M1DiscardFileSinkTests(unittest.TestCase):
         self.assertIn("LabelProbe_DISCARDS_JOBS", result.stdout)
         self.assertIn("file:///dev/null", result.stdout)
         self.assertNotIn("sudo", result.stdout)
+        self.assertIn("--validate-filter FILTER_BINARY", SCRIPT.read_text(encoding="utf-8"))
 
     def test_candidate_filter_declarations_materialize_to_the_fixed_path(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -45,6 +46,9 @@ class M1DiscardFileSinkTests(unittest.TestCase):
         self.assertIn("lpadmin -x \"$queue\"", text)
         self.assertIn("cleanup_owned_artifacts", text)
         self.assertIn("ownership_record_matches", text)
+        self.assertIn("verify_local_adhoc_arm64", text)
+        self.assertIn("Signature=adhoc", text)
+        self.assertIn("minos 26\\.0", text)
         self.assertIn("filterSHA256", text)
         self.assertIn('local snapshot="$temporary/labelcapture-filter"', text)
         self.assertIn('local ppd_snapshot="$temporary/candidate.ppd"', text)
@@ -52,6 +56,7 @@ class M1DiscardFileSinkTests(unittest.TestCase):
         self.assertIn('validate_ppd "$ppd_snapshot"', text)
         self.assertIn('render_ppd "$ppd_snapshot" "$generated"', text)
         self.assertIn("fail_after_apply 'staged filter bytes do not match the approved snapshot'", text)
+        self.assertIn("fail_after_apply 'staged filter signature or platform contract is invalid'", text)
         self.assertIn("|| fail_after_apply 'generated experiment PPD failed strict validation after staging'", text)
         self.assertIn("|| fail_after_apply 'queue URI readback failed'", text)
         self.assertIn("fail_after_apply 'experiment unexpectedly became the default destination'", text)

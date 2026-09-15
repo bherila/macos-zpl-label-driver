@@ -492,6 +492,19 @@ cannot alter the generated privileged transaction between those two steps.
 The generated PPD remains a narrow transformation of that snapshot and is
 strictly revalidated after the fixed filter is staged.
 
+The candidate now rejects a merely valid but wrong signing/platform artifact:
+before staging and again afterward it requires `Signature=adhoc`, no certificate
+authority, an arm64 Mach-O slice, the macOS platform, and an exact 26.0 minimum
+load command. This validates the declared M1 experiment artifact contract; it
+does not establish scheduler admission or public trust.
+
+That artifact check is exposed as the read-only `--validate-filter` mode and is
+part of `scripts/ci-swift.sh` for the real release `labelcapture-filter`. Its
+first local execution caught an incorrect `lipo -verify_arch` argument order;
+after correction, the same built artifact passed ad-hoc identity, no-authority,
+arm64, macOS-platform, and 26.0-minimum checks. This is actual local artifact
+metadata evidence, still not scheduler execution.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
