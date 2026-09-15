@@ -44,12 +44,14 @@
     {
       "id": "M3",
       "directory": "docs/milestones/03-printer-controls",
-      "implementation": "not-started",
+      "implementation": "in-progress",
       "automatedValidation": "not-run",
       "macOSIntegration": "not-run",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
-      "evidence": [],
+      "evidence": [
+        "9a6e0fb391f3b54f994d453cd53edbba2667a4dc (typed conservative GC420d reference profile and portable regression vectors; partial M3-AC01/M3-AC02/M3-AC13 only)"
+      ],
       "blockers": []
     },
     {
