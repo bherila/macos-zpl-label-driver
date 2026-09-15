@@ -228,6 +228,9 @@ public struct PrinterProfile: Equatable, Sendable {
         guard installedHardware.currentSpeedIps.map({ $0 > 0 }) ?? true else {
             throw PrinterProfileError.invalidInstalledPrintSpeed
         }
+        guard installedHardware.transport == connection.transport else {
+            throw PrinterProfileError.inconsistentConnectionTransport
+        }
         self.schemaVersion = schemaVersion
         self.revision = revision
         self.capabilities = capabilities
@@ -249,6 +252,7 @@ public enum PrinterProfileError: Error, Equatable, Sendable {
     case invalidModelIdentifier
     case invalidPrintSpeedChoice
     case invalidInstalledPrintSpeed
+    case inconsistentConnectionTransport
     case unsupportedThermalMethod(ThermalMethod)
     case unsupportedFinishing(FinishingMode)
     case unsupportedPrintSpeed(Int)
