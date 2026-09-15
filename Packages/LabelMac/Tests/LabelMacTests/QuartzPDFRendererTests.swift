@@ -276,7 +276,7 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertTrue(invalid.stdout.isEmpty)
         let error = try JSONSerialization.jsonObject(with: invalid.stderr) as? [String: Any]
         XCTAssertEqual(error?["status"] as? String, "error")
-        XCTAssertEqual(error?["code"] as? String, "INPUT_ERROR")
+        XCTAssertEqual(error?["code"] as? String, "JOB_TICKET_INVALID")
     }
 
     func testOfflineCLIRollsBackPreviewWhenZPLOutputCreationFails() throws {

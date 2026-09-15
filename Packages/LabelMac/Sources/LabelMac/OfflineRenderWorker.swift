@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import LabelCore
 
 /// Result metadata for the private, versioned render-worker file protocol.
 public struct OfflineRenderWorkerResult: Codable, Equatable, Sendable {
@@ -22,6 +23,30 @@ public struct OfflineRenderWorkerOutput: Equatable, Sendable {
     public let result: OfflineRenderWorkerResult
     public let zpl: Data
     public let previewPBM: Data
+}
+
+/// Sanitized failure metadata. It deliberately contains no source path,
+/// document title, rendered content, or underlying framework description.
+public struct OfflineRenderWorkerFailure: Codable, Equatable, Sendable {
+    public enum Code: String, Codable, Equatable, Sendable {
+        case jobTicketInvalid = "JOB_TICKET_INVALID"
+        case inputUnsupported = "INPUT_UNSUPPORTED"
+        case inputEncrypted = "INPUT_ENCRYPTED"
+        case annotationsUnsupported = "INPUT_ANNOTATIONS_UNSUPPORTED"
+        case pageOutOfRange = "PAGE_OUT_OF_RANGE"
+        case limitExceeded = "LIMIT_EXCEEDED"
+        case geometryInvalid = "GEOMETRY_INVALID"
+        case renderFailed = "RENDER_FAILED"
+        case preparationFailed = "PREPARATION_FAILED"
+    }
+
+    public let schemaVersion: Int
+    public let code: Code
+
+    public init(code: Code) {
+        self.schemaVersion = 1
+        self.code = code
+    }
 }
 
 /// Thread-safe cancellation shared by signal handling and the blocking worker
@@ -56,6 +81,7 @@ public enum OfflineRenderWorkerProcess {
         case timedOut
         case cancelled
         case workerFailed(status: Int32)
+        case jobRejected(code: OfflineRenderWorkerFailure.Code)
         case invalidResult
         case outputLimitExceeded
     }
@@ -71,6 +97,7 @@ public enum OfflineRenderWorkerProcess {
     public static let zplFilename = "prepared.zpl"
     public static let previewFilename = "preview.pbm"
     public static let resultFilename = "result.json"
+    public static let failureFilename = "failure.json"
 
     public static func run(
         originalPDF: Data,
@@ -129,6 +156,9 @@ public enum OfflineRenderWorkerProcess {
         }
         process.waitUntilExit()
         guard process.terminationReason == .exit, process.terminationStatus == 0 else {
+            if process.terminationReason == .exit, let failure = try? readFailure(in: scratch) {
+                throw Error.jobRejected(code: failure.code)
+            }
             throw Error.workerFailed(status: process.terminationStatus)
         }
 
@@ -187,6 +217,50 @@ public enum OfflineRenderWorkerProcess {
         try writePrivate(resultData, to: directory.appending(path: resultFilename))
     }
 
+    /// Records only an allowlisted category after a failed worker job. The
+    /// nonzero process status remains authoritative; malformed failure metadata
+    /// is ignored by the parent in favor of a generic worker failure.
+    public static func recordFailure(_ error: Swift.Error, in directory: URL) throws {
+        try validatePrivateScratchDirectory(directory)
+        let failure = classifyFailure(error)
+        let data = try JSONEncoder.sorted.encode(failure)
+        guard data.count <= maximumResultBytes else { throw Error.outputLimitExceeded }
+        try writePrivate(data, to: directory.appending(path: failureFilename))
+    }
+
+    static func classifyFailure(_ error: Swift.Error) -> OfflineRenderWorkerFailure {
+        let code: OfflineRenderWorkerFailure.Code
+        switch error {
+        case is OfflineConversionTicket.TicketError:
+            code = .jobTicketInvalid
+        case QuartzPDFRenderer.Error.malformedOrUnsupportedPDF:
+            code = .inputUnsupported
+        case QuartzPDFRenderer.Error.encryptedPDF:
+            code = .inputEncrypted
+        case QuartzPDFRenderer.Error.annotationsUnsupported:
+            code = .annotationsUnsupported
+        case QuartzPDFRenderer.Error.pageOutOfRange:
+            code = .pageOutOfRange
+        case QuartzPDFRenderer.Error.inputTooLarge,
+             QuartzPDFRenderer.Error.sourcePageLimitExceeded,
+             QuartzPDFRenderer.Error.pixelLimitExceeded,
+             QuartzPDFRenderer.Error.allocationOverflow,
+             QuartzPDFRenderer.Error.invalidLimits,
+             is BitmapLayout.ValidationError,
+             ZPLGraphicEncoder.EncodingError.outputLimit,
+             ZPLGraphicEncoder.EncodingError.coordinateLimit,
+             OfflineRenderWorkerProcess.Error.outputLimitExceeded:
+            code = .limitExceeded
+        case is PhysicalGeometryError:
+            code = .geometryInvalid
+        case QuartzPDFRenderer.Error.contextUnavailable:
+            code = .renderFailed
+        default:
+            code = .preparationFailed
+        }
+        return OfflineRenderWorkerFailure(code: code)
+    }
+
     private static func makePrivateScratchDirectory() throws -> URL {
         let base = FileManager.default.temporaryDirectory.appending(path: "label-driver-worker.XXXXXX").path
         var template = Array(base.utf8CString)
@@ -207,6 +281,15 @@ public enum OfflineRenderWorkerProcess {
               (info.st_mode & (S_IRWXG | S_IRWXO)) == 0 else {
             throw Error.scratchUnavailable
         }
+    }
+
+    private static func readFailure(in directory: URL) throws -> OfflineRenderWorkerFailure {
+        let data = try readPrivateRegularFile(
+            directory.appending(path: failureFilename), maximumBytes: maximumResultBytes
+        )
+        let failure = try JSONDecoder().decode(OfflineRenderWorkerFailure.self, from: data)
+        guard failure.schemaVersion == 1 else { throw Error.invalidResult }
+        return failure
     }
 
     private static func writePrivate(_ data: Data, to url: URL) throws {

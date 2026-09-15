@@ -282,12 +282,34 @@ struct LabelDriverCLI {
         case .workerFailed:
             emitError(code: .input, message: "render worker rejected the job", json: json)
             exit(Exit.input.rawValue)
+        case let .jobRejected(code):
+            emitError(
+                code: .input,
+                message: workerFailureMessage(code),
+                json: json,
+                name: code.rawValue
+            )
+            exit(Exit.input.rawValue)
         case .outputLimitExceeded:
             emitError(code: .input, message: "render job exceeds its resource limits", json: json)
             exit(Exit.input.rawValue)
         case .invalidDeadline, .workerUnavailable, .scratchUnavailable, .invalidResult:
             emitError(code: .internalError, message: "render worker failed safely", json: json)
             exit(Exit.internalError.rawValue)
+        }
+    }
+
+    private static func workerFailureMessage(_ code: OfflineRenderWorkerFailure.Code) -> String {
+        switch code {
+        case .jobTicketInvalid: "invalid job ticket"
+        case .inputUnsupported: "unsupported or malformed PDF"
+        case .inputEncrypted: "encrypted PDF is not supported"
+        case .annotationsUnsupported: "PDF annotations or form fields are not supported"
+        case .pageOutOfRange: "requested page is unavailable"
+        case .limitExceeded: "render job exceeds its resource limits"
+        case .geometryInvalid: "invalid output geometry"
+        case .renderFailed: "PDF rendering failed"
+        case .preparationFailed: "job preparation failed"
         }
     }
 
@@ -308,15 +330,20 @@ struct LabelDriverCLI {
         exit(Exit.input.rawValue)
     }
 
-    private static func emitError(code: Exit, message: String, json: Bool) {
+    private static func emitError(code: Exit, message: String, json: Bool, name explicitName: String? = nil) {
         if json {
-            let name: String = switch code {
-            case .usage: "USAGE"
-            case .input: "INPUT_ERROR"
-            case .output: "OUTPUT_ERROR"
-            case .internalError: "INTERNAL_ERROR"
-            case .cancelled: "CANCELLED"
-            case .success: "SUCCESS"
+            let name: String
+            if let explicitName {
+                name = explicitName
+            } else {
+                name = switch code {
+                case .usage: "USAGE"
+                case .input: "INPUT_ERROR"
+                case .output: "OUTPUT_ERROR"
+                case .internalError: "INTERNAL_ERROR"
+                case .cancelled: "CANCELLED"
+                case .success: "SUCCESS"
+                }
             }
             let result: [String: Any] = ["status": "error", "code": name, "message": message]
             if let data = try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]) {
