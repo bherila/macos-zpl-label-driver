@@ -42,6 +42,22 @@ final class RawTCPDeliveryTests: XCTestCase {
         XCTAssertNil(result.failure)
     }
 
+    func testFaultOutcomesAreConservativeAndNeverDeviceConfirmed() throws {
+        let expected: [(RawTCPAttemptResult, DeliveryState, RawTCPDeliveryFailure?)] = [
+            (.completed, .transmitted(bytesAccepted: 4), nil),
+            (.connectionFailed, .failedBeforeTransmission, .connectionFailed),
+            (.timedOutBeforeSend, .failedBeforeTransmission, .timedOutBeforeSend),
+            (.timedOutAfterSendAttempt, .uncertain(bytesAccepted: 0), .timedOutAfterSendAttempt),
+            (.sendFailedAfterAttempt, .uncertain(bytesAccepted: 0), .sendFailedAfterAttempt),
+        ]
+        for (attempt, state, failure) in expected {
+            let result = try RawTCPDelivery.result(for: attempt, payloadByteCount: 4, profileRevision: 7)
+            XCTAssertEqual(result.receipt.state, state)
+            XCTAssertEqual(result.failure, failure)
+            XCTAssertNotEqual(result.receipt.state, .deviceConfirmed)
+        }
+    }
+
     private func listenerPort(_ listener: NWListener) async throws -> UInt16 {
         for _ in 0..<100 {
             if let port = listener.port?.rawValue, port != 0 { return port }
