@@ -31,8 +31,15 @@ struct LabelDriverCLI {
     }
 
     static func main() {
+        let invocation: Invocation
         do {
-            let invocation = try parse(Array(CommandLine.arguments.dropFirst()))
+            invocation = try parse(Array(CommandLine.arguments.dropFirst()))
+        } catch let error as CLIError {
+            fail(error, json: Array(CommandLine.arguments.dropFirst()).contains("--json"))
+        } catch {
+            failInput(error, json: Array(CommandLine.arguments.dropFirst()).contains("--json"))
+        }
+        do {
             let source = try readInput(invocation.input)
             let ticket = try readTicket(invocation.ticket)
             let prepared = try OfflineConversion.prepare(originalPDF: source, ticket: ticket)
@@ -56,9 +63,9 @@ struct LabelDriverCLI {
                 emitSuccess(invocation, prepared: prepared, wroteFiles: true)
             }
         } catch let error as CLIError {
-            fail(error)
+            fail(error, json: invocation.json)
         } catch {
-            failInput(error)
+            failInput(error, json: invocation.json)
         }
     }
 
@@ -176,7 +183,7 @@ struct LabelDriverCLI {
         }
     }
 
-    private static func fail(_ error: CLIError) -> Never {
+    private static func fail(_ error: CLIError, json: Bool) -> Never {
         let message: String
         let code: Exit
         switch error {
@@ -184,13 +191,32 @@ struct LabelDriverCLI {
         case let .input(value): message = value; code = .input
         case let .output(value): message = value; code = .output
         }
-        FileHandle.standardError.write(Data("label-driver: \(message)\n".utf8))
+        emitError(code: code, message: message, json: json)
         exit(code.rawValue)
     }
 
-    private static func failInput(_ error: Error) -> Never {
-        FileHandle.standardError.write(Data("label-driver: preparation failed: \(String(describing: error))\n".utf8))
+    private static func failInput(_ error: Error, json: Bool) -> Never {
+        emitError(code: .input, message: "preparation failed: \(String(describing: error))", json: json)
         exit(Exit.input.rawValue)
+    }
+
+    private static func emitError(code: Exit, message: String, json: Bool) {
+        if json {
+            let name: String = switch code {
+            case .usage: "USAGE"
+            case .input: "INPUT_ERROR"
+            case .output: "OUTPUT_ERROR"
+            case .internalError: "INTERNAL_ERROR"
+            case .success: "SUCCESS"
+            }
+            let result: [String: Any] = ["status": "error", "code": name, "message": message]
+            if let data = try? JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]) {
+                FileHandle.standardError.write(data)
+                FileHandle.standardError.write(Data("\n".utf8))
+                return
+            }
+        }
+        FileHandle.standardError.write(Data("label-driver: \(message)\n".utf8))
     }
 
     private static let usage = """
