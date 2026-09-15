@@ -371,6 +371,15 @@ tracking setting, current printer state, scheduler result, or physical output
 has been inferred or observed. Next safe M3 work is to connect this immutable
 media snapshot to prepared-job state without enabling unqualified controls.
 
+At `a390ab4`, `DeliveryTracker` gained a typed-profile initializer that copies
+the profile schema version, revision, and media record into its receipt at
+acceptance. The regression proves a later profile revision cannot rewrite that
+receipt; revision-only transport callers remain explicitly snapshot-less rather
+than fabricated. This is portable partial M1-AC07/M3-AC01/M3-AC09 evidence
+only. It does not yet bind a real scheduler job, persist/recover a held job,
+choose a transport, emit a media command, install a queue, or establish device
+delivery/physical acceptance.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
