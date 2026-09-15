@@ -822,6 +822,15 @@ M4-AC01/02/03/04/05/13 evidence only; no M4 acceptance row is checked until
 reference workflows, validators, native rendering/preview, import, UI, queue,
 browser, and physical evidence satisfy their exact criteria.
 
+At `4977e67`, the initial named workflow set binds native 4x6, Letter, and A4
+application-facing geometries to the same nominal GC420d 4x6 stock without
+inventing carrier crops. Native 4x6 has a validated full-page plan. Letter and
+A4 are explicitly `requiresTeachOnce` and cannot yield regions, bitmaps, or
+payloads until a reviewed profile exists. Input widths remain distinct at
+101.6, 215.9, and 210 mm, and native rejects a Letter page. Four focused tests
+and all 108 LabelCore tests pass. This adds partial M4-AC01/04/13 evidence only;
+structural matching and profile persistence remain the next portable work.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

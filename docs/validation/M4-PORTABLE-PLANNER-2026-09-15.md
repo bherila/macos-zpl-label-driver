@@ -51,3 +51,15 @@ native/Letter/A4 reference profiles, original-PDF region rendering, exact
 preview integration, template detection, a teach-once UI, queue binding,
 browser evidence, or physical output. M4.2 should add deterministic reference
 workflow definitions and layout-mismatch validators using committed fixtures.
+
+## Reference-workflow follow-up
+
+Commit `4977e67` adds the named `native-4x6`, `letter-to-4x6`, and
+`a4-to-4x6` definitions. All bind `gc420d-4x6-precut` stock while retaining
+101.6 mm, 215.9 mm, and 210 mm input widths respectively. Native 4x6 has one
+qualified full-page region. Letter and A4 intentionally return the stable
+`requiresTeachOnce` error and cannot produce a guessed crop. Four focused
+regressions and the resulting 108-test LabelCore suite pass. This strengthens
+partial M4-AC01/M4-AC04/M4-AC13 evidence but remains short of those complete
+acceptance rows because saved profiles, structural validators, import, and the
+native render/preview path have not yet landed.
