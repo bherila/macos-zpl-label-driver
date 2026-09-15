@@ -259,6 +259,7 @@ final class QuartzPDFRendererTests: XCTestCase {
         let validation = try runCLI(["validate", source.path, "--job-ticket", ticket.path, "--json"])
         XCTAssertEqual(validation.status, 0)
         XCTAssertTrue(String(decoding: validation.stdout, as: UTF8.self).contains("\"wroteFiles\":false"))
+        XCTAssertTrue(String(decoding: validation.stdout, as: UTF8.self).contains("\"renderIsolation\":\"subprocess\""))
         let zpl = directory.appending(path: "output.zpl")
         let conversion = try runCLI(["convert", source.path, "--job-ticket", ticket.path, "--output", zpl.path, "--preview-dir", directory.path, "--json"])
         XCTAssertEqual(conversion.status, 0)

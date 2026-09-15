@@ -18,5 +18,9 @@ xcrun swift run --package-path Packages/LabelMac --configuration release label-d
 bin_dir="$(xcrun swift build --package-path Packages/LabelMac --configuration release --show-bin-path)"
 file "$bin_dir/label-driver-diagnostics"
 lipo -archs "$bin_dir/label-driver-diagnostics"
+file "$bin_dir/label-driver"
+file "$bin_dir/label-render-worker"
+lipo -archs "$bin_dir/label-driver"
+lipo -archs "$bin_dir/label-render-worker"
 bash scripts/sign-local-diagnostic.sh
 # M1–M5: add actual products/tests/signing as introduced. No installation or device I/O.
