@@ -8,6 +8,9 @@ readonly uri='file:///dev/null'
 readonly root='/Library/Printers/LabelPrinterDriver/M1'
 readonly filter="$root/labelcapture-filter"
 readonly ownership="$root/OWNERSHIP"
+readonly native_ppd_sha256='cceed46e91e0fdfe6714132085e2ffe066feedaafd33f36f430cd15ca5349ada'
+readonly letter_ppd_sha256='18ef9a332ba898ea17c727303a42684f1f6c1e3eff19cd110ee34bf79023eb18'
+readonly a4_ppd_sha256='4c0ba022ac562051cf9d5779c0ecfe1a4c639bb27d7ee9fca7829ef3fcdc7dac'
 
 die() { echo "ERROR: $*" >&2; exit 2; }
 
@@ -54,9 +57,19 @@ validate_filter_command() {
 }
 
 validate_ppd() {
-  local ppd="$1"
+  local ppd="$1" ppd_sha filter_count
   [[ -f "$ppd" && ! -L "$ppd" ]] || die 'candidate PPD must be a regular non-symlink file'
+  ppd_sha="$(/usr/bin/shasum -a 256 "$ppd" | /usr/bin/awk '{ print $1 }')"
+  case "$ppd_sha" in
+    "$native_ppd_sha256"|"$letter_ppd_sha256"|"$a4_ppd_sha256") ;;
+    *) die 'candidate PPD bytes do not match a supplied experiment candidate' ;;
+  esac
   /usr/bin/cupstestppd -q "$ppd" || die 'candidate PPD failed cupstestppd'
+  filter_count="$(/usr/bin/awk '/^\*cupsFilter2:/{ count += 1 } END { print count + 0 }' "$ppd")"
+  [[ "$filter_count" == 2 ]] || die 'candidate PPD must contain exactly two cupsFilter2 declarations'
+  if /usr/bin/grep -q '^\*cupsFilter:' "$ppd"; then
+    die 'candidate PPD must not contain a legacy cupsFilter declaration'
+  fi
   grep -Fqx '*cupsFilter2: "application/pdf application/vnd.labelprobe 0 -"' "$ppd" || die 'candidate PPD lacks the expected PDF pass-through declaration'
   grep -Fqx '*cupsFilter2: "application/vnd.cups-pdf application/vnd.labelprobe 0 -"' "$ppd" || die 'candidate PPD lacks the expected CUPS-PDF pass-through declaration'
 }
@@ -97,10 +110,14 @@ ensure_not_existing() {
 ownership_record_matches() {
   /usr/bin/sudo /usr/bin/test -f "$ownership" &&
     ! /usr/bin/sudo /usr/bin/test -L "$ownership" &&
+    /usr/bin/sudo /usr/bin/test -f "$filter" &&
+    ! /usr/bin/sudo /usr/bin/test -L "$filter" &&
+    [[ "$(/usr/bin/sudo /usr/bin/awk 'END { print NR }' "$ownership")" == 6 ]] &&
     /usr/bin/sudo /usr/bin/grep -Fqx 'schemaVersion=1' "$ownership" &&
     /usr/bin/sudo /usr/bin/grep -Fqx "queue=$queue" "$ownership" &&
     /usr/bin/sudo /usr/bin/grep -Fqx "uri=$uri" "$ownership" &&
     /usr/bin/sudo /usr/bin/grep -Fqx "filter=$filter" "$ownership" &&
+    /usr/bin/sudo /usr/bin/grep -Eq '^sourcePPDSHA256=[0-9a-f]{64}$' "$ownership" &&
     [[ "$(/usr/bin/sudo /usr/bin/awk -F= '$1 == "filterSHA256" { print $2 }' "$ownership")" == "$(/usr/bin/sudo /usr/bin/shasum -a 256 "$filter" | /usr/bin/awk '{ print $1 }')" ]]
 }
 
@@ -110,7 +127,7 @@ Plan only; no system state is changed.
   queue: $queue
   sink: $uri
   staged filter: $filter
-  PPD: supplied candidate with only its two PDF filter program fields replaced
+  PPD: byte-matched supplied candidate with only its two PDF filter program fields replaced
   rollback: remove the exact queue after verifying $uri, then remove only the two owned files and empty root
 
 Before --apply: use a locally built, ad-hoc-signed filter and a supplied candidate
@@ -135,9 +152,10 @@ apply() {
   /bin/cp -p "$source_ppd" "$ppd_snapshot"
   [[ -f "$snapshot" && ! -L "$snapshot" && -x "$snapshot" ]] || die 'private filter snapshot is invalid'
   verify_local_adhoc_arm64 "$snapshot" || die 'filter snapshot is not local-ad-hoc ARM with a macOS 26.0 minimum'
-  local approved_sha
+  local approved_sha approved_ppd_sha
   approved_sha="$(/usr/bin/shasum -a 256 "$snapshot" | /usr/bin/awk '{ print $1 }')"
   validate_ppd "$ppd_snapshot"
+  approved_ppd_sha="$(/usr/bin/shasum -a 256 "$ppd_snapshot" | /usr/bin/awk '{ print $1 }')"
   ensure_not_existing
   render_ppd "$ppd_snapshot" "$generated"
 
@@ -158,6 +176,7 @@ apply() {
     echo "uri=$uri"
     echo "filter=$filter"
     echo "filterSHA256=$approved_sha"
+    echo "sourcePPDSHA256=$approved_ppd_sha"
   } | /usr/bin/sudo /usr/bin/tee "$ownership" >/dev/null
   /usr/bin/sudo /usr/sbin/chown root:wheel "$ownership"
   /usr/bin/sudo /bin/chmod 0644 "$ownership"
