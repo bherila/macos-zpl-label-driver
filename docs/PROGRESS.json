@@ -114,7 +114,8 @@
       "releaseValidation": "not-run",
       "evidence": [
         "306bb32 (bounded immutable extraction profile/planner with separate input/output media, canonical region mapping, explicit page accounting, shared copy ordering, and six portable regressions; partial M4-AC01/02/03/04/05/13 only)",
-        "docs/validation/M4-PORTABLE-PLANNER-2026-09-15.md (portable M4.1 evidence and explicit remaining gates)"
+        "docs/validation/M4-PORTABLE-PLANNER-2026-09-15.md (portable M4.1 evidence and explicit remaining gates)",
+        "4977e67 (three named reference workflows share 4x6 stock while native is full-page and unconfigured Letter/A4 fail before guessing a crop; additional partial M4-AC01/04/13 evidence)"
       ],
       "blockers": []
     },
