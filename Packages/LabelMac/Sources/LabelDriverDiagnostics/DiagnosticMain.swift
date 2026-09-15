@@ -10,8 +10,12 @@ struct DiagnosticMain {
             print("label-driver-diagnostics 0.0.0-scaffold")
             return
         }
+        if args.count == 4, args[0] == "--hold-device-lease" {
+            holdDeviceLease(directory: args[1], identifier: args[2], milliseconds: args[3])
+            return
+        }
         guard args.isEmpty else {
-            FileHandle.standardError.write(Data("Usage: label-driver-diagnostics [--version]\nNo printer operations are implemented.\n".utf8))
+            FileHandle.standardError.write(Data("Usage: label-driver-diagnostics [--version]\n       label-driver-diagnostics --hold-device-lease DIRECTORY IDENTIFIER MILLISECONDS\nNo printer operations are implemented.\n".utf8))
             exit(2)
         }
         do {
@@ -27,6 +31,28 @@ struct DiagnosticMain {
             FileHandle.standardOutput.write(Data("\n".utf8))
         } catch {
             FileHandle.standardError.write(Data("Core Graphics smoke check failed: \(error)\n".utf8))
+            exit(1)
+        }
+    }
+
+    /// Bounded test-only process-lifetime probe for the coordinator primitive.
+    /// It takes no printer URI and never opens a device or a network socket.
+    private static func holdDeviceLease(directory: String, identifier: String, milliseconds: String) {
+        guard let duration = Int(milliseconds), (1...5_000).contains(duration) else {
+            FileHandle.standardError.write(Data("Invalid bounded lease duration.\n".utf8))
+            exit(2)
+        }
+        do {
+            let identity = try PhysicalDeviceIdentity(stableIdentifier: identifier)
+            let lease = try PhysicalDeviceLease(acquiring: identity, inExistingDirectory: URL(fileURLWithPath: directory, isDirectory: true))
+            print("lease-acquired")
+            fflush(stdout)
+            usleep(useconds_t(duration * 1_000))
+            lease.release()
+        } catch PhysicalDeviceLeaseError.alreadyHeld {
+            exit(75)
+        } catch {
+            FileHandle.standardError.write(Data("Lease probe failed.\n".utf8))
             exit(1)
         }
     }
