@@ -487,6 +487,14 @@ These guards close replacement and partial-removal hazards in the candidate
 procedure; they remain unexecuted source-level evidence until an administrator
 is present for the authorized Tahoe experiment.
 
+The transaction also snapshots the selected user-writable filter into its
+private temporary directory before validation, computes the approved SHA-256
+from that snapshot, stages only those bytes, and compares the protected copy to
+the approved hash before creating a queue. The ownership record receives that
+same hash. This closes the earlier verify/copy/hash substitution window without
+claiming that an ad-hoc signature authenticates a publisher. The check remains
+unexecuted under administrator authorization.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
