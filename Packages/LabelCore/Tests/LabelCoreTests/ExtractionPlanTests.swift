@@ -1,0 +1,154 @@
+import XCTest
+@testable import LabelCore
+
+final class ExtractionPlanTests: XCTestCase {
+    private let letter = try! PhysicalSize(width: Millimeters.inches(8.5), height: Millimeters.inches(11))
+    private let stock = try! PhysicalSize(width: Millimeters.inches(4), height: Millimeters.inches(6))
+
+    private func page(rotation: Int = 0, originX: Double = 0, originY: Double = 0) throws -> PDFPageBox {
+        try PDFPageBox(
+            originX: originX, originY: originY,
+            width: 612, height: 792,
+            rotationDegreesClockwise: rotation
+        )
+    }
+
+    private func region(_ id: String, _ order: Int, x: Double = 0, y: Double = 0, width: Double = 1, height: Double = 1) throws -> ExtractionRegion {
+        try ExtractionRegion(
+            id: id,
+            normalizedRect: NormalizedRect(x: x, y: y, width: width, height: height),
+            outputOrder: order
+        )
+    }
+
+    private func rule(page: Int, disposition: WorkflowPageDisposition) throws -> WorkflowPageRule {
+        try WorkflowPageRule(
+            sourcePage: page,
+            expectedInput: ExpectedInputPage(uprightPhysicalSize: letter),
+            disposition: disposition
+        )
+    }
+
+    func testInputSheetAndOutputStockRemainSeparate() throws {
+        let profile = try WorkflowProfile(
+            id: "letter-to-4x6", revision: 3, outputStockID: "gc420d-4x6",
+            outputStock: stock,
+            pageRules: [try rule(page: 1, disposition: .extract([try region("label", 0)]))]
+        )
+        let plan = try ExtractionPlanner.plan(sourcePages: [page()], profile: profile)
+        XCTAssertEqual(plan.outputLabels[0].outputStock, stock)
+        XCTAssertNotEqual(letter, stock)
+        XCTAssertEqual(plan.outputLabels[0].profileRevision, 3)
+    }
+
+    func testRotationAndShiftedOriginUseCanonicalSourceTransform() throws {
+        let quarter = try region("quarter", 0, x: 0, y: 0, width: 0.5, height: 0.5)
+        let rotatedLetter = try PhysicalSize(width: Millimeters.inches(11), height: Millimeters.inches(8.5))
+        let profile = try WorkflowProfile(
+            id: "rotated", revision: 1, outputStockID: "stock", outputStock: stock,
+            pageRules: [try WorkflowPageRule(
+                sourcePage: 1,
+                expectedInput: ExpectedInputPage(uprightPhysicalSize: rotatedLetter),
+                disposition: .extract([quarter])
+            )]
+        )
+        let plan = try ExtractionPlanner.plan(
+            sourcePages: [page(rotation: 90, originX: 10, originY: 20)], profile: profile
+        )
+        XCTAssertEqual(plan.outputLabels[0].sourceRect, PDFSourceRect(x: 10, y: 20, width: 306, height: 396))
+        XCTAssertEqual(plan.outputLabels[0].scalePolicy, .uniformFit)
+    }
+
+    func testMultiplePagesRegionsAndCopiesUseExplicitOutputOrder() throws {
+        let rules = [
+            try rule(page: 1, disposition: .extract([try region("B", 1), try region("A", 0)])),
+            try rule(page: 2, disposition: .extract([try region("C", 2)])),
+        ]
+        let profile = try WorkflowProfile(
+            id: "ordered", revision: 1, outputStockID: "stock", outputStock: stock,
+            pageRules: rules
+        )
+        let collated = try ExtractionPlanner.plan(
+            sourcePages: [page(), page()], profile: profile,
+            copyPolicy: .engine(copies: 2, collated: true)
+        )
+        XCTAssertEqual(collated.outputLabels.map(\.regionID), ["A", "B", "C", "A", "B", "C"])
+        let uncollated = try ExtractionPlanner.plan(
+            sourcePages: [page(), page()], profile: profile,
+            copyPolicy: .engine(copies: 2, collated: false)
+        )
+        XCTAssertEqual(uncollated.outputLabels.map(\.regionID), ["A", "A", "B", "B", "C", "C"])
+    }
+
+    func testEveryPageMustBeAccountedForAndExplicitSkipIsReported() throws {
+        let incomplete = try WorkflowProfile(
+            id: "incomplete", revision: 1, outputStockID: "stock", outputStock: stock,
+            pageRules: [try rule(page: 1, disposition: .extract([try region("A", 0)]))]
+        )
+        XCTAssertThrowsError(try ExtractionPlanner.plan(sourcePages: [page(), page()], profile: incomplete)) {
+            XCTAssertEqual($0 as? ExtractionPlanError, .unaccountedSourcePage(2))
+        }
+        let explicit = try WorkflowProfile(
+            id: "explicit", revision: 1, outputStockID: "stock", outputStock: stock,
+            pageRules: [
+                try rule(page: 1, disposition: .extract([try region("A", 0)])),
+                try rule(page: 2, disposition: .skip(.customsForm)),
+            ]
+        )
+        let plan = try ExtractionPlanner.plan(sourcePages: [page(), page()], profile: explicit)
+        XCTAssertEqual(plan.outputLabels.map(\.regionID), ["A"])
+        XCTAssertEqual(plan.skippedPages, [.init(sourcePage: 2, reason: .customsForm)])
+    }
+
+    func testChangedGeometryAndMissingPagesFailBeforePlanningOutput() throws {
+        let profile = try WorkflowProfile(
+            id: "letter", revision: 1, outputStockID: "stock", outputStock: stock,
+            pageRules: [
+                try rule(page: 1, disposition: .extract([try region("A", 0)])),
+                try rule(page: 2, disposition: .skip(.instructions)),
+            ]
+        )
+        XCTAssertThrowsError(try ExtractionPlanner.plan(sourcePages: [page()], profile: profile)) {
+            XCTAssertEqual($0 as? ExtractionPlanError, .missingSourcePage(2))
+        }
+        let a4 = try PDFPageBox(originX: 0, originY: 0, width: 595.2756, height: 841.8898)
+        XCTAssertThrowsError(try ExtractionPlanner.plan(sourcePages: [a4, page()], profile: profile)) {
+            XCTAssertEqual($0 as? ExtractionPlanError, .inputGeometryMismatch(page: 1))
+        }
+    }
+
+    func testProfileAndOutputBoundsRejectUnsafePlans() throws {
+        XCTAssertThrowsError(try ExtractionRegion(
+            id: "bad id", normalizedRect: NormalizedRect(x: 0, y: 0, width: 1, height: 1), outputOrder: 0
+        ))
+        XCTAssertThrowsError(try ExpectedInputPage(uprightPhysicalSize: letter, toleranceMillimeters: .infinity))
+        XCTAssertThrowsError(try WorkflowProfile(
+            id: "duplicate", revision: 1, outputStockID: "stock", outputStock: stock,
+            pageRules: [try rule(page: 1, disposition: .extract([
+                try region("A", 0), try region("B", 0),
+            ]))]
+        ))
+        XCTAssertThrowsError(try WorkflowProfile(
+            id: "duplicate-id", revision: 1, outputStockID: "stock", outputStock: stock,
+            pageRules: [try rule(page: 1, disposition: .extract([
+                try region("A", 0), try region("A", 1),
+            ]))]
+        ))
+        let profile = try WorkflowProfile(
+            id: "bounded", revision: 1, outputStockID: "stock", outputStock: stock,
+            pageRules: [try rule(page: 1, disposition: .extract([try region("A", 0)]))]
+        )
+        XCTAssertThrowsError(try ExtractionPlanner.plan(
+            sourcePages: [page()], profile: profile,
+            copyPolicy: .engine(copies: 2, collated: true), maximumOutputLabels: 1
+        )) {
+            XCTAssertEqual($0 as? ExtractionPlanError, .tooManyOutputLabels)
+        }
+        XCTAssertThrowsError(try ExtractionPlanner.plan(
+            sourcePages: [page()], profile: profile,
+            copyPolicy: .engine(copies: 0, collated: true)
+        )) {
+            XCTAssertEqual($0 as? ExtractionPlanError, .invalidCopyPolicy)
+        }
+    }
+}
