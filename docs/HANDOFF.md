@@ -351,6 +351,17 @@ portable M1 option-wire regression only: it is not scheduler execution,
 print-dialog propagation, payload capture, installation, device access, or
 physical-printer evidence.
 
+At `722dd5e`, the versioned printer profile now binds a typed media record.
+The GC420d reference records only the reported pre-cut nominal 4×6-inch face;
+configured tracking and calibrated printable width/length/origin remain
+explicitly unobserved. A calibration object rejects nonpositive dimensions,
+and the regression proves the nominal face cannot be treated as calibration.
+This is portable partial M3-AC01/M3-AC02/M3-AC13 evidence only. It does not
+emit `^LL`, `^PW`, `^LS`, or any position command; no imageable area, gap,
+tracking setting, current printer state, scheduler result, or physical output
+has been inferred or observed. Next safe M3 work is to connect this immutable
+media snapshot to prepared-job state without enabling unqualified controls.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
