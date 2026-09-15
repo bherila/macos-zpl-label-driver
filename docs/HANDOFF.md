@@ -535,6 +535,17 @@ tests, 89 LabelCore tests, 132 independent encoder round trips, 15 backend ABI
 cases, eight filter ABI cases, and one inert pipeline case. No administrator
 authorization, queue, protected file, scheduler job, or device access occurred.
 
+At `33e5edd`, rollback became ownership-conservative under concurrent or partial
+state changes. It removes the named queue only while its URI still equals the
+inert sink, removes staged files only after exact root/record/hash checks, and
+requires the recorded source PPD hash to remain one of the three supplied
+candidates. Missing or altered state is retained with a warning for finite
+diagnosis rather than guessed to be owned. The root is created without `-p`, and
+staging flags are set before writes so partial operations enter the guarded
+cleanup path. The offline accelerator suite remains green with 39 Python and 89
+LabelCore tests plus all independent ABI/oracle checks. These are unprivileged
+source and regression results only; the privileged branches remain not run.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
