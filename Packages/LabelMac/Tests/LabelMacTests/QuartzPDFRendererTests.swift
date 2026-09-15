@@ -48,5 +48,24 @@ final class QuartzPDFRendererTests: XCTestCase {
         }
     }
 
+    func testRendersOriginalPDFDirectlyToCanonicalMonochrome() throws {
+        let source = try lowerHalfBlackPDF()
+        let request = try request(pdf: source)
+        let grayscale = try QuartzPDFRenderer.render(request)
+        let bitmap = try QuartzPDFToMonochrome.render(request)
+
+        XCTAssertEqual(bitmap.layout.width, grayscale.width)
+        XCTAssertEqual(bitmap.layout.height, grayscale.height)
+        XCTAssertEqual(
+            bitmap.bytes,
+            Array(repeating: [0, 0], count: 5).flatMap { $0 }
+                + Array(repeating: [0xFF, 0xC0], count: 5).flatMap { $0 }
+        )
+        XCTAssertEqual(
+            bitmap.grayscalePreview().pixels,
+            grayscale.pixels.map { $0 < 128 ? UInt8(0) : UInt8(255) }
+        )
+    }
+
     private enum TestError: Error { case unavailable }
 }
