@@ -86,8 +86,37 @@ final class OfflineRenderWorkerTests: XCTestCase {
             workerExecutable: try workerExecutable(),
             deadlineSeconds: 5
         )) {
-            XCTAssertEqual($0 as? OfflineRenderWorkerProcess.Error, .workerFailed(status: 65))
+            XCTAssertEqual(
+                $0 as? OfflineRenderWorkerProcess.Error,
+                .jobRejected(code: .inputUnsupported)
+            )
         }
+    }
+
+    func testWorkerReturnsSanitizedTicketFailureCode() throws {
+        let source = try Data(contentsOf: repositoryRoot().appending(path: "Fixtures/generated/native-vector.pdf"))
+        XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(
+            originalPDF: source,
+            ticketJSON: Data("{}".utf8),
+            workerExecutable: try workerExecutable(),
+            deadlineSeconds: 5
+        )) {
+            XCTAssertEqual(
+                $0 as? OfflineRenderWorkerProcess.Error,
+                .jobRejected(code: .jobTicketInvalid)
+            )
+        }
+    }
+
+    func testFailureClassificationKeepsEncryptedAndMalformedDistinct() {
+        XCTAssertEqual(
+            OfflineRenderWorkerProcess.classifyFailure(QuartzPDFRenderer.Error.encryptedPDF).code,
+            .inputEncrypted
+        )
+        XCTAssertEqual(
+            OfflineRenderWorkerProcess.classifyFailure(QuartzPDFRenderer.Error.malformedOrUnsupportedPDF).code,
+            .inputUnsupported
+        )
     }
 
     private enum TestError: Error { case unavailable }
