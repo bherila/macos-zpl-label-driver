@@ -41,4 +41,16 @@ final class DeliveryStateTests: XCTestCase {
         XCTAssertThrowsError(try tracker.acceptedByTransport(byteCount: 11))
         XCTAssertThrowsError(try tracker.transportFinished())
     }
+
+    func testTypedProfileSnapshotPreservesMediaAcrossLaterProfileEdits() throws {
+        let original = try PrinterProfile.gc420dUSBReference(revision: 9)
+        var tracker = try DeliveryTracker(expectedBytes: 10, profile: original)
+        try tracker.prepared(); try tracker.waiting(); try tracker.acceptedByTransport(byteCount: 10)
+
+        let changed = try PrinterProfile.gc420dUSBReference(revision: 10)
+        XCTAssertNotEqual(changed.revision, tracker.receipt.profileRevision)
+        XCTAssertEqual(tracker.receipt.profileSnapshot, JobProfileSnapshot(profile: original))
+        XCTAssertEqual(tracker.receipt.profileSnapshot?.media, original.media)
+        XCTAssertNil((try DeliveryTracker(expectedBytes: 10, profileRevision: 9)).receipt.profileSnapshot)
+    }
 }
