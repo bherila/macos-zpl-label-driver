@@ -10,7 +10,7 @@ ROOT=Path(__file__).resolve().parents[1]
 def validate(root=ROOT):
     manifest=json.loads((root/'Fixtures/generated/manifest.json').read_text())
     if manifest['schemaVersion'] != 1: raise ValueError('Unsupported fixture schema')
-    seen=set();pdfs=pages=html=0;annotation_form=False
+    seen=set();pdfs=pages=html=0;annotation_form=encrypted_input=False
     for f in manifest['fixtures']:
         path=(root/f['path']).resolve()
         if not path.is_relative_to((root/'Fixtures/generated').resolve()) or f['id'] in seen:
@@ -34,10 +34,14 @@ def validate(root=ROOT):
                 annotation_form=True
                 if f.get('annotationPolicyExpectation')!='reject' or f.get('expectedFormFields')!={'synthetic_reference':'FORM-TEST-123'}:
                     raise ValueError('Annotation/form fixture contract mismatch')
+            if f['id']=='encrypted-input':
+                encrypted_input=True
+                if f.get('family')!='damaged-encrypted' or f.get('encryptionExpectation')!='reject-without-password' or f.get('syntheticFixturePassword')!='LPD-TEST-ONLY':
+                    raise ValueError('Encrypted fixture contract mismatch')
         elif path.suffix=='.html':
             html+=1
             if b'<script' in data or b'http://' in data.replace(b'http://www.w3.org/2000/svg',b'') or b'https://' in data: raise ValueError('Unexpected external/active fixture asset')
-    if not pdfs or not html or not annotation_form: raise ValueError('Missing concrete fixtures')
+    if not pdfs or not html or not annotation_form or not encrypted_input: raise ValueError('Missing concrete fixtures')
     return pdfs,pages,html
 if __name__=='__main__':
     p,n,h=validate();print(f'Fixture integrity: {p} PDFs / {n} pages + {h} standalone HTML files')

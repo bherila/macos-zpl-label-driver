@@ -55,6 +55,61 @@
       "sha256": "24af4c33cd98b4373048c3fdf88085a1da098e7cebc97b147d051fd99ecf5c61"
     },
     {
+      "bytes": 3285,
+      "encryptionExpectation": "reject-without-password",
+      "family": "damaged-encrypted",
+      "id": "encrypted-input",
+      "license": "MIT",
+      "matchExpectation": "explicit-profile",
+      "note": "Password-protected input must be rejected; RC4 is deterministic test-fixture encoding only, not a security recommendation.",
+      "pageCount": 1,
+      "pages": [
+        {
+          "cropBox": [
+            0.0,
+            0.0,
+            288.0,
+            432.0
+          ],
+          "expectedBarcodePayloads": [
+            "LPD-TEST-A-001"
+          ],
+          "mediaBox": [
+            0.0,
+            0.0,
+            288.0,
+            432.0
+          ],
+          "nonLabelPage": false,
+          "regions": [
+            {
+              "payload": "LPD-TEST-A-001",
+              "rawRect": [
+                0,
+                0,
+                288,
+                432
+              ],
+              "tag": "A",
+              "uprightNormalizedRect": [
+                0.0,
+                0.0,
+                1.0,
+                1.0
+              ]
+            }
+          ],
+          "rotation": 0,
+          "userUnit": 1
+        }
+      ],
+      "path": "Fixtures/generated/encrypted-input.pdf",
+      "physicalQualification": "not-run",
+      "provenance": "Original synthetic project artwork encrypted deterministically by qpdf from native-vector.pdf",
+      "sha256": "94d4b9018a89f8972dadeaeade0add2bb3844a3757bb218a82657c622c504031",
+      "syntheticFixturePassword": "LPD-TEST-ONLY"
+    },
+    {
       "bytes": 3350,
       "family": "letter-one",
       "id": "letter-one",

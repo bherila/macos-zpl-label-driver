@@ -164,10 +164,10 @@
     {
       "id": "damaged-encrypted",
       "description": "Truncated, damaged and encrypted documents",
-      "state": "planned",
-      "path": null,
-      "sha256": null,
-      "provenance": null
+      "state": "available-partial",
+      "path": "Fixtures/generated/encrypted-input.pdf",
+      "sha256": "94d4b9018a89f8972dadeaeade0add2bb3844a3757bb218a82657c622c504031",
+      "provenance": "Original synthetic project artwork encrypted deterministically by qpdf from native-vector.pdf"
     },
     {
       "id": "malformed-profile",

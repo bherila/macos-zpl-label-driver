@@ -6,4 +6,4 @@ from check_fixture_manifest import validate
 
 class FixtureManifestTests(unittest.TestCase):
     def test_committed_fixture_integrity(self):
-        self.assertEqual(validate(),(18,28,3))
+        self.assertEqual(validate(),(19,29,3))
