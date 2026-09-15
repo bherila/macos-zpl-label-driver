@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 
@@ -57,6 +58,37 @@ def verify(binary: Path) -> int:
             result = run(argv, incoming)
             assert result.returncode != 0 and result.stdout == b""
             tests += 1
+
+        # A scheduler cancellation can arrive while stdin is still open. The
+        # filter must not wait for its ordinary input deadline or report a
+        # successful pass-through. The process-level signal semantics are what
+        # CUPS observes; this harness deliberately does not treat it as a
+        # scheduler integration result.
+        cancelled = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+        try:
+            time.sleep(0.1)
+            cancelled.terminate()
+            stdout, stderr = cancelled.communicate(timeout=3)
+        finally:
+            if cancelled.poll() is None:
+                cancelled.kill()
+                cancelled.wait(timeout=3)
+        assert cancelled.returncode != 0 and stdout == b""
+        assert marker.encode() not in stderr
+        tests += 1
+
+        # With no reader on stdout, SIGPIPE is ignored by the filter and the
+        # write reports a bounded output failure. This protects the scheduler
+        # from a false success when the next filter/backend has already gone
+        # away, without retaining the private test payload in diagnostics.
+        reader, writer = os.pipe()
+        os.close(reader)
+        broken = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=writer, stderr=subprocess.PIPE, env=env)
+        os.close(writer)
+        _, stderr = broken.communicate(data, timeout=3)
+        assert broken.returncode != 0
+        assert marker.encode() not in stderr
+        tests += 1
     return tests
 
 

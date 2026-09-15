@@ -435,6 +435,16 @@ remain unchecked. The next finite action is a reviewed Tahoe placement and
 narrow authorization design, followed only then by the reversible discard-queue
 experiment.
 
+The inert filter's portable ABI harness now holds an open stdin pipe, sends
+`SIGTERM`, and verifies bounded non-success termination without diagnostic
+payload leakage. It also supplies a closed stdout reader and verifies that the
+filter's ignored `SIGPIPE` becomes a non-successful bounded write failure,
+again without reflecting private input. The harness now has eight cases. This
+is additional partial M1-AC09 preparation only: it does not establish CUPS
+signal delivery, scheduler cleanup, installed queue behavior, or a physical
+printer result. The next safe action remains a reviewed Tahoe placement and
+narrow authorization design before any discard-queue installation.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
