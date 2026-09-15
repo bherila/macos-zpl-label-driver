@@ -73,6 +73,14 @@ orientation. The renderer does not yet provide packed monochrome output, full
 annotation flattening, a cancelable worker boundary, CUPS integration, or any
 printer delivery.
 
+M2.3 exact preview begins at `d8a9cbccc7dce8688945eda5df55f404a337be44`.
+`MonochromeBitmap` now expands its own canonical packed, top-to-bottom,
+MSB-first bytes into a display-oriented grayscale preview while excluding
+non-image tail padding. A regression uses a non-byte-aligned, multi-row bitmap
+to prove the exact black/white mapping. This advances the preview primitive
+only; it does not yet bind Quartz output to thresholding, provide a documented
+dither policy, encode a complete production format, or deliver a job.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
