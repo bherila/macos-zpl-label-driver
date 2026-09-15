@@ -850,6 +850,17 @@ full accelerator passes with 112 LabelCore and 56 Python tests. This is partial
 M4-AC04/07 evidence; profile persistence and native fixture-backed analysis are
 still required.
 
+At `73a881d`, M4 gained an exact version-1 workflow-profile JSON contract with
+a non-raisable 256 KiB cap and explicit allowlists at every object level. It
+round-trips typed regions, rotations, page policies, stock, revisions, and
+structural anchors while rejecting malformed/oversized input, unknown schema,
+wrong or out-of-range numeric types, unsupported enums, and every unknown
+field. Regressions explicitly attempt raw-command, filesystem-path, and
+embedded-document fields at top-level and nested locations. The full
+accelerator passes with 116 LabelCore and 56 Python tests. This closes M4-AC08
+at automated level only; UI storage/import interaction and later migrations are
+not claimed.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
