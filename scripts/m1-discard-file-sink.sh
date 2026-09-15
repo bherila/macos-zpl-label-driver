@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # M1 Tahoe discard-queue transaction. It is deliberately not a product installer.
 set -euo pipefail
+export LC_ALL=C
 
 readonly queue='LabelProbe_DISCARDS_JOBS'
 readonly uri='file:///dev/null'
@@ -72,6 +73,16 @@ ensure_not_existing() {
   [[ ! -e "$root" && ! -L "$root" ]] || die "refusing to replace an existing experiment root"
 }
 
+ownership_record_matches() {
+  /usr/bin/sudo /usr/bin/test -f "$ownership" &&
+    ! /usr/bin/sudo /usr/bin/test -L "$ownership" &&
+    /usr/bin/sudo /usr/bin/grep -Fqx 'schemaVersion=1' "$ownership" &&
+    /usr/bin/sudo /usr/bin/grep -Fqx "queue=$queue" "$ownership" &&
+    /usr/bin/sudo /usr/bin/grep -Fqx "uri=$uri" "$ownership" &&
+    /usr/bin/sudo /usr/bin/grep -Fqx "filter=$filter" "$ownership" &&
+    [[ "$(/usr/bin/sudo /usr/bin/awk -F= '$1 == "filterSHA256" { print $2 }' "$ownership")" == "$(/usr/bin/sudo /usr/bin/shasum -a 256 "$filter" | /usr/bin/awk '{ print $1 }')" ]]
+}
+
 plan() {
   cat <<EOF
 Plan only; no system state is changed.
@@ -124,14 +135,20 @@ apply() {
   /usr/bin/sudo /usr/sbin/lpadmin -p "$queue" -v "$uri" -i "$generated" -o printer-is-shared=false -E
   queue_installed=1
   /usr/bin/lpstat -v "$queue" | /usr/bin/grep -Fqx "device for $queue: $uri" || fail_after_apply 'queue URI readback failed'
+  if /usr/bin/lpstat -d 2>/dev/null | /usr/bin/grep -Fqx "system default destination: $queue"; then
+    fail_after_apply 'experiment unexpectedly became the default destination'
+  fi
   trap - ERR
   echo "Installed inert $queue. It targets $uri and is not the default printer."
 }
 
 remove() {
-  /usr/bin/lpstat -v "$queue" | /usr/bin/grep -Fqx "device for $queue: $uri" || die 'refusing removal: queue is absent or not owned file:///dev/null experiment'
   /usr/bin/sudo -v
-  /usr/bin/sudo /usr/sbin/lpadmin -x "$queue"
+  ownership_record_matches || die 'refusing removal: protected ownership record or filter hash does not match'
+  if /usr/bin/lpstat -p "$queue" >/dev/null 2>&1; then
+    /usr/bin/lpstat -v "$queue" | /usr/bin/grep -Fqx "device for $queue: $uri" || die 'refusing removal: named queue no longer targets the owned inert sink'
+    /usr/bin/sudo /usr/sbin/lpadmin -x "$queue"
+  fi
   /usr/bin/sudo /bin/rm -f "$filter" "$ownership"
   /usr/bin/sudo /bin/rmdir "$root"
   echo "Removed owned inert experiment."
