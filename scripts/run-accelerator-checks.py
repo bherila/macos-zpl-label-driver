@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 from zpl_oracle import verify_vectors
 from check_probe import verify as verify_probe
+from check_capture_filter import verify as verify_capture_filter
 
 ROOT=Path(__file__).resolve().parents[1]
 def run(args,timeout=300):
@@ -34,5 +35,6 @@ def main():
                          cwd=ROOT,capture_output=True,timeout=10)
         if r.returncode == 0: raise RuntimeError("lab unexpectedly overwrote existing destination")
     print(f"Inert CUPS ABI cases: {verify_probe(binary/'labelprobe')}",flush=True)
+    print(f"Inert CUPS filter ABI cases: {verify_capture_filter(binary/'labelcapture-filter')}",flush=True)
     print("PASS: offline accelerator suite. macOS/scheduler/hardware qualification is separate.")
 if __name__=="__main__": main()
