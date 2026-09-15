@@ -62,6 +62,8 @@ public struct DotResolution: Equatable, Sendable {
 }
 
 public struct DotCanvas: Equatable, Sendable {
+    public let physicalSize: PhysicalSize
+    public let resolution: DotResolution
     public let width: Int
     public let height: Int
     public let bitmapLayout: BitmapLayout
@@ -84,8 +86,91 @@ public struct DotCanvas: Equatable, Sendable {
         guard height <= maximumHeight else {
             throw PhysicalGeometryError.exceedsDotLimit(actual: height, limit: maximumHeight)
         }
+        self.physicalSize = physicalSize
+        self.resolution = resolution
         self.width = width
         self.height = height
         self.bitmapLayout = try BitmapLayout(width: width, height: height, maxByteCount: maximumByteCount)
+    }
+}
+
+public enum PagePlacementPolicy: String, Equatable, Sendable {
+    /// Uniformly scale in physical units so the entire source is visible.
+    case fit
+    /// Preserve the source's physical dimensions and clip at the output stock.
+    case actualSize
+}
+
+public struct DotRect: Equatable, Sendable {
+    public let x: Int
+    public let y: Int
+    public let width: Int
+    public let height: Int
+}
+
+public struct PagePlacement: Equatable, Sendable {
+    public let target: DotRect
+    public let visible: DotRect
+}
+
+public enum PagePlacementError: Error, Equatable, Sendable {
+    case invalidLimit
+    case scaleOverflow
+    case placementExceedsLimit
+}
+
+public enum PagePlacementPlanner {
+    /// Placement is centered. When an odd dot remains, the trailing edge gets
+    /// that dot; this avoids a second fractional transform or rounding step.
+    public static func plan(
+        source: PhysicalSize,
+        canvas: DotCanvas,
+        policy: PagePlacementPolicy,
+        maximumPlacementDimension: Int = 65_535
+    ) throws -> PagePlacement {
+        guard maximumPlacementDimension > 0 else { throw PagePlacementError.invalidLimit }
+        let scale: Double
+        switch policy {
+        case .fit:
+            scale = min(
+                canvas.physicalSize.width.value / source.width.value,
+                canvas.physicalSize.height.value / source.height.value
+            )
+        case .actualSize:
+            scale = 1
+        }
+        guard scale.isFinite, scale > 0,
+              let placedWidth = try? Millimeters(source.width.value * scale),
+              let placedHeight = try? Millimeters(source.height.value * scale) else {
+            throw PagePlacementError.scaleOverflow
+        }
+        var width = try canvas.resolution.roundedDots(for: placedWidth, horizontal: true)
+        var height = try canvas.resolution.roundedDots(for: placedHeight, horizontal: false)
+        if policy == .fit {
+            // Independent dot rounding can cross the physical fit boundary by
+            // one dot. Clip that quantization only, never rescale a second time.
+            width = min(width, canvas.width)
+            height = min(height, canvas.height)
+        }
+        guard width > 0, height > 0,
+              width <= maximumPlacementDimension,
+              height <= maximumPlacementDimension else {
+            throw PagePlacementError.placementExceedsLimit
+        }
+        let x = (canvas.width - width) / 2
+        let y = (canvas.height - height) / 2
+        let visibleX = max(0, x)
+        let visibleY = max(0, y)
+        let visibleRight = min(canvas.width, x + width)
+        let visibleBottom = min(canvas.height, y + height)
+        return PagePlacement(
+            target: DotRect(x: x, y: y, width: width, height: height),
+            visible: DotRect(
+                x: visibleX,
+                y: visibleY,
+                width: max(0, visibleRight - visibleX),
+                height: max(0, visibleBottom - visibleY)
+            )
+        )
     }
 }

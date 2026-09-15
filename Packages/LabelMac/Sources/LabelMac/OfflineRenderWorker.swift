@@ -239,6 +239,8 @@ public enum OfflineRenderWorkerProcess {
             code = .inputEncrypted
         case QuartzPDFRenderer.Error.annotationsUnsupported:
             code = .annotationsUnsupported
+        case QuartzPDFRenderer.Error.invalidPageGeometry:
+            code = .geometryInvalid
         case QuartzPDFRenderer.Error.pageOutOfRange:
             code = .pageOutOfRange
         case QuartzPDFRenderer.Error.inputTooLarge,

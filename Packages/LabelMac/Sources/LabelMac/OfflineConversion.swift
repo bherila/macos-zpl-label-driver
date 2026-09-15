@@ -28,13 +28,15 @@ public struct OfflineConversionTicket: Equatable, Sendable {
     public let physicalSize: PhysicalSize
     public let resolution: DotResolution
     public let conversion: Conversion
+    public let placementPolicy: PagePlacementPolicy
 
     public init(
         schemaVersion: Int = 1,
         pageNumber: Int,
         physicalSize: PhysicalSize,
         resolution: DotResolution,
-        conversion: Conversion
+        conversion: Conversion,
+        placementPolicy: PagePlacementPolicy = .fit
     ) throws {
         guard schemaVersion == 1 else { throw TicketError.unsupportedSchemaVersion(schemaVersion) }
         guard pageNumber > 0 else { throw TicketError.invalidPageNumber }
@@ -43,6 +45,7 @@ public struct OfflineConversionTicket: Equatable, Sendable {
         self.physicalSize = physicalSize
         self.resolution = resolution
         self.conversion = conversion
+        self.placementPolicy = placementPolicy
     }
 
     /// Decodes schema version 1 explicitly. New versions must add a reviewed
@@ -67,6 +70,12 @@ public struct OfflineConversionTicket: Equatable, Sendable {
         default:
             throw TicketError.malformedJSON
         }
+        let placementPolicy: PagePlacementPolicy
+        switch wire.placementPolicy ?? "fit" {
+        case "fit": placementPolicy = .fit
+        case "actualSize": placementPolicy = .actualSize
+        default: throw TicketError.malformedJSON
+        }
         try self.init(
             schemaVersion: wire.schemaVersion,
             pageNumber: wire.pageNumber,
@@ -78,7 +87,8 @@ public struct OfflineConversionTicket: Equatable, Sendable {
                 xDotsPerMillimeter: wire.resolution.xDotsPerMillimeter,
                 yDotsPerMillimeter: wire.resolution.yDotsPerMillimeter
             ),
-            conversion: conversion
+            conversion: conversion,
+            placementPolicy: placementPolicy
         )
     }
 
@@ -89,7 +99,8 @@ public struct OfflineConversionTicket: Equatable, Sendable {
         let resolution: WireResolution
         let conversion: WireConversion
 
-        private enum CodingKeys: String, CodingKey { case schemaVersion, pageNumber, physicalSize, resolution, conversion }
+        let placementPolicy: String?
+        private enum CodingKeys: String, CodingKey { case schemaVersion, pageNumber, physicalSize, resolution, conversion, placementPolicy }
         init(from decoder: Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
             schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
@@ -97,6 +108,7 @@ public struct OfflineConversionTicket: Equatable, Sendable {
             physicalSize = try values.decode(WirePhysicalSize.self, forKey: .physicalSize)
             resolution = try values.decode(WireResolution.self, forKey: .resolution)
             conversion = try values.decode(WireConversion.self, forKey: .conversion)
+            placementPolicy = try values.decodeIfPresent(String.self, forKey: .placementPolicy)
         }
     }
 
@@ -153,6 +165,7 @@ public enum OfflineConversion {
             originalPDF: originalPDF,
             pageNumber: ticket.pageNumber,
             canvas: canvas,
+            placementPolicy: ticket.placementPolicy,
             maximumInputBytes: maximumInputBytes
         ))
         let bitmap = try ticket.conversion.coreConversion.convert(
