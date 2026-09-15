@@ -343,6 +343,14 @@ for this profile slice and then queue its own hosted CI run; USB, CUPS
 installation, and physical-device acceptance remain blocked on their separate
 evidence.
 
+At `a520fb6`, the real inert-filter ABI regression now passes quoted known
+option values through both CUPS parsing and the strict experiment schema.
+The test still uses synthetic bytes and the discard-only next stage, and checks
+that its private marker is absent from diagnostics. This is a small additional
+portable M1 option-wire regression only: it is not scheduler execution,
+print-dialog propagation, payload capture, installation, device access, or
+physical-printer evidence.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
