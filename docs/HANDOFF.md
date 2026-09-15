@@ -537,6 +537,20 @@ cleanup path. The offline accelerator suite remains green with 39 Python and 89
 LabelCore tests plus all independent ABI/oracle checks. These are unprivileged
 source and regression results only; the privileged branches remain not run.
 
+At `724cb13`, the concrete fixture corpus gained a deterministic interactive
+AcroForm document containing one canonical text field, one Widget annotation,
+and a nonempty normal appearance stream. Generator and manifest checks reopen
+and verify the field value and appearance; a 144-DPI Poppler rendering was
+visually inspected with the value visible and unclipped. The Tahoe Core Graphics
+test proves `QuartzPDFRenderer` rejects this document as
+`annotationsUnsupported` before rasterization rather than silently omitting the
+appearance. LabelMac passed 18 tests, the fixture corpus passed at 18 PDFs/28
+pages plus three HTML files, and the offline accelerator suite remained green.
+The optional whole-corpus barcode recheck was NOT RUN because the local ZBar
+shared library is absent; no dependency was installed globally. This is partial
+automated M2-AC03/M2-AC09 evidence only, not application, scheduler, physical,
+or general PDF-form acceptance.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

@@ -48,7 +48,8 @@
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
       "evidence": [
-        "docs/ACCELERATOR-VALIDATION.md (partial portable preparation evidence only; no full milestone pass)"
+        "docs/ACCELERATOR-VALIDATION.md (partial portable preparation evidence only; no full milestone pass)",
+        "724cb13 (deterministic AcroForm/Widget appearance fixture and explicit native-renderer rejection regression; partial M2-AC03/M2-AC09 automated evidence only)"
       ],
       "blockers": []
     },
