@@ -589,6 +589,15 @@ All 23 LabelMac tests pass. This strengthens partial M2-AC09/M2-AC10 evidence;
 the two-path pair is intentionally not claimed as one cross-filesystem atomic
 transaction.
 
+At `3fcca54`, the CLI validates regular-file type and byte size before mapping
+either the PDF or job ticket, then rechecks the mapped byte count to close a
+change-during-read over-limit path. Offline conversion now names its 100 MiB PDF
+cap and passes it explicitly into the Quartz request; job tickets have a separate
+64 KiB cap. Sparse 100 MiB-plus-one PDF and 64 KiB-plus-one ticket regressions
+both fail with input exit 65 before preparation or output. All 24 LabelMac tests
+pass. This is partial automated M2-AC09/M2-AC10 evidence; it is not the required
+cancelable worker deadline or protection against every hostile filesystem.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
