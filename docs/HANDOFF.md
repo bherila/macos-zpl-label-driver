@@ -330,6 +330,19 @@ silently taking a parser-selected value. This advances source-level M1 option
 handling only; it is not the product ticket schema, installed filter evidence,
 or proof that Tahoe's dialog exposes or propagates a given option.
 
+At `8c22965`, `PrinterProfile` construction now rejects blank/control-character
+model identifiers, nonpositive documented speed choices, and nonpositive
+observed current speeds before a profile can bind a job. Regression vectors
+cover each rejection. This is additional portable M3-AC01/M3-AC02 evidence
+only: it does not infer a darkness range, tracking mode, media dimensions,
+offset, current device setting, protocol command, scheduler result, or physical
+printer behavior. The immediately preceding hosted macOS 26 ARM run for
+`34a3d88` completed successfully; it validates that earlier CUPS option-parser
+slice, not this new commit. Next safe action is to run the full local Mac gate
+for this profile slice and then queue its own hosted CI run; USB, CUPS
+installation, and physical-device acceptance remain blocked on their separate
+evidence.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
