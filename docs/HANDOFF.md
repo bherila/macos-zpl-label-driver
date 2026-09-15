@@ -515,6 +515,17 @@ round trips, 15 backend ABI cases, eight filter ABI cases, and one inert
 filter-to-discard pipeline case. This is source-level transaction safety evidence
 only; administrator-backed scheduler admission remains not run.
 
+At `b820b18`, a pre-install review caught that Bash would run the EXIT trap only
+after the apply function's local temporary-path variable left scope. Under
+`set -u`, that could preserve the private filter and PPD snapshots. The path is
+now process-scoped, fixed below `/private/tmp`, and guarded before recursive
+removal; a real invalid-artifact invocation proves pre-authorization cleanup.
+The protected experiment root is also a single owned directory, so removal
+cannot strand a parent created by `mkdir -p`. Local validation passed 39 Python
+tests, 89 LabelCore tests, 132 independent encoder round trips, 15 backend ABI
+cases, eight filter ABI cases, and one inert pipeline case. No administrator
+authorization, queue, protected file, scheduler job, or device access occurred.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

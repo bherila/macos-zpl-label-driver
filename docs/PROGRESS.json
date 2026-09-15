@@ -33,7 +33,8 @@
         "docs/adr/0003-m1-adapter-admission-gate.md (Tahoe placement/local-signing admission gate and non-selection decision; M1-AC12 decision evidence only)",
         "scripts/check_capture_filter.py (portable SIGTERM and broken-downstream-pipe regression vectors; partial M1-AC09 only, no scheduler evidence)",
         "scripts/m1-discard-file-sink.sh (reviewable, fixed-target file:///dev/null discard-queue transaction candidate; portable preparation only, no queue installation or scheduler evidence)",
-        "f6cb7fb (supplied-PPD byte allowlist, exact filter declarations, and stricter removal ownership record; source-level M1 transaction safety only)"
+        "f6cb7fb (supplied-PPD byte allowlist, exact filter declarations, and stricter removal ownership record; source-level M1 transaction safety only)",
+        "b820b18 (bounded process-scoped scratch cleanup and single-directory protected staging root; local failure-path regression only)"
       ],
       "blockers": []
     },
