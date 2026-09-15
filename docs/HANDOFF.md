@@ -272,6 +272,17 @@ the lease as an unintegrated primitive until M1 establishes a scheduler backend
 contract; continue the raw-TCP loopback fault harness without treating either
 path as USB, queue, or physical-printer proof.
 
+At `d4233ede88d548cdd58b8526cc87e32e4e416535`, raw-TCP outcome resolution is
+now a deterministic seam shared by the Network.framework adapter and
+regressions. The loopback listener still proves a real local stream transfer;
+the new fault vectors prove every adapter outcome maps to an honest receipt:
+pre-send connection/timeout failures are retryable, while a timeout or send
+failure after the send attempt is `uncertain(bytesAccepted: 0)` and cannot
+become device-confirmed. This improves partial M3-AC05/M3-AC09 automated
+evidence only. Network.framework still owns real stream segmentation and its
+callback cannot reveal a peer byte count; no synthetic result is presented as
+USB, scheduler, device-status, or physical-print evidence.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
