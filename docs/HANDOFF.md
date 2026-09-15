@@ -389,6 +389,14 @@ This is portable partial M1-AC07/M3-AC01/M3-AC09 evidence only; it has no
 spooler persistence, scheduler hold/release result, process-wide ownership,
 USB/network delivery, status receipt, or physical output evidence.
 
+At `e716fe6`, the raw-TCP adapter gained a preferred `PreparedLabel` handoff.
+It delivers those exact bytes while preserving the embedded profile/media
+snapshot in every result state. The older revision-only API remains explicitly
+snapshot-less for compatibility; it cannot fabricate a profile. The loopback
+and deterministic-fault seams prove local transmission and conservative failure
+states only. This is portable/macOS-simulation partial M1-AC07/M3-AC05/M3-AC09
+evidence, not a network-printer, USB, scheduler, status, or physical result.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
