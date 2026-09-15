@@ -620,6 +620,18 @@ signing smoke. This is substantive automated M2-AC09/M2-AC10 evidence, but insta
 CUPS cancellation/stdout behavior, hostile worker compromise containment, physical
 output, and clean-host admission remain unverified, so neither item is checked.
 
+At `28e24fe`, worker failures gained a separate bounded, versioned, allowlisted
+failure record. The subprocess never serializes framework descriptions, paths, or
+document content; the parent trusts the record only after a normal nonzero exit and
+otherwise reports a generic worker failure. The CLI now preserves stable categories
+for invalid tickets, malformed/unsupported input, encryption, unsupported annotations,
+page selection, limits, geometry, and rendering/preparation failure. Real subprocess
+tests prove malformed PDF and invalid-ticket categories, and unit classification keeps
+encrypted input distinct from malformed input. Native debug and release suites pass
+30 tests. An actual encrypted PDF fixture remains absent, so the encryption category
+is implemented and unit-tested but not yet end-to-end fixture evidence. This advances
+partial M2-AC09/M2-AC10 evidence without closing either acceptance item.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
