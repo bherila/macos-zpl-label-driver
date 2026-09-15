@@ -25,7 +25,8 @@
       "releaseValidation": "not-run",
       "evidence": [
         "docs/ACCELERATOR-VALIDATION.md (partial portable preparation evidence only; no full milestone pass)",
-        "5a9be59d8e93e8a0b1f8cd3ca3e549e21dcfbed9 (inert CUPS pass-through filter ABI/privacy regressions only; no scheduler integration evidence)"
+        "5a9be59d8e93e8a0b1f8cd3ca3e549e21dcfbed9 (inert CUPS pass-through filter ABI/privacy regressions only; no scheduler integration evidence)",
+        "ad069255898e4a0e97684fc534cd82dd90aedfb9 (filter-to-discard backend pipeline regression only; no scheduler integration evidence)"
       ],
       "blockers": []
     },

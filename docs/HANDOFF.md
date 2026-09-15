@@ -307,6 +307,15 @@ installation, transport, or local-signing acceptance. The M1 experimental queue
 remains uninstalled pending the separately recorded administrator-authenticated
 Tahoe procedure.
 
+At `ad069255898e4a0e97684fc534cd82dd90aedfb9`, the offline accelerator suite
+adds a finite filter-to-discard-backend pipeline vector. It connects the real
+`labelcapture-filter` stdout to the real `labelprobe` stdin, then proves exact
+byte counts and all four typed experimental controls survive the pipeline while
+the synthetic private marker remains absent from both diagnostics. The backend
+still reports no physical output and the filter retains no payload. This is
+additional portable M1.1 plumbing/privacy evidence only; neither process was
+run by CUPS, installed, or connected to a printer.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
