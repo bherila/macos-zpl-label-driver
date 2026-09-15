@@ -278,5 +278,55 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertEqual(error?["code"] as? String, "INPUT_ERROR")
     }
 
+    func testOfflineCLIRollsBackPreviewWhenZPLOutputCreationFails() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "LabelDriverCLIRollback-\(UUID().uuidString)")
+        let previewDirectory = directory.appending(path: "preview")
+        try FileManager.default.createDirectory(at: previewDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let ticket = directory.appending(path: "ticket.json")
+        try Data("""
+        { "schemaVersion": 1, "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "textAndBarcodeThreshold", "cutoff": 128 } }
+        """.utf8).write(to: ticket)
+        let source = repositoryRoot().appending(path: "Fixtures/generated/native-vector.pdf")
+        let impossibleOutput = directory.appending(path: String(repeating: "x", count: 300))
+        let result = try runCLI([
+            "convert", source.path, "--job-ticket", ticket.path,
+            "--output", impossibleOutput.path, "--preview-dir", previewDirectory.path, "--json",
+        ])
+
+        XCTAssertEqual(result.status, 73)
+        XCTAssertTrue(result.stdout.isEmpty)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: impossibleOutput.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: previewDirectory.appending(path: "page-0001.pbm").path))
+        let error = try JSONSerialization.jsonObject(with: result.stderr) as? [String: Any]
+        XCTAssertEqual(error?["code"] as? String, "OUTPUT_ERROR")
+        XCTAssertEqual(error?["message"] as? String, "conversion outputs were not retained")
+    }
+
+    func testOfflineCLIRejectsAliasedOutputPairBeforeWriting() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "LabelDriverCLIAlias-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let ticket = directory.appending(path: "ticket.json")
+        try Data("""
+        { "schemaVersion": 1, "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "textAndBarcodeThreshold", "cutoff": 128 } }
+        """.utf8).write(to: ticket)
+        let source = repositoryRoot().appending(path: "Fixtures/generated/native-vector.pdf")
+        let shared = directory.appending(path: "page-0001.pbm")
+        let result = try runCLI([
+            "convert", source.path, "--job-ticket", ticket.path,
+            "--output", shared.path, "--preview-dir", directory.path, "--json",
+        ])
+
+        XCTAssertEqual(result.status, 73)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: shared.path))
+    }
+
     private enum TestError: Error { case unavailable }
 }
