@@ -87,6 +87,28 @@ public enum QuartzPDFRenderer {
         }
     }
 
+    /// Reads the canonical crop-box geometry without rasterizing. The same
+    /// bounded document-opening path is shared with `render`.
+    public static func pageBox(
+        originalPDF: Data,
+        pageNumber: Int,
+        maximumInputBytes: Int = 100 * 1024 * 1024,
+        maximumSourcePages: Int = 1_000
+    ) throws -> PDFPageBox {
+        guard maximumInputBytes > 0, maximumSourcePages > 0 else { throw Error.invalidLimits }
+        let (_, page) = try openPage(
+            originalPDF: originalPDF,
+            pageNumber: pageNumber,
+            maximumInputBytes: maximumInputBytes,
+            maximumSourcePages: maximumSourcePages
+        )
+        do {
+            return try geometry(of: page)
+        } catch {
+            throw Error.invalidPageGeometry
+        }
+    }
+
     public static func render(_ request: Request) throws -> GrayscaleBitmap {
         guard request.maximumInputBytes > 0, request.maximumSourcePages > 0, request.maximumPixels > 0 else {
             throw Error.invalidLimits
@@ -99,18 +121,12 @@ public enum QuartzPDFRenderer {
         guard pixels <= request.maximumPixels else {
             throw Error.pixelLimitExceeded(actual: pixels, limit: request.maximumPixels)
         }
-        guard request.pageNumber > 0,
-              let provider = CGDataProvider(data: request.originalPDF as CFData),
-              let document = CGPDFDocument(provider) else {
-            throw Error.malformedOrUnsupportedPDF
-        }
-        guard !document.isEncrypted || document.isUnlocked else { throw Error.encryptedPDF }
-        guard document.numberOfPages <= request.maximumSourcePages else {
-            throw Error.sourcePageLimitExceeded(actual: document.numberOfPages, limit: request.maximumSourcePages)
-        }
-        guard let page = document.page(at: request.pageNumber) else {
-            throw Error.pageOutOfRange(requested: request.pageNumber, pageCount: document.numberOfPages)
-        }
+        let (_, page) = try openPage(
+            originalPDF: request.originalPDF,
+            pageNumber: request.pageNumber,
+            maximumInputBytes: request.maximumInputBytes,
+            maximumSourcePages: request.maximumSourcePages
+        )
         if request.annotationPolicy == .reject, pageContainsAnnotations(page) {
             throw Error.annotationsUnsupported
         }
@@ -194,6 +210,30 @@ public enum QuartzPDFRenderer {
         guard CGPDFDictionaryGetArray(dictionary, "Annots", &annotations),
               let annotations else { return false }
         return CGPDFArrayGetCount(annotations) > 0
+    }
+
+    private static func openPage(
+        originalPDF: Data,
+        pageNumber: Int,
+        maximumInputBytes: Int,
+        maximumSourcePages: Int
+    ) throws -> (CGPDFDocument, CGPDFPage) {
+        guard originalPDF.count <= maximumInputBytes else {
+            throw Error.inputTooLarge(actual: originalPDF.count, limit: maximumInputBytes)
+        }
+        guard pageNumber > 0,
+              let provider = CGDataProvider(data: originalPDF as CFData),
+              let document = CGPDFDocument(provider) else {
+            throw Error.malformedOrUnsupportedPDF
+        }
+        guard !document.isEncrypted || document.isUnlocked else { throw Error.encryptedPDF }
+        guard document.numberOfPages <= maximumSourcePages else {
+            throw Error.sourcePageLimitExceeded(actual: document.numberOfPages, limit: maximumSourcePages)
+        }
+        guard let page = document.page(at: pageNumber) else {
+            throw Error.pageOutOfRange(requested: pageNumber, pageCount: document.numberOfPages)
+        }
+        return (document, page)
     }
 
     private static func geometry(of page: CGPDFPage) throws -> PDFPageBox {
