@@ -463,6 +463,14 @@ dialog behavior, document fidelity, cancellation, profile snapshots, and
 local-signing feasibility all remain unchecked until the finite Tahoe experiment
 runs.
 
+The post-staging failure path was corrected before any administrator session was
+used: Bash commands guarded by `||` do not invoke the `ERR` trap, so strict PPD
+validation or queue-URI readback could otherwise have bypassed automatic
+cleanup. Those two paths now call the same fixed-target cleanup routine
+explicitly; trap-driven failures use it as well. Regression assertions cover
+both calls. This remains source-level transaction safety evidence only, with no
+queue or protected artifact created.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
