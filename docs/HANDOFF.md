@@ -873,6 +873,20 @@ closes M4-AC02 and M4-AC07 at automated level; native analysis generation, UI,
 application/browser capture, scheduler integration, and physical output remain
 unverified.
 
+At `5ae58ea`, M4 gained a bounded offline structural-border analyzer. A private
+aspect-correct Core Graphics analysis raster feeds portable deterministic line
+and border detection with hard input, pixel, feature, candidate, and work
+ceilings. It returns typed normalized anchors only and cannot become final
+render input. Five focused portable tests cover exact coordinates, broken
+borders, padded/sliced data, invalid inputs, and work exhaustion. Three native
+tests use the committed Letter and changed-layout fixtures: the original
+profile matches, while the shifted fixture fails with the exact missing-anchor
+reason before planning. The full CI-equivalent sequence passes 121 LabelCore
+and 53 LabelMac tests in both configurations. This closes M4-AC04 at automated
+level. The analyzer currently recognizes borders only; confirmation/qualification
+state, candidate discovery UI, installed offline behavior, queues, browsers,
+and physical output remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
