@@ -13,7 +13,10 @@ def verify(binary: Path) -> int:
     binary = binary.resolve()
     marker = "PRIVATE-ADDRESS-DO-NOT-LOG"
     env = dict(os.environ, CONTENT_TYPE="application/pdf")
-    args = [str(binary), "1", marker, marker, "2", "ProbeSpeed=3 ProbeWorkflow=Letter Private='" + marker + "'"]
+    args = [
+        str(binary), "1", marker, marker, "2",
+        "ProbeSpeed='3' ProbeWorkflow=\"Letter\" Private='" + marker + "'",
+    ]
     tests = 0
 
     def run(argv, data=None):
