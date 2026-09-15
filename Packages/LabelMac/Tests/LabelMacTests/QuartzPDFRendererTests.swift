@@ -1,4 +1,5 @@
 import CoreGraphics
+import Darwin
 import Foundation
 import XCTest
 @testable import LabelCore
@@ -400,6 +401,73 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appending(path: "page-0001.pbm").path))
         let error = try JSONSerialization.jsonObject(with: result.stderr) as? [String: Any]
         XCTAssertEqual(error?["code"] as? String, "INPUT_ENCRYPTED")
+    }
+
+    func testOfflineCLISignalCancelsOwnedWorkerAndCleansScratch() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "LabelDriverCLICancel-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let ticket = directory.appending(path: "ticket.json")
+        // 8,192 x 4,000 dots keeps the real worker busy while remaining under
+        // the declared per-label pixel and dimension limits.
+        try Data("""
+        { "schemaVersion": 1, "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 819.2, "heightMillimeters": 400 },
+          "resolution": { "xDotsPerMillimeter": 10, "yDotsPerMillimeter": 10 },
+          "conversion": { "mode": "photographicOrderedDither4x4" } }
+        """.utf8).write(to: ticket)
+        let output = directory.appending(path: "output.zpl")
+        let temporaryRoot = FileManager.default.temporaryDirectory
+        let existingScratch = try workerScratchNames(in: temporaryRoot)
+
+        let process = Process()
+        process.executableURL = try cliExecutable()
+        process.arguments = [
+            "convert", repositoryRoot().appending(path: "Fixtures/generated/native-vector.pdf").path,
+            "--job-ticket", ticket.path,
+            "--output", output.path,
+            "--preview-dir", directory.path,
+            "--json",
+        ]
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+        let exited = XCTestExpectation(description: "CLI exits after cancellation")
+        process.terminationHandler = { _ in exited.fulfill() }
+        try process.run()
+
+        let scratchDeadline = ContinuousClock.now.advanced(by: .seconds(5))
+        var observedScratch = false
+        while ContinuousClock.now < scratchDeadline, process.isRunning {
+            if try !workerScratchNames(in: temporaryRoot).subtracting(existingScratch).isEmpty {
+                observedScratch = true
+                break
+            }
+            usleep(10_000)
+        }
+        XCTAssertTrue(observedScratch, "real worker scratch was never observed")
+        if process.isRunning { kill(process.processIdentifier, SIGTERM) }
+        let waitResult = XCTWaiter.wait(for: [exited], timeout: 5)
+        if waitResult != .completed, process.isRunning { kill(process.processIdentifier, SIGKILL) }
+        XCTAssertEqual(waitResult, .completed)
+        process.waitUntilExit()
+
+        XCTAssertEqual(process.terminationReason, .exit)
+        XCTAssertEqual(process.terminationStatus, 130)
+        XCTAssertTrue(stdout.fileHandleForReading.readDataToEndOfFile().isEmpty)
+        let errorData = stderr.fileHandleForReading.readDataToEndOfFile()
+        let error = try JSONSerialization.jsonObject(with: errorData) as? [String: Any]
+        XCTAssertEqual(error?["code"] as? String, "CANCELLED")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: output.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.appending(path: "page-0001.pbm").path))
+        XCTAssertTrue(try workerScratchNames(in: temporaryRoot).subtracting(existingScratch).isEmpty)
+    }
+
+    private func workerScratchNames(in directory: URL) throws -> Set<String> {
+        Set(try FileManager.default.contentsOfDirectory(atPath: directory.path).filter {
+            $0.hasPrefix("label-driver-worker.")
+        })
     }
 
     private enum TestError: Error { case unavailable }
