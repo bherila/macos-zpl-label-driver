@@ -249,6 +249,29 @@ negative test. The next safe M3 work is a bounded simulated-fault harness for
 the remaining raw-TCP failure modes, followed by the separate cross-process
 ownership boundary; neither unlocks USB or physical acceptance.
 
+At `f579d3164a8ce84ef422cc681461573b4bb5e816`, M3.5 begins with a
+macOS-only `flock` lease keyed by a validated stable physical-device identity.
+The on-disk filename is SHA-256-derived rather than the supplied identity;
+creation rejects non-regular or linked files, and the lock is tied to an open
+descriptor so the kernel releases it on close or process exit rather than a
+stale PID-file convention. The inert diagnostics tool has a bounded
+`--hold-device-lease` probe with no device, network, queue, or document
+operation. Its regression starts a real child process, proves a second holder
+is rejected, terminates the child, and proves immediate reacquisition. It also
+covers explicit release, alias collision, opaque naming, and unsafe inputs.
+This is partial M3-AC07/M3-AC08 automated/macOS primitive evidence only: no
+two CUPS queues, maintenance path, transport lifetime, or actual device output
+has used the lease, so the integration acceptance items remain unchecked.
+
+The full local gate passed after this slice: accelerator checks; repository
+preflight; 34 Python tests; 82 LabelCore tests; 13 LabelMac tests (including
+loopback TCP and child-process lease regressions); and `scripts/ci-swift.sh`
+(132 inert cross-language ZPL/PBM/analytic round-trips). The expected malformed
+PDF Core Graphics diagnostic was observed in its negative test. Next, retain
+the lease as an unintegrated primitive until M1 establishes a scheduler backend
+contract; continue the raw-TCP loopback fault harness without treating either
+path as USB, queue, or physical-printer proof.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
