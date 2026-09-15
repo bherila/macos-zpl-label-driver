@@ -4,12 +4,15 @@
     {
       "id": "M0",
       "directory": "docs/milestones/00-bootstrap",
-      "implementation": "not-started",
-      "automatedValidation": "not-run",
-      "macOSIntegration": "not-run",
+      "implementation": "in-progress",
+      "automatedValidation": "passed",
+      "macOSIntegration": "passed",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
-      "evidence": [],
+      "evidence": [
+        "d4dad6d32c0da501e48df45404a8e19b3377d5a9 (public bootstrap commit and repository setup)",
+        "2026-09-15 local Tahoe ARM: accelerator debug/release, LabelCore 47 tests, LabelMac Core Graphics smoke debug/release, and inert local-ad-hoc signing smoke passed"
+      ],
       "blockers": []
     },
     {

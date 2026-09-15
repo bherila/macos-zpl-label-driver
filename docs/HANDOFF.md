@@ -4,10 +4,25 @@ Use the implementation accelerator in [ACCELERATOR.md](ACCELERATOR.md), then the
 existing milestone sequence. This revision extends revision 2 without changing
 the confirmed GC420d/USB/4x6/tear-off, Tahoe 26, MIT or local-signing baseline.
 
-Next slice remains **M0.1**: reconcile/import the package into the actual target
-repository without overwriting existing work. No current remote lookup or mutation
-was performed during this revision. The older 404 is historical absent-or-inaccessible
-evidence only. Continue M0 native CI and M1 scheduler/local-installation proof.
+M0.1 bootstrap is recorded at
+`d4dad6d32c0da501e48df45404a8e19b3377d5a9`: the public
+`bherila/macos-zpl-label-driver` repository was created with `main` at that
+commit after a staged disclosure scan. The repository name replaces the former
+generic target throughout the handoff.
+
+On 2026-09-15, the local Tahoe ARM host passed accelerator debug/release
+validation (including 34 Python tests, 47 LabelCore tests, 132 independent
+ZPL/PBM/analytic round-trips, and 15 inert CUPS ABI cases). LabelMac's Core
+Graphics smoke passed in debug and release; the arm64 diagnostic built with a
+26.0 deployment target, was ad-hoc signed, verified, and run inertly. These
+facts advance M0 automated/native-signing evidence only; they do not establish
+installed scheduler, option propagation, document fidelity, hardware, or
+release acceptance.
+
+Next safe slice is M1.1/M1.2 proof planning and execution only after explicit
+authorization for a finite, clearly named experimental capture queue and its
+installation scope. No printer output, queue modification, privileged helper,
+or production adapter is authorized by the current evidence.
 
 Reusable components now exist: canonical monochrome packing/threshold/PBM, bounded
 uncompressed graphic fields, copy ordering, an offline vector CLI, an inert CUPS
