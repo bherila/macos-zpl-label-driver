@@ -1,3 +1,5 @@
+import Foundation
+
 /// Delivery states are deliberately stronger than a transport exit code.
 /// `transmitted` means the local transport accepted all bytes, not that a
 /// physical label printed; only a supported receipt may produce confirmation.
@@ -16,6 +18,7 @@ public enum DeliveryState: Equatable, Sendable {
 public enum DeliveryStateError: Error, Equatable, Sendable {
     case invalidTransition
     case invalidByteCount
+    case payloadBindingMismatch
     case retryRequiresExplicitReview
 }
 
@@ -50,6 +53,7 @@ public struct DeliveryReceipt: Equatable, Sendable {
 
 public struct DeliveryTracker: Sendable {
     private(set) public var receipt: DeliveryReceipt
+    private let boundPayload: Data?
 
     public init(expectedBytes: Int, profileRevision: Int) throws {
         guard expectedBytes > 0, profileRevision > 0 else { throw DeliveryStateError.invalidByteCount }
@@ -59,6 +63,7 @@ public struct DeliveryTracker: Sendable {
             profileRevision: profileRevision,
             profileSnapshot: nil
         )
+        boundPayload = nil
     }
 
     public init(expectedBytes: Int, profile: PrinterProfile) throws {
@@ -73,22 +78,37 @@ public struct DeliveryTracker: Sendable {
             profileRevision: profileSnapshot.revision,
             profileSnapshot: profileSnapshot
         )
+        boundPayload = nil
     }
 
     public init(preparedLabel: PreparedLabel) throws {
-        try self.init(
+        guard !preparedLabel.bytes.isEmpty else { throw DeliveryStateError.invalidByteCount }
+        receipt = DeliveryReceipt(
+            state: .accepted,
             expectedBytes: preparedLabel.bytes.count,
+            profileRevision: preparedLabel.profileSnapshot.revision,
             profileSnapshot: preparedLabel.profileSnapshot
         )
+        boundPayload = preparedLabel.bytes
     }
 
     public mutating func prepared() throws { try transition(from: .accepted, to: .prepared) }
     public mutating func waiting() throws { try transition(from: .prepared, to: .waiting) }
 
+    /// Authorizes a new full-payload delivery before any external write. This
+    /// tracker does not support implicit restart or resume from a later state.
+    public func validateTransportStart(payload: Data) throws {
+        guard payload.count == receipt.expectedBytes else { throw DeliveryStateError.invalidByteCount }
+        guard case .waiting = receipt.state else { throw DeliveryStateError.invalidTransition }
+        if let boundPayload, boundPayload != payload { throw DeliveryStateError.payloadBindingMismatch }
+    }
+
     public mutating func acceptedByTransport(byteCount: Int) throws {
         guard byteCount >= 0, byteCount <= receipt.expectedBytes else { throw DeliveryStateError.invalidByteCount }
         switch receipt.state {
-        case .waiting, .transmitting:
+        case .waiting:
+            receipt = receipt.replacingState(.transmitting(bytesAccepted: byteCount))
+        case let .transmitting(previous) where byteCount >= previous:
             receipt = receipt.replacingState(.transmitting(bytesAccepted: byteCount))
         default: throw DeliveryStateError.invalidTransition
         }
