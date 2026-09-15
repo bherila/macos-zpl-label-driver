@@ -63,6 +63,62 @@ final class PrinterProfileTests: XCTestCase {
         )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidProfileVersion) }
     }
 
+    func testProfileRejectsUnsafeIdentityAndImpossibleSpeedObservations() throws {
+        let reference = try PrinterProfile.gc420dUSBReference()
+        let badModels = ["", "GC420d\nforged"]
+        for model in badModels {
+            let capabilities = PrinterCapabilities(
+                model: model,
+                thermalTransfer: reference.capabilities.thermalTransfer,
+                cutter: reference.capabilities.cutter,
+                peeler: reference.capabilities.peeler,
+                rewind: reference.capabilities.rewind,
+                tracking: reference.capabilities.tracking,
+                printSpeedChoicesIps: reference.capabilities.printSpeedChoicesIps,
+                darkness: reference.capabilities.darkness
+            )
+            XCTAssertThrowsError(try PrinterProfile(
+                schemaVersion: 1,
+                revision: 1,
+                capabilities: capabilities,
+                installedHardware: reference.installedHardware
+            )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidModelIdentifier) }
+        }
+
+        let invalidChoices = PrinterCapabilities(
+            model: reference.capabilities.model,
+            thermalTransfer: reference.capabilities.thermalTransfer,
+            cutter: reference.capabilities.cutter,
+            peeler: reference.capabilities.peeler,
+            rewind: reference.capabilities.rewind,
+            tracking: reference.capabilities.tracking,
+            printSpeedChoicesIps: [0, 2],
+            darkness: reference.capabilities.darkness
+        )
+        XCTAssertThrowsError(try PrinterProfile(
+            schemaVersion: 1,
+            revision: 1,
+            capabilities: invalidChoices,
+            installedHardware: reference.installedHardware
+        )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidPrintSpeedChoice) }
+
+        let impossibleObservation = InstalledHardware(
+            transport: reference.installedHardware.transport,
+            selectedFinishing: reference.installedHardware.selectedFinishing,
+            cutter: reference.installedHardware.cutter,
+            peeler: reference.installedHardware.peeler,
+            currentSpeedIps: 0,
+            currentDarkness: reference.installedHardware.currentDarkness,
+            currentTracking: reference.installedHardware.currentTracking
+        )
+        XCTAssertThrowsError(try PrinterProfile(
+            schemaVersion: 1,
+            revision: 1,
+            capabilities: reference.capabilities,
+            installedHardware: impossibleObservation
+        )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidInstalledPrintSpeed) }
+    }
+
     func testResolutionBindsProfileRevisionAndPreservesUnknownSettings() throws {
         let profile = try PrinterProfile.gc420dUSBReference(revision: 41)
         let resolved = try profile.resolveControls(job: .init())

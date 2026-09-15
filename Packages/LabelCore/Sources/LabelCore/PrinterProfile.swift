@@ -1,3 +1,5 @@
+import Foundation
+
 /// Typed capability and installed-hardware facts. These records deliberately
 /// keep model documentation separate from observations of one installed unit.
 public enum CapabilityState: String, Equatable, Sendable {
@@ -119,15 +121,34 @@ public struct PrinterProfile: Equatable, Sendable {
         installedHardware: InstalledHardware
     ) throws {
         guard schemaVersion == 1, revision > 0 else { throw PrinterProfileError.invalidProfileVersion }
+        guard Self.isSafeModelIdentifier(capabilities.model) else {
+            throw PrinterProfileError.invalidModelIdentifier
+        }
+        guard capabilities.printSpeedChoicesIps.allSatisfy({ $0 > 0 }) else {
+            throw PrinterProfileError.invalidPrintSpeedChoice
+        }
+        guard installedHardware.currentSpeedIps.map({ $0 > 0 }) ?? true else {
+            throw PrinterProfileError.invalidInstalledPrintSpeed
+        }
         self.schemaVersion = schemaVersion
         self.revision = revision
         self.capabilities = capabilities
         self.installedHardware = installedHardware
     }
+
+    private static func isSafeModelIdentifier(_ model: String) -> Bool {
+        guard !model.isEmpty, model.utf8.count <= 128 else { return false }
+        return model.unicodeScalars.allSatisfy { scalar in
+            !CharacterSet.controlCharacters.contains(scalar)
+        }
+    }
 }
 
 public enum PrinterProfileError: Error, Equatable, Sendable {
     case invalidProfileVersion
+    case invalidModelIdentifier
+    case invalidPrintSpeedChoice
+    case invalidInstalledPrintSpeed
     case unsupportedThermalMethod(ThermalMethod)
     case unsupportedFinishing(FinishingMode)
     case unsupportedPrintSpeed(Int)
