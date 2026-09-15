@@ -4,6 +4,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+import hashlib
 from pathlib import Path
 
 
@@ -11,6 +12,11 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "m1-discard-file-sink.sh"
 PPD = ROOT / "experiments" / "cups-probe" / "labelprobe-native.ppd"
 FILTER = "/Library/Printers/LabelPrinterDriver/M1/labelcapture-filter"
+PPD_HASHES = {
+    "labelprobe-native.ppd": "cceed46e91e0fdfe6714132085e2ffe066feedaafd33f36f430cd15ca5349ada",
+    "labelprobe-letter.ppd": "18ef9a332ba898ea17c727303a42684f1f6c1e3eff19cd110ee34bf79023eb18",
+    "labelprobe-a4.ppd": "4c0ba022ac562051cf9d5779c0ecfe1a4c639bb27d7ee9fca7829ef3fcdc7dac",
+}
 
 
 class M1DiscardFileSinkTests(unittest.TestCase):
@@ -39,6 +45,16 @@ class M1DiscardFileSinkTests(unittest.TestCase):
             self.assertIn(f'*cupsFilter2: "application/vnd.cups-pdf application/vnd.labelprobe 0 {FILTER}"', text)
             self.assertNotIn('application/pdf application/vnd.labelprobe 0 -"', text)
 
+    def test_privileged_experiment_pins_supplied_candidate_bytes(self) -> None:
+        script_text = SCRIPT.read_text(encoding="utf-8")
+        for name, expected_hash in PPD_HASHES.items():
+            candidate = ROOT / "experiments" / "cups-probe" / name
+            actual_hash = hashlib.sha256(candidate.read_bytes()).hexdigest()
+            self.assertEqual(expected_hash, actual_hash)
+            self.assertIn(expected_hash, script_text)
+        self.assertIn("exactly two cupsFilter2 declarations", script_text)
+        self.assertIn("must not contain a legacy cupsFilter declaration", script_text)
+
     def test_transaction_has_no_server_configuration_or_default_printer_mutation(self) -> None:
         text = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("file:///dev/null", text)
@@ -50,6 +66,9 @@ class M1DiscardFileSinkTests(unittest.TestCase):
         self.assertIn("Signature=adhoc", text)
         self.assertIn("minos 26\\.0", text)
         self.assertIn("filterSHA256", text)
+        self.assertIn("sourcePPDSHA256", text)
+        self.assertIn('test -L "$filter"', text)
+        self.assertIn("END { print NR }", text)
         self.assertIn('local snapshot="$temporary/labelcapture-filter"', text)
         self.assertIn('local ppd_snapshot="$temporary/candidate.ppd"', text)
         self.assertIn('install -o root -g wheel -m 0755 "$snapshot" "$filter"', text)
