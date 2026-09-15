@@ -9,12 +9,12 @@ public struct ZPLPreparedLabelEncoder: Sendable {
     public let graphics: ZPLGraphicEncoder
 
     public init(maxOutputBytes: Int = 64 * 1024 * 1024,
-                controls: ZPLControlEncoder = try! ZPLControlEncoder(),
-                graphics: ZPLGraphicEncoder = try! ZPLGraphicEncoder()) throws {
+                controls: ZPLControlEncoder? = nil,
+                graphics: ZPLGraphicEncoder? = nil) throws {
         guard maxOutputBytes >= 8 else { throw EncodingError.outputLimit }
         self.maxOutputBytes = maxOutputBytes
-        self.controls = controls
-        self.graphics = graphics
+        self.controls = try controls ?? ZPLControlEncoder()
+        self.graphics = try graphics ?? ZPLGraphicEncoder()
     }
 
     public func encode(bitmap: MonochromeBitmap, controls resolved: ResolvedPrinterControls) throws -> Data {
