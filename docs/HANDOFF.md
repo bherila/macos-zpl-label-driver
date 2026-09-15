@@ -91,6 +91,16 @@ non-byte-aligned final row and preview equivalence. Dithering, mixed-content
 policy, broader PDF-semantic fixtures, complete ZPL preparation, cancellation,
 queue integration, and printer delivery remain unimplemented or unvalidated.
 
+M2.3 conversion policy begins at `a62bb9914b79512d25c6b52ed6fa74d1e876da09`.
+`MonochromeConversion` makes the choice explicit: text/barcode content uses a
+documented strict cutoff, while photographic content uses a fixed, top-left
+anchored 4×4 ordered screen. Both consume validated top-to-bottom grayscale
+data and produce the same bounded canonical bitmap. Regression cases cover the
+cutoff boundary, dither phase, pure black/white endpoints, source-stride
+validation, and non-byte-aligned output. A typed job-ticket schema that binds
+this policy to user configuration, mixed-region segmentation, physical output,
+and scanner validation remain future work.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
