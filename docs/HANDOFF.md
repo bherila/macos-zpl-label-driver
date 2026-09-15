@@ -283,6 +283,21 @@ evidence only. Network.framework still owns real stream segmentation and its
 callback cannot reveal a peer byte count; no synthetic result is presented as
 USB, scheduler, device-status, or physical-print evidence.
 
+At `5a9be59d8e93e8a0b1f8cd3ca3e549e21dcfbed9`, M1.1 gains a separate inert
+Swift CUPS filter executable, `labelcapture-filter`, to pair with the existing
+discard-only `labelprobe` backend. It accepts the documented positional job ABI,
+validates bounded input/options before streaming the exact original bytes to
+stdout for the next stage, and emits only sanitized stderr metadata. It has no
+destination selection, retained payload, network/device access, recursive
+scheduler call, or installation behavior. Its user-space vectors prove file and
+stdin preservation plus safe rejection of unknown options, symlinks, oversized
+regular files and empty input; the existing probe remains the only allowed
+`labelprobe://discard` backend. This is portable implementation evidence toward
+M1-AC09 only, not scheduler execution, page-fidelity, dialog-option, sandbox,
+installation, transport, or local-signing acceptance. The M1 experimental queue
+remains uninstalled pending the separately recorded administrator-authenticated
+Tahoe procedure.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

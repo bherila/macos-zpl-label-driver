@@ -13,6 +13,13 @@ It has no device transport, network operation, installation code or payload writ
 Job invocations refuse any destination other than exactly `labelprobe://discard`.
 No-argument discovery lists only that explicit discard destination.
 
+`labelcapture-filter` is the matching inert filter-stage executable. It accepts
+the positional job ABI, validates the bounded input/options contract, and writes
+the exact stream to stdout for the next stage (normally only the `labelprobe`
+discard backend). It emits sanitized stderr metadata and never retains a payload,
+opens a device, invokes `lpr`, or selects a destination. It is not installed and
+has no printer-safe standalone mode.
+
 The source is cross-platform for offline tests; the installed product target
 remains Tahoe 26. A Linux ABI test does not validate a Mac spooler.
 
@@ -21,6 +28,7 @@ Build and exercise without privileges or queues:
 ```sh
 swift build --package-path Packages/LabelCore
 python3 scripts/check_probe.py Packages/LabelCore/.build/debug/labelprobe
+python3 scripts/check_capture_filter.py Packages/LabelCore/.build/debug/labelcapture-filter
 ```
 
 The checker exercises file/stdin input, option propagation, privacy, bad paths,
