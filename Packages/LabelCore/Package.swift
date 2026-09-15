@@ -14,7 +14,13 @@ let package = Package(
         .target(name: "LabelCore"),
         .executableTarget(name: "LabelCoreLab", dependencies: ["LabelCore"]),
         .executableTarget(name: "LabelCaptureProbe", dependencies: ["LabelCore"]),
-        .executableTarget(name: "LabelCaptureFilter", dependencies: ["LabelCore"]),
+        .target(
+            name: "CUPSOptionBridge",
+            path: "Sources/CUPSOptionBridge",
+            publicHeadersPath: "include",
+            linkerSettings: [.linkedLibrary("cups")]
+        ),
+        .executableTarget(name: "LabelCaptureFilter", dependencies: ["LabelCore", "CUPSOptionBridge"]),
         .testTarget(name: "LabelCoreTests", dependencies: ["LabelCore"]),
     ],
     swiftLanguageModes: [.v6]

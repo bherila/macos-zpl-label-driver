@@ -46,7 +46,7 @@ func run() throws {
           let job = Int(args[1]), job > 0,
           let copies = Int(args[4]), (1...10_000).contains(copies)
     else { throw FilterFailure.arguments }
-    let options = try ProbeOptions.parse(args[5])
+    let options = try CUPSExperimentOptions.parse(args[5])
     let fd: Int32
     if args.count == 7 {
         fd = open(args[6], O_RDONLY | O_NOFOLLOW | O_NONBLOCK)
