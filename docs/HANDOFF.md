@@ -408,6 +408,12 @@ This is portable/macOS automated partial M3-AC01/M3-AC12/M3-AC13 evidence
 only: it does not enumerate USB, reveal an identifier, establish a coordinator
 key, install a backend, send a command, or qualify physical delivery.
 
+At `6f6e190`, profile construction rejects a connection transport that differs
+from the installed-hardware transport. The regression proves a raw-TCP
+substitution cannot be paired with the GC420d USB reference. This is portable
+partial M3-AC01/M3-AC13 evidence only; it does not make USB delivery available
+or test any connection identifier, queue, scheduler, or physical device.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
