@@ -29,6 +29,15 @@ final class MonochromeBitmapTests: XCTestCase {
                   grayscale: [0,0,0,255,0,0], stride: 3)
         XCTAssertEqual(b.bytes, [128,0])
     }
+    func testDataBackedThresholdPreservesStrideAndThresholdRule() throws {
+        let b = try MonochromeBitmap.threshold(
+            width: 2,
+            height: 2,
+            grayscale: Data([0, 128, 99, 99, 127, 255, 99, 99]),
+            stride: 4
+        )
+        XCTAssertEqual(b.bytes, [0b1000_0000, 0b1000_0000])
+    }
     func testZeroThresholdIsWhite() throws {
         XCTAssertEqual(try MonochromeBitmap.threshold(width: 2, height: 1, grayscale: [0,255],
                                                      stride: 2, threshold: 0).bytes, [0])

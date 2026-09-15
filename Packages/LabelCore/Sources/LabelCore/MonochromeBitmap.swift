@@ -45,6 +45,36 @@ public struct MonochromeBitmap: Equatable, Sendable {
         width: Int, height: Int, grayscale: [UInt8], stride: Int,
         threshold: UInt8 = 128, maxByteCount: Int = 16 * 1024 * 1024
     ) throws -> Self {
+        try thresholdBytes(
+            width: width,
+            height: height,
+            grayscale: grayscale,
+            stride: stride,
+            threshold: threshold,
+            maxByteCount: maxByteCount
+        )
+    }
+
+    /// Data-backed form for native image buffers. The bytes are read directly;
+    /// callers do not need to materialize an array only to pack it again.
+    public static func threshold(
+        width: Int, height: Int, grayscale: Data, stride: Int,
+        threshold: UInt8 = 128, maxByteCount: Int = 16 * 1024 * 1024
+    ) throws -> Self {
+        try thresholdBytes(
+            width: width,
+            height: height,
+            grayscale: grayscale,
+            stride: stride,
+            threshold: threshold,
+            maxByteCount: maxByteCount
+        )
+    }
+
+    private static func thresholdBytes<Bytes: RandomAccessCollection>(
+        width: Int, height: Int, grayscale: Bytes, stride: Int,
+        threshold: UInt8, maxByteCount: Int
+    ) throws -> Self where Bytes.Element == UInt8, Bytes.Index == Int {
         let layout = try BitmapLayout(width: width, height: height, maxByteCount: maxByteCount)
         guard stride >= width else { throw ValidationError.invalidGrayscaleStride }
         let (required, overflow) = stride.multipliedReportingOverflow(by: height)
