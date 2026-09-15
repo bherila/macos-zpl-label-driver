@@ -201,6 +201,17 @@ firmware, image-threshold, media-size, copy, or storage commands. This is
 portable partial M3-AC03/M3-AC04/M3-AC13 evidence only: it is not a complete
 production label envelope and has no queue, USB, network, or physical result.
 
+M3 delivery-state work begins at `5026353212f7d26933904cc6d93ec711a0339601`.
+The portable tracker distinguishes accepted, prepared, waiting, transmitting,
+transmitted, device-confirmed, uncertain, failed-before-transmission, and
+cancelled-before-transmission states while binding the profile revision and
+expected byte count. A completed local write is not physical confirmation.
+Only a failure before any transmission may be automatically retried; partial
+write, post-send disconnect, crash, and cancellation ambiguity become
+`uncertain` and require explicit review. Regression tests cover these paths and
+invalid state/byte transitions. This is portable partial M3-AC09 evidence only;
+no scheduler retry behavior, backend, USB, network, or physical test has run.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
