@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -29,7 +30,9 @@ class M1DiscardFileSinkTests(unittest.TestCase):
             ]
             with output.open("w", encoding="utf-8") as handle:
                 subprocess.run(command, stdout=handle, check=True)
-            subprocess.run(["/usr/bin/cupstestppd", "-q", "-W", "filters", str(output)], check=True)
+            cupstestppd = shutil.which("cupstestppd")
+            if cupstestppd:
+                subprocess.run([cupstestppd, "-q", "-W", "filters", str(output)], check=True)
             text = output.read_text(encoding="latin-1")
             self.assertIn(f'*cupsFilter2: "application/pdf application/vnd.labelprobe 0 {FILTER}"', text)
             self.assertIn(f'*cupsFilter2: "application/vnd.cups-pdf application/vnd.labelprobe 0 {FILTER}"', text)

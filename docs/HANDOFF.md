@@ -471,6 +471,13 @@ explicitly; trap-driven failures use it as well. Regression assertions cover
 both calls. This remains source-level transaction safety evidence only, with no
 queue or protected artifact created.
 
+The first hosted run for the initial transaction commit failed in the Linux
+repository-preflight job because that standard runner has no `cupstestppd`.
+The PPD-materialization test now uses that validator when available and still
+asserts the exact generated declarations everywhere; Tahoe's transaction itself
+continues to require pre-stage and post-stage `cupstestppd` validation. This is
+a test-environment correction, not macOS evidence.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
