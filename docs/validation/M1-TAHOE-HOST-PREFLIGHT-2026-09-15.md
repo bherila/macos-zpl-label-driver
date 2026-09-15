@@ -22,6 +22,9 @@ system CUPS directory merely because root authentication is available. A
 supported Tahoe add-on placement, code-admission behavior, ownership/rollback
 record, and narrow OS-authorized installation path remain to be established
 before creating `LabelProbe_DISCARDS_JOBS` or installing either inert executable.
+The CUPS `ServerBin` contract confirms that filters/backends live under the
+configured server binary directory and that changing it requires a scheduler
+restart; the project prohibits that global configuration change ([R34](../REFERENCES.md#r34)).
 
 No CUPS queue/default was changed, no existing printer was touched, and no
 printer data was sent. This host is a reused system with a pre-existing physical
