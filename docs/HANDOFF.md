@@ -423,6 +423,18 @@ substitution cannot be paired with the GC420d USB reference. This is portable
 partial M3-AC01/M3-AC13 evidence only; it does not make USB delivery available
 or test any connection identifier, queue, scheduler, or physical device.
 
+ADR 0003 records the current M1 go/no-go boundary: the portable CUPS filter,
+discard probe, option parsing, prepared-profile snapshot, and lease tests do
+not establish a supported Tahoe placement, scheduler admission, or local
+ad-hoc installer authorization path. The production adapter remains
+unselected. It explicitly prohibits installing the discard queue, copying into
+a scheduler directory, changing scheduler configuration, or starting an IPP
+alternative merely to infer native behavior. This advances M1-AC12
+configuration/decision evidence only; M1-AC01 through M1-AC11 and M1-AC13
+remain unchecked. The next finite action is a reviewed Tahoe placement and
+narrow authorization design, followed only then by the reversible discard-queue
+experiment.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
