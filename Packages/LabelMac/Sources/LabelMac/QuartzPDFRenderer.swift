@@ -32,6 +32,13 @@ public enum QuartzPDFRenderer {
         public let canvas: DotCanvas
         public let annotationPolicy: AnnotationPolicy
         public let placementPolicy: PagePlacementPolicy
+        /// Optional extraction region in the visually upright crop box. The
+        /// page remains the original PDF; this never accepts analysis pixels.
+        public let sourceRegion: NormalizedRect?
+        public let regionRotation: ExtractionRotation
+        /// When supplied by an immutable plan, the renderer re-derives and
+        /// checks the source rectangle against the actual PDF page geometry.
+        public let expectedSourceRect: PDFSourceRect?
         public let maximumInputBytes: Int
         /// Bounds document traversal independently from the selected page and
         /// destination-pixel budget.
@@ -44,6 +51,9 @@ public enum QuartzPDFRenderer {
             canvas: DotCanvas,
             annotationPolicy: AnnotationPolicy = .reject,
             placementPolicy: PagePlacementPolicy = .fit,
+            sourceRegion: NormalizedRect? = nil,
+            regionRotation: ExtractionRotation = .degrees0,
+            expectedSourceRect: PDFSourceRect? = nil,
             maximumInputBytes: Int = 100 * 1024 * 1024,
             maximumSourcePages: Int = 1_000,
             maximumPixels: Int = 32 * 1024 * 1024
@@ -53,6 +63,9 @@ public enum QuartzPDFRenderer {
             self.canvas = canvas
             self.annotationPolicy = annotationPolicy
             self.placementPolicy = placementPolicy
+            self.sourceRegion = sourceRegion
+            self.regionRotation = regionRotation
+            self.expectedSourceRect = expectedSourceRect
             self.maximumInputBytes = maximumInputBytes
             self.maximumSourcePages = maximumSourcePages
             self.maximumPixels = maximumPixels
@@ -101,13 +114,44 @@ public enum QuartzPDFRenderer {
         if request.annotationPolicy == .reject, pageContainsAnnotations(page) {
             throw Error.annotationsUnsupported
         }
+        let pageBox: PDFPageBox
         let placement: PagePlacement
         do {
+            pageBox = try geometry(of: page)
+            if let expected = request.expectedSourceRect {
+                guard let region = request.sourceRegion,
+                      rectanglesEqual(pageBox.sourceRect(for: region), expected) else {
+                    throw Error.invalidPageGeometry
+                }
+            }
+            var sourceSize = try pageBox.effectivePhysicalSize()
+            if let region = request.sourceRegion {
+                sourceSize = PhysicalSize(
+                    width: try Millimeters(sourceSize.width.value * region.width),
+                    height: try Millimeters(sourceSize.height.value * region.height)
+                )
+            }
+            if request.regionRotation == .degrees90 || request.regionRotation == .degrees270 {
+                sourceSize = PhysicalSize(width: sourceSize.height, height: sourceSize.width)
+            }
             placement = try PagePlacementPlanner.plan(
-                source: try physicalSize(of: page),
+                source: sourceSize,
                 canvas: request.canvas,
                 policy: request.placementPolicy
             )
+        } catch {
+            throw Error.invalidPageGeometry
+        }
+        let target = CGRect(
+            x: placement.target.x,
+            y: placement.target.y,
+            width: placement.target.width,
+            height: placement.target.height
+        )
+        let unrotatedTarget = unrotatedTarget(for: target, rotation: request.regionRotation)
+        let fullTarget: CGRect
+        do {
+            fullTarget = try fullPageTarget(for: request.sourceRegion, selectedTarget: unrotatedTarget)
         } catch {
             throw Error.invalidPageGeometry
         }
@@ -129,13 +173,9 @@ public enum QuartzPDFRenderer {
             // keep PDF's drawing transform in its native coordinate space.
             context.interpolationQuality = .high
             context.setShouldAntialias(true)
-            let target = CGRect(
-                x: placement.target.x,
-                y: placement.target.y,
-                width: placement.target.width,
-                height: placement.target.height
-            )
-            context.concatenate(page.getDrawingTransform(.cropBox, rect: target, rotate: 0, preserveAspectRatio: false))
+            context.clip(to: target)
+            rotateContext(context, around: CGPoint(x: target.midX, y: target.midY), rotation: request.regionRotation)
+            context.concatenate(page.getDrawingTransform(.cropBox, rect: fullTarget, rotate: 0, preserveAspectRatio: false))
             context.drawPDFPage(page)
             return true
         }
@@ -156,7 +196,7 @@ public enum QuartzPDFRenderer {
         return CGPDFArrayGetCount(annotations) > 0
     }
 
-    private static func physicalSize(of page: CGPDFPage) throws -> PhysicalSize {
+    private static func geometry(of page: CGPDFPage) throws -> PDFPageBox {
         let crop = page.getBoxRect(.cropBox)
         var userUnit: CGPDFReal = 1
         if let dictionary = page.dictionary {
@@ -173,6 +213,58 @@ public enum QuartzPDFRenderer {
             height: crop.height,
             rotationDegreesClockwise: Int(normalizedRotation),
             userUnit: userUnit
-        ).effectivePhysicalSize()
+        )
+    }
+
+    private static func fullPageTarget(
+        for region: NormalizedRect?,
+        selectedTarget: CGRect
+    ) throws -> CGRect {
+        guard let region else { return selectedTarget }
+        let width = selectedTarget.width / region.width
+        let height = selectedTarget.height / region.height
+        let result = CGRect(
+            x: selectedTarget.minX - region.x * width,
+            y: selectedTarget.minY - (1 - region.y - region.height) * height,
+            width: width,
+            height: height
+        )
+        let values = [result.minX, result.minY, result.width, result.height]
+        guard values.allSatisfy({ $0.isFinite && abs($0) <= 1_000_000_000 }) else {
+            throw Error.invalidPageGeometry
+        }
+        return result
+    }
+
+    private static func unrotatedTarget(for target: CGRect, rotation: ExtractionRotation) -> CGRect {
+        switch rotation {
+        case .degrees0, .degrees180:
+            return target
+        case .degrees90, .degrees270:
+            return CGRect(
+                x: target.midX - target.height / 2,
+                y: target.midY - target.width / 2,
+                width: target.height,
+                height: target.width
+            )
+        }
+    }
+
+    private static func rotateContext(
+        _ context: CGContext,
+        around center: CGPoint,
+        rotation: ExtractionRotation
+    ) {
+        guard rotation != .degrees0 else { return }
+        context.translateBy(x: center.x, y: center.y)
+        // Quartz coordinates are bottom-up; negative is visually clockwise.
+        context.rotate(by: -CGFloat(rotation.rawValue) * .pi / 180)
+        context.translateBy(x: -center.x, y: -center.y)
+    }
+
+    private static func rectanglesEqual(_ lhs: PDFSourceRect, _ rhs: PDFSourceRect) -> Bool {
+        let tolerance = 1e-7
+        return abs(lhs.x - rhs.x) <= tolerance && abs(lhs.y - rhs.y) <= tolerance &&
+            abs(lhs.width - rhs.width) <= tolerance && abs(lhs.height - rhs.height) <= tolerance
     }
 }
