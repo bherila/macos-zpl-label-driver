@@ -145,9 +145,16 @@ public struct OfflinePreparedConversion: Equatable, Sendable {
 }
 
 public enum OfflineConversion {
+    public static let maximumInputBytes = 100 * 1024 * 1024
+
     public static func prepare(originalPDF: Data, ticket: OfflineConversionTicket) throws -> OfflinePreparedConversion {
         let canvas = try DotCanvas(physicalSize: ticket.physicalSize, resolution: ticket.resolution)
-        let rendered = try QuartzPDFRenderer.render(.init(originalPDF: originalPDF, pageNumber: ticket.pageNumber, canvas: canvas))
+        let rendered = try QuartzPDFRenderer.render(.init(
+            originalPDF: originalPDF,
+            pageNumber: ticket.pageNumber,
+            canvas: canvas,
+            maximumInputBytes: maximumInputBytes
+        ))
         let bitmap = try ticket.conversion.coreConversion.convert(
             width: rendered.width,
             height: rendered.height,

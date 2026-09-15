@@ -332,5 +332,33 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: shared.path))
     }
 
+    func testOfflineCLIRejectsOversizedSourceAndTicketBeforePreparation() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "LabelDriverCLILimits-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let ticket = directory.appending(path: "ticket.json")
+        try Data("""
+        { "schemaVersion": 1, "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "textAndBarcodeThreshold", "cutoff": 128 } }
+        """.utf8).write(to: ticket)
+        let oversizedPDF = directory.appending(path: "oversized.pdf")
+        FileManager.default.createFile(atPath: oversizedPDF.path, contents: Data())
+        let handle = try FileHandle(forWritingTo: oversizedPDF)
+        try handle.truncate(atOffset: UInt64(OfflineConversion.maximumInputBytes + 1))
+        try handle.close()
+        let sourceResult = try runCLI(["validate", oversizedPDF.path, "--job-ticket", ticket.path, "--json"])
+        XCTAssertEqual(sourceResult.status, 65)
+        XCTAssertTrue(sourceResult.stdout.isEmpty)
+
+        let oversizedTicket = directory.appending(path: "oversized-ticket.json")
+        try Data(repeating: 0x20, count: 64 * 1024 + 1).write(to: oversizedTicket)
+        let source = repositoryRoot().appending(path: "Fixtures/generated/native-vector.pdf")
+        let ticketResult = try runCLI(["validate", source.path, "--job-ticket", oversizedTicket.path, "--json"])
+        XCTAssertEqual(ticketResult.status, 65)
+        XCTAssertTrue(ticketResult.stdout.isEmpty)
+    }
+
     private enum TestError: Error { case unavailable }
 }
