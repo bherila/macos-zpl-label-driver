@@ -514,6 +514,16 @@ after correction, the same built artifact passed ad-hoc identity, no-authority,
 arm64, macOS-platform, and 26.0-minimum checks. This is actual local artifact
 metadata evidence, still not scheduler execution.
 
+At `f6cb7fb`, the privileged experiment was narrowed to the exact SHA-256 byte
+sequences of the three supplied candidate PPDs. Validation also requires exactly
+the two expected `cupsFilter2` declarations and rejects legacy `cupsFilter`
+directives. The ownership record now retains the source PPD hash, has an exact
+six-line shape, and removal rejects a missing or symbolic-link filter. Local
+validation passed 38 Python tests, 89 LabelCore tests, 132 independent encoder
+round trips, 15 backend ABI cases, eight filter ABI cases, and one inert
+filter-to-discard pipeline case. This is source-level transaction safety evidence
+only; administrator-backed scheduler admission remains not run.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
