@@ -102,20 +102,23 @@ apply() {
   [[ $# -eq 2 ]] || die '--apply needs FILTER_BINARY and CANDIDATE_PPD'
   local source_filter="$1" source_ppd="$2"
   [[ -f "$source_filter" && ! -L "$source_filter" && -x "$source_filter" ]] || die 'filter must be an executable regular non-symlink file'
+  [[ -f "$source_ppd" && ! -L "$source_ppd" ]] || die 'candidate PPD must be a regular non-symlink file'
   local temporary
   local root_created=0 filter_staged=0 queue_installed=0
   temporary="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/label-driver-m1.XXXXXX")"
   trap 'rm -rf "$temporary"' EXIT
   local snapshot="$temporary/labelcapture-filter"
+  local ppd_snapshot="$temporary/candidate.ppd"
   local generated="$temporary/capture.ppd"
   /bin/cp -p "$source_filter" "$snapshot"
+  /bin/cp -p "$source_ppd" "$ppd_snapshot"
   [[ -f "$snapshot" && ! -L "$snapshot" && -x "$snapshot" ]] || die 'private filter snapshot is invalid'
   /usr/bin/codesign --verify --strict --verbose=2 "$snapshot" >/dev/null
   local approved_sha
   approved_sha="$(/usr/bin/shasum -a 256 "$snapshot" | /usr/bin/awk '{ print $1 }')"
-  validate_ppd "$source_ppd"
+  validate_ppd "$ppd_snapshot"
   ensure_not_existing
-  render_ppd "$source_ppd" "$generated"
+  render_ppd "$ppd_snapshot" "$generated"
 
   # Authenticate once through the OS. The following root operations are a
   # fixed allowlist: protected staging, one named queue, and no default change.

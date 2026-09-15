@@ -495,6 +495,12 @@ same hash. This closes the earlier verify/copy/hash substitution window without
 claiming that an ad-hoc signature authenticates a publisher. The check remains
 unexecuted under administrator authorization.
 
+The supplied candidate PPD is now copied into the same private temporary
+directory before validation and rendering, so a user-writable source change
+cannot alter the generated privileged transaction between those two steps.
+The generated PPD remains a narrow transformation of that snapshot and is
+strictly revalidated after the fixed filter is staged.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
