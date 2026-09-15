@@ -698,6 +698,23 @@ adds partial automated M2-AC02/M2-AC03 evidence only; extraction placement,
 installed application capture, scheduler fidelity, and physical output remain
 unverified.
 
+At `c2f0c1a`, the M1 candidate assets and capture-filter output path were
+reconciled with review findings R6/R7. All three PPDs now use consistent
+full-bleed media keys; their new exact SHA-256 values are pinned by the
+transaction, and a read-only validation mode accepts every supplied candidate
+while rejecting a one-byte mutation before authorization. The filter recognizes
+its configured `application/vnd.labelprobe` final MIME and makes stdout
+nonblocking before delivery. Its poll loop continues through temporary
+backpressure until the actual deadline, handles short writes, and never enters a
+deadline-free blocking write. Process regressions fill the output pipe, prove a
+consumer delayed beyond one poll interval succeeds, prove a permanently stalled
+consumer fails at the ten-second bound, and retain the closed-consumer failure
+case. The offline accelerator passes with 42 Python checks, 93 LabelCore tests,
+132 independent round trips, 15 backend ABI cases, ten filter ABI cases, and one
+inert pipeline case. This closes the identified source-level R6/R7 defects; it
+does not establish scheduler admission, installed filter behavior, physical
+output, or transaction safety. R1/R2 still prohibit `--apply`.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
