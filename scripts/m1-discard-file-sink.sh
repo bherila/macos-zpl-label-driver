@@ -102,15 +102,19 @@ apply() {
   [[ $# -eq 2 ]] || die '--apply needs FILTER_BINARY and CANDIDATE_PPD'
   local source_filter="$1" source_ppd="$2"
   [[ -f "$source_filter" && ! -L "$source_filter" && -x "$source_filter" ]] || die 'filter must be an executable regular non-symlink file'
-  /usr/bin/codesign --verify --strict --verbose=2 "$source_filter" >/dev/null
-  validate_ppd "$source_ppd"
-  ensure_not_existing
-
   local temporary
   local root_created=0 filter_staged=0 queue_installed=0
   temporary="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/label-driver-m1.XXXXXX")"
   trap 'rm -rf "$temporary"' EXIT
+  local snapshot="$temporary/labelcapture-filter"
   local generated="$temporary/capture.ppd"
+  /bin/cp -p "$source_filter" "$snapshot"
+  [[ -f "$snapshot" && ! -L "$snapshot" && -x "$snapshot" ]] || die 'private filter snapshot is invalid'
+  /usr/bin/codesign --verify --strict --verbose=2 "$snapshot" >/dev/null
+  local approved_sha
+  approved_sha="$(/usr/bin/shasum -a 256 "$snapshot" | /usr/bin/awk '{ print $1 }')"
+  validate_ppd "$source_ppd"
+  ensure_not_existing
   render_ppd "$source_ppd" "$generated"
 
   # Authenticate once through the OS. The following root operations are a
@@ -119,16 +123,17 @@ apply() {
   trap rollback_after_apply_error ERR
   /usr/bin/sudo /bin/mkdir -p "$root"
   root_created=1
-  /usr/bin/sudo /usr/bin/install -o root -g wheel -m 0755 "$source_filter" "$filter"
+  /usr/bin/sudo /usr/bin/install -o root -g wheel -m 0755 "$snapshot" "$filter"
   filter_staged=1
   /usr/bin/sudo /usr/bin/codesign --verify --strict --verbose=2 "$filter" >/dev/null
+  [[ "$(/usr/bin/sudo /usr/bin/shasum -a 256 "$filter" | /usr/bin/awk '{ print $1 }')" == "$approved_sha" ]] || fail_after_apply 'staged filter bytes do not match the approved snapshot'
   /usr/bin/sudo /usr/bin/cupstestppd -q "$generated" || fail_after_apply 'generated experiment PPD failed strict validation after staging'
   {
     echo 'schemaVersion=1'
     echo "queue=$queue"
     echo "uri=$uri"
     echo "filter=$filter"
-    /usr/bin/shasum -a 256 "$source_filter" | /usr/bin/awk '{print "filterSHA256=" $1}'
+    echo "filterSHA256=$approved_sha"
   } | /usr/bin/sudo /usr/bin/tee "$ownership" >/dev/null
   /usr/bin/sudo /usr/sbin/chown root:wheel "$ownership"
   /usr/bin/sudo /bin/chmod 0644 "$ownership"
