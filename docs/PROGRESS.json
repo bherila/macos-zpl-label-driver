@@ -49,7 +49,8 @@
       "releaseValidation": "not-run",
       "evidence": [
         "docs/ACCELERATOR-VALIDATION.md (partial portable preparation evidence only; no full milestone pass)",
-        "docs/validation/M2-PR2-FINITE-EXTENTS-2026-09-17.md (8before overflow reproductions,57Core both/native scaffold/accelerator/signatures pass; PR2 additive fix, stack/base reconciliation pending)"
+        "docs/validation/M2-PR2-FINITE-EXTENTS-2026-09-17.md (8before overflow reproductions,57Core both/native scaffold/accelerator/signatures pass; PR2 additive fix, stack/base reconciliation pending)",
+        "724cb13 (deterministic AcroForm/Widget appearance fixture and explicit native-renderer rejection regression; partial M2-AC03/M2-AC09 automated evidence only)"
       ],
       "blockers": []
     },
