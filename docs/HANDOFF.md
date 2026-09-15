@@ -681,6 +681,23 @@ and in the complete 37-test LabelMac debug and release suites. This strengthens
 automated M2-AC09/M2-AC10 evidence for the offline executable; installed scheduler
 signal delivery and filter exit interpretation still require M1 integration evidence.
 
+At `b404f0c`, PDF placement became an explicit physical contract instead of an
+implicit pixel fit. `PagePlacementPlanner` provides centered `fit` and
+`actualSize` policies, converts through independent horizontal and vertical dot
+pitch, bounds target dimensions, and reports the visible clipped rectangle. The
+Quartz renderer derives each selected page's effective crop-box size from its
+origin, rotation, and `/UserUnit`, then renders once into the planned dot rect;
+the version-1 offline ticket carries the policy and continues to default to fit
+when the field is absent. Portable regressions prove non-square-pitch fitting,
+actual-size clipping, and that changing only `/UserUnit` changes physical extent.
+Native regressions prove compensated geometry remains identical, square content
+is not distorted on a non-square-pitch canvas, and existing transparency,
+raster, origin, and mixed-page semantics remain intact. Debug/release suites pass
+93 LabelCore and 39 LabelMac tests, and the full offline accelerator passes. This
+adds partial automated M2-AC02/M2-AC03 evidence only; extraction placement,
+installed application capture, scheduler fidelity, and physical output remain
+unverified.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

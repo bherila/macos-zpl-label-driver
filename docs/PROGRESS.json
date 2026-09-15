@@ -60,7 +60,8 @@
         "28e24fe (bounded sanitized worker-failure protocol with distinct malformed, encrypted, ticket, annotation, page, limit, geometry, and render categories; partial M2-AC09/M2-AC10 evidence)",
         "fb66dad (deterministic encrypted PDF fixture plus Quartz, worker, truncated-input, and no-final-output CLI regressions; additional automated M2-AC09/M2-AC10 evidence)",
         "bc63ae8 (descriptor-based no-follow capped source/ticket/artifact reads with metadata drift, symlink, type, and private hard-link rejection; additional automated M2-AC09/M2-AC10 evidence)",
-        "46a6ec0 (real CLI SIGTERM cancellation with exit 130, stable error, worker scratch cleanup, and no final output artifacts; additional automated M2-AC09/M2-AC10 evidence)"
+        "46a6ec0 (real CLI SIGTERM cancellation with exit 130, stable error, worker scratch cleanup, and no final output artifacts; additional automated M2-AC09/M2-AC10 evidence)",
+        "b404f0c (explicit physical fit/actual-size placement with non-square dot-pitch and UserUnit extent regressions; additional automated M2-AC02/M2-AC03 evidence)"
       ],
       "blockers": []
     },
