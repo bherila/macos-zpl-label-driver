@@ -62,4 +62,28 @@ final class PrinterProfileTests: XCTestCase {
             installedHardware: reference.installedHardware
         )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidProfileVersion) }
     }
+
+    func testResolutionBindsProfileRevisionAndPreservesUnknownSettings() throws {
+        let profile = try PrinterProfile.gc420dUSBReference(revision: 41)
+        let resolved = try profile.resolveControls(job: .init())
+        XCTAssertEqual(resolved.profileSchemaVersion, 1)
+        XCTAssertEqual(resolved.profileRevision, 41)
+        XCTAssertEqual(resolved.thermalMethod, .value(.directThermal))
+        XCTAssertEqual(resolved.finishing, .value(.tearOff))
+        XCTAssertEqual(resolved.printSpeedIps, .leaveUnchanged)
+        XCTAssertEqual(resolved.darkness, .leaveUnchanged)
+        XCTAssertEqual(resolved.tracking, .leaveUnchanged)
+    }
+
+    func testJobControlsOverrideWorkflowDefaultsAndUnsupportedDefaultsFail() throws {
+        let profile = try PrinterProfile.gc420dUSBReference()
+        let resolved = try profile.resolveControls(
+            job: .init(printSpeedIps: 4),
+            workflowDefaults: .init(printSpeedIps: 2)
+        )
+        XCTAssertEqual(resolved.printSpeedIps, .value(4))
+        XCTAssertThrowsError(try profile.resolveControls(
+            job: .init(), workflowDefaults: .init(printSpeedIps: 5)
+        )) { XCTAssertEqual($0 as? PrinterProfileError, .unsupportedPrintSpeed(5)) }
+    }
 }
