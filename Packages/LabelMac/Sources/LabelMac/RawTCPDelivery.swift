@@ -66,9 +66,7 @@ public enum RawTCPDelivery {
         profileRevision: Int,
         configuration: RawTCPDeliveryConfiguration = .default
     ) async throws -> RawTCPDeliveryResult {
-        var tracker = try DeliveryTracker(expectedBytes: payload.count, profileRevision: profileRevision)
-        try tracker.prepared()
-        try tracker.waiting()
+        _ = try DeliveryTracker(expectedBytes: payload.count, profileRevision: profileRevision)
 
         guard let port = NWEndpoint.Port(rawValue: endpoint.port) else {
             throw RawTCPEndpoint.ValidationError.invalidPort
@@ -76,9 +74,23 @@ public enum RawTCPDelivery {
         let connection = NWConnection(host: NWEndpoint.Host(endpoint.host), port: port, using: .tcp)
         let attempt = await ConnectionAttempt(connection: connection, payload: payload, timeoutMilliseconds: configuration.timeoutMilliseconds).run()
 
+        return try result(for: attempt, payloadByteCount: payload.count, profileRevision: profileRevision)
+    }
+
+    /// Kept separate from Network.framework callbacks so every observable
+    /// failure boundary has a deterministic regression vector. This is not a
+    /// device receipt: `completed` still means only local stream acceptance.
+    static func result(
+        for attempt: RawTCPAttemptResult,
+        payloadByteCount: Int,
+        profileRevision: Int
+    ) throws -> RawTCPDeliveryResult {
+        var tracker = try DeliveryTracker(expectedBytes: payloadByteCount, profileRevision: profileRevision)
+        try tracker.prepared()
+        try tracker.waiting()
         switch attempt {
         case .completed:
-            try tracker.acceptedByTransport(byteCount: payload.count)
+            try tracker.acceptedByTransport(byteCount: payloadByteCount)
             try tracker.transportFinished()
             return RawTCPDeliveryResult(receipt: tracker.receipt, failure: nil)
         case .connectionFailed:
@@ -97,7 +109,7 @@ public enum RawTCPDelivery {
     }
 }
 
-private enum ConnectionAttemptResult: Sendable {
+enum RawTCPAttemptResult: Sendable {
     case completed
     case connectionFailed
     case timedOutBeforeSend
@@ -112,8 +124,8 @@ private final class ConnectionAttempt: @unchecked Sendable {
     private let payload: Data
     private let timeoutMilliseconds: Int
     private let lock = NSLock()
-    private var result: ConnectionAttemptResult?
-    private var continuation: CheckedContinuation<ConnectionAttemptResult, Never>?
+    private var result: RawTCPAttemptResult?
+    private var continuation: CheckedContinuation<RawTCPAttemptResult, Never>?
     private var sendWasAttempted = false
 
     init(connection: NWConnection, payload: Data, timeoutMilliseconds: Int) {
@@ -122,7 +134,7 @@ private final class ConnectionAttempt: @unchecked Sendable {
         self.timeoutMilliseconds = timeoutMilliseconds
     }
 
-    func run() async -> ConnectionAttemptResult {
+    func run() async -> RawTCPAttemptResult {
         await withCheckedContinuation { continuation in
             lock.lock()
             self.continuation = continuation
@@ -165,7 +177,7 @@ private final class ConnectionAttempt: @unchecked Sendable {
         lock.withLock { sendWasAttempted }
     }
 
-    private func finish(_ next: ConnectionAttemptResult) {
+    private func finish(_ next: RawTCPAttemptResult) {
         lock.lock()
         guard result == nil else { lock.unlock(); return }
         result = next
