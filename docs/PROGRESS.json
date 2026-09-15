@@ -51,7 +51,8 @@
         "docs/ACCELERATOR-VALIDATION.md (partial portable preparation evidence only; no full milestone pass)",
         "724cb13 (deterministic AcroForm/Widget appearance fixture and explicit native-renderer rejection regression; partial M2-AC03/M2-AC09 automated evidence only)",
         "69e7c6e (Core Graphics transparency-compositing and embedded-raster structure oracles; additional partial M2-AC03 automated evidence)",
-        "11d9c70 (per-page placement oracle for mixed native-label and Letter source geometry; partial M2-AC02/M2-AC03 automated evidence)"
+        "11d9c70 (per-page placement oracle for mixed native-label and Letter source geometry; partial M2-AC02/M2-AC03 automated evidence)",
+        "c7f4a5e (preview-first offline output pair with rollback on ZPL creation failure and aliased-path rejection; partial M2-AC05/M2-AC09/M2-AC10 automated evidence)"
       ],
       "blockers": []
     },
