@@ -168,6 +168,19 @@ protocol-provenance table, retaining `leave unchanged` for unobserved values.
 It must not promote the offline diagnostic graphics envelope to production
 control output or contact the USB device.
 
+At `0ed6031e90975a494945bcad73c44dc67c29d2c3`, control resolution now has one
+typed precedence rule: explicit job choice, then immutable workflow defaults,
+then the configured installed-device value. The resulting record includes the
+profile schema/revision and uses an explicit `leaveUnchanged` case rather than
+inventing a current speed, darkness, or tracking value. The reference profile
+therefore resolves direct thermal and selected tear-off, while its unobserved
+speed/darkness/tracking settings remain unchanged. Regression tests prove
+revision binding, precedence, and rejection of an unsupported workflow speed.
+This advances only the portable portion of M3-AC02/M3-AC13; it creates no ZPL,
+transport traffic, persistent configuration, or device I/O. The next slice is
+a cited control-protocol table and bounded encoder, with ordinary-job output
+forbidden from reset, calibration, save, erase, or firmware commands.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
