@@ -54,7 +54,8 @@
         "11d9c70 (per-page placement oracle for mixed native-label and Letter source geometry; partial M2-AC02/M2-AC03 automated evidence)",
         "c7f4a5e (preview-first offline output pair with rollback on ZPL creation failure and aliased-path rejection; partial M2-AC05/M2-AC09/M2-AC10 automated evidence)",
         "5aec8ee (same-directory staged files and exclusive atomic final renames for preview/ZPL; additional partial M2-AC09/M2-AC10 evidence)",
-        "3fcca54 (pre-map PDF/ticket file bounds with post-map recheck and sparse over-limit regressions; additional partial M2-AC09/M2-AC10 evidence)"
+        "3fcca54 (pre-map PDF/ticket file bounds with post-map recheck and sparse over-limit regressions; additional partial M2-AC09/M2-AC10 evidence)",
+        "7963306 (private bounded render subprocess with 60-second deadline, signal cancellation, cleanup, and local ad-hoc product verification; additional automated M2-AC09/M2-AC10 evidence)"
       ],
       "blockers": []
     },

@@ -19,10 +19,9 @@ facts advance M0 automated/native-signing evidence only; they do not establish
 installed scheduler, option propagation, document fidelity, hardware, or
 release acceptance.
 
-Next safe slice is M1.1/M1.2 proof planning and execution only after explicit
-authorization for a finite, clearly named experimental capture queue and its
-installation scope. No printer output, queue modification, privileged helper,
-or production adapter is authorized by the current evidence.
+The finite M1 discard-queue experiment is authorized, but it has not run because
+noninteractive administrator authorization is unavailable on the observed host.
+No queue, protected path, global scheduler setting, or printer was changed.
 
 Reusable components now exist: canonical monochrome packing/threshold/PBM, bounded
 uncompressed graphic fields, copy ordering, an offline vector CLI, an inert CUPS
@@ -31,8 +30,11 @@ rewrite these as empty skeletons. Run the offline suite before and after changes
 
 The portable suite is tested on Linux in debug/release; Apple-specific targets
 and all actual printing remain untested here. See [ACCELERATOR-VALIDATION.md](ACCELERATOR-VALIDATION.md).
-The production PDF renderer, state-control layer, device coordinator/transport,
-extraction engine/editor, installer and qualified printer profile are not implemented.
+The Quartz PDF renderer, typed GC420d baseline controls, delivery-state model,
+raw-TCP simulator path, cross-process lease primitive, and offline conversion CLI
+are implemented with the partial evidence recorded below. The accepted production
+CUPS adapter, USB delivery, extraction engine/editor, installer, and physically
+qualified printer profile are not implemented or accepted.
 
 Installation, queue changes, hardware operations, merge and publication still need
 the existing authorizations. The probe supports **only** a clearly named discard
@@ -597,6 +599,26 @@ cap and passes it explicitly into the Quartz request; job tickets have a separat
 both fail with input exit 65 before preparation or output. All 24 LabelMac tests
 pass. This is partial automated M2-AC09/M2-AC10 evidence; it is not the required
 cancelable worker deadline or protection against every hostile filesystem.
+
+At `7963306`, the real offline CLI now delegates PDF parsing, Quartz rendering,
+monochrome conversion, and diagnostic ZPL preparation to a separate unprivileged
+`label-render-worker`. The parent creates a mode-0700 private scratch directory,
+passes only that directory with fixed protocol filenames, bounds and reads regular
+artifacts without following symbolic links, and removes scratch on every normal,
+failure, timeout, and cancellation return. A 60-second page deadline terminates
+only the owned worker, with SIGKILL escalation after a bounded grace period; CLI
+SIGINT/SIGTERM feeds the same cancellation path. Worker result, preview, and ZPL
+sizes are independently capped and validated before the existing exclusive final
+publication path can run. Native debug and release suites passed 28 tests,
+including real worker success, malformed-input failure, forced timeout, explicit
+cancellation, and executable-level conversion. The complete offline accelerator
+suite also passed (39 Python tests, 89 LabelCore tests, 132 independent round trips,
+15 backend ABI cases, eight filter ABI cases, and one inert pipeline case). All
+three command-line products built arm64 with minimum macOS 26.0 and passed local
+ad-hoc signature verification; only the inert diagnostic was executed by that
+signing smoke. This is substantive automated M2-AC09/M2-AC10 evidence, but installed
+CUPS cancellation/stdout behavior, hostile worker compromise containment, physical
+output, and clean-host admission remain unverified, so neither item is checked.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
