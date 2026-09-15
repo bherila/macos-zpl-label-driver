@@ -60,21 +60,47 @@ public struct RawTCPDeliveryResult: Equatable, Sendable {
 /// connection. Network.framework owns stream segmentation; this type neither
 /// scans addresses nor interprets responses as a printer confirmation.
 public enum RawTCPDelivery {
+    /// Preferred typed handoff: payload bytes and the profile snapshot cannot
+    /// be paired with different revisions by this adapter.
+    public static func send(
+        _ preparedLabel: PreparedLabel,
+        to endpoint: RawTCPEndpoint,
+        configuration: RawTCPDeliveryConfiguration = .default
+    ) async throws -> RawTCPDeliveryResult {
+        let tracker = try DeliveryTracker(preparedLabel: preparedLabel)
+        return try await send(
+            payload: preparedLabel.bytes,
+            to: endpoint,
+            tracker: tracker,
+            configuration: configuration
+        )
+    }
+
+    /// Legacy revision-only handoff. New product paths should pass a
+    /// `PreparedLabel` so the receipt has an immutable configuration snapshot.
     public static func send(
         _ payload: Data,
         to endpoint: RawTCPEndpoint,
         profileRevision: Int,
         configuration: RawTCPDeliveryConfiguration = .default
     ) async throws -> RawTCPDeliveryResult {
-        _ = try DeliveryTracker(expectedBytes: payload.count, profileRevision: profileRevision)
+        let tracker = try DeliveryTracker(expectedBytes: payload.count, profileRevision: profileRevision)
+        return try await send(payload: payload, to: endpoint, tracker: tracker, configuration: configuration)
+    }
 
+    private static func send(
+        payload: Data,
+        to endpoint: RawTCPEndpoint,
+        tracker: DeliveryTracker,
+        configuration: RawTCPDeliveryConfiguration
+    ) async throws -> RawTCPDeliveryResult {
         guard let port = NWEndpoint.Port(rawValue: endpoint.port) else {
             throw RawTCPEndpoint.ValidationError.invalidPort
         }
         let connection = NWConnection(host: NWEndpoint.Host(endpoint.host), port: port, using: .tcp)
         let attempt = await ConnectionAttempt(connection: connection, payload: payload, timeoutMilliseconds: configuration.timeoutMilliseconds).run()
 
-        return try result(for: attempt, payloadByteCount: payload.count, profileRevision: profileRevision)
+        return try result(for: attempt, tracker: tracker)
     }
 
     /// Kept separate from Network.framework callbacks so every observable
@@ -85,12 +111,32 @@ public enum RawTCPDelivery {
         payloadByteCount: Int,
         profileRevision: Int
     ) throws -> RawTCPDeliveryResult {
-        var tracker = try DeliveryTracker(expectedBytes: payloadByteCount, profileRevision: profileRevision)
+        try result(
+            for: attempt,
+            tracker: DeliveryTracker(expectedBytes: payloadByteCount, profileRevision: profileRevision)
+        )
+    }
+
+    /// Testable typed result seam. This preserves a prepared-label snapshot
+    /// through every TCP completion/failure state without inventing a device
+    /// receipt.
+    static func result(
+        for attempt: RawTCPAttemptResult,
+        preparedLabel: PreparedLabel
+    ) throws -> RawTCPDeliveryResult {
+        try result(for: attempt, tracker: DeliveryTracker(preparedLabel: preparedLabel))
+    }
+
+    private static func result(
+        for attempt: RawTCPAttemptResult,
+        tracker initialTracker: DeliveryTracker
+    ) throws -> RawTCPDeliveryResult {
+        var tracker = initialTracker
         try tracker.prepared()
         try tracker.waiting()
         switch attempt {
         case .completed:
-            try tracker.acceptedByTransport(byteCount: payloadByteCount)
+            try tracker.acceptedByTransport(byteCount: tracker.receipt.expectedBytes)
             try tracker.transportFinished()
             return RawTCPDeliveryResult(receipt: tracker.receipt, failure: nil)
         case .connectionFailed:

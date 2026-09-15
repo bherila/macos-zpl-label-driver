@@ -42,6 +42,18 @@ final class RawTCPDeliveryTests: XCTestCase {
         XCTAssertNil(result.failure)
     }
 
+    func testPreparedLabelDeliveryPreservesTheBoundProfileSnapshot() throws {
+        let profile = try PrinterProfile.gc420dUSBReference(revision: 17)
+        let bitmap = try MonochromeBitmap(width: 8, height: 1, bytes: [0x40])
+        let prepared = try ZPLPreparedLabelEncoder().prepare(bitmap: bitmap, profile: profile)
+        let result = try RawTCPDelivery.result(for: .completed, preparedLabel: prepared)
+
+        XCTAssertEqual(result.receipt.state, .transmitted(bytesAccepted: prepared.bytes.count))
+        XCTAssertEqual(result.receipt.profileSnapshot, prepared.profileSnapshot)
+        XCTAssertEqual(result.receipt.profileRevision, 17)
+        XCTAssertNil(result.failure)
+    }
+
     func testFaultOutcomesAreConservativeAndNeverDeviceConfirmed() throws {
         let expected: [(RawTCPAttemptResult, DeliveryState, RawTCPDeliveryFailure?)] = [
             (.completed, .transmitted(bytesAccepted: 4), nil),
