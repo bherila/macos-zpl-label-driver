@@ -182,6 +182,19 @@ final class PrinterProfileTests: XCTestCase {
         XCTAssertEqual(String(reflecting: identity), "StableConnectionIdentity(redacted)")
     }
 
+    func testProfileCannotSubstituteRawTCPForInstalledUSB() throws {
+        let reference = try PrinterProfile.gc420dUSBReference()
+        let substitutedConnection = ConnectionConfiguration(transport: .rawTCP, stableIdentity: .unobserved)
+        XCTAssertThrowsError(try PrinterProfile(
+            schemaVersion: 1,
+            revision: 1,
+            capabilities: reference.capabilities,
+            installedHardware: reference.installedHardware,
+            media: reference.media,
+            connection: substitutedConnection
+        )) { XCTAssertEqual($0 as? PrinterProfileError, .inconsistentConnectionTransport) }
+    }
+
     func testResolutionBindsProfileRevisionAndPreservesUnknownSettings() throws {
         let profile = try PrinterProfile.gc420dUSBReference(revision: 41)
         let resolved = try profile.resolveControls(job: .init())
