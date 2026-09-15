@@ -325,6 +325,12 @@ is a real M1 architecture blocker, not permission to copy binaries into a
 system directory or to weaken the authorization boundary; all M1 acceptance
 items remain unchecked.
 
+At `aa909f6`, the host-preflight blocker now cites the public CUPS `ServerBin`
+contract: filters/backends reside under the scheduler-configured binary directory
+and changing that setting requires a scheduler restart. That supports the existing
+decision not to redirect CUPS globally merely to install this experiment; it is
+not evidence of a supported Tahoe add-on path or scheduler admission.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
