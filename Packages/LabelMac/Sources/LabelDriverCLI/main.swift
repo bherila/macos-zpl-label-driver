@@ -177,16 +177,7 @@ struct LabelDriverCLI {
     }
 
     private static func readBoundedRegularFile(_ url: URL, maximumBytes: Int) throws -> Data {
-        let values = try url.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
-        guard values.isRegularFile == true, let fileSize = values.fileSize,
-              fileSize >= 0, fileSize <= maximumBytes else {
-            throw CLIError.input("input file exceeds its resource contract")
-        }
-        let data = try Data(contentsOf: url, options: [.mappedIfSafe])
-        guard data.count <= maximumBytes else {
-            throw CLIError.input("input file changed beyond its resource contract")
-        }
-        return data
+        try BoundedRegularFile.read(url, maximumBytes: maximumBytes)
     }
 
     private static func validateNewDestination(_ url: URL) throws {
