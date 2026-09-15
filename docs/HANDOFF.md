@@ -101,6 +101,15 @@ validation, and non-byte-aligned output. A typed job-ticket schema that binds
 this policy to user configuration, mixed-region segmentation, physical output,
 and scanner validation remain future work.
 
+M2.2 fixture evidence extends at `4c5951bed6f7d5484901e7119c98bf1b2f390140`.
+The native test now consumes the supplied, integrity-checked `user-unit` PDF
+rather than a regenerated equivalent. Its two physically equivalent pages
+produce the identical thresholded packed bitmap—the actual encoder input—even
+though Quartz's antialiased grayscale edge samples are not a stable raw-raster
+golden. This is a focused original-source/UserUnit regression, not a complete
+claim for all PDF semantics, crop extraction, annotation appearance, or physical
+label fidelity.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
