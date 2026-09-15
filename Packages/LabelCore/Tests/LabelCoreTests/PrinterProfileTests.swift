@@ -22,6 +22,8 @@ final class PrinterProfileTests: XCTestCase {
         ))
         XCTAssertEqual(profile.media.configuredTracking, .unobserved)
         XCTAssertEqual(profile.media.calibration, .unobserved)
+        XCTAssertEqual(profile.connection.transport, .usb)
+        XCTAssertEqual(profile.connection.stableIdentity, .unobserved)
     }
 
     func testGC420dAcceptsOnlyDocumentedSpeedChoicesAndTearOff() throws {
@@ -67,7 +69,8 @@ final class PrinterProfileTests: XCTestCase {
             revision: 1,
             capabilities: reference.capabilities,
             installedHardware: reference.installedHardware,
-            media: reference.media
+            media: reference.media,
+            connection: reference.connection
         )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidProfileVersion) }
     }
 
@@ -90,7 +93,8 @@ final class PrinterProfileTests: XCTestCase {
                 revision: 1,
                 capabilities: capabilities,
                 installedHardware: reference.installedHardware,
-                media: reference.media
+                media: reference.media,
+                connection: reference.connection
             )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidModelIdentifier) }
         }
 
@@ -109,7 +113,8 @@ final class PrinterProfileTests: XCTestCase {
             revision: 1,
             capabilities: invalidChoices,
             installedHardware: reference.installedHardware,
-            media: reference.media
+            media: reference.media,
+            connection: reference.connection
         )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidPrintSpeedChoice) }
 
         let impossibleObservation = InstalledHardware(
@@ -126,7 +131,8 @@ final class PrinterProfileTests: XCTestCase {
             revision: 1,
             capabilities: reference.capabilities,
             installedHardware: impossibleObservation,
-            media: reference.media
+            media: reference.media,
+            connection: reference.connection
         )) { XCTAssertEqual($0 as? PrinterProfileError, .invalidInstalledPrintSpeed) }
     }
 
@@ -166,6 +172,14 @@ final class PrinterProfileTests: XCTestCase {
             job: .init(),
             workflowDefaults: .init(mediaGeometry: request)
         )) { XCTAssertEqual($0 as? PrinterProfileError, .unavailableMediaGeometry) }
+    }
+
+    func testConnectionIdentityIsValidatedAndRedactedByDefault() throws {
+        XCTAssertThrowsError(try StableConnectionIdentity(opaqueValue: ""))
+        XCTAssertThrowsError(try StableConnectionIdentity(opaqueValue: "usb identity"))
+        let identity = try StableConnectionIdentity(opaqueValue: "synthetic-usb-identity")
+        XCTAssertEqual(String(describing: identity), "StableConnectionIdentity(redacted)")
+        XCTAssertEqual(String(reflecting: identity), "StableConnectionIdentity(redacted)")
     }
 
     func testResolutionBindsProfileRevisionAndPreservesUnknownSettings() throws {

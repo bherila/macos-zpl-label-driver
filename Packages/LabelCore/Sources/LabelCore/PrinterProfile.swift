@@ -107,6 +107,40 @@ public enum PrinterTransport: String, Equatable, Sendable {
     case rawTCP
 }
 
+/// A validated local connection identity. It is intentionally opaque to normal
+/// callers and diagnostics; transport URIs, serial numbers, and USB paths must
+/// not leak through routine status output.
+public struct StableConnectionIdentity: Equatable, Sendable, CustomStringConvertible, CustomDebugStringConvertible {
+    public enum ValidationError: Error, Equatable, Sendable { case invalidIdentifier }
+
+    private let rawValue: String
+
+    public init(opaqueValue: String) throws {
+        guard !opaqueValue.isEmpty, opaqueValue.utf8.count <= 512,
+              opaqueValue.unicodeScalars.allSatisfy({
+                  !$0.properties.isWhitespace && !CharacterSet.controlCharacters.contains($0)
+              })
+        else { throw ValidationError.invalidIdentifier }
+        rawValue = opaqueValue
+    }
+
+    public var description: String { "StableConnectionIdentity(redacted)" }
+    public var debugDescription: String { description }
+}
+
+/// Connection facts live beside media and capabilities in the immutable
+/// profile. An unobserved identity is not interchangeable with any other USB
+/// device and cannot authorize delivery or coordination.
+public struct ConnectionConfiguration: Equatable, Sendable {
+    public let transport: PrinterTransport
+    public let stableIdentity: Observation<StableConnectionIdentity>
+
+    public init(transport: PrinterTransport, stableIdentity: Observation<StableConnectionIdentity>) {
+        self.transport = transport
+        self.stableIdentity = stableIdentity
+    }
+}
+
 public struct PrinterCapabilities: Equatable, Sendable {
     public let model: String
     public let thermalTransfer: CapabilityFact
@@ -174,13 +208,15 @@ public struct PrinterProfile: Equatable, Sendable {
     public let capabilities: PrinterCapabilities
     public let installedHardware: InstalledHardware
     public let media: MediaConfiguration
+    public let connection: ConnectionConfiguration
 
     public init(
         schemaVersion: Int,
         revision: Int,
         capabilities: PrinterCapabilities,
         installedHardware: InstalledHardware,
-        media: MediaConfiguration
+        media: MediaConfiguration,
+        connection: ConnectionConfiguration
     ) throws {
         guard schemaVersion == 1, revision > 0 else { throw PrinterProfileError.invalidProfileVersion }
         guard Self.isSafeModelIdentifier(capabilities.model) else {
@@ -197,6 +233,7 @@ public struct PrinterProfile: Equatable, Sendable {
         self.capabilities = capabilities
         self.installedHardware = installedHardware
         self.media = media
+        self.connection = connection
     }
 
     private static func isSafeModelIdentifier(_ model: String) -> Bool {
@@ -344,6 +381,10 @@ public extension PrinterProfile {
                 ),
                 configuredTracking: .unobserved,
                 calibration: .unobserved
+            ),
+            connection: ConnectionConfiguration(
+                transport: .usb,
+                stableIdentity: .unobserved
             )
         )
     }
