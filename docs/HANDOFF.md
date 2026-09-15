@@ -230,6 +230,12 @@ This avoids treating the old diagnostic envelope as production output, but is
 still only portable prepared-output evidence: no transport, scheduler, USB,
 network, or physical printer acceptance has occurred.
 
+At `422a0c72eff6420f57658db2f9d21e401c2f60c9`, the prepared-label encoder
+removed forced construction of its default subencoders. Defaults now propagate
+configuration errors through the throwing initializer rather than crashing if
+future bounds change. The existing 81-core-test suite passes; this is a safety
+fix with no device or transport effect.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
