@@ -577,6 +577,15 @@ application-facing Letter stock as a native label. It is additional partial
 automated M2-AC02/M2-AC03 evidence only; M1 must still establish what each real
 application supplies to the queue.
 
+At `c7f4a5e`, offline conversion no longer writes printer-language output before
+its exact packed-bitmap preview. The CLI rejects identical destinations, writes
+the preview first, and removes that owned preview if the subsequent ZPL creation
+fails. A real overlong-filename failure injected after destination validation
+proves neither file remains; a second regression proves an aliased output pair
+writes nothing. All 23 LabelMac tests pass. This is partial automated M2-AC05/
+M2-AC09/M2-AC10 evidence for the offline CLI only. It is not a crash-atomic
+multi-filesystem transaction, scheduler filter contract, or delivery result.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
