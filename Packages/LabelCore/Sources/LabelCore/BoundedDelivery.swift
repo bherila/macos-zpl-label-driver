@@ -2,7 +2,9 @@ import Foundation
 
 /// A transport adapter reports only how many bytes it accepted. It never
 /// reports printing completion. Implementations must not shell out or interpret
-/// document/profile strings.
+/// document/profile strings. If `write` throws, it guarantees that it accepted
+/// zero bytes from that call; adapters with ambiguous send errors must use the
+/// separate uncertain-attempt state instead of conforming to this protocol.
 public protocol DeliveryByteSink {
     mutating func write(_ bytes: Data) throws -> Int
 }
@@ -21,6 +23,7 @@ public enum BoundedDelivery {
         _ payload: Data, to sink: inout S, tracker: inout DeliveryTracker
     ) throws {
         guard payload.count == tracker.receipt.expectedBytes else { throw BoundedDeliveryError.invalidWriteCount }
+        try tracker.validateTransportStart(payload: payload)
         var offset = 0
         do {
             while offset < payload.count {

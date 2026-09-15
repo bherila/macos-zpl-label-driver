@@ -45,7 +45,8 @@ public enum MonochromeConversion: Equatable, Sendable {
             for y in 0..<height {
                 for x in 0..<width {
                     let threshold = ranks[(y & 3) * 4 + (x & 3)] * 16 + 8
-                    if grayscale[y * stride + x] < threshold {
+                    let sourceIndex = grayscale.index(grayscale.startIndex, offsetBy: y * stride + x)
+                    if grayscale[sourceIndex] < threshold {
                         packed[y * layout.bytesPerRow + x / 8] |= UInt8(0x80 >> (x % 8))
                     }
                 }
