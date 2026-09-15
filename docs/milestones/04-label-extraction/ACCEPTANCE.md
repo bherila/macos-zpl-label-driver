@@ -12,7 +12,7 @@ Evidence levels: **A** automated; **C** repository/CI/configuration inspection; 
 | [ ] | M4-AC01 | Separate media concepts | A | Input sheet and output stock remain separate through schema, editor, queue options and rendering. |
 | [x] | M4-AC02 | Extraction geometry | A | Canonical regions survive page rotation/origin/size handling and map to correct output without hidden stretching. Evidence: [2026-09-15 native planned-region rendering](../../validation/M4-NATIVE-EXTRACTION-2026-09-15.md). |
 | [ ] | M4-AC03 | Multiple labels/order | A | Multi-region/multipage extraction and collated/uncollated copies match the shared ordering examples exactly. |
-| [ ] | M4-AC04 | Template mismatch | A | Changed size/layout/anchors and ambiguous candidates fail or hold before default delivery, with useful reasons. |
+| [x] | M4-AC04 | Template mismatch | A | Changed size/layout/anchors and ambiguous candidates fail or hold before default delivery, with useful reasons. Evidence: [2026-09-15 bounded local structural analysis](../../validation/M4-STRUCTURAL-ANALYSIS-2026-09-15.md). |
 | [ ] | M4-AC05 | Non-label pages | A | Every source page is accounted for; customs/instructions are not silently dropped and explicit skips are reported. |
 | [ ] | M4-AC06 | Teach-once UI | I | A user can define, reorder, preview, save, reload and correct a profile with keyboard-accessible controls. |
 | [x] | M4-AC07 | Exact source/preview | A | Detection uses only analysis inputs; final labels render from original pages and preview the actual packed output. Evidence: [2026-09-15 native planned-region rendering](../../validation/M4-NATIVE-EXTRACTION-2026-09-15.md). |
