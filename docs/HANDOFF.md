@@ -158,6 +158,25 @@ a malformed ticket returns exit 65, writes nothing to stdout, and yields an
 `INPUT_ERROR` JSON object on stderr. This establishes only the offline CLI
 contract; a CUPS filter's stdout/stderr contract remains unproven.
 
+M3.1 begins at `9a6e0fb391f3b54f994d453cd53edbba2667a4dc`. `LabelCore` now
+has a versioned, typed GC420d USB reference profile with provenance-bearing
+tri-state facts. Documented model facts remain distinct from installed-unit
+observations: thermal transfer is unsupported, model cutter/peeler/rewind
+facts remain unknown where the documentation does not establish them, while
+the reported installed cutter is absent and the selected tear-off setup is
+explicit. Current speed, darkness and tracking remain `nil`; no missing value
+becomes a guessed default. Portable regression vectors permit only documented
+2/3/4 ips and direct thermal/tear-off, reject transfer/cut/peel/rewind/speed
+5, and reject explicit darkness or tracking until their installed values and
+mapping are qualified. This partially advances M3-AC01, M3-AC02 and M3-AC13
+at automated evidence only. It emits no ZPL controls, device query, persistent
+command, queue change, or transport I/O; M3-AC03 through M3-AC12 remain open.
+
+The next safe M3 slice is deterministic settings resolution and a
+protocol-provenance table, retaining `leave unchanged` for unobserved values.
+It must not promote the offline diagnostic graphics envelope to production
+control output or contact the USB device.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
