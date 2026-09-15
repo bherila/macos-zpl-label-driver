@@ -142,6 +142,13 @@ repeat conversion exits 73 with no stdout payload. The test uses only a
 temporary directory and a synthetic PDF/ticket; it does not enumerate or
 contact a printer.
 
+At `d6e6a8627805605fc15e806bac5dc782543705fa`, `--json` errors gained stable
+stderr records with `USAGE`, `INPUT_ERROR`, or `OUTPUT_ERROR` codes while
+retaining conventional nonzero exits. The executable regression confirms that
+a malformed ticket returns exit 65, writes nothing to stdout, and yields an
+`INPUT_ERROR` JSON object on stderr. This establishes only the offline CLI
+contract; a CUPS filter's stdout/stderr contract remains unproven.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
