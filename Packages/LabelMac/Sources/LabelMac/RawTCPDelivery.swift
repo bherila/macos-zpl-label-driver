@@ -45,6 +45,8 @@ public enum RawTCPDeliveryFailure: Error, Equatable, Sendable {
     case connectionFailed
     case timedOutBeforeSend
     case timedOutAfterSendAttempt
+    case cancelledBeforeSend
+    case cancelledAfterSendAttempt
     case sendFailedAfterAttempt
 }
 
@@ -148,6 +150,12 @@ public enum RawTCPDelivery {
         case .timedOutAfterSendAttempt:
             try tracker.transportAttemptBecameAmbiguous()
             return RawTCPDeliveryResult(receipt: tracker.receipt, failure: .timedOutAfterSendAttempt)
+        case .cancelledBeforeSend:
+            try tracker.failedOrCancelledBeforeTransmission(cancelled: true)
+            return RawTCPDeliveryResult(receipt: tracker.receipt, failure: .cancelledBeforeSend)
+        case .cancelledAfterSendAttempt:
+            try tracker.transportAttemptBecameAmbiguous()
+            return RawTCPDeliveryResult(receipt: tracker.receipt, failure: .cancelledAfterSendAttempt)
         case .sendFailedAfterAttempt:
             try tracker.transportAttemptBecameAmbiguous()
             return RawTCPDeliveryResult(receipt: tracker.receipt, failure: .sendFailedAfterAttempt)
@@ -155,82 +163,155 @@ public enum RawTCPDelivery {
     }
 }
 
-enum RawTCPAttemptResult: Sendable {
+enum RawTCPAttemptResult: Equatable, Sendable {
     case completed
     case connectionFailed
     case timedOutBeforeSend
     case timedOutAfterSendAttempt
+    case cancelledBeforeSend
+    case cancelledAfterSendAttempt
     case sendFailedAfterAttempt
 }
 
-/// The lock only settles callback races within one Network.framework attempt;
-/// it is not a printer ownership mechanism.
+/// Serializes every external attempt boundary. The send operation is invoked on
+/// this machine's queue immediately after admission, so timeout or cancellation
+/// cannot settle a stale pre-send classification between admission and send.
+/// This is not a printer ownership mechanism.
+final class RawTCPAttemptStateMachine: @unchecked Sendable {
+    typealias Completion = @Sendable (RawTCPAttemptResult) -> Void
+    typealias SendOperation = @Sendable (@escaping @Sendable (Bool) -> Void) -> Void
+
+    private enum Phase { case idle, waiting, sending, settled }
+
+    private let queue: DispatchQueue
+    private let startTransport: @Sendable () -> Void
+    private let send: SendOperation
+    private let cancelTransport: @Sendable () -> Void
+    private var phase: Phase = .idle
+    private var result: RawTCPAttemptResult?
+    private var completion: Completion?
+
+    init(
+        queueLabel: String = "org.bherila.label-driver.raw-tcp.attempt",
+        startTransport: @escaping @Sendable () -> Void,
+        send: @escaping SendOperation,
+        cancelTransport: @escaping @Sendable () -> Void
+    ) {
+        queue = DispatchQueue(label: queueLabel)
+        self.startTransport = startTransport
+        self.send = send
+        self.cancelTransport = cancelTransport
+    }
+
+    func setCompletion(_ completion: @escaping Completion) {
+        queue.async {
+            if let result = self.result { completion(result) }
+            else { self.completion = completion }
+        }
+    }
+
+    func start() {
+        queue.async {
+            guard self.phase == .idle else { return }
+            self.phase = .waiting
+            self.startTransport()
+        }
+    }
+
+    func ready() {
+        queue.async {
+            guard self.phase == .waiting else { return }
+            self.phase = .sending
+            self.send { [weak self] succeeded in self?.sendCompleted(succeeded: succeeded) }
+        }
+    }
+
+    func connectionEnded() { queue.async { self.settleForConnectionEnd() } }
+    func timedOut() { queue.async { self.settleForTimeout() } }
+    func cancelled() { queue.async { self.settleForCancellation() } }
+
+    private func sendCompleted(succeeded: Bool) {
+        queue.async {
+            guard self.phase == .sending else { return }
+            self.settle(succeeded ? .completed : .sendFailedAfterAttempt)
+        }
+    }
+
+    private func settleForConnectionEnd() {
+        switch phase {
+        case .idle, .waiting: settle(.connectionFailed)
+        case .sending: settle(.sendFailedAfterAttempt)
+        case .settled: break
+        }
+    }
+
+    private func settleForTimeout() {
+        switch phase {
+        case .idle, .waiting: settle(.timedOutBeforeSend)
+        case .sending: settle(.timedOutAfterSendAttempt)
+        case .settled: break
+        }
+    }
+
+    private func settleForCancellation() {
+        switch phase {
+        case .idle, .waiting: settle(.cancelledBeforeSend)
+        case .sending: settle(.cancelledAfterSendAttempt)
+        case .settled: break
+        }
+    }
+
+    private func settle(_ next: RawTCPAttemptResult) {
+        guard phase != .settled else { return }
+        phase = .settled
+        result = next
+        let completion = self.completion
+        self.completion = nil
+        cancelTransport()
+        completion?(next)
+    }
+}
+
 private final class ConnectionAttempt: @unchecked Sendable {
     private let connection: NWConnection
-    private let payload: Data
     private let timeoutMilliseconds: Int
-    private let lock = NSLock()
-    private var result: RawTCPAttemptResult?
-    private var continuation: CheckedContinuation<RawTCPAttemptResult, Never>?
-    private var sendWasAttempted = false
+    private let machine: RawTCPAttemptStateMachine
 
     init(connection: NWConnection, payload: Data, timeoutMilliseconds: Int) {
         self.connection = connection
-        self.payload = payload
         self.timeoutMilliseconds = timeoutMilliseconds
-    }
-
-    func run() async -> RawTCPAttemptResult {
-        await withCheckedContinuation { continuation in
-            lock.lock()
-            self.continuation = continuation
-            lock.unlock()
-
-            connection.stateUpdateHandler = { [weak self] state in self?.received(state) }
-            connection.start(queue: DispatchQueue(label: "org.bherila.label-driver.raw-tcp"))
-            DispatchQueue.global().asyncAfter(deadline: .now() + .milliseconds(timeoutMilliseconds)) { [weak self] in
-                self?.timedOut()
+        let callbackQueue = DispatchQueue(label: "org.bherila.label-driver.raw-tcp.network")
+        machine = RawTCPAttemptStateMachine(
+            startTransport: { connection.start(queue: callbackQueue) },
+            send: { completion in
+                connection.send(content: payload, completion: .contentProcessed { error in
+                    completion(error == nil)
+                })
+            },
+            cancelTransport: { connection.cancel() }
+        )
+        connection.stateUpdateHandler = { [weak machine] state in
+            switch state {
+            case .ready: machine?.ready()
+            case .failed, .cancelled: machine?.connectionEnded()
+            default: break
             }
         }
     }
 
-    private func received(_ state: NWConnection.State) {
-        switch state {
-        case .ready:
-            lock.lock()
-            guard result == nil else { lock.unlock(); return }
-            sendWasAttempted = true
-            lock.unlock()
-            connection.send(content: payload, completion: .contentProcessed { [weak self] error in
-                self?.completedSend(error: error)
-            })
-        case .failed, .cancelled:
-            finish(hasSendAttempted() ? .sendFailedAfterAttempt : .connectionFailed)
-        default:
-            break
+    func run() async -> RawTCPAttemptResult {
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                machine.setCompletion { continuation.resume(returning: $0) }
+                machine.start()
+                DispatchQueue.global().asyncAfter(
+                    deadline: .now() + .milliseconds(timeoutMilliseconds)
+                ) { [weak machine] in
+                    machine?.timedOut()
+                }
+            }
+        } onCancel: { [machine] in
+            machine.cancelled()
         }
-    }
-
-    private func completedSend(error: NWError?) {
-        finish(error == nil ? .completed : .sendFailedAfterAttempt)
-    }
-
-    private func timedOut() {
-        finish(hasSendAttempted() ? .timedOutAfterSendAttempt : .timedOutBeforeSend)
-    }
-
-    private func hasSendAttempted() -> Bool {
-        lock.withLock { sendWasAttempted }
-    }
-
-    private func finish(_ next: RawTCPAttemptResult) {
-        lock.lock()
-        guard result == nil else { lock.unlock(); return }
-        result = next
-        let continuation = self.continuation
-        self.continuation = nil
-        lock.unlock()
-        connection.cancel()
-        continuation?.resume(returning: next)
     }
 }
