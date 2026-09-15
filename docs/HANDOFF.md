@@ -658,6 +658,19 @@ independent round trips, ABI/pipeline checks, and 33 release LabelMac tests pass
 This adds concrete partial M2-AC09/M2-AC10 evidence; supported password entry or
 decryption is not implemented or claimed.
 
+At `bc63ae8`, the CLI source/ticket reader and parent-side worker-artifact reader
+were unified behind a descriptor-based bounded regular-file primitive. It opens the
+final component with `O_NOFOLLOW`, verifies type and declared size on the same file
+descriptor, reads at most the configured cap plus one sentinel byte, and rejects
+identity, size, modification-time, or change-time drift before returning bytes.
+Private worker artifacts additionally require current-user ownership and exactly one
+hard link. Regressions cover exact-limit reads, over-limit rejection, invalid caps,
+symbolic links, directories, hard-linked private artifacts, and a real CLI symlinked
+PDF rejection. Native debug and release suites pass 36 tests; the focused final
+reader rerun passes three tests. This adds partial automated M2-AC09/M2-AC10
+filesystem-safety evidence, not a claim that every hostile filesystem or installed
+CUPS spool-file behavior has been qualified.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
