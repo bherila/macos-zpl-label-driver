@@ -322,6 +322,14 @@ and changing that setting requires a scheduler restart. That supports the existi
 decision not to redirect CUPS globally merely to install this experiment; it is
 not evidence of a supported Tahoe add-on path or scheduler admission.
 
+At `d0581646b4567b829a8e5f8ed28cc70652e7b4e9`, the inert capture filter gained
+a small C bridge to CUPS `cupsParseOptions`/`cupsGetOption`. It parses the real
+CUPS option wire string and cross-checks the result against the existing strict
+experiment choices, retaining duplicate/invalid-value rejection rather than
+silently taking a parser-selected value. This advances source-level M1 option
+handling only; it is not the product ticket schema, installed filter evidence,
+or proof that Tahoe's dialog exposes or propagates a given option.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
