@@ -177,26 +177,27 @@ public struct InstalledHardware: Equatable, Sendable {
     public let selectedFinishing: FinishingMode
     public let cutter: CapabilityFact
     public let peeler: CapabilityFact
-    public let currentSpeedIps: Int?
-    public let currentDarkness: Int?
-    public let currentTracking: MediaTracking?
+    /// Read-only observations are diagnostic facts, never configured defaults.
+    public let observedSpeedIps: Int?
+    public let observedDarkness: Int?
+    public let observedTracking: MediaTracking?
 
     public init(
         transport: PrinterTransport,
         selectedFinishing: FinishingMode,
         cutter: CapabilityFact,
         peeler: CapabilityFact,
-        currentSpeedIps: Int?,
-        currentDarkness: Int?,
-        currentTracking: MediaTracking?
+        observedSpeedIps: Int?,
+        observedDarkness: Int?,
+        observedTracking: MediaTracking?
     ) {
         self.transport = transport
         self.selectedFinishing = selectedFinishing
         self.cutter = cutter
         self.peeler = peeler
-        self.currentSpeedIps = currentSpeedIps
-        self.currentDarkness = currentDarkness
-        self.currentTracking = currentTracking
+        self.observedSpeedIps = observedSpeedIps
+        self.observedDarkness = observedDarkness
+        self.observedTracking = observedTracking
     }
 }
 
@@ -225,7 +226,7 @@ public struct PrinterProfile: Equatable, Sendable {
         guard capabilities.printSpeedChoicesIps.allSatisfy({ $0 > 0 }) else {
             throw PrinterProfileError.invalidPrintSpeedChoice
         }
-        guard installedHardware.currentSpeedIps.map({ $0 > 0 }) ?? true else {
+        guard installedHardware.observedSpeedIps.map({ $0 > 0 }) ?? true else {
             throw PrinterProfileError.invalidInstalledPrintSpeed
         }
         guard installedHardware.transport == connection.transport else {
@@ -327,13 +328,10 @@ public extension PrinterProfile {
         }
         if request.darkness != nil { throw PrinterProfileError.unavailableDarkness }
         if let tracking = request.tracking {
-            // The model documents sensor types, but the installed stock's
-            // configured tracking remains unobserved. Do not change it merely
-            // because the model is capable of a mode.
-            guard installedHardware.currentTracking == tracking,
-                  capabilities.tracking[tracking]?.state == .supported else {
-                throw PrinterProfileError.unavailableTracking(tracking)
-            }
+            // Model capability and a read-only observation do not qualify a
+            // control command. Tracking remains unavailable until its command,
+            // installed-media semantics, and validation evidence are explicit.
+            throw PrinterProfileError.unavailableTracking(tracking)
         }
         // Nominal stock never authorizes device geometry. The reference profile
         // has no observed calibration or cited ordinary-job mapping, so an
@@ -370,9 +368,9 @@ public extension PrinterProfile {
                 selectedFinishing: .tearOff,
                 cutter: CapabilityFact(state: .unsupported, evidence: .reportedInstallation),
                 peeler: CapabilityFact(state: .unknown, evidence: unobserved),
-                currentSpeedIps: nil,
-                currentDarkness: nil,
-                currentTracking: nil
+                observedSpeedIps: nil,
+                observedDarkness: nil,
+                observedTracking: nil
             ),
             media: MediaConfiguration(
                 form: .observed(.preCut, evidence: .reportedInstallation),
