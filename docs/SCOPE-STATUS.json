@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "scopes": [
+    {
+      "id": "S1-GC420d-local",
+      "state": "not-run",
+      "evidence": [],
+      "reason": "Active baseline; no product integration/hardware qualification performed."
+    },
+    {
+      "id": "S2-broader-parity",
+      "state": "not-run",
+      "evidence": [],
+      "reason": "Retained feature scope; no suitable cutter/peeler/transfer/network hardware reported."
+    },
+    {
+      "id": "S3-trusted-public-binaries",
+      "state": "deferred",
+      "evidence": [],
+      "reason": "No Apple Developer account; not required for S1 or functional S2."
+    }
+  ]
+}

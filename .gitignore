@@ -1,0 +1,17 @@
+.DS_Store
+.build/
+.swiftpm/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+/local-private/
+/build-logs/
+/artifacts/
+/dist/
+__pycache__/
+*.py[cod]
+*.p12
+*.p8
+*.mobileprovision
+*.keychain*
+.venv-fixtures/

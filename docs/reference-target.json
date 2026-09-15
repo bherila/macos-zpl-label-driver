@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "purpose": "planning-reference-not-runtime-profile",
+  "revision": 2,
+  "confirmedBy": "maintainer conversation 2026-09-15",
+  "qualification": "unqualified",
+  "project": {
+    "repository": "bherila/macos-zpl-label-driver",
+    "license": "MIT",
+    "minimumMacOS": "26.0",
+    "primaryArchitecture": "arm64",
+    "localChip": null,
+    "swiftLanguageMajor": 6,
+    "signingMode": "local-adhoc",
+    "signingIdentity": "-",
+    "appleDeveloperAccountAvailable": false,
+    "notarizationRequiredForActiveScope": false
+  },
+  "hardware": {
+    "manufacturer": "Zebra",
+    "model": "GC420d",
+    "transport": "usb",
+    "thermalMethod": "direct-thermal",
+    "selectedFinishing": "tear-off",
+    "cutterInstalled": false,
+    "peelerInstalled": null,
+    "peelerEnabled": false,
+    "firmware": null,
+    "deviceURI": null,
+    "usbVendorID": null,
+    "usbProductID": null,
+    "existingQueueName": null
+  },
+  "media": {
+    "widthInches": "4",
+    "heightInches": "6",
+    "form": "pre-cut",
+    "trackingConfirmed": null,
+    "trackingProposal": "gap-web",
+    "gapMm": null,
+    "pitchMm": null,
+    "linerWidthMm": null,
+    "printableRegionConfirmed": false
+  },
+  "modelReference": {
+    "sourceIDs": [
+      "R26",
+      "R27"
+    ],
+    "nominalDPI": 203,
+    "dotsPerMillimeter": {
+      "numerator": 8,
+      "denominator": 1
+    },
+    "dotPitchMm": "0.125",
+    "maximumPrintWidthMm": "104",
+    "derivedMaximumPrintWidthDots": 832,
+    "printSpeedChoicesIps": [
+      2,
+      3,
+      4
+    ],
+    "currentSpeedIps": null,
+    "currentDarkness": null,
+    "usbStatusPathVerified": false,
+    "compressionVerified": false
+  },
+  "geometryOracle": {
+    "provenance": "derived-from-R26-and-nominal-stock",
+    "rounding": "nearest-positive-half-away-from-zero",
+    "widthDots": 813,
+    "heightDots": 1219,
+    "bytesPerRow": 102,
+    "packedBytes": 124338,
+    "lastByteWhitePaddingBits": 3,
+    "proposedDecodedBandByteCap": 32768,
+    "bandRows": [
+      321,
+      321,
+      321,
+      256
+    ],
+    "advertisedIntegerDPIIsNotPhysicalPitch": true
+  },
+  "permissions": {
+    "printerIOAuthorized": false,
+    "queueMutationAuthorized": false,
+    "privilegedInstallAuthorized": false,
+    "physicalLabelBudget": 0,
+    "proposedFirstSmokeLabels": 3
+  },
+  "initialWorkflows": [
+    "native-4x6",
+    "letter-to-4x6",
+    "a4-to-4x6"
+  ],
+  "primaryScope": "S1-GC420d-local"
+}

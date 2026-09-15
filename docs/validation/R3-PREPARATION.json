@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "revision": 3,
+  "environment": {
+    "os": "Linux",
+    "architecture": "x86_64",
+    "swift": "6.2.1",
+    "python": "3.13.5"
+  },
+  "checks": {
+    "swiftXCTestMethods": 47,
+    "swiftConfigurations": [
+      "debug",
+      "release"
+    ],
+    "pythonUnitTests": 34,
+    "independentVectorsPerConfiguration": 132,
+    "inertProbeCasesPerConfiguration": 15,
+    "pdfFiles": 17,
+    "pdfPages": 27,
+    "htmlFiles": 3,
+    "sourceBarcodeSymbols": 62,
+    "sourceRenderNominalDPI": 500,
+    "ppdLibcupsParserChecks": 3
+  },
+  "notRun": [
+    "macOS compilation/execution",
+    "CUPS scheduler",
+    "browser printing",
+    "Core Graphics implementation",
+    "privileged installation",
+    "USB printing",
+    "physical barcode scans",
+    "GitHub Actions"
+  ],
+  "scope": "partial preparation evidence; no full milestone or qualified printer scope",
+  "sourceRenderObservation": {
+    "userUnit1Pixels": [
+      2000,
+      3000
+    ],
+    "userUnit2Pixels": [
+      1000,
+      1500
+    ],
+    "note": "equal encoded physical faces; do not treat Poppler DPI flag as physical sizing evidence"
+  }
+}

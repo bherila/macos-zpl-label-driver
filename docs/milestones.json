@@ -1,0 +1,1072 @@
+[
+  {
+    "n": 0,
+    "slug": "00-bootstrap",
+    "title": "Repository, project setup and CI",
+    "deps": "None",
+    "goal": "Establish a reproducible, honest starting repository and safe sequential development process.",
+    "spec": "## Repository initialization\n\nInspect the destination before writing. Use the authenticated GitHub account and confirm access to the `bherila` owner. Check whether the repo already exists; distinguish authentication/authorization/network failure from a confirmed missing repo. Do not execute `gh repo create` automatically after an arbitrary failed `gh repo view`. The handoff preparation lookup returned 404 and made no remote changes.\n\nAfter confirming the requested public repository should be created, the intended CLI operation is:\n\n```sh\ngh auth status\ngh repo view bherila/macos-zpl-label-driver --json nameWithOwner,url,isPrivate\n# Only after resolving the result and confirming creation is appropriate:\ngit init -b main\n# Copy/reconcile the handoff files into this checkout first.\ngit add .\ngit diff --cached --check\ngit commit -m \"chore: bootstrap label printer driver project\"\ngh repo create bherila/macos-zpl-label-driver --public --source=. --remote=origin --push\n```\n\nThese are instructions, not a script to run blindly. If the repo exists, clone and reconcile on a branch; do not initialize over or replace its history. MIT has been confirmed by the maintainer; retain its license and attribution before public push. Do not publish private samples included outside the handoff. Set repository description/topics and enable Issues only within granted permissions. Prefer PRs after the initial scaffold commit. Configure the stable `ci-required` status check once it exists; do not invent a passing check or disable protections to move faster.\n\n## Build structure\n\nKeep `Packages/LabelCore` portable and independent of Apple graphics/UI APIs. `Packages/LabelMac` depends on the local core and may import Core Graphics. The provided diagnostics target is inert. New executables, UI/helper targets and tests must be added to CI when introduced. Do not treat stub targets as working product components.\n\nUse Swift 6 language mode, confirmed macOS 26.0 deployment target and Apple Silicon as the initial architecture. Use the standard macos-26 ARM runner; no older-macOS matrix is required. Record actual `swift --version`, Xcode, SDK, `sw_vers` and `uname -m`. Newer compilers do not establish runtime compatibility with the minimum deployment target.\n\n## Repository policy and CI\n\nKeep AGENTS.md, README, contributing/security policy, provenance, license, ignore rules, issue/PR templates, the epic and milestone documentation. Add a simple architecture-decision log and evidence templates. Public fixture records must contain synthetic/cleared inputs only.\n\nThe initial CI uses Linux ARM for cheap repository checks and macOS ARM for Swift/Core Graphics build and tests. Documentation-only PRs must not strand required checks in pending state. Superseded PR builds cancel; a failed build must block the aggregate check. Use standard runners, read-only permissions, pinned action SHAs, no secrets and short artifact retention. Compatibility runs are manual initially. Do not run installed queue/privileged/hardware tests on PR runners.\n\n## Deliverables\n\nA public repo or a precisely reported authorization block; reconciled scaffold; green real PR CI; documented build commands; progress/evidence records; security reporting setup state. The supplied code is a baseline to validate and extend, not permission to mark the entire milestone done without checking GitHub.\n\n## Confirmed configuration and local build mode\n\nRead [sprint baseline](../../SPRINT-BASELINE.md), [reference target](../../reference-target.json) and [local signing](../../LOCAL-SIGNING.md). Primary hardware is GC420d USB with 4×6 pre-cut stock, tear-off/no cutter. Documented model pitch and current unit settings have different provenance. Preserve unknown firmware/USB identity/sensing/defaults; no guessed device values.\n\nAd-hoc local signing is required without Apple accounts, Team IDs, provisioning updates or notarization. Run the inert diagnostic signing smoke on macOS 26; it uses no secrets or privileged/device operations. Validate actual deployment/architecture and final signature, not merely project settings. All added executable/app/helper targets must join CI. Keep public source versus future trusted-binary release scope explicit.",
+    "slices": [
+      [
+        "M0.1",
+        "Initialize and reconcile repository",
+        "Confirm ownership/visibility; use already-confirmed MIT; retain existing history; import revised scaffold and baseline without private data."
+      ],
+      [
+        "M0.2",
+        "Verify Swift package boundaries",
+        "Build core/Mac targets on Tahoe, enforce 26.0 deployment, validate reference inputs and run secret-free local-ad-hoc diagnostic signing."
+      ],
+      [
+        "M0.3",
+        "Activate and verify CI",
+        "Execute macos-26 ARM CI; no pre-Tahoe matrix; prove docs-only/failing-code paths and the stable required check."
+      ],
+      [
+        "M0.4",
+        "Establish contribution and evidence workflow",
+        "Add/verify issue templates, security reporting, progress tracking, handoff and dependency policy."
+      ]
+    ],
+    "criteria": [
+      [
+        "Repository handling",
+        "C",
+        "Authenticated owner and target repo are recorded; existing content is preserved or absence is established before creation."
+      ],
+      [
+        "License and privacy",
+        "C",
+        "License choice is recorded before public push; staged diff contains no private data, credentials or forbidden driver artifacts."
+      ],
+      [
+        "Portable package",
+        "A",
+        "LabelCore builds and its tests run with a recorded Swift version without Core Graphics/AppKit/SwiftUI imports."
+      ],
+      [
+        "macOS package",
+        "I",
+        "LabelMac builds natively on a hosted or local Apple Silicon Mac; its Core Graphics smoke test passes."
+      ],
+      [
+        "CI execution",
+        "C",
+        "A real PR run executes the expected checks on the intended runner architecture; source/toolchain provenance is retained."
+      ],
+      [
+        "CI fails closed",
+        "C",
+        "A deliberate test failure blocks ci-required; a docs-only PR passes the aggregate without launching unnecessary Mac compilation."
+      ],
+      [
+        "Dependency security",
+        "A",
+        "All action uses are immutable SHA references; PR permissions are read-only; no signing secrets or privileged install steps exist."
+      ],
+      [
+        "Docs and handoff",
+        "A",
+        "All relative links/JSON/checker tests pass, every milestone has four documents and the progress file is internally consistent."
+      ],
+      [
+        "Contributor access",
+        "C",
+        "A fork PR can run the allowed checks after any required maintainer approval; no private-repo secrets are needed."
+      ],
+      [
+        "Reporting status",
+        "C",
+        "Private vulnerability-reporting availability and branch-protection configuration are recorded accurately, including permission blocks."
+      ],
+      [
+        "Confirmed baseline",
+        "A",
+        "Reference input matches GC420d/USB/4×6/pre-cut/tear-off/no cutter, 26.0 minimum, MIT and local-ad-hoc mode; unknown observations stay unknown and reference geometry is checked."
+      ],
+      [
+        "Account-free signing smoke",
+        "I",
+        "On macOS 26 ARM, build/sign/verify/run the inert diagnostic with no Developer ID/Team ID/provisioning/Apple secrets; record actual code signature and minimum deployment metadata."
+      ]
+    ],
+    "tests": [
+      [
+        "Bootstrap rehearsal",
+        "Fresh temporary checkout",
+        "Run the documented sequence without publishing, inspect staged files and ensure no hidden private content is added."
+      ],
+      [
+        "Core baseline",
+        "Linux or macOS with Swift",
+        "Run core debug/release tests and a release build. Record toolchain and architecture."
+      ],
+      [
+        "Mac baseline",
+        "macOS ARM runner",
+        "Run scripts/ci-swift.sh; diagnostic must be inert and return a real Core Graphics result."
+      ],
+      [
+        "CI positive/negative",
+        "GitHub PRs",
+        "Use one normal PR, one documentation-only change and one intentionally failing test on a temporary branch; remove only the intentional failure afterwards."
+      ],
+      [
+        "Repository collision",
+        "Existing test checkout",
+        "Re-run setup instructions against an existing repo and verify no reset/reinitialize/force push occurs."
+      ],
+      [
+        "Fork permissions",
+        "Contributor-like PR",
+        "Verify read-only checks and artifact policy without maintainer secrets."
+      ],
+      [
+        "Reference consistency",
+        "Offline/CI",
+        "Run baseline checker, malformed/mutated baseline regression tests, and ensure old Mac runner/deployment settings cannot silently return."
+      ],
+      [
+        "Local signing smoke",
+        "macOS 26 ARM",
+        "Run host preflight and ci-swift.sh; inspect exact OS/SDK/deployment, native executable and ad-hoc signature; no printer or installation activity."
+      ]
+    ],
+    "refs": [
+      5,
+      6,
+      14,
+      18,
+      19,
+      20,
+      26,
+      27,
+      28,
+      29,
+      31
+    ]
+  },
+  {
+    "n": 1,
+    "slug": "01-printing-integration",
+    "title": "macOS printing integration proof",
+    "deps": "M0; local Tahoe 26 Mac for GUI/scheduler/no-account installation evidence",
+    "goal": "Prove full-page capture, native per-job controls and local-signing installation/runtime feasibility before committing to an adapter.",
+    "spec": "## Scope\n\nBuild an instrumentation-first queue/filter experiment on a disposable or explicitly approved Mac. Its backend is an inert capture sink by default, not the user's printer. The test queue must be clearly named and removable. Preserve the existing working Zebra queue, default printer and unrelated CUPS settings.\n\nPrototype a native Swift CUPS executable with the actual job ABI, correct stdin/file handling, separate stderr diagnostics, cancellation and failure exits. Record incoming MIME type, selected page boxes, dimensions, rotation, options, copies and filter-chain provenance without recording private document contents by default. Use synthetic PDFs and a synthetic HTML shipping-sheet page. Capturing full payloads is opt-in and local.\n\nGenerate a minimal original PPD describing native label media and a separate Letter/A4 extraction workflow. Include representative typed options for speed, darkness, finishing, stock, extraction, rotation and scaling. Generic system-rendered Printer Features is the hypothesis; no custom PDE or injection into browser UI. Source documentation is not current-OS evidence.\n\n## Required experiments\n\nTest Preview, Safari, Chrome and Firefox through the system print dialog. Separately record what browser-owned preview controls expose. Confirm that a Letter/A4 workflow delivers the entire page including corner registration markers rather than an upstream-cropped label. Do not assume the selected queue always receives PDF or that it retains vectors; inspect the captured input. For each path, determine who has already applied ranges, copies, collation, scale, rotation and number-up.\n\nVerify file ownership, library/runtime loading, profile reads and cancellation in scheduler context. A terminal invocation under the user's account is insufficient. Determine a safe supported installation path rather than copying old `/System` examples. Validate non-home shared configuration access and immutable profile revision binding. Queue-held jobs must not silently pick up a changed workflow definition.\n\n## Adapter decision\n\nWrite an ADR with actual observed OS/application versions and all required feature outcomes. Compare the CUPS path against a PAPPL/IPP experiment only if needed to resolve a failure or clarify the long-term boundary. Do not implement a custom IPP server. IPP vendor options existing on the server do not prove macOS UI exposure.\n\nThe transport choice must have one real owner of device lifetime. Prove whether a backend/coordinator/delegating backend can acquire a cross-process device lock and preserve cancellation/exit/status semantics under the sandbox. A filter-only lock is not accepted. Reusing a working system USB backend is allowed only with an evidenced contract; no new USB stack is required merely because the Mac is ARM.\n\n## Out of scope for this milestone\n\nProduction raster quality, physical finishing, polished setup UI, Developer-ID public distribution and broad support claims. Account-free installation/authorization feasibility is explicitly in scope even though final UX belongs to M5. Use a pass-through/capture test harness only under an explicit experimental name. It must reject real production printing until the engine and transport exist.\n\n## Exit gate\n\nAccept an adapter only if evidence supports the mandatory application-facing workflows and option paths. A blocked or failed proof is not a go decision. Continue portable M2 work while blocked, but keep the adapter ADR unresolved and do not build a release installer around an unproven path.\n\n## Tahoe, GC420d and local-signing proof\n\nUse local ad-hoc signing with no Apple identity for the installed capture executable and proposed helper/installer. Exercise the real spooler after UI exit and a planned restart; code verification or user-shell execution alone is insufficient. Prove a supported narrow authorization/code-validation mechanism without Team-ID assumptions. Record OS approval requirements and tamper/substitution outcomes; do not weaken root-client authentication or require notarization to unblock the spike. See [local signing](../../LOCAL-SIGNING.md).\n\nPrioritize actual GC420d USB delivery-boundary feasibility while the default sink remains inert. The named real configuration supports only direct thermal/tear-off here. Representative cutter/peeler option propagation may be tested on a clearly simulated inert capability profile, never by enabling those operations for the physical target. Test non-default speed/darkness option propagation without assuming current unit defaults.\n\nRun native 4×6, Letter and A4 capture on the actual Tahoe host; record integer advertised DPI versus preserved document/physical geometry. Do not equate an integer 203-DPI raster with documented 8-dot/mm coordinates. [First-run plan](../../validation/GC420D-TAHOE-FIRST-RUN.md) separates host-only capture from any later authorized device access.",
+    "slices": [
+      [
+        "M1.1",
+        "Implement inert filter/capture harness",
+        "CUPS ABI parser, safe diagnostics, temporary-job handling, original experimental PPD and removable capture queue."
+      ],
+      [
+        "M1.2",
+        "Measure document paths",
+        "Synthetic PDF/HTML fixture capture across apps; full-page, MIME, vector/raster and transform observations."
+      ],
+      [
+        "M1.3",
+        "Prove controls and defaults",
+        "System generic options, option round-trips, immutable profile references and held-job behavior."
+      ],
+      [
+        "M1.4",
+        "Prove execution and transport boundary",
+        "Tahoe spooler/permissions, ad-hoc execution after restart, no-account installer/helper authorization spike, and actual downstream lifetime locking."
+      ],
+      [
+        "M1.5",
+        "Record adapter go/no-go",
+        "Evidence-backed ADR; alternate IPP spike only where necessary; list remaining integration risks."
+      ]
+    ],
+    "criteria": [
+      [
+        "Native scheduler execution",
+        "I",
+        "A Swift ARM executable is invoked by the real scheduler without Rosetta, GUI access or an altered security policy."
+      ],
+      [
+        "Full-page preservation",
+        "I",
+        "All synthetic Letter/A4 corner and crop markers reach the selected workflow intact in each required application path."
+      ],
+      [
+        "Input fidelity inventory",
+        "I",
+        "Each app path has recorded MIME/resolution/vector status; no source-fidelity assumption remains implicit."
+      ],
+      [
+        "Print-dialog options",
+        "I",
+        "Every representative option is visible in the system dialog and reaches the filter with the selected typed value."
+      ],
+      [
+        "Browser distinction",
+        "I",
+        "Browser-owned preview versus system-dialog behavior is documented, with a usable workflow for required advanced choices."
+      ],
+      [
+        "Transform ownership",
+        "I",
+        "Copies/ranges/collation/rotation/scaling/number-up ownership is evidenced; duplicate application of a transformation is prevented or explicitly rejected."
+      ],
+      [
+        "Profile snapshot",
+        "I",
+        "A held job retains its selected immutable profile revision after defaults/profile edits; the snapshot boundary is documented."
+      ],
+      [
+        "Sandbox and privacy",
+        "I",
+        "Profile access works under the spooler identity; no user-home/desktop dependency or unsolicited payload logging exists."
+      ],
+      [
+        "Cancellation and errors",
+        "I",
+        "Stdin/file input, SIGTERM, broken pipe and invalid input produce bounded cleanup and correct non-success semantics."
+      ],
+      [
+        "Transport ownership",
+        "I",
+        "The chosen transport boundary can keep a device-wide lock through downstream delivery/child termination, not just filter stdout completion."
+      ],
+      [
+        "Reversible experiment",
+        "I",
+        "Creating and deleting only the experimental queue leaves the original printer and global settings unchanged."
+      ],
+      [
+        "Decision evidence",
+        "C",
+        "ADR links exact evidence per required feature; unsupported controls or input loss are open blockers, not marked solved."
+      ],
+      [
+        "Local-signing feasibility",
+        "I",
+        "The actual Tahoe scheduler and proposed narrow installer/helper work in local-ad-hoc mode without Apple identity; approval and trust/substitution behavior is recorded. Unproven privileged admission blocks adapter/installer commitment."
+      ]
+    ],
+    "tests": [
+      [
+        "Application capture matrix",
+        "Local Apple Silicon Mac",
+        "Print synthetic native-size, Letter and A4 fixtures in each required app. Save sanitized input metadata and screenshots of options."
+      ],
+      [
+        "Held-job revision",
+        "Local scheduler",
+        "Hold a synthetic job, publish new workflow/defaults, release the old job; inspect its revision and output mapping."
+      ],
+      [
+        "Transformation probes",
+        "Capture sink",
+        "Use numbered pages and copies=2 with collate on/off; page range 2; orientation/scale changes; number-up and mirror choices. Record exact captured sequences."
+      ],
+      [
+        "Permission/runtime probe",
+        "Installed test components",
+        "Compare direct invocation with scheduler invocation; verify access/denials and dynamic-library paths."
+      ],
+      [
+        "Downstream lifetime probe",
+        "Slow synthetic backend",
+        "Block the consumer after filter writes; start a second queue job. Verify the proposed owner cannot release access early."
+      ],
+      [
+        "Cleanup probe",
+        "Test queue only",
+        "Cancel, fail and uninstall the experiment; compare before/after queue/default settings."
+      ],
+      [
+        "Ad-hoc admission and authorization",
+        "Approved Tahoe capture setup",
+        "Sign without an account; install only inert experiment with consent; exercise spooler after UI exit/restart; test denied/tampered client or payload; record per-item approval separately from code verification."
+      ]
+    ],
+    "refs": [
+      1,
+      2,
+      3,
+      4,
+      13,
+      21,
+      26,
+      28,
+      29,
+      30
+    ]
+  },
+  {
+    "n": 2,
+    "slug": "02-imaging-engine",
+    "title": "Geometry, imaging and ZPL engine",
+    "deps": "M0; use M1 input/transform findings for production adapter integration",
+    "goal": "Produce deterministic, bounded label output from original documents with an exact monochrome preview.",
+    "spec": "## Geometry and rendering\n\nImplement the shared geometry contracts first: PDF boxes and origins, page rotation, supported UserUnit behavior, physical units, actual device resolution, printable bounds, uniform fit/actual-size policies and explicit source region. Clip selected content before it can enter another label. Apply rotation and dot rounding once. Non-finite, empty or out-of-bounds geometry must fail before allocation or device output.\n\nImplement an unprivileged Quartz renderer in LabelMac. Render directly from the original PDF page into the final intended device geometry on an explicit white background. Handle transparency, vector paths, text, embedded raster images, rotated pages and multiple page sizes. Test PDF annotation/form-field appearance behavior: visible labels must not silently lose important annotations that a basic page-content API omits. Define flatten/reject support rather than assuming every PDF viewer renders identically. Encrypted, damaged and unsupported inputs produce distinct useful errors.\n\nThe first production input is PDF; add other documented image/raster inputs only with validated format metadata. Never sniff a document and reinterpret it as raw ZPL as a fallback. Low-resolution sources may be warned about; the engine cannot infer lost detail.\n\n## Monochrome and preview\n\nProvide separate text/barcode threshold and photographic-dither modes, with deterministic parameters in the job ticket. Make anti-aliasing/interpolation choices explicit and test them; there is no universal 'turn anti-aliasing off' rule. Mixed content requires a documented policy, not accidental global dithering.\n\nThe final preview is generated from the exact packed one-bit buffer used by the encoder. Test bit order, black/white convention, stride, byte padding and coordinate direction. Distinguish screen scaling of that bitmap from the underlying printer-dot image. Never show a higher-fidelity independent preview as if it were actual output.\n\n## Encoding and preparation\n\nEmit complete ZPL formats containing bounded graphic bands with correct offsets and decoded-byte counts. Use an independently implemented minimal test decoder/oracle and known expected vectors. First land plain ASCII hex; then add documented lossless compression with strict capability selection and bit-exact round-trip tests. Respect both public command limits and model-specific narrower bounds.\n\nPrepare the complete bounded output before physical delivery by default. Rendering may use per-page temporary buffers/files; job limits must prevent unbounded RAM/disk growth. Introduce a worker deadline/cancellation design capable of interrupting stuck native rendering without escalating privilege. The CLI exposes conversion and preview only; printing remains explicit and separate.\n\n## Proposed CLI (implement and document; not present in scaffold)\n\n```sh\nlabel-driver convert sample.pdf --job-ticket ticket.json --output sample.zpl --preview-dir previews\nlabel-driver validate sample.pdf --job-ticket ticket.json\n```\n\nDefine stable exit/error codes and a machine-readable result option. Validate output paths as normal user-owned CLI files; never permit arbitrary paths from CUPS job options. Production filter stdout must contain only its declared output format.\n\n## Quality and performance\n\nSeparate byte-exact bitmap/encoder tests from Quartz rendering regressions. Analytic shapes can be exact; font/text/image baselines may require OS-specific reviewed tolerances and structural assertions. Do not regenerate every golden when a test fails. Profile release builds on a reference Mac. Set regression budgets after measurement; shared hosted-runner timing is informational, not a precise performance SLA.\n\n## Reference geometry regression\n\nUse [GC420d reference](../../hardware/GC420D.md): documented 8 dots/mm (0.125 mm pitch), not exact integer 203 DPI. For nominal 4×6 face and nearest-positive-half-away-from-zero rounding, expect 813×1219 dots, 102 bytes/row, 124338 bytes and 3 white final-byte bits. Keep the old 812×1218 example only as a nominal-integer-DPI synthetic case. Test round-once physical transforms, 832-dot head limit versus stock extent, and no guessed liner/gap/printable region.\n\nPrototype a bounded 32,768 decoded-byte band cap as a project policy, not a certified device limit; at 102 bytes/row the planned row split is 321/321/321/256 within one label. The field limit still comes from the command specification. Independent decoding must reassemble exactly; no extra feeds or labels at band seams. Compression stays off for first hardware proof until firmware behavior is evidenced.",
+    "slices": [
+      [
+        "M2.1",
+        "Implement geometry and page planning",
+        "Checked units/transforms, exact-size/fit placement, crop region contract and test vectors. Include GC420d physical-pitch/stock/head-extent regression vectors."
+      ],
+      [
+        "M2.2",
+        "Implement Quartz renderer",
+        "White-background rendering, supported PDF semantics, bounded worker/input handling and regression fixtures."
+      ],
+      [
+        "M2.3",
+        "Implement one-bit processing and preview",
+        "Threshold/dither policies, packed bitmap types, exact preview and visual/structural tests."
+      ],
+      [
+        "M2.4",
+        "Implement banded uncompressed ZPL",
+        "Correct field counts/offsets, complete formats, test decoder and command limit checks."
+      ],
+      [
+        "M2.5",
+        "Add lossless compression and benchmarks",
+        "Capability-gated compression, cross-checks, allocation/throughput measurements and bounded staging."
+      ],
+      [
+        "M2.6",
+        "Integrate CLI and proven filter path",
+        "Typed job input, structured errors, cancellation/limits and integration with the accepted M1 adapter."
+      ]
+    ],
+    "criteria": [
+      [
+        "Geometry",
+        "A",
+        "All box/origin/rotation/unit/rounding vectors pass; physical transform quantization is at most one dot under the documented policy."
+      ],
+      [
+        "Original-source rendering",
+        "A",
+        "Output rendering uses the original PDF or qualified input raster, never a detection/UI thumbnail."
+      ],
+      [
+        "PDF semantics",
+        "I",
+        "Transparency, mixed page sizes, embedded images and documented annotation/form behavior match the supported visual contract."
+      ],
+      [
+        "One-bit layout",
+        "A",
+        "MSB-first top-down 1=black layout, stride and white tail bits pass adversarial widths including 1,7,8,9,811,812,813 dots."
+      ],
+      [
+        "Exact preview",
+        "A",
+        "Preview reconstruction matches the complete encoder input byte-for-byte after unpack/repack."
+      ],
+      [
+        "Graphics limits",
+        "A",
+        "Fields stay within documented/profile limits; reconstructed multi-band image has no missing/duplicated rows or seams."
+      ],
+      [
+        "Compression",
+        "A",
+        "Every enabled encoding round-trips bit-exactly and rejects malformed/overflow/checksum vectors as applicable."
+      ],
+      [
+        "Copies and output order",
+        "A",
+        "Job plans follow M1 ownership and shared examples; output format/quantity expansion occurs exactly once."
+      ],
+      [
+        "Resource safety",
+        "A",
+        "Size/page/pixel/output limits, malformed/encrypted inputs, deadlines and cancellations fail without unbounded allocation or partial default delivery."
+      ],
+      [
+        "CLI/filter contracts",
+        "I",
+        "CLI error codes and filter stdout/stderr behavior are tested; invalid jobs emit no printer payload in the default prepared mode."
+      ],
+      [
+        "Physical image quality",
+        "H",
+        "Reference labels have correct size/orientation and readable text/barcodes on the declared hardware/media configuration."
+      ],
+      [
+        "Performance baseline",
+        "I",
+        "Release-mode latency, peak memory, output bytes and throughput are recorded on a named reference Mac with reproducible fixtures."
+      ],
+      [
+        "GC420d dot-pitch oracle",
+        "A",
+        "Reference physical arithmetic produces 813×1219/102-row-bytes/124338 bytes with correct padding and band reconstruction; nominal integer DPI, head width, liner and gap are not conflated."
+      ]
+    ],
+    "tests": [
+      [
+        "Geometry property vectors",
+        "Portable suite",
+        "Test 0/90/180/270 rotations, shifted/negative box origins, supported units, fit/actual size, non-square resolution and forbidden NaN/overflow."
+      ],
+      [
+        "PDF fixtures",
+        "macOS suite",
+        "Render analytic vector, transparency, raster, small text, mixed-size multipage and annotation/form cases. Compare reviewed expected behavior."
+      ],
+      [
+        "Encoding oracle",
+        "Portable suite",
+        "Reconstruct known images from emitted fields; force very small band limits to expose boundary errors and verify the single-label format count."
+      ],
+      [
+        "Failure injection",
+        "Unprivileged workers",
+        "Truncated/encrypted PDF, oversized page, disk quota, write failure, worker timeout and cancellation must produce controlled errors."
+      ],
+      [
+        "Scanner qualification",
+        "Authorized physical target",
+        "Print the agreed finite sample set; record scan payloads locally and publish sanitized pass counts/configuration only."
+      ],
+      [
+        "Benchmarks",
+        "Reference Mac release build",
+        "Measure cold/warm convert time, memory and bytes separately from transport/mechanical speed; retain baseline commit."
+      ],
+      [
+        "Reference pitch and band seams",
+        "Portable tests + Quartz where needed",
+        "Validate exact rational physical conversion and rounding; exercise width 813, white low-order padding bits, 321/321/321/256 rows, source placement and no extra per-band label formats."
+      ]
+    ],
+    "refs": [
+      7,
+      8,
+      9,
+      10,
+      26
+    ]
+  },
+  {
+    "n": 3,
+    "slug": "03-printer-controls",
+    "title": "Capabilities, controls, transport and job state",
+    "deps": "M1 accepted transport boundary; M2 prepared output for end-to-end tests",
+    "goal": "Control real printer behavior safely, serialize virtual queues and report delivery uncertainty honestly.",
+    "spec": "## Capabilities and configuration\n\nImplement versioned printer capabilities, installed hardware, media, connection identity and resolved options. Keep unknown separate from unsupported. Model-specific speed/darkness/range restrictions must have a source and a validation state. A generic ZPL entry is conservative and must not expose unsupported finishing merely because another Zebra implements it.\n\nSupport the requested controls where hardware permits: print/feed/backfeed speed, darkness, thermal method, gap/mark/continuous tracking, stock width/length, origin/offsets, tear-off, peel, cutter and documented rewind options. Provide per-job controls and defaults through the accepted adapter; do not defer their semantics until the UI milestone. A protocol table records command, range, persistence, interactions, model limits and source for each option.\n\nDistinguish printer darkness from image threshold and true model capabilities from installed accessories. Heat is not a temperature dial. Keep explicit calibration and persistent device configuration separate from ordinary jobs. Do not save device settings, erase objects or modify firmware automatically. Do not rely on previous job state: emit/resolve supported session settings deterministically or explicitly declare a 'leave unchanged' choice.\n\n## Finishing\n\nDefine each cut policy by resulting physical behavior: each label, batch size, or end of job only when the device supports that policy. Simulated command output is not physical validation. Peel waiting for label removal is an expected state. Handle label-taken/media/ribbon/head-open status only where supported; absence of status is unknown, not a healthy printer.\n\n## Transport and ownership\n\nImplement the selected M1 backend/coordinator boundary. All product virtual queues and maintenance operations use one stable physical identity and ownership mechanism. Hold the lease/lock across actual delivery and any necessary readiness boundary. Protect against child exit races, process death, stale ownership, USB re-enumeration and queue aliases. Do not keep a stale PID file as the sole ownership mechanism.\n\nInitial generic objectives are USB and raw TCP, with GC420d USB as the first physical integration. Raw TCP remains implemented/simulated work until suitable hardware exists and does not block S1 GC420d-local qualification. Preserve the existing working raw path as an explicit developer baseline only. Discovery is bounded and local; entering a printer address explicitly must work. Do not scan arbitrary networks. Connection credentials and discovery identifiers are not general log output.\n\nA delegating USB backend must preserve documented ABI/environment/descriptors, security context, cancellation and status. Otherwise implement/test the required public OS USB transport separately. No shell interpolation of device paths, options or profile values is allowed.\n\n## Job states and retries\n\nTrack accepted/prepared/waiting/transmitting/transmitted/device-confirmed/uncertain/failed/cancelled states. 'Sent bytes' is not 'printed labels'. Report partial or uncertain completion after disconnect/crash rather than replaying automatically. Safe retry before any bytes have been accepted by the transport may be bounded; after ambiguity require an explicit reviewed policy/user action. Map backend exit codes so the scheduler does not silently replay an uncertain job.\n\nTransport cancellation cannot undo labels already accepted by the device. Device cancel commands may affect other jobs and need a model-specific policy and ownership. Unrelated hosts/queues are outside this local coordinator; document that limitation.\n\n## First installed configuration\n\nImplement the explicit GC420d/USB reference profile from [hardware reference](../../hardware/GC420D.md) and [planning input](../../reference-target.json), but define/review the production schema rather than treating planning JSON as an executable runtime profile. Thermal method is direct-only; selected operation is tear-off; cutter is absent. Peeler inventory is unobserved but peel behavior is disabled for this configuration. Reject forged cut/peel/ribbon/rewind options in the non-UI path too. Model-documented print-speed choices are 2/3/4 ips; do not offer 5+ or arbitrary continuous speed values for this profile.\n\nPre-cut does not prove a measured gap or particular sensing method. Leave gap/pitch/liner/origin and current speed/darkness unknown until confirmed. Preserve known-working settings for the authorized baseline, then resolve explicit defaults for deterministic workflow tests or disclose `leave unchanged`. No automatic calibration, persistent save, language switch or guessed modern status protocol.\n\nThe original raw queue remains installed but may bypass product coordination. Require no competing submissions through it during controlled tests; do not claim our lock serializes unrelated queues. USB identity/status and exact delivery completion remain experimentally verified, not inferred from the bidirectional hardware specification. Follow [first-run plan](../../validation/GC420D-TAHOE-FIRST-RUN.md).",
+    "slices": [
+      [
+        "M3.1",
+        "Implement capabilities and schema validation",
+        "Typed tri-state capabilities, installed hardware, bounded profile loading and provenance. Prioritize GC420d direct-thermal/tear-off profile and explicit unknowns."
+      ],
+      [
+        "M3.2",
+        "Implement controls and settings resolution",
+        "Command mapping with model limits/persistence, per-job option resolution, offsets and media/thermal policies."
+      ],
+      [
+        "M3.3",
+        "Implement network transport and state machine",
+        "Inert/loopback fixtures first; partial-write handling, timeouts, receipts and retry boundaries. GC420d USB first; no network-only substitution."
+      ],
+      [
+        "M3.4",
+        "Implement qualified USB path",
+        "Reuse only a proven backend contract or add the required public transport adapter; support rediscovery and cancellation."
+      ],
+      [
+        "M3.5",
+        "Implement physical-device coordination",
+        "Cross-process lifetime ownership across all queues and maintenance; alias, crash and stale-lock tests."
+      ],
+      [
+        "M3.6",
+        "Qualify finishing and fault handling",
+        "Cutter/peeler behavior, status handling, persistent-state isolation and physical fault matrix."
+      ]
+    ],
+    "criteria": [
+      [
+        "Capability truthfulness",
+        "A",
+        "Unknown, absent and unsupported remain distinct; unverified accessory controls are not enabled silently."
+      ],
+      [
+        "Settings validation",
+        "A",
+        "Every explicit choice is range/combination checked; unsupported options fail instead of silently clamping or dropping."
+      ],
+      [
+        "Control coverage",
+        "A",
+        "Protocol mapping covers speed, darkness, thermal method, tracking, dimensions, offsets and supported finishing with cited semantics."
+      ],
+      [
+        "No implicit persistent mutation",
+        "A",
+        "Ordinary output has no reset/calibrate/save/erase/firmware commands; persistent actions require separate authorization."
+      ],
+      [
+        "Network correctness",
+        "A",
+        "Short writes, backpressure, framing, zero-byte failure, mid-stream disconnect and timeouts pass simulator tests."
+      ],
+      [
+        "USB path",
+        "H",
+        "The declared USB configuration prints and recovers from unplug/replug using a tested lifetime/cancellation contract."
+      ],
+      [
+        "Cross-process serialization",
+        "I",
+        "Two real processes on different virtual queues cannot overlap device output or configuration; maintenance uses the same boundary."
+      ],
+      [
+        "Crash/alias handling",
+        "I",
+        "Child/backend crash and connection aliases cannot bypass ownership or leave permanent stale locks."
+      ],
+      [
+        "Uncertain delivery",
+        "I",
+        "Post-send ambiguity is visible and is not automatically replayed by the application or scheduler."
+      ],
+      [
+        "Finishing behavior",
+        "H",
+        "Each advertised cut policy and peel wait/resume behavior is observed on matching installed hardware."
+      ],
+      [
+        "State isolation",
+        "H",
+        "Alternating workflows with different supported settings produce intended results without accidental inheritance."
+      ],
+      [
+        "Privacy and permissions",
+        "A",
+        "Endpoints/status frames/options are validated; logs and IPC do not expose private identities or allow arbitrary commands."
+      ],
+      [
+        "Installed GC420d constraints",
+        "A",
+        "Reference profile constrains pitch/speeds/direct-thermal/tear-off, rejects absent-cutter and disabled-peeler requests, preserves unknown sensing/current values, and never substitutes network transport for USB."
+      ]
+    ],
+    "tests": [
+      [
+        "Protocol vectors",
+        "Portable suite",
+        "Generate expected sequences from documented profile settings; test bounds and all forbidden destructive command classes."
+      ],
+      [
+        "Network fault server",
+        "Loopback only",
+        "Accept variable-size writes, close before/after selected byte offsets, stall and emit bounded/malformed status replies."
+      ],
+      [
+        "Two-process contention",
+        "macOS inert backend",
+        "Start jobs from two queue processes, delay downstream consumption and inject child death; examine serialized transcript."
+      ],
+      [
+        "USB qualification",
+        "Approved real target",
+        "Print a small agreed batch; unplug before/mid/after transmission; reconnect and inspect job state before any manual retry."
+      ],
+      [
+        "Finishing qualification",
+        "Approved accessory target",
+        "Test finite per-label/batch/job-end cut sequences and peel removal waits; stop on unexpected mechanical action."
+      ],
+      [
+        "Setting leakage",
+        "Approved target/media",
+        "Alternate workflows; query supported settings or inspect test labels; verify persistent actions are not emitted."
+      ],
+      [
+        "Scheduler retry policy",
+        "Installed test queue",
+        "Force ambiguous backend failure and inspect actual queue behavior; prove no uncontrolled duplicate reprint."
+      ],
+      [
+        "GC420d negative options",
+        "Portable/profile integration tests",
+        "Reject thermal transfer, cut, peel, rewind, speed 5 and forged raw options before device I/O; missing current values remain unknown; simulate USB identity/status failures without assumptions."
+      ]
+    ],
+    "refs": [
+      1,
+      7,
+      11,
+      12,
+      22,
+      23,
+      24,
+      26,
+      27
+    ]
+  },
+  {
+    "n": 4,
+    "slug": "04-label-extraction",
+    "title": "Sheet extraction and browser workflows",
+    "deps": "M2 engine; M1 workflow media behavior; M3 profile/control integration",
+    "goal": "Extract, rotate, scale and order labels from larger documents without sacrificing source detail or silently discarding content.",
+    "spec": "## Profile-based extraction\n\nImplement native-size, explicit template and teach-once extraction workflows. Input page size and physical stock remain separate. A profile contains expected upright page geometry, stable normalized regions, rotation, uniform scale policy, output stock/printable region, margins, source/output order, validation anchors and non-label-page handling.\n\nSupport one or multiple regions per page and multiple source pages. Render each final region from the original document. Validate profile regions, aspect ratio, quiet-zone margins and output fit. Do not deduplicate similar labels, stretch barcodes nonuniformly or drop blank-looking pages without an explicit policy.\n\nA4 and Letter are distinct expected inputs. If orientation is permitted to vary, transform using the canonical geometry contract rather than swapping width/height heuristically. Mixed-size inputs require per-page matches or a clear mismatch. Non-label pages such as customs forms or instructions must be held/routed/skipped only under an explicit rule with a visible count; the default is review/error before any output.\n\n## Teach-once editor\n\nBuild reusable SwiftUI/AppKit editor components that M5 integrates into the main app. Load a user-selected document, show its source page, allow bounded region selection/reordering, set rotation/output stock and show the exact final bitmap preview. Use explicit mm/in units and printer-dot diagnostics where helpful. Save an immutable validated profile revision, not mutable coordinates tied to a temporary thumbnail.\n\nImport/export profile JSON contains no embedded shipping document by default. Imported profiles are untrusted and cannot contain shell/ZPL scripts or arbitrary file references. The editor must be keyboard-accessible and not rely only on color for mismatch feedback.\n\n## Assisted detection and unattended operation\n\nAdd local heuristic detection using layout/whitespace/borders and optionally Vision barcode locations. Use an OS-available Vision API adapter; no cloud or LLM. Barcode bounds are only candidate evidence, not the full shipping label boundary. Do not decode then replace a carrier barcode as part of extraction.\n\nClassify candidate outcomes as matched, no match or ambiguous. Require user confirmation when creating a new profile. Automatic unattended matching is enabled only for a qualified profile with explicit structural checks. A changed layout must fail/hold with an actionable message, not confidently print a clipped label.\n\nJob titles/browser names are not reliable carrier identifiers. Avoid hardcoded 'all UPS/FedEx works' claims. Template presets should have layout/version metadata and synthetic/cleared regression documents. Detection may use a thumbnail, but final output may not.\n\n## Virtual workflow queues\n\nProvide configuration bindings for native-size, Letter extraction and A4 extraction queues targeting the same physical printer. Profile selection must round-trip through per-job controls or named workflows proven in M1. Test that app-facing page size is preserved. Update queue defaults transactionally and keep queued jobs bound to their original profile revision.\n\n## Recovery\n\nA mismatch surfaces a safe error and an editor/review entry through the companion app; a filter must not launch a GUI. Explicit user correction generates a new profile/reviewed job; it must not automatically duplicate output from an uncertain physical transmission. Distinguish an input-validation failure with no bytes emitted from a partially delivered job.\n\n## First three workflow profiles\n\nCreate named `native-4x6`, `letter-to-4x6` and `a4-to-4x6` workflow definitions for the GC420d setup. Letter/A4 are application-facing source sheets; the physical stock remains 4×6 pre-cut media. Until layout validators or teach-once regions exist, mark extraction profiles incomplete and do not automatically guess a carrier crop. Generic source sheets must not be advertised as supported UPS/FedEx templates without actual layout evidence.\n\nUse synthetic fixtures while real failing documents are unavailable. Real shipping labels/addresses remain private; sanitized input must be created safely at source. Apply the physical-pitch oracle through the extraction transform without reusing a thumbnail as output. Require application paths on Tahoe, not older-OS compatibility adapters.",
+    "slices": [
+      [
+        "M4.1",
+        "Implement extraction schema and planner",
+        "Regions, page matching, order, quiet margins, mixed pages and default non-label handling."
+      ],
+      [
+        "M4.2",
+        "Implement deterministic templates",
+        "Letter/A4/native workflows, structural validators, layout versioning and negative fixtures."
+      ],
+      [
+        "M4.3",
+        "Implement teach-once editor components",
+        "Source selection, canonical coordinate editing, exact preview, keyboard interaction and profile import/export."
+      ],
+      [
+        "M4.4",
+        "Implement assisted local detection",
+        "Candidate generation, ambiguity/no-match states, optional Vision adapter and confirmation gate."
+      ],
+      [
+        "M4.5",
+        "Integrate virtual workflow configurations",
+        "Queue/profile bindings, defaults and per-job options preserving application-facing media."
+      ],
+      [
+        "M4.6",
+        "Qualify browser extraction end to end",
+        "App workflows, changed-layout failures, mixed/non-label pages, copies/order and recovery UX."
+      ]
+    ],
+    "criteria": [
+      [
+        "Separate media concepts",
+        "A",
+        "Input sheet and output stock remain separate through schema, editor, queue options and rendering."
+      ],
+      [
+        "Extraction geometry",
+        "A",
+        "Canonical regions survive page rotation/origin/size handling and map to correct output without hidden stretching."
+      ],
+      [
+        "Multiple labels/order",
+        "A",
+        "Multi-region/multipage extraction and collated/uncollated copies match the shared ordering examples exactly."
+      ],
+      [
+        "Template mismatch",
+        "A",
+        "Changed size/layout/anchors and ambiguous candidates fail or hold before default delivery, with useful reasons."
+      ],
+      [
+        "Non-label pages",
+        "A",
+        "Every source page is accounted for; customs/instructions are not silently dropped and explicit skips are reported."
+      ],
+      [
+        "Teach-once UI",
+        "I",
+        "A user can define, reorder, preview, save, reload and correct a profile with keyboard-accessible controls."
+      ],
+      [
+        "Exact source/preview",
+        "A",
+        "Detection uses only analysis inputs; final labels render from original pages and preview the actual packed output."
+      ],
+      [
+        "Import safety",
+        "A",
+        "Malformed/oversized/unknown-schema profiles fail; no imported raw commands, paths or embedded private documents are accepted."
+      ],
+      [
+        "Local assistance",
+        "I",
+        "Detection works offline on the minimum supported OS path or reports unavailable; new matches require confirmation."
+      ],
+      [
+        "Queue workflow",
+        "I",
+        "Selecting native/Letter/A4 virtual workflows in required applications yields intended full-page capture and extraction."
+      ],
+      [
+        "Physical workflow",
+        "H",
+        "Declared browser/template workflows produce correctly sized readable labels on qualified stock/device configurations."
+      ],
+      [
+        "Recovery/snapshots",
+        "I",
+        "Mismatch correction, held jobs and profile edits preserve revision semantics and do not auto-replay uncertain output."
+      ],
+      [
+        "Three reference workflows",
+        "A",
+        "Native 4×6, Letter-to-4×6 and A4-to-4×6 plans bind the same reference stock while preserving distinct input geometry; unconfigured or mismatched extraction never silently prints a guessed crop."
+      ]
+    ],
+    "tests": [
+      [
+        "Template matrix",
+        "Portable planner + macOS renderer",
+        "Use native, Letter, A4, shifted/rotated page boxes, 2-up/4-up sheets, mixed-size and clipped-region fixtures."
+      ],
+      [
+        "Changed-layout negatives",
+        "Automated",
+        "Move borders/anchors, alter dimensions and add competing barcode regions; inspect exact mismatch codes and no-output behavior."
+      ],
+      [
+        "Page-accounting sequence",
+        "Automated",
+        "Use labels A/B/C plus instruction/customs pages and explicit range/copy settings; compare plan to expected ordered IDs."
+      ],
+      [
+        "Editor round trip",
+        "Local Mac GUI",
+        "Define/reorder regions, switch display zoom, save, reopen and compare canonical coordinates and exact bitmap outputs."
+      ],
+      [
+        "Offline detection",
+        "Local Mac",
+        "Disable external network access; verify allowed local heuristic/Vision behavior and ambiguity confirmation."
+      ],
+      [
+        "Browser end-to-end",
+        "Local Mac + approved target",
+        "Print the same source via required browsers/system dialogs and workflow queues; record app versions, profile hashes and physical scan results."
+      ],
+      [
+        "Reference workflow geometry",
+        "Portable planner + Tahoe capture",
+        "Generate native/Letter/A4 synthetic sources, validate output dimensions and region bounds, then confirm actual application-facing page preservation on the selected runtime."
+      ]
+    ],
+    "refs": [
+      2,
+      3,
+      8,
+      10,
+      26
+    ]
+  },
+  {
+    "n": 5,
+    "slug": "05-product-distribution",
+    "title": "Native application, installation and distribution",
+    "deps": "Accepted M1 no-account adapter/install proof; M2–M4 components; no Developer ID required",
+    "goal": "Deliver a secure account-free local build/install/use/update/uninstall experience with native UI and virtual workflows.",
+    "spec": "## Native user experience\n\nBuild SwiftUI setup with AppKit bridges where needed. Default reference: GC420d USB, direct thermal, 4×6 pre-cut stock, tear-off/no cutter. Offer native/Letter/A4 workflows, confirm sensing/stock/defaults, and clearly distinguish unavailable versus unknown features. Peeler behavior stays disabled for the selected setup. Do not invent a USB URI or current darkness/speed.\n\nNormal printing must work after closing the settings window and after restart under documented session/service conditions. Provide setup, reusable extraction editor, exact-output preview, system-dialog/default options, status/uncertainty, diagnostics, repair, update and uninstall. Keyboard/VoiceOver, useful units/errors and localizable strings are required. Preserve unrelated queues and default-printer settings.\n\n## Account-free installation\n\nUse the M1-evidenced narrow native installation mechanism on Tahoe; a guided Installer package or a narrowly authorized helper is acceptable only after its **no-account** admission/trust design passes. Local ad-hoc signing does not supply a publisher identity, Team ID or authorization. Never infer a helper's safety from matching bundle IDs or a user-writable checksum. See [LOCAL-SIGNING.md](../../LOCAL-SIGNING.md).\n\nThe user approves specific install/queue actions through OS-supported authorization, not an app-owned password field. Stage code and manifests safely; validate ownership/paths/content and guard symlink/substitution races. A persistent helper, if necessary, must have a reviewed client authorization and update story without Apple identity. No generic root commands, arbitrary file copies, user-home executables running as root, privileged PDF renderer, global CUPS policy changes or SIP/Gatekeeper disablement.\n\nAn unsigned outer package and ad-hoc-signed payload are distinct artifacts. Do not call such a package Developer-ID-signed or assume notarization. Record real OS approval and installer behavior; no promise of exactly one password dialog. A developer CLI may support experiments but does not satisfy the final native guided-install criterion.\n\nUse a staged transaction, protected ownership manifest and rollback. Published immutable profiles are readable by the spooler without executing user-provided code. Test without dependencies on the build machine's Homebrew/Xcode runtime paths. A fresh account does not establish a clean system: record host cleanliness and preexisting approvals/helpers explicitly.\n\n## Local signing and lifecycle\n\nBuild all Mac products with deployment target 26.0 and ARM-native components. Local ad-hoc signing is the default with no Apple account, Team ID, provisioning or signing secrets. Sign nested components deliberately inside-out and verify each plus its containing bundle. Extend CI when targets appear; do not hide missing signing coverage with deep signing or success placeholders.\n\nA rebuild can change code hashes. Test two differently built locally signed versions through authorized upgrade, rollback and uninstall; ensure client/payload validation neither breaks updates nor relaxes to arbitrary callers. Keep immutable profile revisions for held jobs and do not remove runtime components active jobs still need. Never delete unrelated queues or profiles. Idempotent uninstall asks explicitly about preserving user profiles/history and handles partial installs safely.\n\nStart with user-initiated local rebuild/install or explicit download-and-run of an accurately labeled local artifact. No automatic unsigned-code feed, unauthenticated self-updater or executable download during installation. Publication still requires separate maintainer approval.\n\n## Active distribution and deferred trusted mode\n\nActive scope S1 ships source/build instructions and an account-free local installation path. Exact artifacts carry source SHA, checksums, component signature mode, dependency notices, tests and limitations. Compare local build launch with quarantined downloaded launch separately; any supported per-item OS approval is explicit. No automatic quarantine stripping or global security bypass. A valid code signature is not a passed Gatekeeper or installed-spooler test.\n\nDeveloper-ID signing, notarization and stapling are optional **deferred S3 work**, not active acceptance requirements or missing credentials to request. Preserve a separate future build mode that fails clearly if explicitly selected without credentials and never silently falls back. Any future protected signing workflow uses reviewed refs, least-privilege secrets and approvals. [Release scopes](../../RELEASE-SCOPES.md) governs claims.\n",
+    "slices": [
+      [
+        "M5.1",
+        "Build native setup and configuration UI",
+        "App target, discovery/manual connection, stock/options, status and integrated extraction editor."
+      ],
+      [
+        "M5.2",
+        "Implement queue/default management",
+        "Owned virtual queues, immutable profile publication, clear default layers and restart behavior."
+      ],
+      [
+        "M5.3",
+        "Implement narrow installer/helper",
+        "Implement the M1-proven no-account authorization/staging/code-validation design; reject unsafe client/path/substitution requests and preserve native UX."
+      ],
+      [
+        "M5.4",
+        "Implement lifecycle and recovery",
+        "Transactional upgrade/rollback across distinct ad-hoc builds, repair, safe job drain, immutable profiles and idempotent uninstall."
+      ],
+      [
+        "M5.5",
+        "Implement diagnostics and accessibility",
+        "Privacy-reviewed export, useful errors/uncertainty, keyboard/VoiceOver and localizable text."
+      ],
+      [
+        "M5.6",
+        "Build and validate local distribution",
+        "Source/local-ad-hoc artifacts, native installation and quarantine characterization, checksums/notices/evidence; trusted-public mode explicitly deferred."
+      ]
+    ],
+    "criteria": [
+      [
+        "Install-once UX",
+        "I",
+        "A supported Tahoe Mac can install/configure through native UI without terminal commands, Apple accounts or weakened OS security; actual approvals and host isolation level are documented."
+      ],
+      [
+        "Native architecture",
+        "I",
+        "Every shipped executable/helper/library required on Apple Silicon is ARM-native; no hidden Rosetta dependency exists."
+      ],
+      [
+        "Routine application printing",
+        "I",
+        "Configured queues print after UI closes and after restart under the advertised session/service conditions."
+      ],
+      [
+        "Complete controls/defaults",
+        "I",
+        "All qualified controls are usable through the system dialog/workflow and utility defaults; unsupported options are explicit."
+      ],
+      [
+        "Virtual queues",
+        "I",
+        "Several workflows share one device without interleaving; creating/updating them preserves unrelated printers/defaults."
+      ],
+      [
+        "Privileged boundary",
+        "I",
+        "No-account authorization, protected staging, client/code/path validation and anti-substitution tests pass; bundle ID/ad-hoc signature alone is not privileged authorization and no renderer/arbitrary shell runs as root."
+      ],
+      [
+        "Transactional lifecycle",
+        "I",
+        "Interrupted install/update rolls back or repairs safely; held jobs/profile revisions survive according to policy."
+      ],
+      [
+        "Uninstall",
+        "I",
+        "Repeated uninstall removes only owned resources and respects the explicit profile-retention choice."
+      ],
+      [
+        "Diagnostics/privacy",
+        "I",
+        "Default logs/exports contain no sensitive label payloads; full export requires opt-in and review."
+      ],
+      [
+        "Accessibility",
+        "I",
+        "Core setup/profile/status/error flows support keyboard and VoiceOver and do not rely solely on color."
+      ],
+      [
+        "Local distribution security",
+        "R",
+        "Exact local-ad-hoc components verify and pass declared installation/lifecycle tests without Apple credentials; local versus quarantined launch outcomes and provenance are recorded honestly. No notarization claim is made."
+      ],
+      [
+        "Signing-mode separation",
+        "A",
+        "Local-ad-hoc is the explicit secret-free default; any selected future Developer-ID mode fails if unavailable instead of silently downgrading. Source/local binaries are accurately labeled."
+      ],
+      [
+        "Ad-hoc update identity",
+        "I",
+        "Two distinct locally signed builds upgrade/rollback through authorized code validation; changed hashes do not silently break use or permit arbitrary client/payload replacement."
+      ]
+    ],
+    "tests": [
+      [
+        "Local native install",
+        "Approved Tahoe host; record cleanliness",
+        "Build/ad-hoc sign without Apple account, then use native guided install; record approvals/ownership; demonstrate no build-tool runtime dependency. A fresh account alone is not a fresh host."
+      ],
+      [
+        "Normal operation",
+        "Local Mac + approved GC420d session",
+        "Close UI, print, restart, repeat under finite budgets; check defaults, queue mapping and direct-thermal/tear-off restrictions."
+      ],
+      [
+        "Privilege/substitution attacks",
+        "Disposable approved setup",
+        "Reject wrong client, changed payload, unowned queue, arbitrary path, symlink/TOCTOU, oversized IPC and forged signing claims; no Team-ID dependency or relaxed fallback."
+      ],
+      [
+        "Distinct ad-hoc builds",
+        "Two reviewed source revisions",
+        "Sign both without certificates; upgrade and roll back through approved flow; verify new hashes and authorization, old-job/profile safety and unchanged unrelated queues."
+      ],
+      [
+        "Interrupted lifecycle",
+        "Disposable approved install",
+        "Interrupt staged install/update; repair; test idle/active/idempotent uninstall and profile-retention policy."
+      ],
+      [
+        "Accessibility/privacy",
+        "Local GUI review",
+        "Keyboard/VoiceOver walkthrough and sensitive-data-negative diagnostic export checks."
+      ],
+      [
+        "Local vs downloaded artifacts",
+        "Exact SHA; isolated Tahoe environments",
+        "Record code verification separately from Gatekeeper/package/installer/helper admission; observe supported per-item approvals without disabling protections. No notarization pass is expected or claimed."
+      ]
+    ],
+    "refs": [
+      1,
+      15,
+      16,
+      17,
+      18,
+      21,
+      26,
+      27,
+      28,
+      29,
+      30
+    ]
+  },
+  {
+    "n": 6,
+    "slug": "06-compatibility-release",
+    "title": "Compatibility, qualification and release gate",
+    "deps": "M1–M5 implemented for declared scope; actual Tahoe/GC420d/local-signing evidence; broader accessory tests remain separate",
+    "goal": "Qualify the promised workflows and maintain a truthful support matrix before publishing a usable release.",
+    "spec": "## Compatibility scope\n\nMaintain separate claims for OS runtime, architecture, printer model/resolution/firmware, connection, stock/accessories, application/version and extraction-layout revision. A successful compile or generic ZPL label is not evidence for every combination. Use planned, implemented-unverified, qualified, known-limited and unsupported states with evidence links. Initially no hardware row is qualified.\n\nApple Silicon and macOS 26.0 minimum are confirmed. Test the actual observed Tahoe 26.x runtime, record patch/build and guard later APIs; do not claim every patch or future major is tested. No pre-Tahoe matrix or older Mac is required. Intel remains separate and optional.\n\nRequire native-size and sheet-extraction workflows in Preview, Safari, Chrome and Firefox; qualify actual shipping-site layouts individually using synthetic/cleared samples. Broad 'all carrier sites' or 'all Zebra printers' claims are prohibited without evidence that cannot realistically be inferred from a few samples.\n\n## Physical quality and finishing\n\nUse authorized finite batches on the named reference configuration. Verify dimensions, orientation, positioning, readability and expected sequence/count. Exercise small text and representative 1D/2D barcodes, including rotated labels. Scan physical output and compare expected payloads locally. A scan-success claim is not an ISO print-quality grade; do not claim certification without the relevant verification process/equipment.\n\nAll advertised cutter/peeler policies require matching hardware evidence. If hardware is unavailable, keep those features implemented-unverified and clearly restricted; do not declare the full product parity gate complete.\n\n## Fault and durability qualification\n\nExercise power loss, unplug/replug, media/ribbon out, open head, long peel wait, cancellation, sleep/wake, crash at state transitions, disk full, malformed status replies and competing virtual queues. Verify recovery distinguishes prepared, transmitted, device-confirmed and uncertain outcomes. No replay loop or unrecoverable stale lock is allowed. An isolated development queue must not disturb the maintainer's existing working queue.\n\n## Performance\n\nRecord release-mode converter time, memory, bytes transferred, first-label time and sustained rate separately. Set reviewed budgets on a reference Mac/device/media, then compare regressions on the same setup. Short shared-runner benchmarks are informational. Full-speed claims must identify quality mode/media/connection and be supported by measurements, not just code-language choice or compression ratio.\n\n## Optional expansion\n\nEvaluate an IPP/PAPPL adapter against the same fidelity/options/defaults/workflow requirements. The interface boundary exists to permit it, but shipping an IPP server is not mandatory for the first feature-complete CUPS release if that release passes the selected OS gate. Do not advertise AirPrint or IPP Everywhere compliance from a server starting successfully. Additional printer languages, mobile platforms, Bluetooth and network sharing are separately approved follow-ups.\n\n## Release gate\n\nCreate a requirements-to-evidence report for every mandatory requirement and acceptance item. A baseline experimental release may disclose incomplete gates; a usable/support-qualified release may not label unresolved critical gates complete. Full parity-target closure requires the promised printer controls, imaging, extraction, browser/system printing and product lifecycle, including physical tests for advertised accessories.\n\nPublish source/build provenance, local-ad-hoc artifact checksums/signature state, known limitations, exact tested configurations and upgrade/uninstall guidance. Developer-ID/notarization work is deferred, not an active credential gate. No critical security/correctness defect may be waived by green CI. Leave hardware unsupported rather than presenting a confident false claim.\n\n## Named first qualification scope\n\nS1 is GC420d USB, 4×6 pre-cut stock, tear-off/no cutter on the observed Apple Silicon Tahoe host, with local ad-hoc build/install. Follow [release scopes](../../RELEASE-SCOPES.md) and [first-run plan](../../validation/GC420D-TAHOE-FIRST-RUN.md). Require full native/browser/extraction/control/lifecycle behavior applicable to this setup, real barcode/geometry/fault evidence and direct-thermal/tear-off option rejection.\n\nCutter/peeler/ribbon physical tests do not apply to this installation and remain open for suitable S2 hardware. Simulated generic coverage is not physical evidence; raw TCP or Intel compilation does not qualify those combinations. Do not require the maintainer to obtain an Apple Developer account, older Mac or cutter to complete S1. Keep global M3/M6 status and scope-level evidence separate so a baseline pass cannot close generic finishing gates.\n\nSource-build/local delivery can be qualified with explicit local-signing constraints. Trusted-public notarized binaries are optional deferred S3. Per-item approval behavior and clean-host limits must be disclosed, not hidden behind `codesign --verify`.",
+    "slices": [
+      [
+        "M6.1",
+        "Build compatibility matrix and evidence tooling",
+        "Versioned support claims, evidence integrity checks and requirements coverage report."
+      ],
+      [
+        "M6.2",
+        "Qualify OS/application/workflow paths",
+        "Qualify observed Tahoe app workflows/native/extraction paths; record exact patch/build; no pre-Tahoe matrix."
+      ],
+      [
+        "M6.3",
+        "Qualify hardware quality and faults",
+        "GC420d geometry/scan/USB faults and concurrency first; track unavailable accessory/network physical qualification separately."
+      ],
+      [
+        "M6.4",
+        "Benchmark and harden release candidate",
+        "Reference-machine budgets, resource/security checks and regression fixes."
+      ],
+      [
+        "M6.5",
+        "Complete release gate and scoped expansion ADR",
+        "GC420d-local acceptance and local-signing evidence; truthful limitations/S2 backlog/S3 deferral; IPP/Intel only if independently qualified."
+      ]
+    ],
+    "criteria": [
+      [
+        "Traceability",
+        "A",
+        "Every mandatory requirement maps to implementation and required validation evidence; empty/blocked evidence cannot count as pass."
+      ],
+      [
+        "Runtime support",
+        "I",
+        "Every claimed macOS/architecture row is tested on that runtime; deployment target alone is not qualification."
+      ],
+      [
+        "Application support",
+        "I",
+        "Required app/native/extraction paths have exact version/profile evidence and disclosed limitations."
+      ],
+      [
+        "Device support",
+        "H",
+        "Every qualified model/resolution/transport/media/accessory row has physical evidence rather than an inferred family match."
+      ],
+      [
+        "Barcode/geometry quality",
+        "H",
+        "The agreed sample count scans correctly with expected payloads and satisfies documented geometry/placement tolerances."
+      ],
+      [
+        "Finishing qualification",
+        "H",
+        "All advertised cutter/peeler behaviors pass real accessory tests or remain explicitly unqualified and gate full parity closure."
+      ],
+      [
+        "Fault/retry behavior",
+        "H",
+        "Critical disconnect/power/media/cancel/sleep cases recover without uncontrolled replay, false completion or stale ownership."
+      ],
+      [
+        "Concurrent workflows",
+        "H",
+        "Competing product queues and maintenance retain job/setting isolation and correct physical sequence."
+      ],
+      [
+        "Performance",
+        "I",
+        "Published speed/resource statements have reproducible measurements and reviewed thresholds on the reference setup."
+      ],
+      [
+        "Security/lifecycle gate",
+        "R",
+        "No unresolved critical security/lifecycle flaw; exact local candidate passes active M5 account-free distribution and installation checks with isolation/approval limitations recorded."
+      ],
+      [
+        "Optional integration claims",
+        "I",
+        "Any advertised IPP/Intel/extra transport feature has its own required evidence, not just compilation."
+      ],
+      [
+        "Release honesty",
+        "R",
+        "Release notes and support matrix accurately distinguish qualified, limited, experimental and unavailable features."
+      ],
+      [
+        "Scoped GC420d closure",
+        "C",
+        "S1 evidence covers the confirmed target without requiring old macOS/Apple credentials/absent accessories; no S1 result auto-closes S2 finishing tests or marks deferred S3 trusted distribution passed."
+      ]
+    ],
+    "tests": [
+      [
+        "Traceability audit",
+        "CI plus maintainer review",
+        "Resolve every requirement/acceptance ID to a PR, SHA and evidence level; reject empty pass claims."
+      ],
+      [
+        "OS/app matrix",
+        "Available target Macs",
+        "Run identical versioned fixture workflows on each claimed runtime; record unavailable minimum OS explicitly."
+      ],
+      [
+        "Physical regression set",
+        "Authorized printers",
+        "Print agreed finite batches per qualified configuration, scan and measure; record failures without selective exclusion."
+      ],
+      [
+        "Fault campaign",
+        "Authorized disposable queue/target",
+        "Inject the specified state-transition failures and inspect scheduler/backend/device results before retrying."
+      ],
+      [
+        "Reference benchmarks",
+        "Known local setup",
+        "Repeat release benchmarks with warm/cold separation, same fixtures/media and a recorded baseline."
+      ],
+      [
+        "Release rehearsal",
+        "Trusted environment and clean Mac",
+        "Install exact candidate, print, update/rollback/uninstall, verify provenance/signatures and review all advertised claims."
+      ],
+      [
+        "Scope applicability audit",
+        "Maintainer + evidence tooling",
+        "Compare all global acceptance IDs with S1 applicability and S2/S3 state; reject unqualified accessory/network/Intel/notarized claims or a baseline closure that hides critical gaps."
+      ]
+    ],
+    "refs": [
+      5,
+      6,
+      16,
+      17,
+      18,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31
+    ]
+  }
+]

@@ -1,0 +1,89 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  repository:
+    name: repository-preflight
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    outputs:
+      swift_changed: ${{ steps.scope.outputs.swift_changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Validate repository
+        run: |
+          python3 scripts/check_repo.py
+          python3 -m unittest discover -s scripts/tests
+      - name: Classify change scope
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          HEAD_SHA: ${{ github.sha }}
+        run: python3 scripts/ci_scope.py
+
+  macos:
+    name: swift-macos-arm64
+    needs: repository
+    if: needs.repository.outputs.swift_changed == 'true'
+    runs-on: macos-26
+    timeout-minutes: 20
+    env:
+      EXPECTED_ARCH: arm64
+      MACOSX_DEPLOYMENT_TARGET: "26.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Native Swift build, tests and local-signature smoke
+        shell: bash
+        run: |
+          mkdir -p build-logs
+          bash scripts/ci-swift.sh 2>&1 | tee build-logs/macos.log
+      - name: Retain short-lived diagnostic log
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: macos-build-log-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build-logs/macos.log
+          retention-days: 3
+          if-no-files-found: ignore
+
+  required:
+    name: ci-required
+    needs: [repository, macos]
+    if: always()
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 2
+    steps:
+      - name: Check all required results
+        env:
+          REPOSITORY_RESULT: ${{ needs.repository.result }}
+          SWIFT_NEEDED: ${{ needs.repository.outputs.swift_changed }}
+          MACOS_RESULT: ${{ needs.macos.result }}
+        shell: bash
+        run: |
+          test "$REPOSITORY_RESULT" = "success"
+          if [[ "$SWIFT_NEEDED" == "true" ]]; then
+            test "$MACOS_RESULT" = "success"
+          elif [[ "$SWIFT_NEEDED" == "false" ]]; then
+            test "$MACOS_RESULT" = "skipped"
+          else
+            echo "Missing scope result; refusing a false green." >&2
+            exit 1
+          fi

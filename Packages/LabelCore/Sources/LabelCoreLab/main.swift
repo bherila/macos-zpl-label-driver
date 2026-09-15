@@ -1,0 +1,50 @@
+import Foundation
+import LabelCore
+#if canImport(Darwin)
+import Darwin
+#else
+import Glibc
+#endif
+
+// Developer-only offline vector producer. No input-document parser or transport.
+do {
+    guard CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--vectors-dir" else {
+        throw NSError(domain: "Usage: label-core-lab --vectors-dir NEW_DIRECTORY", code: 2)
+    }
+    let dir = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
+    guard !FileManager.default.fileExists(atPath: dir.path) else {
+        throw NSError(domain: "Refusing existing output directory", code: 2)
+    }
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    var entries: [[String: Any]] = []
+    var vectors = [("tiny", 9, 3, 4), ("aligned", 16, 17, 16),
+                   ("gc420d", 813, 1219, 32768), ("forced-bands", 813, 11, 102)]
+    for i in 0..<128 {
+        let w = 1 + (i * 37) % 97, h = 1 + (i * 53) % 89
+        vectors.append(("sweep-\(i)", w, h, ((w + 7) / 8) * (1 + i % 10)))
+    }
+    for (name, width, height, cap) in vectors {
+        let layout = try BitmapLayout(width: width, height: height)
+        var bytes = [UInt8](repeating: 0, count: layout.byteCount)
+        for y in 0..<height {
+            for x in 0..<width {
+                // Registration border + asymmetric deterministic analytic pattern.
+                let black = x == 0 || x == width - 1 || y == 0 || y == height - 1
+                    || ((x * 17 + y * 31) % 113 < 11)
+                if black { bytes[y * layout.bytesPerRow + x / 8] |= UInt8(0x80 >> (x % 8)) }
+            }
+        }
+        let bitmap = try MonochromeBitmap(width: width, height: height, bytes: bytes)
+        let encoder = try ZPLGraphicEncoder(maxDecodedBandBytes: cap)
+        try bitmap.pbmData().write(to: dir.appendingPathComponent(name + ".pbm"), options: .withoutOverwriting)
+        try encoder.diagnosticFormat(bitmap).write(to: dir.appendingPathComponent(name + ".zpl"), options: .withoutOverwriting)
+        entries.append(["name": name, "width": width, "height": height, "bandLimit": cap,
+                        "bandRows": try encoder.bands(for: layout).map(\.rowCount)])
+    }
+    let manifest = try JSONSerialization.data(withJSONObject: ["schemaVersion": 1, "vectors": entries], options: [.prettyPrinted, .sortedKeys])
+    try (manifest + Data([10])).write(to: dir.appendingPathComponent("vectors.json"), options: .withoutOverwriting)
+    print("Offline vectors written. No printer accessed. Diagnostic ZPL is not a qualified job.")
+} catch {
+    FileHandle.standardError.write(Data("ERROR: \(error)\n".utf8))
+    exit(2)
+}

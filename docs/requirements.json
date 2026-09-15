@@ -1,0 +1,241 @@
+{
+  "schemaVersion": 1,
+  "requirements": [
+    {
+      "id": "F01",
+      "title": "Native Apple Silicon ordinary-application printing",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M1-AC01",
+        "M5-AC02",
+        "M5-AC03",
+        "M6-AC02"
+      ]
+    },
+    {
+      "id": "F02",
+      "title": "Printer controls through the system dialog",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M1-AC04",
+        "M1-AC05",
+        "M5-AC04"
+      ]
+    },
+    {
+      "id": "F03",
+      "title": "Speed and darkness/heat controls",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M3-AC02",
+        "M3-AC03",
+        "M3-AC11"
+      ]
+    },
+    {
+      "id": "F04",
+      "title": "Thermal method, media tracking, dimensions and offsets",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M3-AC01",
+        "M3-AC02",
+        "M3-AC03"
+      ]
+    },
+    {
+      "id": "F05",
+      "title": "Cutter, peeler and qualified finishing modes",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M3-AC10",
+        "M6-AC06"
+      ]
+    },
+    {
+      "id": "F06",
+      "title": "Sharp, barcode-readable label imaging and exact preview",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M2-AC02",
+        "M2-AC03",
+        "M2-AC04",
+        "M2-AC05",
+        "M2-AC11",
+        "M6-AC05"
+      ]
+    },
+    {
+      "id": "F07",
+      "title": "Measured high-speed preparation and printing",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M2-AC07",
+        "M2-AC12",
+        "M6-AC09"
+      ]
+    },
+    {
+      "id": "F08",
+      "title": "Small-label/browser compatibility via correct input page configuration",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M1-AC02",
+        "M1-AC03",
+        "M4-AC01",
+        "M4-AC10",
+        "M6-AC03"
+      ]
+    },
+    {
+      "id": "F09",
+      "title": "Letter/A4 extraction, rotation and scaling",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M2-AC01",
+        "M4-AC02",
+        "M4-AC04",
+        "M4-AC11"
+      ]
+    },
+    {
+      "id": "F10",
+      "title": "Automatic qualified matching and teach-once setup",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M4-AC04",
+        "M4-AC06",
+        "M4-AC09"
+      ]
+    },
+    {
+      "id": "F11",
+      "title": "Multiple regions/pages and correct copies/order",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M1-AC06",
+        "M2-AC08",
+        "M4-AC03",
+        "M4-AC05"
+      ]
+    },
+    {
+      "id": "F12",
+      "title": "Utility defaults and immutable per-job choices",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M1-AC07",
+        "M4-AC12",
+        "M5-AC04"
+      ]
+    },
+    {
+      "id": "F13",
+      "title": "Multiple virtual queues sharing one device",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M3-AC07",
+        "M3-AC08",
+        "M5-AC05",
+        "M6-AC08"
+      ]
+    },
+    {
+      "id": "F14",
+      "title": "Guided install, repair, upgrade and uninstall",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M5-AC01",
+        "M5-AC06",
+        "M5-AC07",
+        "M5-AC08",
+        "M5-AC11"
+      ]
+    },
+    {
+      "id": "F15",
+      "title": "Privacy, bounded parsing and secure privileged operation",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M2-AC09",
+        "M3-AC04",
+        "M3-AC12",
+        "M4-AC08",
+        "M5-AC06",
+        "M5-AC09"
+      ]
+    },
+    {
+      "id": "F16",
+      "title": "Correct status, cancellation and uncertain-delivery recovery",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M1-AC09",
+        "M3-AC05",
+        "M3-AC06",
+        "M3-AC09",
+        "M6-AC07"
+      ]
+    },
+    {
+      "id": "F17",
+      "title": "Independent OSS implementation and provenance",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M0-AC01",
+        "M0-AC02",
+        "M0-AC07",
+        "M6-AC12"
+      ]
+    },
+    {
+      "id": "F18",
+      "title": "Reproducible project setup and cost-conscious CI",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M0-AC03",
+        "M0-AC04",
+        "M0-AC05",
+        "M0-AC06",
+        "M0-AC08",
+        "M0-AC09",
+        "M0-AC10"
+      ]
+    },
+    {
+      "id": "F19",
+      "title": "Truthful evidence-backed compatibility and distribution",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M6-AC01",
+        "M6-AC04",
+        "M6-AC10",
+        "M6-AC11",
+        "M6-AC12"
+      ]
+    },
+    {
+      "id": "F20",
+      "title": "Confirmed GC420d USB/Tahoe physical-pitch baseline and scoped evidence",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M0-AC11",
+        "M2-AC13",
+        "M3-AC13",
+        "M4-AC13",
+        "M6-AC13"
+      ]
+    },
+    {
+      "id": "F21",
+      "title": "Account-free local signing and secure local installation/update",
+      "mandatory": true,
+      "acceptanceIDs": [
+        "M0-AC12",
+        "M1-AC13",
+        "M5-AC11",
+        "M5-AC12",
+        "M5-AC13"
+      ]
+    }
+  ]
+}

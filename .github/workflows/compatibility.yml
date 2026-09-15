@@ -1,0 +1,51 @@
+name: Compatibility candidates
+
+on:
+  workflow_dispatch:
+    inputs:
+      include_intel:
+        description: Also test the optional Intel build candidate
+        type: boolean
+        default: false
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compatibility-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  arm:
+    name: candidate-${{ matrix.runner }}-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-26]
+    env:
+      EXPECTED_ARCH: arm64
+      MACOSX_DEPLOYMENT_TARGET: "26.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and test candidate runtime
+        run: bash scripts/ci-swift.sh
+
+  intel:
+    name: candidate-macos-26-intel
+    if: inputs.include_intel
+    runs-on: macos-26-intel
+    timeout-minutes: 20
+    env:
+      EXPECTED_ARCH: x86_64
+      MACOSX_DEPLOYMENT_TARGET: "26.0"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and test optional Intel candidate
+        run: bash scripts/ci-swift.sh
