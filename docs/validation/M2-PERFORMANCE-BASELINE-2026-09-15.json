@@ -1,0 +1,132 @@
+{
+  "cold": {
+    "maximumResidentBytes": 13828096,
+    "milliseconds": 120.84987491834909
+  },
+  "coldDefinition": "first timed invocation after an untimed release build; filesystem caches are not purged",
+  "environment": {
+    "architecture": "arm64",
+    "macOSBuild": "25G83",
+    "macOSVersion": "26.6.2",
+    "referenceMachine": "Apple Silicon MacBookPro18,3",
+    "swift": "Apple Swift version 6.3.3 (swiftlang-6.3.3.1.3 clang-2100.1.1.101)",
+    "xcode": "Xcode 26.6 / Build version 17F113"
+  },
+  "gitDirty": false,
+  "gitHead": "6fcb63e3c17db57eaf7f60c83fd18c63e25b3ab4",
+  "inputs": {
+    "executable": "Packages/LabelMac/.build/arm64-apple-macosx/release/label-driver",
+    "executableSHA256": "4277762e3f66932bad440d0cd4b9acb49f1e78b4ec0a9f7efd4b0463a27aa27d",
+    "fixture": "Fixtures/generated/native-vector.pdf",
+    "fixtureSHA256": "24af4c33cd98b4373048c3fdf88085a1da098e7cebc97b147d051fd99ecf5c61",
+    "ticket": "Examples/offline-ticket-v1.json",
+    "ticketSHA256": "d6a74471a2e062f1c048a82c3eaa691914afd3452a2fab1d5fcc6535204df9d3"
+  },
+  "limitations": [
+    "No scheduler, USB transport, printer mechanics, first-label time, or sustained physical rate is measured.",
+    "This local baseline is not a shared-runner performance threshold."
+  ],
+  "measurementTool": "Python monotonic wall clock around /usr/bin/time -l and label-driver validate; RSS is the command value reported by macOS",
+  "prepared": {
+    "formatScope": "offline-graphics-envelope-not-state-normalized",
+    "heightDots": 1219,
+    "pixels": 991047,
+    "widthDots": 813,
+    "zplBytes": 248814
+  },
+  "rawWarm": [
+    {
+      "maximumResidentBytes": 14024704,
+      "milliseconds": 117.43895802646875
+    },
+    {
+      "maximumResidentBytes": 13877248,
+      "milliseconds": 120.39900000672787
+    },
+    {
+      "maximumResidentBytes": 13893632,
+      "milliseconds": 115.25345803238451
+    },
+    {
+      "maximumResidentBytes": 13860864,
+      "milliseconds": 121.1612910265103
+    },
+    {
+      "maximumResidentBytes": 14041088,
+      "milliseconds": 116.74750002566725
+    },
+    {
+      "maximumResidentBytes": 13795328,
+      "milliseconds": 117.10466700606048
+    },
+    {
+      "maximumResidentBytes": 14106624,
+      "milliseconds": 119.52499998733401
+    },
+    {
+      "maximumResidentBytes": 13828096,
+      "milliseconds": 113.99749992415309
+    },
+    {
+      "maximumResidentBytes": 13828096,
+      "milliseconds": 123.13783401623368
+    },
+    {
+      "maximumResidentBytes": 13778944,
+      "milliseconds": 117.89537500590086
+    },
+    {
+      "maximumResidentBytes": 13762560,
+      "milliseconds": 116.70283309649676
+    },
+    {
+      "maximumResidentBytes": 13877248,
+      "milliseconds": 120.96570897847414
+    },
+    {
+      "maximumResidentBytes": 13959168,
+      "milliseconds": 124.48183307424188
+    },
+    {
+      "maximumResidentBytes": 13795328,
+      "milliseconds": 119.44537505041808
+    },
+    {
+      "maximumResidentBytes": 13844480,
+      "milliseconds": 118.40358295012265
+    },
+    {
+      "maximumResidentBytes": 13860864,
+      "milliseconds": 122.68133403267711
+    },
+    {
+      "maximumResidentBytes": 13844480,
+      "milliseconds": 119.22008299734443
+    },
+    {
+      "maximumResidentBytes": 14024704,
+      "milliseconds": 122.68379202578217
+    },
+    {
+      "maximumResidentBytes": 13877248,
+      "milliseconds": 117.9917500121519
+    },
+    {
+      "maximumResidentBytes": 13959168,
+      "milliseconds": 116.6391670703888
+    }
+  ],
+  "schemaVersion": 1,
+  "scope": "offline-release-render-and-encode-no-transport",
+  "warm": {
+    "maximumMilliseconds": 124.48183307424188,
+    "maximumResidentBytes": 14106624,
+    "medianMilliseconds": 118.81183297373354,
+    "minimumMilliseconds": 113.99749992415309,
+    "p95Milliseconds": 123.13783401623368,
+    "pixelsPerSecondAtP95": 8048273.773187751,
+    "preparedBytesPerSecondAtP95": 2020613.7454650858,
+    "runs": 20
+  },
+  "warmDefinition": "subsequent separate CLI invocations using identical fixture and ticket bytes"
+}
