@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "m1-discard-file-sink.sh"
 PPD = ROOT / "experiments" / "cups-probe" / "labelprobe-native.ppd"
-FILTER = "/Library/Printers/LabelPrinterDriver/M1/labelcapture-filter"
+FILTER = "/Library/Printers/LabelPrinterDriver-M1/labelcapture-filter"
 PPD_HASHES = {
     "labelprobe-native.ppd": "cceed46e91e0fdfe6714132085e2ffe066feedaafd33f36f430cd15ca5349ada",
     "labelprobe-letter.ppd": "18ef9a332ba898ea17c727303a42684f1f6c1e3eff19cd110ee34bf79023eb18",
@@ -55,6 +56,24 @@ class M1DiscardFileSinkTests(unittest.TestCase):
         self.assertIn("exactly two cupsFilter2 declarations", script_text)
         self.assertIn("must not contain a legacy cupsFilter declaration", script_text)
 
+    def test_invalid_filter_cleans_private_snapshot_before_sudo(self) -> None:
+        if sys.platform != "darwin":
+            self.skipTest("the M1 transaction is intentionally Tahoe-only")
+        temporary_root = Path("/private/tmp")
+        before = set(temporary_root.glob("label-driver-m1.*"))
+        with tempfile.TemporaryDirectory() as directory:
+            invalid_filter = Path(directory) / "not-mach-o"
+            invalid_filter.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+            invalid_filter.chmod(0o755)
+            result = subprocess.run(
+                ["bash", str(SCRIPT), "--apply", str(invalid_filter), str(PPD)],
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("filter snapshot is not local-ad-hoc ARM", result.stderr)
+        self.assertEqual(before, set(temporary_root.glob("label-driver-m1.*")))
+
     def test_transaction_has_no_server_configuration_or_default_printer_mutation(self) -> None:
         text = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("file:///dev/null", text)
@@ -71,6 +90,11 @@ class M1DiscardFileSinkTests(unittest.TestCase):
         self.assertIn("END { print NR }", text)
         self.assertIn('local snapshot="$temporary/labelcapture-filter"', text)
         self.assertIn('local ppd_snapshot="$temporary/candidate.ppd"', text)
+        self.assertIn("temporary=''", text)
+        self.assertIn("trap cleanup_temporary EXIT", text)
+        self.assertIn("/private/tmp/label-driver-m1.??????", text)
+        self.assertNotIn("local temporary", text)
+        self.assertNotIn("LabelPrinterDriver/M1", text)
         self.assertIn('install -o root -g wheel -m 0755 "$snapshot" "$filter"', text)
         self.assertIn('validate_ppd "$ppd_snapshot"', text)
         self.assertIn('render_ppd "$ppd_snapshot" "$generated"', text)
