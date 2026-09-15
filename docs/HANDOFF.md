@@ -406,6 +406,17 @@ and deterministic-fault seams prove local transmission and conservative failure
 states only. This is portable/macOS-simulation partial M1-AC07/M3-AC05/M3-AC09
 evidence, not a network-printer, USB, scheduler, status, or physical result.
 
+At `ab97ab3`, the immutable profile gained a typed connection record. The
+reference declares USB transport while keeping its stable identity unobserved;
+when a future local identity is supplied, it is bounded, opaque, and redacted
+by default. Regression verifies invalid inputs and string/debug redaction.
+The initial LabelMac test run after this profile-layout change hit a signal-11
+in stale cross-package SwiftPM artifacts; cleaning both package build products
+and rebuilding reproduced no crash (88 LabelCore and 17 LabelMac tests passed).
+This is portable/macOS automated partial M3-AC01/M3-AC12/M3-AC13 evidence
+only: it does not enumerate USB, reveal an identifier, establish a coordinator
+key, install a backend, send a command, or qualify physical delivery.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
