@@ -50,6 +50,62 @@ public enum WorkflowPageDisposition: Equatable, Sendable {
     case skip(NonLabelPageReason)
 }
 
+/// Local analysis facts used only to validate a workflow layout. They contain
+/// no decoded barcode value or document payload and never become render input.
+public enum StructuralAnchorKind: String, Equatable, Sendable {
+    case barcodeLike
+    case border
+    case darkBlock
+}
+
+public struct StructuralAnchorExpectation: Equatable, Sendable {
+    public let id: String
+    public let kind: StructuralAnchorKind
+    public let normalizedRect: NormalizedRect
+    public let maximumCoordinateDeviation: Double
+
+    public init(
+        id: String,
+        kind: StructuralAnchorKind,
+        normalizedRect: NormalizedRect,
+        maximumCoordinateDeviation: Double = 0.02
+    ) throws {
+        guard WorkflowProfile.isSafeIdentifier(id), maximumCoordinateDeviation.isFinite,
+              (0...0.25).contains(maximumCoordinateDeviation) else {
+            throw ExtractionPlanError.invalidProfile
+        }
+        self.id = id
+        self.kind = kind
+        self.normalizedRect = normalizedRect
+        self.maximumCoordinateDeviation = maximumCoordinateDeviation
+    }
+}
+
+public struct ObservedPageAnchor: Equatable, Sendable {
+    public let kind: StructuralAnchorKind
+    public let normalizedRect: NormalizedRect
+
+    public init(kind: StructuralAnchorKind, normalizedRect: NormalizedRect) {
+        self.kind = kind
+        self.normalizedRect = normalizedRect
+    }
+}
+
+public struct AnalyzedSourcePage: Equatable, Sendable {
+    public let pageBox: PDFPageBox
+    /// `nil` means analysis was not performed; an empty array is an observed
+    /// page with no candidates. Those states have distinct mismatch errors.
+    public let anchors: [ObservedPageAnchor]?
+
+    public init(pageBox: PDFPageBox, anchors: [ObservedPageAnchor]?) throws {
+        guard anchors.map({ $0.count <= 256 }) ?? true else {
+            throw ExtractionPlanError.invalidAnalysis
+        }
+        self.pageBox = pageBox
+        self.anchors = anchors
+    }
+}
+
 public struct ExpectedInputPage: Equatable, Sendable {
     public let uprightPhysicalSize: PhysicalSize
     public let toleranceMillimeters: Double
@@ -72,15 +128,25 @@ public struct WorkflowPageRule: Equatable, Sendable {
     public let sourcePage: Int
     public let expectedInput: ExpectedInputPage
     public let disposition: WorkflowPageDisposition
+    public let structuralAnchors: [StructuralAnchorExpectation]
 
-    public init(sourcePage: Int, expectedInput: ExpectedInputPage, disposition: WorkflowPageDisposition) throws {
-        guard sourcePage > 0 else { throw ExtractionPlanError.invalidProfile }
+    public init(
+        sourcePage: Int,
+        expectedInput: ExpectedInputPage,
+        disposition: WorkflowPageDisposition,
+        structuralAnchors: [StructuralAnchorExpectation] = []
+    ) throws {
+        guard sourcePage > 0, structuralAnchors.count <= 64,
+              Set(structuralAnchors.map(\.id)).count == structuralAnchors.count else {
+            throw ExtractionPlanError.invalidProfile
+        }
         if case let .extract(regions) = disposition, regions.isEmpty {
             throw ExtractionPlanError.invalidProfile
         }
         self.sourcePage = sourcePage
         self.expectedInput = expectedInput
         self.disposition = disposition
+        self.structuralAnchors = structuralAnchors
     }
 }
 
@@ -141,6 +207,10 @@ public enum ExtractionPlanError: Error, Equatable, Sendable {
     case unaccountedSourcePage(Int)
     case missingSourcePage(Int)
     case inputGeometryMismatch(page: Int)
+    case analysisRequired(page: Int)
+    case missingAnchor(page: Int, anchorID: String)
+    case ambiguousAnchor(page: Int, anchorID: String)
+    case invalidAnalysis
     case invalidCopyPolicy
     case invalidOutputLimit
     case tooManyOutputLabels
@@ -179,28 +249,45 @@ public enum ExtractionPlanner {
         copyPolicy: LabelOrderPlan.CopyPolicy = .alreadyExpanded,
         maximumOutputLabels: Int = 10_000
     ) throws -> ExtractionPlan {
-        guard !sourcePages.isEmpty, sourcePages.count <= 1_000 else {
+        let analyzed = try sourcePages.map { try AnalyzedSourcePage(pageBox: $0, anchors: nil) }
+        return try plan(
+            analyzedPages: analyzed,
+            profile: profile,
+            copyPolicy: copyPolicy,
+            maximumOutputLabels: maximumOutputLabels
+        )
+    }
+
+    public static func plan(
+        analyzedPages: [AnalyzedSourcePage],
+        profile: WorkflowProfile,
+        copyPolicy: LabelOrderPlan.CopyPolicy = .alreadyExpanded,
+        maximumOutputLabels: Int = 10_000
+    ) throws -> ExtractionPlan {
+        guard !analyzedPages.isEmpty, analyzedPages.count <= 1_000 else {
             throw ExtractionPlanError.invalidSourcePageCount
         }
         guard maximumOutputLabels > 0 else { throw ExtractionPlanError.invalidOutputLimit }
 
         let rules = Dictionary(uniqueKeysWithValues: profile.pageRules.map { ($0.sourcePage, $0) })
-        for page in 1...sourcePages.count where rules[page] == nil {
+        for page in 1...analyzedPages.count where rules[page] == nil {
             throw ExtractionPlanError.unaccountedSourcePage(page)
         }
-        if let missing = rules.keys.filter({ $0 > sourcePages.count }).min() {
+        if let missing = rules.keys.filter({ $0 > analyzedPages.count }).min() {
             throw ExtractionPlanError.missingSourcePage(missing)
         }
 
         var definitions: [LabelOrderPlan.Label: (ExtractionRegion, PDFSourceRect)] = [:]
         var ordered: [(Int, LabelOrderPlan.Label)] = []
         var skipped: [AccountedNonLabelPage] = []
-        for page in 1...sourcePages.count {
-            let source = sourcePages[page - 1]
+        for page in 1...analyzedPages.count {
+            let analyzed = analyzedPages[page - 1]
+            let source = analyzed.pageBox
             guard let rule = rules[page] else { preconditionFailure("page accounting checked") }
             guard rule.expectedInput.matches(try source.effectivePhysicalSize()) else {
                 throw ExtractionPlanError.inputGeometryMismatch(page: page)
             }
+            try validateAnchors(rule.structuralAnchors, observed: analyzed.anchors, page: page)
             switch rule.disposition {
             case let .extract(regions):
                 for (index, region) in regions.enumerated() {
@@ -251,11 +338,47 @@ public enum ExtractionPlanner {
             )
         }
         return ExtractionPlan(
-            sourcePageCount: sourcePages.count,
+            sourcePageCount: analyzedPages.count,
             outputLabels: labels,
             skippedPages: skipped,
             profileID: profile.id,
             profileRevision: profile.revision
         )
+    }
+
+    private static func validateAnchors(
+        _ expected: [StructuralAnchorExpectation],
+        observed: [ObservedPageAnchor]?,
+        page: Int
+    ) throws {
+        guard !expected.isEmpty else { return }
+        guard let observed else { throw ExtractionPlanError.analysisRequired(page: page) }
+        var available = Set(observed.indices)
+        for anchor in expected {
+            let candidates = available.filter { index in
+                let candidate = observed[index]
+                return candidate.kind == anchor.kind && rectanglesMatch(
+                    candidate.normalizedRect,
+                    anchor.normalizedRect,
+                    tolerance: anchor.maximumCoordinateDeviation
+                )
+            }
+            guard !candidates.isEmpty else {
+                throw ExtractionPlanError.missingAnchor(page: page, anchorID: anchor.id)
+            }
+            guard candidates.count == 1, let match = candidates.first else {
+                throw ExtractionPlanError.ambiguousAnchor(page: page, anchorID: anchor.id)
+            }
+            available.remove(match)
+        }
+    }
+
+    private static func rectanglesMatch(
+        _ lhs: NormalizedRect,
+        _ rhs: NormalizedRect,
+        tolerance: Double
+    ) -> Bool {
+        abs(lhs.x - rhs.x) <= tolerance && abs(lhs.y - rhs.y) <= tolerance &&
+            abs(lhs.width - rhs.width) <= tolerance && abs(lhs.height - rhs.height) <= tolerance
     }
 }
