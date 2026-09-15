@@ -181,6 +181,17 @@ transport traffic, persistent configuration, or device I/O. The next slice is
 a cited control-protocol table and bounded encoder, with ordinary-job output
 forbidden from reset, calibration, save, erase, or firmware commands.
 
+At `37d1a0e88bba2bac5e014b519c685b95db00fc80`, the core has a bounded,
+typed session-control encoder with a compact protocol table. For the reference
+profile, it emits only `^MMT` for the selected tear-off mode and `^PR` for a
+validated 2/3/4 ips choice; both entries point to their documented sources.
+Darkness, tracking, dimensions, offsets, copies and all unqualified accessory
+controls remain unencodable. Regression vectors prove the exact small output,
+the output cap, source identifiers, and absence of reset/calibrate/save/erase,
+firmware, image-threshold, media-size, copy, or storage commands. This is
+portable partial M3-AC03/M3-AC04/M3-AC13 evidence only: it is not a complete
+production label envelope and has no queue, USB, network, or physical result.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
