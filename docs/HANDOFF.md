@@ -129,6 +129,12 @@ dots and the independent decoder reconstructed its PBM payload in the expected
 that the envelope lacks production state normalization. This is not a CUPS
 filter, device transport, profile schema, or printer-ready workflow.
 
+At `3ae8d4912f53ad2940f1995c864743e9a4b2d28d`, `convert` also preflights both
+the ZPL and preview destinations before it creates either artifact. A known
+preview-name collision now exits 73 with no stdout payload and leaves the ZPL
+path absent; a post-preflight filesystem race remains reported honestly rather
+than being represented as a complete conversion.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
