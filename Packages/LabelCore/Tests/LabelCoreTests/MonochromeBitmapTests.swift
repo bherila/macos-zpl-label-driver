@@ -42,6 +42,36 @@ final class MonochromeBitmapTests: XCTestCase {
         XCTAssertEqual(try MonochromeBitmap.threshold(width: 2, height: 1, grayscale: [0,255],
                                                      stride: 2, threshold: 0).bytes, [0])
     }
+    func testExplicitTextAndBarcodePolicyUsesItsCutoff() throws {
+        let bitmap = try MonochromeConversion.textAndBarcodeThreshold(cutoff: 128).convert(
+            width: 3, height: 1, grayscale: Data([127, 128, 255]), stride: 3
+        )
+        XCTAssertEqual(bitmap.bytes, [0b1000_0000])
+    }
+    func testPhotographicDitherIsDeterministicAndKeepsPureEndpoints() throws {
+        let conversion = MonochromeConversion.photographicOrderedDither4x4
+        let midGray = Data(repeating: 128, count: 16)
+        XCTAssertEqual(
+            try conversion.convert(width: 4, height: 4, grayscale: midGray, stride: 4).bytes,
+            [0b0101_0000, 0b1010_0000, 0b0101_0000, 0b1010_0000]
+        )
+        XCTAssertEqual(
+            try conversion.convert(width: 4, height: 1, grayscale: Data(repeating: 0, count: 4), stride: 4).bytes,
+            [0b1111_0000]
+        )
+        XCTAssertEqual(
+            try conversion.convert(width: 4, height: 1, grayscale: Data(repeating: 255, count: 4), stride: 4).bytes,
+            [0]
+        )
+    }
+    func testPhotographicDitherValidatesSourceBeforePacking() {
+        XCTAssertThrowsError(try MonochromeConversion.photographicOrderedDither4x4.convert(
+            width: 2, height: 1, grayscale: Data([0]), stride: 1
+        )) { XCTAssertEqual($0 as? MonochromeBitmap.ValidationError, .invalidGrayscaleStride) }
+        XCTAssertThrowsError(try MonochromeConversion.photographicOrderedDither4x4.convert(
+            width: 2, height: 2, grayscale: Data([0, 0]), stride: 2
+        )) { XCTAssertEqual($0 as? MonochromeBitmap.ValidationError, .invalidGrayscaleLength) }
+    }
     func testRejectsShortGrayscaleStride() {
         XCTAssertThrowsError(try MonochromeBitmap.threshold(width: 9, height: 1, grayscale: [0], stride: 1))
     }
