@@ -12,6 +12,16 @@ public struct MonochromeBitmap: Equatable, Sendable {
     public let layout: BitmapLayout
     public let bytes: [UInt8]
 
+    /// An exact display-oriented expansion of the packed bitmap. This is not a
+    /// rendering result: each source bit maps directly to one grayscale pixel.
+    public struct GrayscalePreview: Equatable, Sendable {
+        public let width: Int
+        public let height: Int
+        public let bytesPerRow: Int
+        /// Top-to-bottom rows; 0 is black and 255 is white.
+        public let pixels: [UInt8]
+    }
+
     public init(width: Int, height: Int, bytes: [UInt8], maxByteCount: Int = 16 * 1024 * 1024) throws {
         let layout = try BitmapLayout(width: width, height: height, maxByteCount: maxByteCount)
         guard bytes.count == layout.byteCount else {
@@ -53,5 +63,22 @@ public struct MonochromeBitmap: Equatable, Sendable {
         var data = Data("P4\n\(layout.width) \(layout.height)\n".utf8)
         data.append(contentsOf: bytes)
         return data
+    }
+
+    /// Expands only meaningful bitmap bits. Tail padding is never displayed.
+    public func grayscalePreview() -> GrayscalePreview {
+        var pixels = [UInt8](repeating: 255, count: layout.width * layout.height)
+        for y in 0..<layout.height {
+            for x in 0..<layout.width {
+                let source = bytes[y * layout.bytesPerRow + x / 8]
+                pixels[y * layout.width + x] = source & UInt8(0x80 >> (x % 8)) == 0 ? 255 : 0
+            }
+        }
+        return GrayscalePreview(
+            width: layout.width,
+            height: layout.height,
+            bytesPerRow: layout.width,
+            pixels: pixels
+        )
     }
 }
