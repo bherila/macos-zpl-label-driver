@@ -20,6 +20,11 @@ discard backend). It emits sanitized stderr metadata and never retains a payload
 opens a device, invokes `lpr`, or selects a destination. It is not installed and
 has no printer-safe standalone mode.
 
+Its option wire string is decoded through CUPS' `cupsParseOptions` API and then
+cross-checked against the experiment's bounded typed choices. This does not turn
+the probe schema into the production ticket schema; it prevents the experiment
+from relying only on a hand-written interpretation of CUPS quoting/escaping.
+
 The source is cross-platform for offline tests; the installed product target
 remains Tahoe 26. A Linux ABI test does not validate a Mac spooler.
 
