@@ -5,14 +5,23 @@ export LC_ALL=C
 
 readonly queue='LabelProbe_DISCARDS_JOBS'
 readonly uri='file:///dev/null'
-readonly root='/Library/Printers/LabelPrinterDriver/M1'
+readonly root='/Library/Printers/LabelPrinterDriver-M1'
 readonly filter="$root/labelcapture-filter"
 readonly ownership="$root/OWNERSHIP"
 readonly native_ppd_sha256='cceed46e91e0fdfe6714132085e2ffe066feedaafd33f36f430cd15ca5349ada'
 readonly letter_ppd_sha256='18ef9a332ba898ea17c727303a42684f1f6c1e3eff19cd110ee34bf79023eb18'
 readonly a4_ppd_sha256='4c0ba022ac562051cf9d5779c0ecfe1a4c639bb27d7ee9fca7829ef3fcdc7dac'
+temporary=''
 
 die() { echo "ERROR: $*" >&2; exit 2; }
+
+cleanup_temporary() {
+  [[ -n "$temporary" ]] || return 0
+  case "$temporary" in
+    /private/tmp/label-driver-m1.??????) /bin/rm -rf -- "$temporary" ;;
+    *) echo 'ERROR: refusing to remove an unexpected temporary path' >&2; return 1 ;;
+  esac
+}
 
 rollback_after_apply_error() {
   local status=$?
@@ -141,10 +150,9 @@ apply() {
   local source_filter="$1" source_ppd="$2"
   [[ -f "$source_filter" && ! -L "$source_filter" && -x "$source_filter" ]] || die 'filter must be an executable regular non-symlink file'
   [[ -f "$source_ppd" && ! -L "$source_ppd" ]] || die 'candidate PPD must be a regular non-symlink file'
-  local temporary
   local root_created=0 filter_staged=0 queue_installed=0
-  temporary="$(/usr/bin/mktemp -d "${TMPDIR:-/tmp}/label-driver-m1.XXXXXX")"
-  trap 'rm -rf "$temporary"' EXIT
+  temporary="$(/usr/bin/mktemp -d '/private/tmp/label-driver-m1.XXXXXX')"
+  trap cleanup_temporary EXIT
   local snapshot="$temporary/labelcapture-filter"
   local ppd_snapshot="$temporary/candidate.ppd"
   local generated="$temporary/capture.ppd"
