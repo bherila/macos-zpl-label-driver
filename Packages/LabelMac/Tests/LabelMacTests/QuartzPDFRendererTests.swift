@@ -24,6 +24,21 @@ final class QuartzPDFRendererTests: XCTestCase {
         return data as Data
     }
 
+    private func twoPagePDF() throws -> Data {
+        let data = NSMutableData()
+        guard let consumer = CGDataConsumer(data: data as CFMutableData) else { throw TestError.unavailable }
+        var box = CGRect(x: 0, y: 0, width: 10, height: 10)
+        guard let context = CGContext(consumer: consumer, mediaBox: &box, nil) else { throw TestError.unavailable }
+        for _ in 0..<2 {
+            context.beginPDFPage(nil)
+            context.setFillColor(gray: 0, alpha: 1)
+            context.fill(CGRect(x: 0, y: 0, width: 10, height: 10))
+            context.endPDFPage()
+        }
+        context.closePDF()
+        return data as Data
+    }
+
     private func request(pdf: Data, page: Int = 1, width: Int = 10, height: Int = 10) throws -> QuartzPDFRenderer.Request {
         let canvas = try DotCanvas(
             physicalSize: PhysicalSize(width: try Millimeters(10), height: try Millimeters(10)),
@@ -60,6 +75,18 @@ final class QuartzPDFRendererTests: XCTestCase {
         limited = QuartzPDFRenderer.Request(originalPDF: pdf, pageNumber: 1, canvas: limited.canvas, maximumPixels: 99)
         XCTAssertThrowsError(try QuartzPDFRenderer.render(limited)) {
             XCTAssertEqual($0 as? QuartzPDFRenderer.Error, .pixelLimitExceeded(actual: 100, limit: 99))
+        }
+        let sourceLimit = QuartzPDFRenderer.Request(
+            originalPDF: try twoPagePDF(), pageNumber: 1, canvas: limited.canvas, maximumSourcePages: 1
+        )
+        XCTAssertThrowsError(try QuartzPDFRenderer.render(sourceLimit)) {
+            XCTAssertEqual($0 as? QuartzPDFRenderer.Error, .sourcePageLimitExceeded(actual: 2, limit: 1))
+        }
+        let invalidLimit = QuartzPDFRenderer.Request(
+            originalPDF: pdf, pageNumber: 1, canvas: limited.canvas, maximumSourcePages: 0
+        )
+        XCTAssertThrowsError(try QuartzPDFRenderer.render(invalidLimit)) {
+            XCTAssertEqual($0 as? QuartzPDFRenderer.Error, .invalidLimits)
         }
     }
 
