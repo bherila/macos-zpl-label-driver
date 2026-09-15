@@ -212,6 +212,15 @@ and a zero-byte failure after two accepted bytes. This is partial portable
 M3-AC05/M3-AC09 evidence only; it is not raw TCP, USB, scheduler, or hardware
 validation.
 
+At `cbb62f842b932a41ec3ab046efb076c711476290`, a prepared-label encoder joins
+typed baseline controls and the canonical graphics writer in exactly one
+bounded `^XA`/`^XZ` envelope. Its regression checks the complete golden
+sequence, single-wrapper invariant, total-budget preflight, and the continued
+absence of copies, reset/save, darkness, media-size, and storage commands.
+This avoids treating the old diagnostic envelope as production output, but is
+still only portable prepared-output evidence: no transport, scheduler, USB,
+network, or physical printer acceptance has occurred.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

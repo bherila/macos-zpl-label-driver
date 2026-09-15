@@ -54,7 +54,8 @@
         "0ed6031e90975a494945bcad73c44dc67c29d2c3 (immutable profile-revision binding and deterministic control precedence; portable regression vectors only)",
         "37d1a0e88bba2bac5e014b519c685b95db00fc80 (bounded, provenance-backed tear-off/speed control encoding; portable regression vectors only)",
         "5026353212f7d26933904cc6d93ec711a0339601 (portable delivery-state and no-blind-replay regression vectors only)",
-        "f20620ddfef9d6b4871fe34163f6de9bf9191f69 (portable bounded short-write/zero-write delivery vectors only)"
+        "f20620ddfef9d6b4871fe34163f6de9bf9191f69 (portable bounded short-write/zero-write delivery vectors only)",
+        "cbb62f842b932a41ec3ab046efb076c711476290 (portable complete prepared-label envelope vectors only)"
       ],
       "blockers": []
     },
