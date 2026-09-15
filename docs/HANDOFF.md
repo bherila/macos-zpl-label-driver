@@ -380,6 +380,15 @@ the silent-drop path without turning the 813×1219 planning face into `^LL`,
 M3-AC13 evidence only. Darkness/tracking/media command qualification, queue
 option propagation, USB delivery, and physical validation remain open.
 
+At `2dac751`, `ZPLPreparedLabelEncoder.prepare` now resolves controls from one
+typed profile and returns bounded bytes paired with that exact immutable
+profile/media snapshot. `DeliveryTracker(preparedLabel:)` receives the same
+snapshot and derives its byte count from those prepared bytes. Regression
+proves the single-envelope payload and receipt preserve revision 23 together.
+This is portable partial M1-AC07/M3-AC01/M3-AC09 evidence only; it has no
+spooler persistence, scheduler hold/release result, process-wide ownership,
+USB/network delivery, status receipt, or physical output evidence.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
