@@ -48,4 +48,12 @@ final class MonochromeBitmapTests: XCTestCase {
         let b = try MonochromeBitmap(width: 9, height: 1, bytes: [0xA5,0x80])
         XCTAssertEqual(b.pbmData(), Data("P4\n9 1\n".utf8) + Data([0xA5,0x80]))
     }
+    func testGrayscalePreviewExpandsExactBitsWithoutTailPadding() throws {
+        let b = try MonochromeBitmap(width: 9, height: 2, bytes: [0b1010_0001, 0b1000_0000, 0b0101_1110, 0])
+        let preview = b.grayscalePreview()
+        XCTAssertEqual(preview.width, 9)
+        XCTAssertEqual(preview.height, 2)
+        XCTAssertEqual(preview.bytesPerRow, 9)
+        XCTAssertEqual(preview.pixels, [0,255,0,255,255,255,255,0,0, 255,0,255,0,0,0,0,255,255])
+    }
 }
