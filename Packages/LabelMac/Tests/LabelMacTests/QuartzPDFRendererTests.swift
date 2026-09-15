@@ -193,6 +193,18 @@ final class QuartzPDFRendererTests: XCTestCase {
         }
     }
 
+    func testMixedPageSizesUseEachOriginalPagesGeometry() throws {
+        let source = try fixture(named: "mixed-pages")
+        let native = try QuartzPDFRenderer.render(request(pdf: source, page: 1, width: 288, height: 432))
+        let letter = try QuartzPDFRenderer.render(request(pdf: source, page: 2, width: 288, height: 432))
+        let middleRow = 216
+
+        XCTAssertLessThan(native.pixels[middleRow * native.bytesPerRow + 10], 224)
+        XCTAssertEqual(letter.pixels[middleRow * letter.bytesPerRow + 10], 255)
+        XCTAssertEqual(native.pixels[middleRow * native.bytesPerRow + 147], 255)
+        XCTAssertLessThan(letter.pixels[middleRow * letter.bytesPerRow + 147], 224)
+    }
+
     func testOfflineTicketDecodesExplicitSchemaAndPreparesExactPreview() throws {
         let ticket = try OfflineConversionTicket(jsonData: Data("""
         {
