@@ -43,6 +43,8 @@ struct LabelDriverCLI {
                 guard let output = invocation.output, let previewDirectory = invocation.previewDirectory else {
                     throw CLIError.usage("convert requires --output and --preview-dir")
                 }
+                try validateNewDestination(output)
+                try validateNewDestination(previewDirectory.appending(path: "page-0001.pbm"))
                 try writeNew(prepared.zpl, to: output)
                 do {
                     try writeNew(prepared.previewPBM, to: previewDirectory.appending(path: "page-0001.pbm"))
@@ -136,7 +138,7 @@ struct LabelDriverCLI {
         catch { throw CLIError.input("invalid job ticket: \(String(describing: error))") }
     }
 
-    private static func writeNew(_ data: Data, to url: URL) throws {
+    private static func validateNewDestination(_ url: URL) throws {
         let path = url.standardizedFileURL.path
         let parent = url.deletingLastPathComponent().standardizedFileURL.path
         var isDirectory: ObjCBool = false
@@ -147,6 +149,9 @@ struct LabelDriverCLI {
         guard !FileManager.default.fileExists(atPath: path) else {
             throw CLIError.output("refusing to overwrite existing output")
         }
+    }
+
+    private static func writeNew(_ data: Data, to url: URL) throws {
         do { try data.write(to: url, options: .withoutOverwriting) }
         catch { throw CLIError.output("cannot create output") }
     }
