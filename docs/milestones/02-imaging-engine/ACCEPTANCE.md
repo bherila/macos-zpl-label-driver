@@ -20,7 +20,7 @@ Evidence levels: **A** automated; **C** repository/CI/configuration inspection; 
 | [ ] | M2-AC09 | Resource safety | A | Size/page/pixel/output limits, malformed/encrypted inputs, deadlines and cancellations fail without unbounded allocation or partial default delivery. |
 | [ ] | M2-AC10 | CLI/filter contracts | I | CLI error codes and filter stdout/stderr behavior are tested; invalid jobs emit no printer payload in the default prepared mode. |
 | [ ] | M2-AC11 | Physical image quality | H | Reference labels have correct size/orientation and readable text/barcodes on the declared hardware/media configuration. |
-| [ ] | M2-AC12 | Performance baseline | I | Release-mode latency, peak memory, output bytes and throughput are recorded on a named reference Mac with reproducible fixtures. |
+| [x] | M2-AC12 | Performance baseline | I | Release-mode latency, peak memory, output bytes and throughput are recorded on a named reference Mac with reproducible fixtures. Evidence: [2026-09-15 offline baseline](../../validation/M2-PERFORMANCE-BASELINE-2026-09-15.md). |
 | [ ] | M2-AC13 | GC420d dot-pitch oracle | A | Reference physical arithmetic produces 813×1219/102-row-bytes/124338 bytes with correct padding and band reconstruction; nominal integer DPI, head width, liner and gap are not conflated. |
 
 ## Completion rules

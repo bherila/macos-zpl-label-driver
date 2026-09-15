@@ -782,6 +782,18 @@ This closes R9 and the identified annotation edge case at automated-test level,
 without claiming observed printer settings, application capture, or physical
 output have been validated.
 
+At `6fcb63e`, M2 gained a reusable offline release benchmark with unit-tested
+macOS timing parsing and explicit nearest-rank percentile semantics. A clean
+worktree run on Apple Silicon MacBookPro18,3, macOS 26.6.2, Xcode 26.6 used the
+fixed native-vector fixture and version-1 4×6/8-dots-per-mm ticket for one cold
+and twenty separate warm CLI/worker processes. Output remained 813×1219 dots
+and 248,814 bytes. Cold time was 120.850 ms; warm median was 118.812 ms, warm
+p95 was 123.138 ms, and maximum warm command RSS was 14,106,624 bytes. This
+passes the proposed under-500-ms and under-256-MiB engineering targets and
+records M2-AC12 for the offline scope. The committed evidence explicitly does
+not cover scheduler overhead, USB transfer, printer mechanics, first-label time,
+sustained physical rate, or release regression budgets.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
