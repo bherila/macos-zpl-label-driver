@@ -31,7 +31,8 @@
         "d0581646b4567b829a8e5f8ed28cc70652e7b4e9 (CUPS API option parse plus bounded experiment-schema cross-check; no scheduler integration evidence)",
         "a520fb6 (quoted CUPS option-wire regression through the real inert filter; no scheduler integration evidence)",
         "docs/adr/0003-m1-adapter-admission-gate.md (Tahoe placement/local-signing admission gate and non-selection decision; M1-AC12 decision evidence only)",
-        "scripts/check_capture_filter.py (portable SIGTERM and broken-downstream-pipe regression vectors; partial M1-AC09 only, no scheduler evidence)"
+        "scripts/check_capture_filter.py (portable SIGTERM and broken-downstream-pipe regression vectors; partial M1-AC09 only, no scheduler evidence)",
+        "scripts/m1-discard-file-sink.sh (reviewable, fixed-target file:///dev/null discard-queue transaction candidate; portable preparation only, no queue installation or scheduler evidence)"
       ],
       "blockers": []
     },

@@ -57,15 +57,18 @@ calibration, or device-control command. The controls record selection only.
 1. Run the existing host preflight, build natively and locally ad-hoc sign the
    probe. Verify the exact signed binary. No Apple identity is required by design;
    actual admission remains the M1 experiment.
-2. Determine and record a **supported writable add-on backend placement and
-   permissions on the actual Tahoe host**. Do not guess from old CUPS paths or
-   change SIP, global CUPS configuration or the existing Zebra queue. Failure to
-   establish a safe placement is an ADR blocker, not permission to bypass security.
-3. After explicit installation/queue authorization, install only the inert
-   experiment with an ownership/rollback record. Queue names must include
-   `DISCARDS JOBS`. Its destination must be `labelprobe://discard` and it must not
-   become the default printer. Run `cupstestppd -v` on each candidate where the tool
-   is available; repair and record any validation findings.
+2. Do not install the custom `labelprobe` backend: it would require an unproven
+   protected `ServerBin` placement. The separately reviewed
+   `scripts/m1-discard-file-sink.sh` is the only candidate installation path: it
+   stages the ad-hoc-signed **filter** under an owned protected local printer
+   directory, rewrites only the candidate PPD's two filter program fields to that
+   absolute path, and uses CUPS' existing `file:///dev/null` sink. It must not
+   change SIP, global CUPS configuration, or the existing physical queue.
+3. After explicit installation/queue authorization, use that script to install
+   only the inert experiment with an ownership/rollback record. The queue name
+   includes `DISCARDS JOBS`, is never made default, and targets `/dev/null` rather
+   than any printer. Run `cupstestppd -v` on each candidate where the tool is
+   available; repair and record any validation findings.
 4. Use only the generated synthetic PDF/HTML inputs. Set non-default token values
    in the **system** dialog and confirm `knownOptions`, `copiesArgument`, MIME
    labels and byte counts in the backend diagnostic. Compare Preview, Safari,
