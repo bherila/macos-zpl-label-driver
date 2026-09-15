@@ -5,6 +5,12 @@ import XCTest
 @testable import LabelMac
 
 final class QuartzPDFRendererTests: XCTestCase {
+    private func fixture(named name: String) throws -> Data {
+        var root = URL(fileURLWithPath: #filePath)
+        for _ in 0..<5 { root.deleteLastPathComponent() }
+        return try Data(contentsOf: root.appending(path: "Fixtures/generated/\(name).pdf"))
+    }
+
     private func lowerHalfBlackPDF() throws -> Data {
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data as CFMutableData) else { throw TestError.unavailable }
@@ -65,6 +71,23 @@ final class QuartzPDFRendererTests: XCTestCase {
             bitmap.grayscalePreview().pixels,
             grayscale.pixels.map { $0 < 128 ? UInt8(0) : UInt8(255) }
         )
+    }
+
+    func testUserUnitFixturePagesRenderToTheSamePhysicalDots() throws {
+        let source = try fixture(named: "user-unit")
+        let first = try QuartzPDFRenderer.render(request(pdf: source, page: 1, width: 100, height: 150))
+        let second = try QuartzPDFRenderer.render(request(pdf: source, page: 2, width: 100, height: 150))
+        // Quartz antialiasing varies at edge samples, so the RGB/grayscale
+        // intermediate is not a stable output oracle. The packed bitmap is the
+        // actual encoder input and must remain identical for the two pages.
+        let firstPacked = try MonochromeBitmap.threshold(
+            width: first.width, height: first.height, grayscale: first.pixels, stride: first.bytesPerRow
+        )
+        let secondPacked = try MonochromeBitmap.threshold(
+            width: second.width, height: second.height, grayscale: second.pixels, stride: second.bytesPerRow
+        )
+        XCTAssertEqual(firstPacked, secondPacked)
+        XCTAssertGreaterThan(first.pixels.filter { $0 < 255 }.count, 0)
     }
 
     private enum TestError: Error { case unavailable }
