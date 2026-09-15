@@ -13,11 +13,20 @@ die() { echo "ERROR: $*" >&2; exit 2; }
 rollback_after_apply_error() {
   local status=$?
   trap - ERR
+  cleanup_owned_artifacts
+  exit "$status"
+}
+
+cleanup_owned_artifacts() {
   set +e
   if [[ "${queue_installed:-0}" == 1 ]]; then /usr/bin/sudo /usr/sbin/lpadmin -x "$queue"; fi
   if [[ "${filter_staged:-0}" == 1 ]]; then /usr/bin/sudo /bin/rm -f "$filter" "$ownership"; fi
   if [[ "${root_created:-0}" == 1 ]]; then /usr/bin/sudo /bin/rmdir "$root"; fi
-  exit "$status"
+}
+
+fail_after_apply() {
+  cleanup_owned_artifacts
+  die "$*"
 }
 
 usage() {
@@ -102,7 +111,7 @@ apply() {
   /usr/bin/sudo /usr/bin/install -o root -g wheel -m 0755 "$source_filter" "$filter"
   filter_staged=1
   /usr/bin/sudo /usr/bin/codesign --verify --strict --verbose=2 "$filter" >/dev/null
-  /usr/bin/sudo /usr/bin/cupstestppd -q "$generated" || die 'generated experiment PPD failed strict validation after staging'
+  /usr/bin/sudo /usr/bin/cupstestppd -q "$generated" || fail_after_apply 'generated experiment PPD failed strict validation after staging'
   {
     echo 'schemaVersion=1'
     echo "queue=$queue"
@@ -114,7 +123,7 @@ apply() {
   /usr/bin/sudo /bin/chmod 0644 "$ownership"
   /usr/bin/sudo /usr/sbin/lpadmin -p "$queue" -v "$uri" -i "$generated" -o printer-is-shared=false -E
   queue_installed=1
-  /usr/bin/lpstat -v "$queue" | /usr/bin/grep -Fqx "device for $queue: $uri" || die 'queue URI readback failed; remove the experiment immediately'
+  /usr/bin/lpstat -v "$queue" | /usr/bin/grep -Fqx "device for $queue: $uri" || fail_after_apply 'queue URI readback failed'
   trap - ERR
   echo "Installed inert $queue. It targets $uri and is not the default printer."
 }
