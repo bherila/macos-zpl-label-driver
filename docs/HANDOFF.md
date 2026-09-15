@@ -586,6 +586,18 @@ writes nothing. All 23 LabelMac tests pass. This is partial automated M2-AC05/
 M2-AC09/M2-AC10 evidence for the offline CLI only. It is not a crash-atomic
 multi-filesystem transaction, scheduler filter contract, or delivery result.
 
+At `5aec8ee`, each final CLI output is now published by a same-directory staged
+file and Darwin `renameatx_np(..., RENAME_EXCL)`. This preserves no-overwrite
+behavior while ensuring a final preview or ZPL path never exposes a partially
+written file. Preview still commits before ZPL, so a crash between final renames
+can leave a complete preview but not a final ZPL without its preview; ordinary
+second-write failure removes the preview and leaves no staging artifacts. The
+first attempt to combine Foundation `.atomic` and `.withoutOverwriting` aborted
+with an explicit unsupported-options failure and was replaced before commit.
+All 23 LabelMac tests pass. This strengthens partial M2-AC09/M2-AC10 evidence;
+the two-path pair is intentionally not claimed as one cross-filesystem atomic
+transaction.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
