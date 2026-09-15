@@ -58,6 +58,19 @@ final class QuartzPDFRendererTests: XCTestCase {
         return data as Data
     }
 
+    private func solidBlackSquarePDF() throws -> Data {
+        let data = NSMutableData()
+        guard let consumer = CGDataConsumer(data: data as CFMutableData) else { throw TestError.unavailable }
+        var box = CGRect(x: 0, y: 0, width: 10, height: 10)
+        guard let context = CGContext(consumer: consumer, mediaBox: &box, nil) else { throw TestError.unavailable }
+        context.beginPDFPage(nil)
+        context.setFillColor(gray: 0, alpha: 1)
+        context.fill(box)
+        context.endPDFPage()
+        context.closePDF()
+        return data as Data
+    }
+
     private func twoPagePDF() throws -> Data {
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data as CFMutableData) else { throw TestError.unavailable }
@@ -74,9 +87,16 @@ final class QuartzPDFRendererTests: XCTestCase {
     }
 
     private func request(pdf: Data, page: Int = 1, width: Int = 10, height: Int = 10) throws -> QuartzPDFRenderer.Request {
+        let dotsPerMillimeter = 72.0 / 25.4
         let canvas = try DotCanvas(
-            physicalSize: PhysicalSize(width: try Millimeters(10), height: try Millimeters(10)),
-            resolution: try DotResolution(xDotsPerMillimeter: Double(width) / 10, yDotsPerMillimeter: Double(height) / 10)
+            physicalSize: PhysicalSize(
+                width: try Millimeters(Double(width) / dotsPerMillimeter),
+                height: try Millimeters(Double(height) / dotsPerMillimeter)
+            ),
+            resolution: try DotResolution(
+                xDotsPerMillimeter: dotsPerMillimeter,
+                yDotsPerMillimeter: dotsPerMillimeter
+            )
         )
         return QuartzPDFRenderer.Request(originalPDF: pdf, pageNumber: page, canvas: canvas)
     }
@@ -95,6 +115,39 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertEqual(bitmap.pixels.count, 100)
         XCTAssertTrue(bitmap.pixels.prefix(50).allSatisfy { $0 == 255 })
         XCTAssertTrue(bitmap.pixels.suffix(50).allSatisfy { $0 == 0 })
+    }
+
+    func testFitPreservesPhysicalAspectAtNonSquareResolution() throws {
+        let canvas = try DotCanvas(
+            physicalSize: PhysicalSize(width: try Millimeters(20), height: try Millimeters(10)),
+            resolution: DotResolution(xDotsPerMillimeter: 1, yDotsPerMillimeter: 2)
+        )
+        let bitmap = try QuartzPDFRenderer.render(.init(
+            originalPDF: try solidBlackSquarePDF(),
+            pageNumber: 1,
+            canvas: canvas,
+            placementPolicy: .fit
+        ))
+        let row = 10 * bitmap.bytesPerRow
+        XCTAssertTrue(bitmap.pixels[row..<(row + 5)].allSatisfy { $0 == 255 })
+        XCTAssertTrue(bitmap.pixels[(row + 6)..<(row + 14)].allSatisfy { $0 == 0 })
+        XCTAssertTrue(bitmap.pixels[(row + 15)..<(row + 20)].allSatisfy { $0 == 255 })
+    }
+
+    func testActualSizePreservesCompensatedUserUnitGeometry() throws {
+        let source = try fixture(named: "user-unit")
+        let canvas = try DotCanvas(
+            physicalSize: PhysicalSize(width: try Millimeters(100), height: try Millimeters(150)),
+            resolution: DotResolution(xDotsPerMillimeter: 1, yDotsPerMillimeter: 1)
+        )
+        let first = try QuartzPDFRenderer.render(.init(
+            originalPDF: source, pageNumber: 1, canvas: canvas, placementPolicy: .actualSize
+        ))
+        let second = try QuartzPDFRenderer.render(.init(
+            originalPDF: source, pageNumber: 2, canvas: canvas, placementPolicy: .actualSize
+        ))
+        XCTAssertEqual(try packed(first), try packed(second))
+        XCTAssertGreaterThan(first.pixels.filter { $0 < 255 }.count, 0)
     }
 
     func testRejectsInvalidInputAndBoundsBeforeRendering() throws {
@@ -229,6 +282,19 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertEqual(prepared.previewPBM, prepared.bitmap.pbmData())
         XCTAssertTrue(String(decoding: prepared.zpl, as: UTF8.self).hasPrefix("^XA\n^FO0,0^GFA,"))
         XCTAssertTrue(String(decoding: prepared.zpl, as: UTF8.self).hasSuffix("^XZ\n"))
+        XCTAssertEqual(ticket.placementPolicy, .fit)
+
+        let actualSize = try OfflineConversionTicket(jsonData: Data("""
+        {
+          "schemaVersion": 1,
+          "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "textAndBarcodeThreshold", "cutoff": 128 },
+          "placementPolicy": "actualSize"
+        }
+        """.utf8))
+        XCTAssertEqual(actualSize.placementPolicy, .actualSize)
     }
 
     func testOfflineTicketRejectsUnknownSchemaAndBadConversion() {
@@ -248,6 +314,16 @@ final class QuartzPDFRendererTests: XCTestCase {
           "conversion": { "mode": "unknown" } }
         """.utf8)
         XCTAssertThrowsError(try OfflineConversionTicket(jsonData: invalidMode)) {
+            XCTAssertEqual($0 as? OfflineConversionTicket.TicketError, .malformedJSON)
+        }
+        let invalidPlacement = Data("""
+        { "schemaVersion": 1, "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "photographicOrderedDither4x4" },
+          "placementPolicy": "stretch" }
+        """.utf8)
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: invalidPlacement)) {
             XCTAssertEqual($0 as? OfflineConversionTicket.TicketError, .malformedJSON)
         }
     }
