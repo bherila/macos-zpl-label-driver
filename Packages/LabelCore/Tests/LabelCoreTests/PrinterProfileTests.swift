@@ -147,6 +147,27 @@ final class PrinterProfileTests: XCTestCase {
         XCTAssertEqual(profile.media.calibration, .unobserved)
     }
 
+    func testExplicitMediaGeometryIsValidatedThenRejectedUntilQualified() throws {
+        XCTAssertThrowsError(try MediaGeometryRequest(widthDots: 0)) {
+            XCTAssertEqual($0 as? MediaConfigurationError, .invalidCalibrationDimensions)
+        }
+
+        let profile = try PrinterProfile.gc420dUSBReference()
+        let request = try MediaGeometryRequest(
+            widthDots: 813,
+            lengthDots: 1_219,
+            originXDot: 0,
+            originYDot: 0
+        )
+        XCTAssertThrowsError(try profile.resolveControls(job: .init(mediaGeometry: request))) {
+            XCTAssertEqual($0 as? PrinterProfileError, .unavailableMediaGeometry)
+        }
+        XCTAssertThrowsError(try profile.resolveControls(
+            job: .init(),
+            workflowDefaults: .init(mediaGeometry: request)
+        )) { XCTAssertEqual($0 as? PrinterProfileError, .unavailableMediaGeometry) }
+    }
+
     func testResolutionBindsProfileRevisionAndPreservesUnknownSettings() throws {
         let profile = try PrinterProfile.gc420dUSBReference(revision: 41)
         let resolved = try profile.resolveControls(job: .init())

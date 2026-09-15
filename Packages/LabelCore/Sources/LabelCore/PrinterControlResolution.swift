@@ -12,19 +12,22 @@ public struct PrinterControlDefaults: Equatable, Sendable {
     public var printSpeedIps: Int?
     public var darkness: Int?
     public var tracking: MediaTracking?
+    public var mediaGeometry: MediaGeometryRequest?
 
     public init(
         thermalMethod: ThermalMethod? = nil,
         finishing: FinishingMode? = nil,
         printSpeedIps: Int? = nil,
         darkness: Int? = nil,
-        tracking: MediaTracking? = nil
+        tracking: MediaTracking? = nil,
+        mediaGeometry: MediaGeometryRequest? = nil
     ) {
         self.thermalMethod = thermalMethod
         self.finishing = finishing
         self.printSpeedIps = printSpeedIps
         self.darkness = darkness
         self.tracking = tracking
+        self.mediaGeometry = mediaGeometry
     }
 }
 
@@ -51,13 +54,15 @@ public extension PrinterProfile {
         let speed = job.printSpeedIps ?? workflowDefaults.printSpeedIps ?? installedHardware.currentSpeedIps
         let darkness = job.darkness ?? workflowDefaults.darkness ?? installedHardware.currentDarkness
         let tracking = job.tracking ?? workflowDefaults.tracking ?? installedHardware.currentTracking
+        let mediaGeometry = job.mediaGeometry ?? workflowDefaults.mediaGeometry
 
         try validate(.init(
             thermalMethod: thermal,
             finishing: finishing,
             printSpeedIps: speed,
             darkness: darkness,
-            tracking: tracking
+            tracking: tracking,
+            mediaGeometry: mediaGeometry
         ))
         return ResolvedPrinterControls(
             profileSchemaVersion: schemaVersion,
