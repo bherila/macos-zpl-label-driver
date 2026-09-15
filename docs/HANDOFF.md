@@ -48,6 +48,15 @@ the existing authorizations. The probe supports **only** a clearly named discard
 queue; successful observation must never be called a printed label. Next high-value
 experiment is native Tahoe scheduler admission/options and complete source capture.
 
+M2.1 physical geometry begins at
+`e7df7ecf63f7eb71129f760802c2eca229613310`. `LabelCore` now has typed
+millimetres, independent horizontal/vertical dots-per-millimetre resolution,
+the documented positive half-away-from-zero dot rounding policy, and bounded
+dot-canvas planning. The 4×6 GC420d planning oracle is regression-tested as
+813×1219 dots, 102 bytes per row, and 124338 packed bytes. This does not yet
+perform PDF box/rotation/UserUnit transformation, Quartz rendering, document
+capture, queue installation, or printer delivery.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
