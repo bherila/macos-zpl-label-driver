@@ -224,6 +224,14 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertEqual(repeatConversion.status, 73)
         XCTAssertTrue(repeatConversion.stdout.isEmpty)
         XCTAssertTrue(String(decoding: repeatConversion.stderr, as: UTF8.self).contains("refusing to overwrite"))
+        let malformedTicket = directory.appending(path: "malformed-ticket.json")
+        try Data("{}".utf8).write(to: malformedTicket)
+        let invalid = try runCLI(["validate", source.path, "--job-ticket", malformedTicket.path, "--json"])
+        XCTAssertEqual(invalid.status, 65)
+        XCTAssertTrue(invalid.stdout.isEmpty)
+        let error = try JSONSerialization.jsonObject(with: invalid.stderr) as? [String: Any]
+        XCTAssertEqual(error?["status"] as? String, "error")
+        XCTAssertEqual(error?["code"] as? String, "INPUT_ERROR")
     }
 
     private enum TestError: Error { case unavailable }
