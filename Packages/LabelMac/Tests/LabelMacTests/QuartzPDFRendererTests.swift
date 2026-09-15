@@ -161,6 +161,13 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertGreaterThan(shifted.pixels.filter { $0 < 255 }.count, 0)
     }
 
+    func testRejectsInteractiveAnnotationFormRatherThanDroppingItsAppearance() throws {
+        let source = try fixture(named: "annotation-form")
+        XCTAssertThrowsError(try QuartzPDFRenderer.render(request(pdf: source))) {
+            XCTAssertEqual($0 as? QuartzPDFRenderer.Error, .annotationsUnsupported)
+        }
+    }
+
     func testOfflineTicketDecodesExplicitSchemaAndPreparesExactPreview() throws {
         let ticket = try OfflineConversionTicket(jsonData: Data("""
         {

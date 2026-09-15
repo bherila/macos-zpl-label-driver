@@ -21,17 +21,23 @@ The generator overwrites only its named generated outputs after the explicit fla
 
 ## Concrete inputs
 
-17 PDFs / 27 pages plus three self-contained HTML print fixtures. They cover
+18 PDFs / 28 pages plus three self-contained HTML print fixtures. They cover
 native 4x6, Letter/A4 extraction, multiple regions, page rotation, positive and
 negative box origins, UserUnit 1/2, transparency, fine rules/text, embedded raster,
-mixed-size documents, non-label pages, changed layouts, ambiguous regions, and
-A/B/C order. The catalog marks families `available-partial`, not fully complete.
+mixed-size documents, an interactive form widget with a validated appearance,
+non-label pages, changed layouts, ambiguous regions, and A/B/C order. The catalog
+marks families `available-partial`, not fully complete.
 
 The vector label includes Code 128 and QR symbols with explicitly synthetic
 payloads. HTML contains an inline vector Code 128 and no network assets or JS.
 Neither type copies an actual courier site's layout or constitutes evidence of
 live shipping-site compatibility. PDF text uses standard base-font references;
 no font files are bundled. Fonts and text rasterization can vary by renderer.
+
+`annotation-form.pdf` contains one canonical AcroForm text field and one Widget
+annotation with a nonempty normal appearance stream. The generator reopens and
+checks both the field value and widget appearance. The renderer's supported
+contract is explicit rejection; this fixture does not authorize silent flattening.
 
 `Fixtures/generated/manifest.json` contains SHA-256, source regions, normalized
 upright regions, boxes, rotation, UserUnit and expected barcode payloads. The
