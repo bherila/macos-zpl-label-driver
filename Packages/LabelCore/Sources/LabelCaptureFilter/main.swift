@@ -20,7 +20,7 @@ func monotonic() -> Double {
 func safeMIME(_ value: String?) -> String {
     let allowed = ["application/pdf", "application/vnd.cups-pdf", "application/postscript",
                    "application/vnd.cups-postscript", "application/vnd.cups-raster",
-                   "image/pwg-raster", "image/urf"]
+                   "application/vnd.labelprobe", "image/pwg-raster", "image/urf"]
     return allowed.contains(value ?? "") ? value! : "unrecognized-or-unset"
 }
 
@@ -32,7 +32,8 @@ func writeAll(_ bytes: UnsafeRawBufferPointer, deadline: Double) throws {
         var descriptor = pollfd(fd: STDOUT_FILENO, events: Int16(POLLOUT), revents: 0)
         let ready = poll(&descriptor, 1, Int32(min(remaining * 1000, 250)))
         if ready < 0 { if errno == EINTR { continue }; throw FilterFailure.output }
-        if ready == 0 || descriptor.revents & Int16(POLLNVAL | POLLERR | POLLHUP) != 0 { throw FilterFailure.output }
+        if ready == 0 { continue }
+        if descriptor.revents & Int16(POLLNVAL | POLLERR | POLLHUP) != 0 { throw FilterFailure.output }
         let count = write(STDOUT_FILENO, bytes.baseAddress!.advanced(by: offset), bytes.count - offset)
         if count < 0 { if errno == EINTR || errno == EAGAIN { continue }; throw FilterFailure.output }
         guard count > 0 else { throw FilterFailure.output }
@@ -62,6 +63,12 @@ func run() throws {
     } else {
         guard mode == mode_t(S_IFREG) || mode == mode_t(S_IFIFO) else { throw FilterFailure.input }
     }
+
+    let outputFlags = fcntl(STDOUT_FILENO, F_GETFL)
+    guard outputFlags >= 0, fcntl(STDOUT_FILENO, F_SETFL, outputFlags | O_NONBLOCK) == 0 else {
+        throw FilterFailure.output
+    }
+    defer { _ = fcntl(STDOUT_FILENO, F_SETFL, outputFlags) }
 
     let deadline = monotonic() + 10
     let maximumBytes = 64 * 1024 * 1024
