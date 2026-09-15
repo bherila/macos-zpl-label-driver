@@ -560,6 +560,14 @@ structure in their declared physical region. All 20 LabelMac tests pass. This
 adds partial automated M2-AC03 evidence; it does not establish every PDF blend
 mode, low-resolution warning UX, application capture, or physical image quality.
 
+At `11d9c70`, the mixed-size two-page fixture now has a per-page placement oracle.
+At the same final dot canvas, the native 4x6 page's full-face border and the
+Letter page's inset label border must appear at distinct measured columns. This
+would fail if the renderer reused the first page's geometry or treated
+application-facing Letter stock as a native label. It is additional partial
+automated M2-AC02/M2-AC03 evidence only; M1 must still establish what each real
+application supplies to the queue.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
