@@ -37,7 +37,7 @@ checks committed fixture hashes but does not claim to exercise Apple frameworks.
 | Inert Swift backend probe | `Packages/LabelCore/Sources/LabelCaptureProbe/main.swift` | CUPS ABI, bounded filename/stdin consumption, safe enumerated option observations, privacy and cancellation. Discard destination only. |
 | Offline vector CLI | `Packages/LabelCore/Sources/LabelCoreLab/main.swift` | Produces deterministic analytic PBM/ZPL pairs. No PDF input or printer operation. |
 | Independent test decoder | `scripts/zpl_oracle.py` | Strictly decodes only the emitted diagnostic subset; compares reconstructed pixels to PBM and independent analytic pattern. Not a general interpreter. |
-| Concrete fixture corpus | `Fixtures/generated/` | 17 original PDFs / 27 pages and 3 original HTML files; regions, boxes, rotations, hashes and barcode payloads in the manifest. |
+| Concrete fixture corpus | `Fixtures/generated/` | 18 original PDFs / 28 pages and 3 original HTML files; regions, boxes, rotations, hashes, form policy and barcode payloads in the manifest. |
 | M1 descriptor candidates | `experiments/cups-probe/` | Three original PPD candidates plus manual experiment instructions. Not installed or Tahoe-qualified. |
 
 ## Do not confuse diagnostic output with a prepared production job
