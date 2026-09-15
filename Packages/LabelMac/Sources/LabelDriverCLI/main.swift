@@ -50,16 +50,12 @@ struct LabelDriverCLI {
                 guard let output = invocation.output, let previewDirectory = invocation.previewDirectory else {
                     throw CLIError.usage("convert requires --output and --preview-dir")
                 }
-                try validateNewDestination(output)
-                try validateNewDestination(previewDirectory.appending(path: "page-0001.pbm"))
-                try writeNew(prepared.zpl, to: output)
-                do {
-                    try writeNew(prepared.previewPBM, to: previewDirectory.appending(path: "page-0001.pbm"))
-                } catch {
-                    // The ZPL output may exist after a later preview failure;
-                    // report it truthfully and never attempt printer delivery.
-                    throw CLIError.output("ZPL was written but preview was not: \(error)")
-                }
+                try writeOutputPair(
+                    zpl: prepared.zpl,
+                    output: output,
+                    preview: prepared.previewPBM,
+                    previewOutput: previewDirectory.appending(path: "page-0001.pbm")
+                )
                 emitSuccess(invocation, prepared: prepared, wroteFiles: true)
             }
         } catch let error as CLIError {
@@ -161,6 +157,29 @@ struct LabelDriverCLI {
     private static func writeNew(_ data: Data, to url: URL) throws {
         do { try data.write(to: url, options: .withoutOverwriting) }
         catch { throw CLIError.output("cannot create output") }
+    }
+
+    /// Commits the exact preview before the printer-language bytes. If the
+    /// second write fails, the owned preview is removed so a failed conversion
+    /// does not leave either output. This is an offline file transaction only;
+    /// it never makes a queue or transport call.
+    private static func writeOutputPair(zpl: Data, output: URL, preview: Data, previewOutput: URL) throws {
+        guard output.standardizedFileURL != previewOutput.standardizedFileURL else {
+            throw CLIError.output("ZPL and preview destinations must be distinct")
+        }
+        try validateNewDestination(output)
+        try validateNewDestination(previewOutput)
+        try writeNew(preview, to: previewOutput)
+        do {
+            try writeNew(zpl, to: output)
+        } catch {
+            do {
+                try FileManager.default.removeItem(at: previewOutput)
+            } catch {
+                throw CLIError.output("ZPL was not written and preview cleanup failed")
+            }
+            throw CLIError.output("conversion outputs were not retained")
+        }
     }
 
     private static func emitSuccess(_ invocation: Invocation, prepared: OfflinePreparedConversion, wroteFiles: Bool) {
