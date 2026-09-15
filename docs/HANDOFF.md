@@ -81,6 +81,16 @@ to prove the exact black/white mapping. This advances the preview primitive
 only; it does not yet bind Quartz output to thresholding, provide a documented
 dither policy, encode a complete production format, or deliver a job.
 
+M2.3 now binds bounded Quartz output to that canonical bitmap at
+`87ade157098e340483c96dadbaf8eee017dec5bc`. `QuartzPDFToMonochrome` consumes
+the original-PDF renderer's top-to-bottom grayscale `Data` with its exact
+stride and applies the deterministic threshold directly into the encoder-input
+bitmap; no thumbnail, preview, resampling, or I/O participates. Portable
+stride/threshold tests and a native generated-PDF end-to-end test cover the
+non-byte-aligned final row and preview equivalence. Dithering, mixed-content
+policy, broader PDF-semantic fixtures, complete ZPL preparation, cancellation,
+queue integration, and printer delivery remain unimplemented or unvalidated.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
