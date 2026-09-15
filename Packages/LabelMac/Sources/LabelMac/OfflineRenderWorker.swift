@@ -307,22 +307,18 @@ public enum OfflineRenderWorkerProcess {
     }
 
     private static func readPrivateRegularFile(_ url: URL, maximumBytes: Int) throws -> Data {
-        let descriptor = open(url.path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
-        guard descriptor >= 0 else { throw Error.invalidResult }
-        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
-        defer { try? handle.close() }
-        var info = stat()
-        guard fstat(descriptor, &info) == 0,
-              (info.st_mode & S_IFMT) == S_IFREG,
-              info.st_uid == geteuid(),
-              info.st_nlink == 1,
-              info.st_size >= 0,
-              info.st_size <= maximumBytes else {
+        do {
+            return try BoundedRegularFile.read(
+                url,
+                maximumBytes: maximumBytes,
+                requireCurrentUserOwner: true,
+                requireSingleLink: true
+            )
+        } catch BoundedRegularFile.Error.tooLarge {
             throw Error.outputLimitExceeded
+        } catch {
+            throw Error.invalidResult
         }
-        let data = try handle.readToEnd() ?? Data()
-        guard data.count <= maximumBytes else { throw Error.outputLimitExceeded }
-        return data
     }
 
     private static func stop(_ process: Process) {
