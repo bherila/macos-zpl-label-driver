@@ -33,6 +33,30 @@ python3 -m unittest discover -s scripts/tests
 
 The diagnostic performs a tiny Core Graphics smoke test. It does not enumerate, install, configure, or print to a device. No `sudo` is needed for these commands.
 
+### Offline PDF conversion (development only)
+
+The macOS package also provides a local, non-printing converter. Its ticket
+contains page, physical geometry, resolution, and monochrome policy; it cannot
+contain output paths, printer controls, or transport settings. For a synthetic
+fixture:
+
+```sh
+mkdir -p /tmp/label-driver-preview
+swift run --package-path Packages/LabelMac label-driver convert \
+  Fixtures/generated/native-vector.pdf \
+  --job-ticket Examples/offline-ticket-v1.json \
+  --output /tmp/native-vector.zpl \
+  --preview-dir /tmp/label-driver-preview \
+  --json
+```
+
+`validate` performs the same bounded preparation without writing artifacts.
+`convert` refuses to overwrite either output. The `.zpl` file is an offline
+graphics envelope; it deliberately does not normalize printer state and must
+not be sent directly to a printer. The PBM preview is an exact expansion of
+the packed bitmap supplied to that envelope. Neither command enumerates,
+installs, configures, or contacts a printer.
+
 ## Architecture and roadmap
 
 The portable Swift package owns job/geometry/profile/encoding logic as it is implemented. The macOS package owns Quartz and operating-system adapters. A separate native application will provide setup and workflow editing. The initial CUPS/PPD approach is an experiment until macOS integration tests establish its behavior; an IPP adapter remains an independently evaluated path.
