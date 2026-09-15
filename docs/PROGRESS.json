@@ -5,8 +5,8 @@
       "id": "M0",
       "directory": "docs/milestones/00-bootstrap",
       "implementation": "in-progress",
-      "automatedValidation": "passed",
-      "macOSIntegration": "passed",
+      "automatedValidation": "pass",
+      "macOSIntegration": "pass",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
       "evidence": [
