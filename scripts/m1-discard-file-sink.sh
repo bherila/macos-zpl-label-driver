@@ -31,9 +31,30 @@ rollback_after_apply_error() {
 }
 
 cleanup_owned_artifacts() {
+  local record_owned=0 filter_owned=0
   set +e
-  if [[ "${queue_installed:-0}" == 1 ]]; then /usr/bin/sudo /usr/sbin/lpadmin -x "$queue"; fi
-  if [[ "${filter_staged:-0}" == 1 ]]; then /usr/bin/sudo /bin/rm -f "$filter" "$ownership"; fi
+  if [[ "${ownership_staged:-0}" == 1 ]]; then
+    if ownership_record_matches; then
+      record_owned=1
+    else
+      echo 'WARNING: retained unexpected protected ownership state during rollback' >&2
+    fi
+  fi
+  if [[ "${filter_staged:-0}" == 1 && ( "${ownership_staged:-0}" == 0 || "$record_owned" == 1 ) ]] &&
+     /usr/bin/sudo /usr/bin/test -f "$filter" &&
+     ! /usr/bin/sudo /usr/bin/test -L "$filter" &&
+     [[ "$(/usr/bin/sudo /usr/bin/shasum -a 256 "$filter" | /usr/bin/awk '{ print $1 }')" == "${approved_sha:-}" ]]; then
+    filter_owned=1
+  fi
+  if [[ "${queue_installed:-0}" == 1 ]]; then
+    if /usr/bin/lpstat -v "$queue" 2>/dev/null | /usr/bin/grep -Fqx "device for $queue: $uri"; then
+      /usr/bin/sudo /usr/sbin/lpadmin -x "$queue"
+    else
+      echo 'WARNING: retained missing or altered queue during rollback' >&2
+    fi
+  fi
+  if [[ "$filter_owned" == 1 ]]; then /usr/bin/sudo /bin/rm -f "$filter"; fi
+  if [[ "$record_owned" == 1 ]]; then /usr/bin/sudo /bin/rm -f "$ownership"; fi
   if [[ "${root_created:-0}" == 1 ]]; then /usr/bin/sudo /bin/rmdir "$root"; fi
 }
 
@@ -65,14 +86,18 @@ validate_filter_command() {
   echo 'Validated local-ad-hoc ARM filter with macOS 26.0 minimum. No system state changed.'
 }
 
+is_supplied_ppd_sha() {
+  case "$1" in
+    "$native_ppd_sha256"|"$letter_ppd_sha256"|"$a4_ppd_sha256") return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 validate_ppd() {
   local ppd="$1" ppd_sha filter_count
   [[ -f "$ppd" && ! -L "$ppd" ]] || die 'candidate PPD must be a regular non-symlink file'
   ppd_sha="$(/usr/bin/shasum -a 256 "$ppd" | /usr/bin/awk '{ print $1 }')"
-  case "$ppd_sha" in
-    "$native_ppd_sha256"|"$letter_ppd_sha256"|"$a4_ppd_sha256") ;;
-    *) die 'candidate PPD bytes do not match a supplied experiment candidate' ;;
-  esac
+  is_supplied_ppd_sha "$ppd_sha" || die 'candidate PPD bytes do not match a supplied experiment candidate'
   /usr/bin/cupstestppd -q "$ppd" || die 'candidate PPD failed cupstestppd'
   filter_count="$(/usr/bin/awk '/^\*cupsFilter2:/{ count += 1 } END { print count + 0 }' "$ppd")"
   [[ "$filter_count" == 2 ]] || die 'candidate PPD must contain exactly two cupsFilter2 declarations'
@@ -117,8 +142,12 @@ ensure_not_existing() {
 }
 
 ownership_record_matches() {
+  local source_ppd_sha
+  source_ppd_sha="$(/usr/bin/sudo /usr/bin/awk -F= '$1 == "sourcePPDSHA256" { print $2 }' "$ownership" 2>/dev/null)" || return 1
   /usr/bin/sudo /usr/bin/test -f "$ownership" &&
     ! /usr/bin/sudo /usr/bin/test -L "$ownership" &&
+    /usr/bin/sudo /usr/bin/test -d "$root" &&
+    ! /usr/bin/sudo /usr/bin/test -L "$root" &&
     /usr/bin/sudo /usr/bin/test -f "$filter" &&
     ! /usr/bin/sudo /usr/bin/test -L "$filter" &&
     [[ "$(/usr/bin/sudo /usr/bin/awk 'END { print NR }' "$ownership")" == 6 ]] &&
@@ -127,6 +156,7 @@ ownership_record_matches() {
     /usr/bin/sudo /usr/bin/grep -Fqx "uri=$uri" "$ownership" &&
     /usr/bin/sudo /usr/bin/grep -Fqx "filter=$filter" "$ownership" &&
     /usr/bin/sudo /usr/bin/grep -Eq '^sourcePPDSHA256=[0-9a-f]{64}$' "$ownership" &&
+    is_supplied_ppd_sha "$source_ppd_sha" &&
     [[ "$(/usr/bin/sudo /usr/bin/awk -F= '$1 == "filterSHA256" { print $2 }' "$ownership")" == "$(/usr/bin/sudo /usr/bin/shasum -a 256 "$filter" | /usr/bin/awk '{ print $1 }')" ]]
 }
 
@@ -150,7 +180,7 @@ apply() {
   local source_filter="$1" source_ppd="$2"
   [[ -f "$source_filter" && ! -L "$source_filter" && -x "$source_filter" ]] || die 'filter must be an executable regular non-symlink file'
   [[ -f "$source_ppd" && ! -L "$source_ppd" ]] || die 'candidate PPD must be a regular non-symlink file'
-  local root_created=0 filter_staged=0 queue_installed=0
+  local root_created=0 filter_staged=0 ownership_staged=0 queue_installed=0
   temporary="$(/usr/bin/mktemp -d '/private/tmp/label-driver-m1.XXXXXX')"
   trap cleanup_temporary EXIT
   local snapshot="$temporary/labelcapture-filter"
@@ -171,13 +201,14 @@ apply() {
   # fixed allowlist: protected staging, one named queue, and no default change.
   /usr/bin/sudo -v
   trap rollback_after_apply_error ERR
-  /usr/bin/sudo /bin/mkdir -p "$root"
+  /usr/bin/sudo /bin/mkdir "$root"
   root_created=1
-  /usr/bin/sudo /usr/bin/install -o root -g wheel -m 0755 "$snapshot" "$filter"
   filter_staged=1
+  /usr/bin/sudo /usr/bin/install -o root -g wheel -m 0755 "$snapshot" "$filter"
   verify_local_adhoc_arm64 "$filter" || fail_after_apply 'staged filter signature or platform contract is invalid'
   [[ "$(/usr/bin/sudo /usr/bin/shasum -a 256 "$filter" | /usr/bin/awk '{ print $1 }')" == "$approved_sha" ]] || fail_after_apply 'staged filter bytes do not match the approved snapshot'
   /usr/bin/sudo /usr/bin/cupstestppd -q "$generated" || fail_after_apply 'generated experiment PPD failed strict validation after staging'
+  ownership_staged=1
   {
     echo 'schemaVersion=1'
     echo "queue=$queue"
