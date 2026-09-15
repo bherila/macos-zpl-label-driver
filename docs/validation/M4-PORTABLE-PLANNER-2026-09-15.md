@@ -63,3 +63,16 @@ regressions and the resulting 108-test LabelCore suite pass. This strengthens
 partial M4-AC01/M4-AC04/M4-AC13 evidence but remains short of those complete
 acceptance rows because saved profiles, structural validators, import, and the
 native render/preview path have not yet landed.
+
+## Structural-matching follow-up
+
+Commit `60c1551` adds bounded local structural anchors to page rules and keeps
+them strictly on the validation side of the boundary. Anchor observations carry
+only a typed kind and normalized rectangle, never a decoded barcode value.
+Required analysis that was not run, an observed no-match, and competing matches
+produce distinct errors; shifted and ambiguous layouts cannot produce an
+extraction plan. Even on a match, final source rectangles are recomputed from
+the original `PDFPageBox` and immutable profile region. Four focused regressions
+and the full accelerator pass with 112 LabelCore and 56 Python tests. This adds
+partial M4-AC04/M4-AC07 evidence; native analysis generation, fixture-backed
+templates, and final original-PDF region rendering remain outstanding.
