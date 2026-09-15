@@ -117,6 +117,18 @@ lookup, rendering, or bitmap allocation; native debug and release regressions
 exercise the error. This does not yet provide the separate 60-second isolated
 render-worker deadline or cancellation boundary.
 
+M2.6 offline conversion begins at `a07a42b888655a02f757b06898caeaf2cdc5228f`.
+The new `label-driver` executable accepts only an explicit, version-1 offline
+ticket (page, physical size, dots/mm and monochrome policy), renders the
+original PDF, derives the canonical packed bitmap, writes its exact PBM preview,
+and emits a bounded uncompressed graphics envelope. Output paths are command
+line arguments rather than ticket data; `convert` refuses overwrites, while
+`validate` writes nothing. A live synthetic 4×6 conversion produced 813×1219
+dots and the independent decoder reconstructed its PBM payload in the expected
+321/321/321/256 bands. The JSON result explicitly records no printer I/O and
+that the envelope lacks production state normalization. This is not a CUPS
+filter, device transport, profile schema, or printer-ready workflow.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
