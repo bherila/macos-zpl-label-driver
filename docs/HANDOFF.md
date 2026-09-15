@@ -469,6 +469,15 @@ asserts the exact generated declarations everywhere; Tahoe's transaction itself
 continues to require pre-stage and post-stage `cupstestppd` validation. This is
 a test-environment correction, not macOS evidence.
 
+The discard-queue transaction now verifies its protected ownership fields and
+the staged filter SHA-256 before removing files. Removal may safely resume when
+the owned queue is already absent, but refuses a present queue whose URI no
+longer matches the fixed inert sink. Apply also reads back that the experiment
+did not become the system default and invokes fixed-target cleanup if it did.
+These guards close replacement and partial-removal hazards in the candidate
+procedure; they remain unexecuted source-level evidence until an administrator
+is present for the authorized Tahoe experiment.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
