@@ -64,7 +64,8 @@
         "bc63ae8 (descriptor-based no-follow capped source/ticket/artifact reads with metadata drift, symlink, type, and private hard-link rejection; additional automated M2-AC09/M2-AC10 evidence)",
         "46a6ec0 (real CLI SIGTERM cancellation with exit 130, stable error, worker scratch cleanup, and no final output artifacts; additional automated M2-AC09/M2-AC10 evidence)",
         "b404f0c (explicit physical fit/actual-size placement with non-square dot-pitch and UserUnit extent regressions; additional automated M2-AC02/M2-AC03 evidence)",
-        "01406ca (collection-relative threshold and ordered-dither reads with sliced-Data regressions; additional automated M2-AC05 evidence)"
+        "01406ca (collection-relative threshold and ordered-dither reads with sliced-Data regressions; additional automated M2-AC05 evidence)",
+        "f1e2976 (empty annotation arrays render while nonempty interactive form annotations still reject; additional automated M2-AC03 evidence)"
       ],
       "blockers": []
     },
@@ -95,7 +96,8 @@
         "ab97ab3 (typed opaque connection-identity state and redaction vectors; additional partial M3-AC01/M3-AC12/M3-AC13 only)",
         "6f6e190 (installed-transport/profile-connection consistency rejection vector; additional partial M3-AC01/M3-AC13 only)",
         "01406ca (zero-side-effect delivery preflight, exact prepared-payload binding, and monotonic accepted-byte regressions; additional partial M3-AC09 evidence)",
-        "e700f2c (serialized raw-TCP start/send/timeout/cancellation settlement with deterministic race and real Task-cancellation regressions; additional partial M3-AC05/M3-AC09 evidence)"
+        "e700f2c (serialized raw-TCP start/send/timeout/cancellation settlement with deterministic race and real Task-cancellation regressions; additional partial M3-AC05/M3-AC09 evidence)",
+        "f1e2976 (read-only observed settings excluded from qualified default precedence and unqualified command authorization; additional partial M3-AC01/M3-AC02/M3-AC13 evidence)"
       ],
       "blockers": []
     },

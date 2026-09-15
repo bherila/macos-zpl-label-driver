@@ -768,6 +768,20 @@ tests. This closes R4 at native automated-test level only. Network-framework
 loopback does not establish a printer receipt, production endpoint reliability,
 USB behavior, or physical output.
 
+At `f1e2976`, review finding R9 and the remaining empty-annotation-array gap
+received focused fixes. Installed speed, darkness, and tracking readings are now
+named observations and are excluded from the job/default precedence chain.
+Consequently, learning a device value cannot emit an otherwise unrequested
+command or make a leave-unchanged job fail. Explicit documented speed remains
+available; explicit darkness and tracking remain rejected until their commands
+and installed-media semantics are qualified. The native annotation check now
+rejects only a nonempty `/Annots` array: a synthetic empty-array page renders its
+content, while the concrete interactive form fixture still rejects. Core debug
+and release suites pass 98 tests; native debug and release suites pass 44 tests.
+This closes R9 and the identified annotation edge case at automated-test level,
+without claiming observed printer settings, application capture, or physical
+output have been validated.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
