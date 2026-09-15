@@ -57,7 +57,8 @@
         "5aec8ee (same-directory staged files and exclusive atomic final renames for preview/ZPL; additional partial M2-AC09/M2-AC10 evidence)",
         "3fcca54 (pre-map PDF/ticket file bounds with post-map recheck and sparse over-limit regressions; additional partial M2-AC09/M2-AC10 evidence)",
         "7963306 (private bounded render subprocess with 60-second deadline, signal cancellation, cleanup, and local ad-hoc product verification; additional automated M2-AC09/M2-AC10 evidence)",
-        "28e24fe (bounded sanitized worker-failure protocol with distinct malformed, encrypted, ticket, annotation, page, limit, geometry, and render categories; partial M2-AC09/M2-AC10 evidence)"
+        "28e24fe (bounded sanitized worker-failure protocol with distinct malformed, encrypted, ticket, annotation, page, limit, geometry, and render categories; partial M2-AC09/M2-AC10 evidence)",
+        "fb66dad (deterministic encrypted PDF fixture plus Quartz, worker, truncated-input, and no-final-output CLI regressions; additional automated M2-AC09/M2-AC10 evidence)"
       ],
       "blockers": []
     },
