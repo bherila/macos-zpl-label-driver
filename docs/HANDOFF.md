@@ -628,9 +628,26 @@ for invalid tickets, malformed/unsupported input, encryption, unsupported annota
 page selection, limits, geometry, and rendering/preparation failure. Real subprocess
 tests prove malformed PDF and invalid-ticket categories, and unit classification keeps
 encrypted input distinct from malformed input. Native debug and release suites pass
-30 tests. An actual encrypted PDF fixture remains absent, so the encryption category
-is implemented and unit-tested but not yet end-to-end fixture evidence. This advances
-partial M2-AC09/M2-AC10 evidence without closing either acceptance item.
+30 tests. At that commit an encrypted PDF fixture was still absent, so encryption
+had classification coverage only; `fb66dad` below closes that fixture gap. This
+advances partial M2-AC09/M2-AC10 evidence without closing either acceptance item.
+
+At `fb66dad`, the synthetic corpus gained a reproducible password-protected PDF,
+derived from the existing native vector label and indexed with public test-only
+credentials. The development-only generator uses qpdf static-ID, non-AES 128-bit
+encryption solely to keep fixture bytes deterministic; this is explicitly not a
+runtime dependency or cryptographic recommendation. Two consecutive regenerations
+produced SHA-256 `94d4b9018a89f8972dadeaeade0add2bb3844a3757bb218a82657c622c504031`,
+and qpdf found no syntax or stream errors with the fixture password. Quartz rejects
+the concrete file as encrypted. The real worker preserves that category, while a
+truncated derivative of the concrete native fixture is rejected as unsupported.
+An executable CLI regression proves encrypted `convert` exits 65 with
+`INPUT_ENCRYPTED`, empty stdout, and no final ZPL or PBM. The first expanded-suite
+run correctly failed its stale 18-PDF/28-page count oracle; after updating that
+explicit expectation to 19/29, all 39 Python checks, 89 LabelCore tests, 132
+independent round trips, ABI/pipeline checks, and 33 release LabelMac tests passed.
+This adds concrete partial M2-AC09/M2-AC10 evidence; supported password entry or
+decryption is not implemented or claimed.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
