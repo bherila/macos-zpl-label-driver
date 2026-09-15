@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import shutil
 import subprocess
 import sys
@@ -21,12 +22,89 @@ PPD_HASHES = {
 
 
 class M1DiscardFileSinkTests(unittest.TestCase):
+    def run_recovery_harness(self, body: str) -> subprocess.CompletedProcess[str]:
+        harness = f"""
+set -euo pipefail
+export M1_TRANSACTION_SOURCE_ONLY=1
+source {str(SCRIPT)!r}
+scheduler=/private/var/run/cupsd
+events=''
+record() {{ events="${{events}}$1"; }}
+protected_root_state() {{ return 0; }}
+ownership_record_matches() {{ return 0; }}
+queue_state() {{ return 1; }}
+queue_uri_matches() {{ return 0; }}
+remove_queue() {{ record Q; return 0; }}
+filter_state() {{ return 0; }}
+remove_filter() {{ record F; return 0; }}
+filter_is_absent() {{ return 0; }}
+remove_ownership() {{ record O; return 0; }}
+remove_root() {{ record R; return 0; }}
+report_residual_state() {{ record X; }}
+{body}
+"""
+        return subprocess.run(["bash", "-c", harness], capture_output=True, text=True)
+
+    def run_install_fault_harness(self, fault: str) -> subprocess.CompletedProcess[str]:
+        harness = f"""
+set -euo pipefail
+export M1_TRANSACTION_SOURCE_ONLY=1
+source {str(SCRIPT)!r}
+scheduler=/private/var/run/cupsd
+approved_sha={'a' * 64!r}
+root_present=0
+intent_present=0
+filter_present=0
+queue_present=0
+events=''
+record() {{ events="${{events}}$1"; }}
+create_root() {{ root_present=1; record A; }}
+install_intent() {{ intent_present=1; record I; }}
+ownership_record_matches() {{ [[ $root_present == 1 && $intent_present == 1 ]]; }}
+empty_reserved_root_matches() {{ [[ $root_present == 1 && $intent_present == 0 && $filter_present == 0 ]]; }}
+install_filter() {{ filter_present=1; record F; }}
+validate_installed_filter() {{ [[ $filter_present == 1 ]]; }}
+validate_installed_ppd() {{ return 0; }}
+ensure_queue_absent() {{ [[ $queue_present == 0 ]]; }}
+create_queue() {{ queue_present=1; record Q; }}
+disable_queue() {{ record D; }}
+reject_queue() {{ record J; }}
+queue_uri_matches() {{ [[ $queue_present == 1 ]]; }}
+queue_is_default() {{ return 1; }}
+queue_is_disabled() {{ [[ $queue_present == 1 ]]; }}
+queue_is_rejecting() {{ [[ $queue_present == 1 ]]; }}
+transaction_checkpoint() {{ [[ $1 != {fault!r} ]]; }}
+protected_root_state() {{ [[ $root_present == 1 ]] && return 0; return 1; }}
+queue_state() {{ [[ $queue_present == 1 ]] && return 0; return 1; }}
+remove_queue() {{ queue_present=0; record q; }}
+filter_state() {{ [[ $filter_present == 1 ]] && return 0; return 1; }}
+remove_filter() {{ filter_present=0; record f; }}
+filter_is_absent() {{ [[ $filter_present == 0 ]]; }}
+remove_ownership() {{ intent_present=0; record o; }}
+remove_root() {{ root_present=0; record r; }}
+report_residual_state() {{ record X; }}
+if install_transaction snapshot generated intent; then
+  exit 90
+fi
+cleanup_owned_artifacts || true
+printf '%s|%s%s%s%s\n' "$events" "$root_present" "$intent_present" "$filter_present" "$queue_present"
+"""
+        return subprocess.run(["bash", "-c", harness], capture_output=True, text=True)
+
     def test_plan_is_non_mutating_and_names_only_the_inert_sink(self) -> None:
         result = subprocess.run(["bash", str(SCRIPT), "--plan"], capture_output=True, text=True, check=True)
         self.assertIn("LabelProbe_DISCARDS_JOBS", result.stdout)
         self.assertIn("file:///dev/null", result.stdout)
         self.assertNotIn("sudo", result.stdout)
         self.assertIn("--validate-filter FILTER_BINARY", SCRIPT.read_text(encoding="utf-8"))
+
+    def test_scheduler_preflight_rejects_client_endpoint_overrides(self) -> None:
+        env = dict(os.environ, CUPS_SERVER="remote.example")
+        result = subprocess.run(
+            ["bash", str(SCRIPT), "--scheduler-preflight"], capture_output=True, text=True, env=env
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("refusing CUPS_SERVER or IPP_PORT overrides", result.stderr)
 
     def test_candidate_filter_declarations_materialize_to_the_fixed_path(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -90,11 +168,11 @@ class M1DiscardFileSinkTests(unittest.TestCase):
     def test_transaction_has_no_server_configuration_or_default_printer_mutation(self) -> None:
         text = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("file:///dev/null", text)
-        self.assertIn("lpadmin -p \"$queue\" -v \"$uri\"", text)
-        self.assertIn("lpadmin -x \"$queue\"", text)
+        self.assertIn('controlled_lpadmin -p "$queue" -v "$uri"', text)
+        self.assertIn('controlled_lpadmin -x "$queue"', text)
         self.assertIn("cleanup_owned_artifacts", text)
-        self.assertIn("retained missing or altered queue during rollback", text)
-        self.assertIn("retained unexpected protected ownership state during rollback", text)
+        self.assertIn("retained altered queue and all recovery artifacts", text)
+        self.assertIn("retained unexpected protected ownership state during recovery", text)
         self.assertIn("ownership_record_matches", text)
         self.assertIn("is_supplied_ppd_sha", text)
         self.assertIn("verify_local_adhoc_arm64", text)
@@ -107,25 +185,161 @@ class M1DiscardFileSinkTests(unittest.TestCase):
         self.assertIn('local snapshot="$temporary/labelcapture-filter"', text)
         self.assertIn('local ppd_snapshot="$temporary/candidate.ppd"', text)
         self.assertIn("temporary=''", text)
-        self.assertIn("trap cleanup_temporary EXIT", text)
+        self.assertIn("trap finish_process EXIT", text)
         self.assertIn("/private/tmp/label-driver-m1.??????", text)
         self.assertNotIn("local temporary", text)
         self.assertNotIn("LabelPrinterDriver/M1", text)
-        self.assertIn('install -o root -g wheel -m 0755 "$snapshot" "$filter"', text)
-        self.assertIn('/bin/mkdir "$root"', text)
+        self.assertIn('install_filter "$snapshot"', text)
+        self.assertIn('/bin/mkdir -m 0755 "$root"', text)
         self.assertNotIn('/bin/mkdir -p "$root"', text)
         self.assertIn('validate_ppd "$ppd_snapshot"', text)
         self.assertIn('render_ppd "$ppd_snapshot" "$generated"', text)
-        self.assertIn("fail_after_apply 'staged filter bytes do not match the approved snapshot'", text)
-        self.assertIn("fail_after_apply 'staged filter signature or platform contract is invalid'", text)
-        self.assertIn("|| fail_after_apply 'generated experiment PPD failed strict validation after staging'", text)
-        self.assertIn("|| fail_after_apply 'queue URI readback failed'", text)
-        self.assertIn("fail_after_apply 'experiment unexpectedly became the default destination'", text)
-        self.assertIn("if /usr/bin/lpstat -p \"$queue\"", text)
+        self.assertIn('validate_installed_filter || return 1', text)
+        self.assertIn('validate_installed_ppd "$generated" || return 1', text)
+        self.assertIn('queue_uri_matches || return 1', text)
+        self.assertIn('! queue_is_default || return 1', text)
+        self.assertIn("die 'protected transaction failed; recovery was attempted'", text)
+        self.assertIn('/usr/bin/lpstat -h "$scheduler"', text)
+        self.assertIn('/usr/sbin/lpadmin -h "$scheduler"', text)
+        self.assertIn("CUPS_SERVER", text)
+        self.assertIn("IPP_PORT", text)
+        self.assertIn("schemaVersion=2", text)
+        self.assertIn("state=apply-intent", text)
+        self.assertIn("scheduler=$scheduler", text)
+        self.assertIn("sudo -n", text)
         self.assertNotIn("ServerBin", text)
-        self.assertNotIn("cupsd", text)
+        self.assertNotRegex(text, r"/usr/sbin/cupsd(?:\s|$)")
         self.assertNotIn("launchctl", text)
         self.assertNotIn("lpadmin -d", text)
+
+    def test_recovery_removes_queue_before_filter_and_record(self) -> None:
+        result = self.run_recovery_harness("""
+calls=0
+queue_state() { calls=$((calls + 1)); if [[ $calls == 1 ]]; then return 0; fi; return 1; }
+cleanup_owned_artifacts
+printf '%s\n' "$events"
+""")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "QFOR")
+
+    def test_recovery_retains_everything_on_changed_uri(self) -> None:
+        result = self.run_recovery_harness("""
+queue_state() { return 0; }
+queue_uri_matches() { return 1; }
+cleanup_owned_artifacts || true
+printf '%s\n' "$events"
+""")
+        self.assertEqual(result.stdout.strip(), "X")
+
+    def test_recovery_retains_filter_and_record_when_queue_delete_fails(self) -> None:
+        result = self.run_recovery_harness("""
+queue_state() { return 0; }
+remove_queue() { record Q; return 1; }
+cleanup_owned_artifacts || true
+printf '%s\n' "$events"
+""")
+        self.assertEqual(result.stdout.strip(), "QX")
+
+    def test_recovery_retains_everything_when_scheduler_or_auth_is_unavailable(self) -> None:
+        scheduler_failure = self.run_recovery_harness("""
+queue_state() { return 2; }
+cleanup_owned_artifacts || true
+printf '%s\n' "$events"
+""")
+        self.assertEqual(scheduler_failure.stdout.strip(), "X")
+        expired_auth = self.run_recovery_harness("""
+protected_root_state() { return 2; }
+cleanup_owned_artifacts || true
+printf '%s\n' "$events"
+""")
+        self.assertEqual(expired_auth.stdout.strip(), "X")
+
+    def test_recovery_retains_record_for_altered_filter_or_uncertain_post_delete_query(self) -> None:
+        altered = self.run_recovery_harness("""
+filter_state() { return 2; }
+cleanup_owned_artifacts || true
+printf '%s\n' "$events"
+""")
+        self.assertEqual(altered.stdout.strip(), "X")
+        uncertain = self.run_recovery_harness("""
+calls=0
+queue_state() { calls=$((calls + 1)); if [[ $calls == 1 ]]; then return 0; fi; return 2; }
+cleanup_owned_artifacts || true
+printf '%s\n' "$events"
+""")
+        self.assertEqual(uncertain.stdout.strip(), "QX")
+
+    def test_recovery_handles_partial_state_with_no_filter(self) -> None:
+        result = self.run_recovery_harness("""
+filter_state() { return 1; }
+cleanup_owned_artifacts
+printf '%s\n' "$events"
+""")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "OR")
+
+    def test_faults_after_journaled_mutations_recover_in_queue_first_order(self) -> None:
+        expected = {
+            "intent-installed": "AIor|0000",
+            "filter-installed": "AIFfor|0000",
+            "queue-created": "AIFQqfor|0000",
+            "queue-disabled": "AIFQDqfor|0000",
+            "queue-rejected": "AIFQDJqfor|0000",
+        }
+        for fault, state in expected.items():
+            with self.subTest(fault=fault):
+                result = self.run_install_fault_harness(fault)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stdout.strip(), state)
+
+    def test_fault_before_intent_removes_only_the_known_empty_reserved_root(self) -> None:
+        result = self.run_install_fault_harness("root-created")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "Ar|0000")
+
+    def test_preflight_distinguishes_existing_queue_query_failure_and_existing_root(self) -> None:
+        for state, expected in [(0, "refusing to replace an existing"), (2, "could not prove")]:
+            with self.subTest(queue_state=state):
+                result = self.run_recovery_harness(f"""
+queue_state() {{ return {state}; }}
+ensure_not_existing
+""")
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(expected, result.stderr)
+        result = self.run_recovery_harness("""
+queue_state() { return 1; }
+unprivileged_root_absent() { return 1; }
+ensure_not_existing
+""")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("refusing to replace an existing experiment root", result.stderr)
+
+    def test_term_enters_the_same_queue_first_recovery_path(self) -> None:
+        harness = f"""
+set -euo pipefail
+export M1_TRANSACTION_SOURCE_ONLY=1
+source {str(SCRIPT)!r}
+scheduler=/private/var/run/cupsd
+temporary=''
+transaction_active=1
+calls=0
+protected_root_state() {{ return 0; }}
+ownership_record_matches() {{ return 0; }}
+queue_state() {{ calls=$((calls + 1)); [[ $calls == 1 ]] && return 0; return 1; }}
+queue_uri_matches() {{ return 0; }}
+remove_queue() {{ printf 'Q'; }}
+filter_state() {{ return 0; }}
+remove_filter() {{ printf 'F'; }}
+filter_is_absent() {{ return 0; }}
+remove_ownership() {{ printf 'O'; }}
+remove_root() {{ printf 'R'; }}
+trap finish_process EXIT
+trap 'interrupt_process TERM' TERM
+kill -TERM $$
+"""
+        result = subprocess.run(["bash", "-c", harness], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 143, result.stderr)
+        self.assertEqual(result.stdout, "QFOR")
 
 
 if __name__ == "__main__":

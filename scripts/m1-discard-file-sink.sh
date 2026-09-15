@@ -6,12 +6,18 @@ export LC_ALL=C
 readonly queue='LabelProbe_DISCARDS_JOBS'
 readonly uri='file:///dev/null'
 readonly root='/Library/Printers/LabelPrinterDriver-M1'
+readonly root_parent='/Library/Printers'
 readonly filter="$root/labelcapture-filter"
 readonly ownership="$root/OWNERSHIP"
 readonly native_ppd_sha256='1ef382b536c71d38a8b6d02efbab8944959c538d107c084ede6519da1e8bffdb'
 readonly letter_ppd_sha256='e58416fb84554546cf8f86c3f446be9e06f8c3d3f1f46f64cc40c9cd31e00d8a'
 readonly a4_ppd_sha256='13ce96f08150b7a932ba3527296275aca0e1bb6092aaa6bf54a212bfd265df63'
 temporary=''
+scheduler=''
+transaction_active=0
+root_reserved=0
+approved_sha=''
+approved_ppd_sha=''
 
 die() { echo "ERROR: $*" >&2; exit 2; }
 
@@ -23,50 +29,256 @@ cleanup_temporary() {
   esac
 }
 
-rollback_after_apply_error() {
+controlled_lpstat() {
+  /usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+    /usr/bin/lpstat -h "$scheduler" "$@"
+}
+
+controlled_lpadmin() {
+  /usr/bin/sudo -n /usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+    /usr/sbin/lpadmin -h "$scheduler" "$@"
+}
+
+controlled_cupsdisable() {
+  /usr/bin/sudo -n /usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+    /usr/sbin/cupsdisable -h "$scheduler" "$queue"
+}
+
+controlled_cupsreject() {
+  /usr/bin/sudo -n /usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+    /usr/sbin/cupsreject -h "$scheduler" "$queue"
+}
+
+validate_staging_parent() {
+  local metadata permissions
+  [[ -d "$root_parent" && ! -L "$root_parent" ]] || die 'the fixed staging parent is not a real directory'
+  metadata="$(/usr/bin/stat -f '%u:%g:%Lp:%HT' "$root_parent")" || die 'could not inspect the fixed staging parent'
+  IFS=: read -r owner group permissions type <<<"$metadata"
+  [[ "$owner" == 0 && "$group" == 0 && "$type" == Directory ]] || die 'the fixed staging parent is not root-owned'
+  (( (8#$permissions & 8#022) == 0 )) || die 'the fixed staging parent is group- or world-writable'
+}
+
+discover_local_scheduler() {
+  [[ -z "${CUPS_SERVER+x}" && -z "${IPP_PORT+x}" ]] ||
+    die 'refusing CUPS_SERVER or IPP_PORT overrides for the local-only experiment'
+  local observed
+  observed="$(/usr/bin/env -i LC_ALL=C PATH=/usr/bin:/bin:/usr/sbin:/sbin /usr/bin/lpstat -H)" ||
+    die 'could not discover the local scheduler endpoint'
+  [[ "$observed" == /* && "$observed" != *$'\n'* && -S "$observed" && ! -L "$observed" ]] ||
+    die 'the observed scheduler endpoint is not a local Unix-domain socket'
+  [[ "$(/usr/bin/stat -f '%u:%HT' "$observed")" == '0:Socket' ]] ||
+    die 'the observed scheduler socket is not root-owned'
+  if [[ -n "$scheduler" && "$scheduler" != "$observed" ]]; then
+    die 'the observed local scheduler endpoint changed during the transaction'
+  fi
+  scheduler="$observed"
+  scheduler_reachable || die 'the selected local scheduler is not reachable'
+}
+
+scheduler_reachable() {
+  controlled_lpstat -r 2>/dev/null | /usr/bin/grep -Fqx 'scheduler is running'
+}
+
+# Return 0 when present, 1 when confirmed absent, and 2 when the complete local
+# scheduler query failed. Callers must never reinterpret 2 as absence.
+queue_state() {
+  scheduler_reachable || return 2
+  local inventory
+  inventory="$(controlled_lpstat -p 2>/dev/null)" || return 2
+  if printf '%s\n' "$inventory" | /usr/bin/grep -Eq "^printer ${queue}([[:space:]]|$)"; then
+    return 0
+  fi
+  return 1
+}
+
+queue_uri_matches() {
+  controlled_lpstat -v "$queue" 2>/dev/null | /usr/bin/grep -Fqx "device for $queue: $uri"
+}
+
+remove_queue() { controlled_lpadmin -x "$queue"; }
+queue_is_default() {
+  controlled_lpstat -d 2>/dev/null | /usr/bin/grep -Fqx "system default destination: $queue"
+}
+queue_is_disabled() {
+  controlled_lpstat -p "$queue" 2>/dev/null | /usr/bin/grep -Eq "^printer ${queue} disabled([[:space:]]|$)"
+}
+queue_is_rejecting() {
+  controlled_lpstat -a "$queue" 2>/dev/null | /usr/bin/grep -Eq "^${queue} not accepting requests since "
+}
+
+protected_root_state() {
+  /usr/bin/sudo -n /usr/bin/true >/dev/null 2>&1 || return 2
+  if /usr/bin/sudo -n /usr/bin/test -e "$root" || /usr/bin/sudo -n /usr/bin/test -L "$root"; then
+    return 0
+  fi
+  return 1
+}
+
+filter_state() {
+  /usr/bin/sudo -n /usr/bin/true >/dev/null 2>&1 || return 2
+  if ! /usr/bin/sudo -n /usr/bin/test -e "$filter" && ! /usr/bin/sudo -n /usr/bin/test -L "$filter"; then
+    return 1
+  fi
+  /usr/bin/sudo -n /usr/bin/test -f "$filter" &&
+    ! /usr/bin/sudo -n /usr/bin/test -L "$filter" &&
+    [[ "$(/usr/bin/sudo -n /usr/bin/shasum -a 256 "$filter" | /usr/bin/awk '{ print $1 }')" == "${approved_sha:-}" ]] || return 2
+  return 0
+}
+
+remove_filter() { /usr/bin/sudo -n /bin/rm -f "$filter"; }
+remove_ownership() { /usr/bin/sudo -n /bin/rm -f "$ownership"; }
+remove_root() { /usr/bin/sudo -n /bin/rmdir "$root"; }
+empty_reserved_root_matches() {
+  /usr/bin/sudo -n /usr/bin/test -d "$root" &&
+    ! /usr/bin/sudo -n /usr/bin/test -L "$root" &&
+    [[ "$(/usr/bin/sudo -n /usr/bin/stat -f '%u:%g:%Lp' "$root")" == '0:0:755' ]] &&
+    [[ -z "$(/usr/bin/sudo -n /usr/bin/find "$root" -mindepth 1 -maxdepth 1 -print -quit)" ]]
+}
+filter_is_absent() {
+  /usr/bin/sudo -n /usr/bin/true >/dev/null 2>&1 &&
+    ! /usr/bin/sudo -n /usr/bin/test -e "$filter" &&
+    ! /usr/bin/sudo -n /usr/bin/test -L "$filter"
+}
+
+report_residual_state() {
+  echo "RESIDUAL: inspect $root and queue $queue on scheduler $scheduler; automatic cleanup stopped." >&2
+}
+
+# Recovery is deliberately queue-first. The filter and durable ownership record
+# remain until the queue is confirmed absent, preserving both behavior and the
+# exact evidence needed for a finite manual recovery.
+cleanup_owned_artifacts() {
+  local state root_state
+  set +e
+  protected_root_state
+  root_state=$?
+  if [[ "$root_state" == 1 ]]; then return 0; fi
+  if [[ "$root_state" != 0 ]]; then
+    echo 'WARNING: administrator authorization is unavailable; protected state was retained' >&2
+    report_residual_state
+    return 1
+  fi
+  if ! ownership_record_matches; then
+    if [[ "$root_reserved" == 1 ]] && empty_reserved_root_matches && remove_root; then
+      root_reserved=0
+      return 0
+    fi
+    echo 'WARNING: retained unexpected protected ownership state during recovery' >&2
+    report_residual_state
+    return 1
+  fi
+  queue_state
+  state=$?
+  case "$state" in
+    0)
+      if ! queue_uri_matches; then
+        echo 'WARNING: retained altered queue and all recovery artifacts' >&2
+        report_residual_state
+        return 1
+      fi
+      if ! remove_queue; then
+        echo 'WARNING: queue removal failed; retained filter and ownership record' >&2
+        report_residual_state
+        return 1
+      fi
+      queue_state
+      state=$?
+      if [[ "$state" != 1 ]]; then
+        echo 'WARNING: queue absence could not be verified; retained recovery artifacts' >&2
+        report_residual_state
+        return 1
+      fi
+      ;;
+    1) ;;
+    *)
+      echo 'WARNING: scheduler query failed; retained all recovery artifacts' >&2
+      report_residual_state
+      return 1
+      ;;
+  esac
+
+  filter_state
+  state=$?
+  case "$state" in
+    0) remove_filter || { report_residual_state; return 1; } ;;
+    1) ;;
+    *)
+      echo 'WARNING: retained altered filter and ownership record' >&2
+      report_residual_state
+      return 1
+      ;;
+  esac
+  if ! filter_is_absent; then
+    echo 'WARNING: filter removal could not be verified' >&2
+    report_residual_state
+    return 1
+  fi
+  remove_ownership || { report_residual_state; return 1; }
+  remove_root || { report_residual_state; return 1; }
+  return 0
+}
+
+finish_process() {
   local status=$?
-  trap - ERR
-  cleanup_owned_artifacts
+  trap - EXIT INT TERM HUP
+  if [[ "$transaction_active" == 1 ]]; then
+    cleanup_owned_artifacts || status=2
+  fi
+  cleanup_temporary || status=2
   exit "$status"
 }
 
-cleanup_owned_artifacts() {
-  local record_owned=0 filter_owned=0
-  set +e
-  if [[ "${ownership_staged:-0}" == 1 ]]; then
-    if ownership_record_matches; then
-      record_owned=1
-    else
-      echo 'WARNING: retained unexpected protected ownership state during rollback' >&2
-    fi
-  fi
-  if [[ "${filter_staged:-0}" == 1 && ( "${ownership_staged:-0}" == 0 || "$record_owned" == 1 ) ]] &&
-     /usr/bin/sudo /usr/bin/test -f "$filter" &&
-     ! /usr/bin/sudo /usr/bin/test -L "$filter" &&
-     [[ "$(/usr/bin/sudo /usr/bin/shasum -a 256 "$filter" | /usr/bin/awk '{ print $1 }')" == "${approved_sha:-}" ]]; then
-    filter_owned=1
-  fi
-  if [[ "${queue_installed:-0}" == 1 ]]; then
-    if /usr/bin/lpstat -v "$queue" 2>/dev/null | /usr/bin/grep -Fqx "device for $queue: $uri"; then
-      /usr/bin/sudo /usr/sbin/lpadmin -x "$queue"
-    else
-      echo 'WARNING: retained missing or altered queue during rollback' >&2
-    fi
-  fi
-  if [[ "$filter_owned" == 1 ]]; then /usr/bin/sudo /bin/rm -f "$filter"; fi
-  if [[ "$record_owned" == 1 ]]; then /usr/bin/sudo /bin/rm -f "$ownership"; fi
-  if [[ "${root_created:-0}" == 1 ]]; then /usr/bin/sudo /bin/rmdir "$root"; fi
+interrupt_process() {
+  case "$1" in
+    INT) exit 130 ;;
+    TERM) exit 143 ;;
+    HUP) exit 129 ;;
+  esac
 }
 
-fail_after_apply() {
-  cleanup_owned_artifacts
-  die "$*"
+transaction_checkpoint() { return 0; }
+create_root() { /usr/bin/sudo -n /bin/mkdir -m 0755 "$root"; }
+install_intent() { /usr/bin/sudo -n /usr/bin/install -o root -g wheel -m 0644 "$1" "$ownership"; }
+install_filter() { /usr/bin/sudo -n /usr/bin/install -o root -g wheel -m 0755 "$1" "$filter"; }
+validate_installed_filter() { verify_local_adhoc_arm64 "$filter" && filter_state; }
+validate_installed_ppd() { /usr/bin/sudo -n /usr/bin/cupstestppd -q "$1"; }
+create_queue() { controlled_lpadmin -p "$queue" -v "$uri" -i "$1" -o printer-is-shared=false; }
+disable_queue() { controlled_cupsdisable; }
+reject_queue() { controlled_cupsreject; }
+
+install_transaction() {
+  local snapshot="$1" generated="$2" intent="$3"
+  transaction_active=1
+  root_reserved=1
+  create_root || return 1
+  transaction_checkpoint root-created || return 1
+  install_intent "$intent" || return 1
+  transaction_checkpoint intent-installed || return 1
+  ownership_record_matches || return 1
+  install_filter "$snapshot" || return 1
+  transaction_checkpoint filter-installed || return 1
+  validate_installed_filter || return 1
+  validate_installed_ppd "$generated" || return 1
+  ensure_queue_absent
+  create_queue "$generated" || return 1
+  transaction_checkpoint queue-created || return 1
+  disable_queue || return 1
+  transaction_checkpoint queue-disabled || return 1
+  reject_queue || return 1
+  transaction_checkpoint queue-rejected || return 1
+  queue_uri_matches || return 1
+  queue_is_disabled || return 1
+  queue_is_rejecting || return 1
+  ! queue_is_default || return 1
+  root_reserved=0
+  transaction_active=0
 }
 
 usage() {
   cat <<'EOF'
 Usage:
   scripts/m1-discard-file-sink.sh --plan
+  scripts/m1-discard-file-sink.sh --scheduler-preflight
   scripts/m1-discard-file-sink.sh --validate-filter FILTER_BINARY
   scripts/m1-discard-file-sink.sh --validate-ppd CANDIDATE_PPD
   scripts/m1-discard-file-sink.sh --apply FILTER_BINARY CANDIDATE_PPD
@@ -141,30 +353,42 @@ render_ppd() {
   grep -Fqx "*cupsFilter2: \"application/vnd.cups-pdf application/vnd.labelprobe 0 $filter\"" "$destination" || die 'generated CUPS-PDF filter declaration is not exact'
 }
 
+ensure_queue_absent() {
+  local state
+  if queue_state; then state=0; else state=$?; fi
+  [[ "$state" == 1 ]] || {
+    if [[ "$state" == 0 ]]; then die "refusing to replace an existing $queue queue"; fi
+    die 'could not prove the experiment queue is absent from the local scheduler'
+  }
+}
+
+unprivileged_root_absent() { [[ ! -e "$root" && ! -L "$root" ]]; }
+
 ensure_not_existing() {
-  if /usr/bin/lpstat -p "$queue" >/dev/null 2>&1; then
-    die "refusing to replace an existing $queue queue"
-  fi
-  [[ ! -e "$root" && ! -L "$root" ]] || die "refusing to replace an existing experiment root"
+  ensure_queue_absent
+  unprivileged_root_absent || die "refusing to replace an existing experiment root"
 }
 
 ownership_record_matches() {
-  local source_ppd_sha
-  source_ppd_sha="$(/usr/bin/sudo /usr/bin/awk -F= '$1 == "sourcePPDSHA256" { print $2 }' "$ownership" 2>/dev/null)" || return 1
-  /usr/bin/sudo /usr/bin/test -f "$ownership" &&
-    ! /usr/bin/sudo /usr/bin/test -L "$ownership" &&
-    /usr/bin/sudo /usr/bin/test -d "$root" &&
-    ! /usr/bin/sudo /usr/bin/test -L "$root" &&
-    /usr/bin/sudo /usr/bin/test -f "$filter" &&
-    ! /usr/bin/sudo /usr/bin/test -L "$filter" &&
-    [[ "$(/usr/bin/sudo /usr/bin/awk 'END { print NR }' "$ownership")" == 6 ]] &&
-    /usr/bin/sudo /usr/bin/grep -Fqx 'schemaVersion=1' "$ownership" &&
-    /usr/bin/sudo /usr/bin/grep -Fqx "queue=$queue" "$ownership" &&
-    /usr/bin/sudo /usr/bin/grep -Fqx "uri=$uri" "$ownership" &&
-    /usr/bin/sudo /usr/bin/grep -Fqx "filter=$filter" "$ownership" &&
-    /usr/bin/sudo /usr/bin/grep -Eq '^sourcePPDSHA256=[0-9a-f]{64}$' "$ownership" &&
-    is_supplied_ppd_sha "$source_ppd_sha" &&
-    [[ "$(/usr/bin/sudo /usr/bin/awk -F= '$1 == "filterSHA256" { print $2 }' "$ownership")" == "$(/usr/bin/sudo /usr/bin/shasum -a 256 "$filter" | /usr/bin/awk '{ print $1 }')" ]]
+  local source_ppd_sha recorded_scheduler root_metadata
+  /usr/bin/sudo -n /usr/bin/test -f "$ownership" &&
+    ! /usr/bin/sudo -n /usr/bin/test -L "$ownership" &&
+    /usr/bin/sudo -n /usr/bin/test -d "$root" &&
+    ! /usr/bin/sudo -n /usr/bin/test -L "$root" || return 1
+  root_metadata="$(/usr/bin/sudo -n /usr/bin/stat -f '%u:%g:%Lp' "$root")" || return 1
+  [[ "$root_metadata" == '0:0:755' ]] || return 1
+  [[ "$(/usr/bin/sudo -n /usr/bin/awk 'END { print NR }' "$ownership")" == 8 ]] || return 1
+  /usr/bin/sudo -n /usr/bin/grep -Fqx 'schemaVersion=2' "$ownership" || return 1
+  /usr/bin/sudo -n /usr/bin/grep -Fqx 'state=apply-intent' "$ownership" || return 1
+  /usr/bin/sudo -n /usr/bin/grep -Fqx "queue=$queue" "$ownership" || return 1
+  /usr/bin/sudo -n /usr/bin/grep -Fqx "uri=$uri" "$ownership" || return 1
+  /usr/bin/sudo -n /usr/bin/grep -Fqx "filter=$filter" "$ownership" || return 1
+  approved_sha="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "filterSHA256" { print $2 }' "$ownership")" || return 1
+  source_ppd_sha="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "sourcePPDSHA256" { print $2 }' "$ownership")" || return 1
+  recorded_scheduler="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "scheduler" { print $2 }' "$ownership")" || return 1
+  [[ "$approved_sha" =~ ^[0-9a-f]{64}$ && "$source_ppd_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
+  is_supplied_ppd_sha "$source_ppd_sha" || return 1
+  [[ "$recorded_scheduler" == "$scheduler" ]] || return 1
 }
 
 plan() {
@@ -173,13 +397,23 @@ Plan only; no system state is changed.
   queue: $queue
   sink: $uri
   staged filter: $filter
+  scheduler: discovered with a controlled environment and accepted only as a root-owned local Unix socket
   PPD: byte-matched supplied candidate with only its two PDF filter program fields replaced
-  rollback: remove the exact queue after verifying $uri, then remove only the two owned files and empty root
+  recovery: retain a protected intent record; remove the exact queue only after verifying $uri and its absence afterward, then remove the exact filter, record, and empty root
 
 Before --apply: use a locally built, ad-hoc-signed filter and a supplied candidate
 PPD. The operation needs an interactive administrator approval. It does not
 inspect, alter, or make default any existing destination.
+Uncatchable termination can leave the protected intent record; rerun --remove
+after inspecting the reported residual state. It never authorizes broader cleanup.
 EOF
+}
+
+scheduler_preflight() {
+  discover_local_scheduler
+  validate_staging_parent
+  ensure_not_existing
+  echo "Validated reachable local scheduler $scheduler and absent experiment namespace. No system state changed."
 }
 
 apply() {
@@ -187,9 +421,11 @@ apply() {
   local source_filter="$1" source_ppd="$2"
   [[ -f "$source_filter" && ! -L "$source_filter" && -x "$source_filter" ]] || die 'filter must be an executable regular non-symlink file'
   [[ -f "$source_ppd" && ! -L "$source_ppd" ]] || die 'candidate PPD must be a regular non-symlink file'
-  local root_created=0 filter_staged=0 ownership_staged=0 queue_installed=0
   temporary="$(/usr/bin/mktemp -d '/private/tmp/label-driver-m1.XXXXXX')"
-  trap cleanup_temporary EXIT
+  trap finish_process EXIT
+  trap 'interrupt_process INT' INT
+  trap 'interrupt_process TERM' TERM
+  trap 'interrupt_process HUP' HUP
   local snapshot="$temporary/labelcapture-filter"
   local ppd_snapshot="$temporary/candidate.ppd"
   local generated="$temporary/capture.ppd"
@@ -197,59 +433,52 @@ apply() {
   /bin/cp -p "$source_ppd" "$ppd_snapshot"
   [[ -f "$snapshot" && ! -L "$snapshot" && -x "$snapshot" ]] || die 'private filter snapshot is invalid'
   verify_local_adhoc_arm64 "$snapshot" || die 'filter snapshot is not local-ad-hoc ARM with a macOS 26.0 minimum'
-  local approved_sha approved_ppd_sha
   approved_sha="$(/usr/bin/shasum -a 256 "$snapshot" | /usr/bin/awk '{ print $1 }')"
   validate_ppd "$ppd_snapshot"
   approved_ppd_sha="$(/usr/bin/shasum -a 256 "$ppd_snapshot" | /usr/bin/awk '{ print $1 }')"
+  discover_local_scheduler
+  validate_staging_parent
   ensure_not_existing
   render_ppd "$ppd_snapshot" "$generated"
 
   # Authenticate once through the OS. The following root operations are a
   # fixed allowlist: protected staging, one named queue, and no default change.
   /usr/bin/sudo -v
-  trap rollback_after_apply_error ERR
-  /usr/bin/sudo /bin/mkdir "$root"
-  root_created=1
-  filter_staged=1
-  /usr/bin/sudo /usr/bin/install -o root -g wheel -m 0755 "$snapshot" "$filter"
-  verify_local_adhoc_arm64 "$filter" || fail_after_apply 'staged filter signature or platform contract is invalid'
-  [[ "$(/usr/bin/sudo /usr/bin/shasum -a 256 "$filter" | /usr/bin/awk '{ print $1 }')" == "$approved_sha" ]] || fail_after_apply 'staged filter bytes do not match the approved snapshot'
-  /usr/bin/sudo /usr/bin/cupstestppd -q "$generated" || fail_after_apply 'generated experiment PPD failed strict validation after staging'
-  ownership_staged=1
+  discover_local_scheduler
+  validate_staging_parent
+  ensure_not_existing
+  transaction_active=1
+  local intent="$temporary/OWNERSHIP"
   {
-    echo 'schemaVersion=1'
+    echo 'schemaVersion=2'
+    echo 'state=apply-intent'
     echo "queue=$queue"
     echo "uri=$uri"
+    echo "scheduler=$scheduler"
     echo "filter=$filter"
     echo "filterSHA256=$approved_sha"
     echo "sourcePPDSHA256=$approved_ppd_sha"
-  } | /usr/bin/sudo /usr/bin/tee "$ownership" >/dev/null
-  /usr/bin/sudo /usr/sbin/chown root:wheel "$ownership"
-  /usr/bin/sudo /bin/chmod 0644 "$ownership"
-  /usr/bin/sudo /usr/sbin/lpadmin -p "$queue" -v "$uri" -i "$generated" -o printer-is-shared=false -E
-  queue_installed=1
-  /usr/bin/lpstat -v "$queue" | /usr/bin/grep -Fqx "device for $queue: $uri" || fail_after_apply 'queue URI readback failed'
-  if /usr/bin/lpstat -d 2>/dev/null | /usr/bin/grep -Fqx "system default destination: $queue"; then
-    fail_after_apply 'experiment unexpectedly became the default destination'
-  fi
-  trap - ERR
+  } > "$intent"
+  install_transaction "$snapshot" "$generated" "$intent" || die 'protected transaction failed; recovery was attempted'
   echo "Installed inert $queue. It targets $uri and is not the default printer."
 }
 
 remove() {
+  discover_local_scheduler
   /usr/bin/sudo -v
-  ownership_record_matches || die 'refusing removal: protected ownership record or filter hash does not match'
-  if /usr/bin/lpstat -p "$queue" >/dev/null 2>&1; then
-    /usr/bin/lpstat -v "$queue" | /usr/bin/grep -Fqx "device for $queue: $uri" || die 'refusing removal: named queue no longer targets the owned inert sink'
-    /usr/bin/sudo /usr/sbin/lpadmin -x "$queue"
-  fi
-  /usr/bin/sudo /bin/rm -f "$filter" "$ownership"
-  /usr/bin/sudo /bin/rmdir "$root"
+  discover_local_scheduler
+  ownership_record_matches || die 'refusing removal: protected transaction intent does not match'
+  cleanup_owned_artifacts || die 'owned experiment removal is incomplete; residual state was retained'
   echo "Removed owned inert experiment."
 }
 
+if [[ "${M1_TRANSACTION_SOURCE_ONLY:-0}" == 1 ]]; then
+  return 0 2>/dev/null || exit 0
+fi
+
 case "${1:-}" in
   --plan) [[ $# -eq 1 ]] || die '--plan takes no arguments'; plan ;;
+  --scheduler-preflight) [[ $# -eq 1 ]] || die '--scheduler-preflight takes no arguments'; scheduler_preflight ;;
   --validate-filter) shift; validate_filter_command "$@" ;;
   --validate-ppd) shift; validate_ppd_command "$@" ;;
   --apply) shift; apply "$@" ;;
