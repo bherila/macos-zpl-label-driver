@@ -14,6 +14,7 @@ struct LabelDriverCLI {
         case input = 65
         case output = 73
         case internalError = 70
+        case cancelled = 130
     }
 
     private enum CLIError: Error {
@@ -43,8 +44,21 @@ struct LabelDriverCLI {
         }
         do {
             let source = try readInput(invocation.input)
-            let ticket = try readTicket(invocation.ticket)
-            let prepared = try OfflineConversion.prepare(originalPDF: source, ticket: ticket)
+            let ticket = try readTicketData(invocation.ticket)
+            let cancellation = OfflineRenderWorkerCancellation()
+            let signalSources = installCancellationSignals(cancellation)
+            defer { signalSources.forEach { $0.cancel() } }
+            let prepared: OfflineRenderWorkerOutput
+            do {
+                prepared = try OfflineRenderWorkerProcess.run(
+                    originalPDF: source,
+                    ticketJSON: ticket,
+                    workerExecutable: try renderWorkerExecutable(),
+                    cancellation: cancellation
+                )
+            } catch let error as OfflineRenderWorkerProcess.Error {
+                failWorker(error, json: invocation.json)
+            }
             switch invocation.command {
             case .validate:
                 emitSuccess(invocation, prepared: prepared, wroteFiles: false)
@@ -138,13 +152,28 @@ struct LabelDriverCLI {
         catch { throw CLIError.input("cannot read input PDF") }
     }
 
-    private static func readTicket(_ url: URL) throws -> OfflineConversionTicket {
-        do {
-            return try OfflineConversionTicket(
-                jsonData: readBoundedRegularFile(url, maximumBytes: maximumTicketBytes)
-            )
+    private static func readTicketData(_ url: URL) throws -> Data {
+        do { return try readBoundedRegularFile(url, maximumBytes: maximumTicketBytes) }
+        catch { throw CLIError.input("cannot read job ticket") }
+    }
+
+    private static func renderWorkerExecutable() throws -> URL {
+        guard let executable = Bundle.main.executableURL else {
+            throw CLIError.output("render worker is unavailable")
         }
-        catch { throw CLIError.input("invalid job ticket: \(String(describing: error))") }
+        return executable.deletingLastPathComponent().appending(path: "label-render-worker")
+    }
+
+    private static func installCancellationSignals(
+        _ cancellation: OfflineRenderWorkerCancellation
+    ) -> [DispatchSourceSignal] {
+        [SIGINT, SIGTERM].map { number in
+            signal(number, SIG_IGN)
+            let source = DispatchSource.makeSignalSource(signal: number, queue: .global())
+            source.setEventHandler { cancellation.cancel() }
+            source.activate()
+            return source
+        }
     }
 
     private static func readBoundedRegularFile(_ url: URL, maximumBytes: Int) throws -> Data {
@@ -220,14 +249,16 @@ struct LabelDriverCLI {
         }
     }
 
-    private static func emitSuccess(_ invocation: Invocation, prepared: OfflinePreparedConversion, wroteFiles: Bool) {
+    private static func emitSuccess(_ invocation: Invocation, prepared: OfflineRenderWorkerOutput, wroteFiles: Bool) {
         if invocation.json {
             let result: [String: Any] = [
                 "status": "prepared",
-                "widthDots": prepared.bitmap.layout.width,
-                "heightDots": prepared.bitmap.layout.height,
+                "widthDots": prepared.result.widthDots,
+                "heightDots": prepared.result.heightDots,
                 "zplBytes": prepared.zpl.count,
                 "previewIsExactPackedBitmap": true,
+                "renderIsolation": "subprocess",
+                "renderDeadlineSeconds": Int(OfflineRenderWorkerProcess.defaultDeadlineSeconds),
                 "wroteFiles": wroteFiles,
                 "printerIOPerformed": false,
                 "formatScope": "offline-graphics-envelope-not-state-normalized",
@@ -236,7 +267,27 @@ struct LabelDriverCLI {
             FileHandle.standardOutput.write(data)
             FileHandle.standardOutput.write(Data("\n".utf8))
         } else {
-            print("Prepared \(prepared.bitmap.layout.width)x\(prepared.bitmap.layout.height) dots; printer I/O was not performed.")
+            print("Prepared \(prepared.result.widthDots)x\(prepared.result.heightDots) dots; printer I/O was not performed.")
+        }
+    }
+
+    private static func failWorker(_ error: OfflineRenderWorkerProcess.Error, json: Bool) -> Never {
+        switch error {
+        case .timedOut:
+            emitError(code: .input, message: "render worker exceeded its deadline", json: json)
+            exit(Exit.input.rawValue)
+        case .cancelled:
+            emitError(code: .cancelled, message: "render cancelled", json: json)
+            exit(Exit.cancelled.rawValue)
+        case .workerFailed:
+            emitError(code: .input, message: "render worker rejected the job", json: json)
+            exit(Exit.input.rawValue)
+        case .outputLimitExceeded:
+            emitError(code: .input, message: "render job exceeds its resource limits", json: json)
+            exit(Exit.input.rawValue)
+        case .invalidDeadline, .workerUnavailable, .scratchUnavailable, .invalidResult:
+            emitError(code: .internalError, message: "render worker failed safely", json: json)
+            exit(Exit.internalError.rawValue)
         }
     }
 
@@ -264,6 +315,7 @@ struct LabelDriverCLI {
             case .input: "INPUT_ERROR"
             case .output: "OUTPUT_ERROR"
             case .internalError: "INTERNAL_ERROR"
+            case .cancelled: "CANCELLED"
             case .success: "SUCCESS"
             }
             let result: [String: Any] = ["status": "error", "code": name, "message": message]
