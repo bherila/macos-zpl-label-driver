@@ -99,7 +99,8 @@
         "6f6e190 (installed-transport/profile-connection consistency rejection vector; additional partial M3-AC01/M3-AC13 only)",
         "01406ca (zero-side-effect delivery preflight, exact prepared-payload binding, and monotonic accepted-byte regressions; additional partial M3-AC09 evidence)",
         "e700f2c (serialized raw-TCP start/send/timeout/cancellation settlement with deterministic race and real Task-cancellation regressions; additional partial M3-AC05/M3-AC09 evidence)",
-        "f1e2976 (read-only observed settings excluded from qualified default precedence and unqualified command authorization; additional partial M3-AC01/M3-AC02/M3-AC13 evidence)"
+        "f1e2976 (read-only observed settings excluded from qualified default precedence and unqualified command authorization; additional partial M3-AC01/M3-AC02/M3-AC13 evidence)",
+        "docs/validation/M3-AUTOMATED-CONTROLS-2026-09-15.md (7ee78db exact-head portable pass: M3-AC01/02/04/13 automated evidence; all installed transport and hardware rows remain open)"
       ],
       "blockers": []
     },
