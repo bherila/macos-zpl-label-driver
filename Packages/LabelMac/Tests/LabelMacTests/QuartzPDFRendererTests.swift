@@ -32,6 +32,15 @@ final class QuartzPDFRendererTests: XCTestCase {
         return QuartzPDFRenderer.Request(originalPDF: pdf, pageNumber: page, canvas: canvas)
     }
 
+    private func packed(_ bitmap: QuartzPDFRenderer.GrayscaleBitmap) throws -> MonochromeBitmap {
+        try MonochromeBitmap.threshold(
+            width: bitmap.width,
+            height: bitmap.height,
+            grayscale: bitmap.pixels,
+            stride: bitmap.bytesPerRow
+        )
+    }
+
     func testRendersOriginalPDFWithWhiteBackgroundAndTopDownRows() throws {
         let bitmap = try QuartzPDFRenderer.render(request( pdf: try lowerHalfBlackPDF()))
         XCTAssertEqual(bitmap.pixels.count, 100)
@@ -80,14 +89,16 @@ final class QuartzPDFRendererTests: XCTestCase {
         // Quartz antialiasing varies at edge samples, so the RGB/grayscale
         // intermediate is not a stable output oracle. The packed bitmap is the
         // actual encoder input and must remain identical for the two pages.
-        let firstPacked = try MonochromeBitmap.threshold(
-            width: first.width, height: first.height, grayscale: first.pixels, stride: first.bytesPerRow
-        )
-        let secondPacked = try MonochromeBitmap.threshold(
-            width: second.width, height: second.height, grayscale: second.pixels, stride: second.bytesPerRow
-        )
-        XCTAssertEqual(firstPacked, secondPacked)
+        XCTAssertEqual(try packed(first), try packed(second))
         XCTAssertGreaterThan(first.pixels.filter { $0 < 255 }.count, 0)
+    }
+
+    func testShiftedAndNegativeCropBoxOriginsDoNotMoveFinalPackedDots() throws {
+        let source = try fixture(named: "box-origins")
+        let shifted = try QuartzPDFRenderer.render(request(pdf: source, page: 1, width: 100, height: 150))
+        let negative = try QuartzPDFRenderer.render(request(pdf: source, page: 2, width: 100, height: 150))
+        XCTAssertEqual(try packed(shifted), try packed(negative))
+        XCTAssertGreaterThan(shifted.pixels.filter { $0 < 255 }.count, 0)
     }
 
     private enum TestError: Error { case unavailable }
