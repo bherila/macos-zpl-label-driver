@@ -13,6 +13,7 @@ public enum QuartzPDFRenderer {
         case sourcePageLimitExceeded(actual: Int, limit: Int)
         case pageOutOfRange(requested: Int, pageCount: Int)
         case annotationsUnsupported
+        case invalidPageGeometry
         case pixelLimitExceeded(actual: Int, limit: Int)
         case allocationOverflow
         case contextUnavailable
@@ -30,6 +31,7 @@ public enum QuartzPDFRenderer {
         public let pageNumber: Int
         public let canvas: DotCanvas
         public let annotationPolicy: AnnotationPolicy
+        public let placementPolicy: PagePlacementPolicy
         public let maximumInputBytes: Int
         /// Bounds document traversal independently from the selected page and
         /// destination-pixel budget.
@@ -41,6 +43,7 @@ public enum QuartzPDFRenderer {
             pageNumber: Int,
             canvas: DotCanvas,
             annotationPolicy: AnnotationPolicy = .reject,
+            placementPolicy: PagePlacementPolicy = .fit,
             maximumInputBytes: Int = 100 * 1024 * 1024,
             maximumSourcePages: Int = 1_000,
             maximumPixels: Int = 32 * 1024 * 1024
@@ -49,6 +52,7 @@ public enum QuartzPDFRenderer {
             self.pageNumber = pageNumber
             self.canvas = canvas
             self.annotationPolicy = annotationPolicy
+            self.placementPolicy = placementPolicy
             self.maximumInputBytes = maximumInputBytes
             self.maximumSourcePages = maximumSourcePages
             self.maximumPixels = maximumPixels
@@ -97,6 +101,16 @@ public enum QuartzPDFRenderer {
         if request.annotationPolicy == .reject, pageContainsAnnotations(page) {
             throw Error.annotationsUnsupported
         }
+        let placement: PagePlacement
+        do {
+            placement = try PagePlacementPlanner.plan(
+                source: try physicalSize(of: page),
+                canvas: request.canvas,
+                policy: request.placementPolicy
+            )
+        } catch {
+            throw Error.invalidPageGeometry
+        }
         let byteCount = pixels
         var storage = Data(repeating: 0, count: byteCount)
         let result: Bool = storage.withUnsafeMutableBytes { rawBuffer in
@@ -115,8 +129,13 @@ public enum QuartzPDFRenderer {
             // keep PDF's drawing transform in its native coordinate space.
             context.interpolationQuality = .high
             context.setShouldAntialias(true)
-            let target = CGRect(x: 0, y: 0, width: request.canvas.width, height: request.canvas.height)
-            context.concatenate(page.getDrawingTransform(.cropBox, rect: target, rotate: 0, preserveAspectRatio: true))
+            let target = CGRect(
+                x: placement.target.x,
+                y: placement.target.y,
+                width: placement.target.width,
+                height: placement.target.height
+            )
+            context.concatenate(page.getDrawingTransform(.cropBox, rect: target, rotate: 0, preserveAspectRatio: false))
             context.drawPDFPage(page)
             return true
         }
@@ -133,5 +152,25 @@ public enum QuartzPDFRenderer {
         guard let dictionary = page.dictionary else { return false }
         var annotations: CGPDFArrayRef?
         return CGPDFDictionaryGetArray(dictionary, "Annots", &annotations)
+    }
+
+    private static func physicalSize(of page: CGPDFPage) throws -> PhysicalSize {
+        let crop = page.getBoxRect(.cropBox)
+        var userUnit: CGPDFReal = 1
+        if let dictionary = page.dictionary {
+            var declared: CGPDFReal = 0
+            if CGPDFDictionaryGetNumber(dictionary, "UserUnit", &declared) {
+                userUnit = declared
+            }
+        }
+        let normalizedRotation = ((page.rotationAngle % 360) + 360) % 360
+        return try PDFPageBox(
+            originX: crop.origin.x,
+            originY: crop.origin.y,
+            width: crop.width,
+            height: crop.height,
+            rotationDegreesClockwise: Int(normalizedRotation),
+            userUnit: userUnit
+        ).effectivePhysicalSize()
     }
 }
