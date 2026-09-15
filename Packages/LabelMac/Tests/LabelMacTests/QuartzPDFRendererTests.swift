@@ -168,6 +168,31 @@ final class QuartzPDFRendererTests: XCTestCase {
         }
     }
 
+    func testTransparencyCompositesAgainstTheExplicitWhiteLabelBackground() throws {
+        let source = try fixture(named: "transparency")
+        let bitmap = try QuartzPDFRenderer.render(request(pdf: source, width: 288, height: 432))
+        let overlayPixel = bitmap.pixels[221 * bitmap.bytesPerRow + 165]
+        let adjacentWhitePixel = bitmap.pixels[221 * bitmap.bytesPerRow + 180]
+
+        XCTAssertGreaterThan(overlayPixel, 150)
+        XCTAssertLessThan(overlayPixel, 190)
+        XCTAssertEqual(adjacentWhitePixel, 255)
+    }
+
+    func testEmbeddedRasterPagesRetainBlackAndWhiteStructureAtFinalGeometry() throws {
+        let source = try fixture(named: "raster-high-low")
+        for page in 1...2 {
+            let bitmap = try QuartzPDFRenderer.render(request(pdf: source, page: page, width: 288, height: 432))
+            var samples: [UInt8] = []
+            for row in 228..<278 {
+                let start = row * bitmap.bytesPerRow + 112
+                samples.append(contentsOf: bitmap.pixels[start..<(start + 50)])
+            }
+            XCTAssertLessThan(samples.min() ?? 255, 32, "page \(page) lost embedded black structure")
+            XCTAssertGreaterThan(samples.max() ?? 0, 223, "page \(page) lost embedded white structure")
+        }
+    }
+
     func testOfflineTicketDecodesExplicitSchemaAndPreparesExactPreview() throws {
         let ticket = try OfflineConversionTicket(jsonData: Data("""
         {
