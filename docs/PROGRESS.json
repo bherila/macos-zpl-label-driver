@@ -107,12 +107,15 @@
     {
       "id": "M4",
       "directory": "docs/milestones/04-label-extraction",
-      "implementation": "not-started",
+      "implementation": "in-progress",
       "automatedValidation": "not-run",
       "macOSIntegration": "not-run",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
-      "evidence": [],
+      "evidence": [
+        "306bb32 (bounded immutable extraction profile/planner with separate input/output media, canonical region mapping, explicit page accounting, shared copy ordering, and six portable regressions; partial M4-AC01/02/03/04/05/13 only)",
+        "docs/validation/M4-PORTABLE-PLANNER-2026-09-15.md (portable M4.1 evidence and explicit remaining gates)"
+      ],
       "blockers": []
     },
     {
