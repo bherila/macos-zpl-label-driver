@@ -28,7 +28,8 @@
         "5a9be59d8e93e8a0b1f8cd3ca3e549e21dcfbed9 (inert CUPS pass-through filter ABI/privacy regressions only; no scheduler integration evidence)",
         "ad069255898e4a0e97684fc534cd82dd90aedfb9 (filter-to-discard backend pipeline regression only; no scheduler integration evidence)",
         "docs/validation/M1-TAHOE-HOST-PREFLIGHT-2026-09-15.md (sanitized read-only Tahoe host/scheduler layout observation; supported add-on placement remains unresolved)",
-        "d0581646b4567b829a8e5f8ed28cc70652e7b4e9 (CUPS API option parse plus bounded experiment-schema cross-check; no scheduler integration evidence)"
+        "d0581646b4567b829a8e5f8ed28cc70652e7b4e9 (CUPS API option parse plus bounded experiment-schema cross-check; no scheduler integration evidence)",
+        "a520fb6 (quoted CUPS option-wire regression through the real inert filter; no scheduler integration evidence)"
       ],
       "blockers": []
     },
