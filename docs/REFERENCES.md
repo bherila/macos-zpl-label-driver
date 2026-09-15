@@ -236,3 +236,12 @@ a narrow canonical P4 form; its test parser is not a general PBM implementation.
 
 Development-only original vector/Code128/QR fixture generation. No ReportLab
 implementation or fonts are bundled in the runtime driver.
+
+<a id="r34"></a>
+## R34 — CUPS server-bin configuration
+
+[CUPS cups-files.conf manual](https://www.cups.org/doc/man-cups-files.conf.html)
+
+Defines `ServerBin` as the scheduler directory containing backends and filters;
+changing it requires a scheduler restart. This documents the CUPS contract, not
+a permitted Tahoe installation path or successful local admission.
