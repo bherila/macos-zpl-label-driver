@@ -794,6 +794,17 @@ records M2-AC12 for the offline scope. The committed evidence explicitly does
 not cover scheduler overhead, USB transfer, printer mechanics, first-label time,
 sustained physical rate, or release regression budgets.
 
+At `3ad4bf0`, the clean exact head passed the complete local macOS CI-equivalent
+sequence: 56 Python tests, 98 LabelCore tests in each configuration, 132
+independent ZPL/PBM/analytic round trips, 15 backend ABI cases, ten filter ABI
+cases, one inert pipeline case, and 44 LabelMac tests in each configuration.
+The named test and oracle mapping is recorded in
+`docs/validation/M2-AUTOMATED-CORE-2026-09-15.md`; it closes M2-AC01, M2-AC02,
+M2-AC04, M2-AC05, M2-AC06, M2-AC09, and M2-AC13 at automated level only.
+M2-AC03/07/08/10/11 remain open for their prescribed integration, compression,
+ownership, filter, or physical evidence. No scheduler, printer, transport, or
+system configuration was accessed by this validation.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
