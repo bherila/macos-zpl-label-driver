@@ -110,6 +110,14 @@ golden. This is a focused original-source/UserUnit regression, not a complete
 claim for all PDF semantics, crop extraction, annotation appearance, or physical
 label fidelity.
 
+M2.2 crop-box-origin coverage extends at `a05ece360ab1a780b1ab74f37e9c03b7f889c12d`.
+The same native packed-bitmap oracle now consumes the supplied `box-origins`
+fixture. Its shifted-positive and shifted-negative effective crop boxes yield
+identical final packed dots, proving that the Quartz path does not treat a
+nonzero page origin as printable content displacement. This remains a focused
+full-page fixture check; selected-region clipping and physical placement still
+need their separate contracts and evidence.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
