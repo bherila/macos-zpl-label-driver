@@ -66,7 +66,8 @@
         "b404f0c (explicit physical fit/actual-size placement with non-square dot-pitch and UserUnit extent regressions; additional automated M2-AC02/M2-AC03 evidence)",
         "01406ca (collection-relative threshold and ordered-dither reads with sliced-Data regressions; additional automated M2-AC05 evidence)",
         "f1e2976 (empty annotation arrays render while nonempty interactive form annotations still reject; additional automated M2-AC03 evidence)",
-        "docs/validation/M2-PERFORMANCE-BASELINE-2026-09-15.md (6fcb63e clean-worktree release baseline: 20 warm runs, 123.138 ms p95, 14,106,624 maximum warm resident bytes, 248,814 prepared bytes; M2-AC12 pass for offline scope)"
+        "docs/validation/M2-PERFORMANCE-BASELINE-2026-09-15.md (6fcb63e clean-worktree release baseline: 20 warm runs, 123.138 ms p95, 14,106,624 maximum warm resident bytes, 248,814 prepared bytes; M2-AC12 pass for offline scope)",
+        "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md (3ad4bf0 clean-worktree macOS CI-equivalent pass: M2-AC01/02/04/05/06/09/13 automated evidence; no scheduler, transport, or physical-printer claim)"
       ],
       "blockers": []
     },
