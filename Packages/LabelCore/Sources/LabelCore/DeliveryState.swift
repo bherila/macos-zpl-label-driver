@@ -62,13 +62,23 @@ public struct DeliveryTracker: Sendable {
     }
 
     public init(expectedBytes: Int, profile: PrinterProfile) throws {
+        try self.init(expectedBytes: expectedBytes, profileSnapshot: JobProfileSnapshot(profile: profile))
+    }
+
+    public init(expectedBytes: Int, profileSnapshot: JobProfileSnapshot) throws {
         guard expectedBytes > 0 else { throw DeliveryStateError.invalidByteCount }
-        let snapshot = JobProfileSnapshot(profile: profile)
         receipt = DeliveryReceipt(
             state: .accepted,
             expectedBytes: expectedBytes,
-            profileRevision: snapshot.revision,
-            profileSnapshot: snapshot
+            profileRevision: profileSnapshot.revision,
+            profileSnapshot: profileSnapshot
+        )
+    }
+
+    public init(preparedLabel: PreparedLabel) throws {
+        try self.init(
+            expectedBytes: preparedLabel.bytes.count,
+            profileSnapshot: preparedLabel.profileSnapshot
         )
     }
 
