@@ -118,6 +118,14 @@ nonzero page origin as printable content displacement. This remains a focused
 full-page fixture check; selected-region clipping and physical placement still
 need their separate contracts and evidence.
 
+M2.2 source-document bounds extend at `8134fecb5ae36495cb7427cb81a6c19103e2766e`.
+`QuartzPDFRenderer.Request` now bounds source-page traversal independently of
+input bytes and output pixels, defaulting to the documented 1,000-page project
+limit. Documents over that cap and invalid zero/negative limits fail before page
+lookup, rendering, or bitmap allocation; native debug and release regressions
+exercise the error. This does not yet provide the separate 60-second isolated
+render-worker deadline or cancellation boundary.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
