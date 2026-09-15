@@ -7,8 +7,8 @@ The current Tahoe host preflight establishes that the scheduler is running and
 that its configured binary directory is protected. It does not establish a
 supported third-party filter/backend placement, scheduler admission of a
 locally ad-hoc-signed executable, or an account-free authorization and rollback
-path. Therefore the project will not install the discard queue, copy an
-executable into a scheduler directory, change `ServerBin`, restart the
+path. Therefore the project will not install the custom-backend discard queue,
+copy an executable into a scheduler directory, change `ServerBin`, restart the
 scheduler, or select a production CUPS/IPP adapter on the strength of the
 portable harness or a normal-user invocation.
 
@@ -34,6 +34,17 @@ all of the following Tahoe-specific evidence:
 4. A discard-only queue proof for typed option propagation, complete synthetic
    input preservation, cancellation/error behavior, held-profile snapshots,
    and downstream lease lifetime.
+
+The one permitted installation candidate for the M1 experiment is narrower than
+the production-adapter decision: a root-owned, locally ad-hoc-signed absolute
+filter path under the local printer directory and CUPS' existing
+`file:///dev/null` backend. It generates a PPD from a supplied candidate by
+replacing only its two PDF filter-program fields. This can establish scheduler
+filter admission and UI/input observations without installing the custom
+backend, touching `ServerBin`, transmitting to a device, or changing a default.
+It remains a candidate until the reviewed transaction and Tahoe scheduler proof
+have run; it does not select a production adapter or establish a supported
+installer design.
 
 An IPP printer application is not selected as a workaround. It remains an
 alternative only after a separately reviewed framework/option-fidelity spike

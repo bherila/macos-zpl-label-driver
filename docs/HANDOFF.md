@@ -445,6 +445,24 @@ signal delivery, scheduler cleanup, installed queue behavior, or a physical
 printer result. The next safe action remains a reviewed Tahoe placement and
 narrow authorization design before any discard-queue installation.
 
+The reviewed M1 installation candidate is now
+`scripts/m1-discard-file-sink.sh`. It leaves the custom `labelprobe` backend
+uninstalled rather than placing it under `ServerBin`. With a separate
+interactive administrator approval, its fixed allowlist can stage only the
+locally ad-hoc-signed filter below an owned local printer directory, create only
+`LabelProbe_DISCARDS_JOBS`, and point that queue at CUPS' existing
+`file:///dev/null` sink. It never changes a default, global scheduler setting,
+or physical destination. The supplied candidate PPD is generated in a private
+temporary directory with only its two PDF filter-program declarations replaced
+by the fixed absolute filter path; removal first verifies the exact sink and
+then removes only the recorded owned artifacts. Plan mode, PPD materialization,
+and fixed-boundary regressions pass. Administrator authentication is currently
+unavailable, so no queue, protected file, scheduler, or device was changed.
+This is M1 portable/procedure preparation only; actual scheduler admission,
+dialog behavior, document fidelity, cancellation, profile snapshots, and
+local-signing feasibility all remain unchecked until the finite Tahoe experiment
+runs.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
