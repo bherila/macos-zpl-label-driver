@@ -307,6 +307,15 @@ still reports no physical output and the filter retains no payload. This is
 additional portable M1.1 plumbing/privacy evidence only; neither process was
 run by CUPS, installed, or connected to a printer.
 
+The sanitized host preflight at `docs/validation/M1-TAHOE-HOST-PREFLIGHT-2026-09-15.md`
+records Tahoe 26.6.2/ARM, a running local scheduler, and a pre-existing physical
+configuration without retaining its identifiers. CUPS reports a root-owned
+server executable area and no supported writable add-on placement was established
+from the read-only inspection. No artifact/queue/default/printer changed. This
+is a real M1 architecture blocker, not permission to copy binaries into a
+system directory or to weaken the authorization boundary; all M1 acceptance
+items remain unchecked.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
