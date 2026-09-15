@@ -551,6 +551,15 @@ shared library is absent; no dependency was installed globally. This is partial
 automated M2-AC03/M2-AC09 evidence only, not application, scheduler, physical,
 or general PDF-form acceptance.
 
+At `69e7c6e`, Tahoe Core Graphics regressions now inspect actual semantic pixels
+from the supplied transparency and embedded-raster fixtures. The transparency
+sample must composite to a bounded intermediate gray against the renderer's
+explicit white background while the adjacent pixel remains white. Both the
+low- and high-resolution embedded raster pages must retain black and white
+structure in their declared physical region. All 20 LabelMac tests pass. This
+adds partial automated M2-AC03 evidence; it does not establish every PDF blend
+mode, low-resolution warning UX, application capture, or physical image quality.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
