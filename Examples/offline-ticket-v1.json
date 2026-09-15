@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "pageNumber": 1,
+  "physicalSize": {
+    "widthMillimeters": 101.6,
+    "heightMillimeters": 152.4
+  },
+  "resolution": {
+    "xDotsPerMillimeter": 8,
+    "yDotsPerMillimeter": 8
+  },
+  "conversion": {
+    "mode": "textAndBarcodeThreshold",
+    "cutoff": 128
+  }
+}
