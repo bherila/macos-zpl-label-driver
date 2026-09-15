@@ -36,7 +36,8 @@
         "f6cb7fb (supplied-PPD byte allowlist, exact filter declarations, and stricter removal ownership record; source-level M1 transaction safety only)",
         "b820b18 (bounded process-scoped scratch cleanup and single-directory protected staging root; local failure-path regression only)",
         "33e5edd (ownership-conservative rollback for altered queue, protected root, filter, and source-PPD state; source-level evidence only)",
-        "c2f0c1a (full-bleed PPD bytes and strict pins integrated; nonblocking deadline-bound filter output and final-MIME regressions; source/process evidence only, no scheduler run)"
+        "c2f0c1a (full-bleed PPD bytes and strict pins integrated; nonblocking deadline-bound filter output and final-MIME regressions; source/process evidence only, no scheduler run)",
+        "be6842b (single verified local scheduler endpoint, protected apply intent, queue-first verified recovery, signal/fault harness, and read-only Tahoe namespace preflight; administrative paths not run)"
       ],
       "blockers": []
     },

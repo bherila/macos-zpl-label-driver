@@ -706,6 +706,27 @@ inert pipeline case. This closes the identified source-level R6/R7 defects; it
 does not establish scheduler admission, installed filter behavior, physical
 output, or transaction safety. R1/R2 still prohibit `--apply`.
 
+At `be6842b`, review findings R1/R2 received a source-level transaction
+remediation. Every scheduler query, queue mutation, disable/reject action, and
+removal now uses one endpoint discovered under a controlled environment,
+accepted only as a reachable root-owned local Unix socket, passed explicitly to
+the CUPS command, and recorded in the protected intent. Client endpoint
+overrides are rejected. Queue absence is derived only from a successful complete
+inventory; query failure is distinct. The root namespace is rechecked after
+interactive authorization and reserved atomically, then an eight-field intent
+record precedes filter/queue mutation. Recovery verifies current ownership,
+removes and rechecks the queue before touching the exact-hash filter or record,
+uses noninteractive authorization, and reports residual state on conflict or
+failure. INT/TERM/HUP feed the same EXIT recovery path; uncatchable termination
+has a narrow documented manual route. Behavioral harnesses inject lost responses
+at each mutation, cleanup/auth/query failures, changed URI, pre-existing
+resources, altered/partial state, and TERM. The read-only Tahoe preflight
+selected `/private/var/run/cupsd` and confirmed the experiment namespace absent.
+Repository checks and 53 Python tests pass; the complete offline suite remains
+green with 93 LabelCore tests. This addresses R1/R2 at source/harness level only.
+`--apply` and `--remove` remain NOT RUN pending review and exact-head CI, so
+scheduler acceptance is not claimed.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

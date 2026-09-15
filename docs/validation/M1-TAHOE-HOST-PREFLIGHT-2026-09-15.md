@@ -11,6 +11,7 @@ authentication attempt, or local-signing admission evidence.
 | Host OS | macOS 26.6.2 (build 25G83), Apple Silicon |
 | Toolchain | Xcode 26.6; macOS SDK 26.5; Swift 6.3.3 |
 | Scheduler | Running at observation time |
+| Controlled scheduler endpoint | `/private/var/run/cupsd`, observed through `lpstat -H` with client overrides removed; root-owned Unix-domain socket; explicit `-h` read-only preflight passed |
 | Existing physical setup | An existing default destination and USB connection were observed but are deliberately not named or identified here. No driver asset, PPD, serial, URI, job title, or device setting was inspected or changed. |
 | CUPS server bin | `cups-config --serverbin` reports `/usr/libexec/cups`; the backend and filter directories there are root-owned and non-writable to the current user. |
 | `/Library/Printers` | The observed top-level directory is root-owned/non-writable; it contains only the standard visible PPD/icon structure at the inspected depth. No add-on backend/filter contract was established from this observation. |
@@ -39,3 +40,11 @@ configuration, not a clean-host result.
    synthetic native/Letter/A4 checks; then remove only recorded owned artifacts.
 
 Until then, M1-AC01 through M1-AC13 remain unchecked.
+
+The later `be6842b` transaction remediation binds every queue query/mutation to
+that selected endpoint, rejects client endpoint overrides, and adds the
+ownership-aware recovery procedure in
+[M1-TRANSACTION-RECOVERY.md](M1-TRANSACTION-RECOVERY.md). The read-only
+`--scheduler-preflight` passed and confirmed that the named queue/root remained
+absent. No administrative apply/removal path has run, so this remains host
+preflight rather than M1 scheduler acceptance.
