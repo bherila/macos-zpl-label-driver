@@ -217,6 +217,32 @@ public enum PrinterProfileError: Error, Equatable, Sendable {
     case unsupportedPrintSpeed(Int)
     case unavailableDarkness
     case unavailableTracking(MediaTracking)
+    case unavailableMediaGeometry
+}
+
+/// A typed request for printer media geometry, distinct from document layout.
+/// These values must never be derived from a PDF page or nominal label face.
+public struct MediaGeometryRequest: Equatable, Sendable {
+    public let widthDots: Int?
+    public let lengthDots: Int?
+    public let originXDot: Int?
+    public let originYDot: Int?
+
+    public init(
+        widthDots: Int? = nil,
+        lengthDots: Int? = nil,
+        originXDot: Int? = nil,
+        originYDot: Int? = nil
+    ) throws {
+        guard widthDots.map({ $0 > 0 }) ?? true,
+              lengthDots.map({ $0 > 0 }) ?? true else {
+            throw MediaConfigurationError.invalidCalibrationDimensions
+        }
+        self.widthDots = widthDots
+        self.lengthDots = lengthDots
+        self.originXDot = originXDot
+        self.originYDot = originYDot
+    }
 }
 
 public struct PrinterControlRequest: Equatable, Sendable {
@@ -225,19 +251,22 @@ public struct PrinterControlRequest: Equatable, Sendable {
     public var printSpeedIps: Int?
     public var darkness: Int?
     public var tracking: MediaTracking?
+    public var mediaGeometry: MediaGeometryRequest?
 
     public init(
         thermalMethod: ThermalMethod? = nil,
         finishing: FinishingMode? = nil,
         printSpeedIps: Int? = nil,
         darkness: Int? = nil,
-        tracking: MediaTracking? = nil
+        tracking: MediaTracking? = nil,
+        mediaGeometry: MediaGeometryRequest? = nil
     ) {
         self.thermalMethod = thermalMethod
         self.finishing = finishing
         self.printSpeedIps = printSpeedIps
         self.darkness = darkness
         self.tracking = tracking
+        self.mediaGeometry = mediaGeometry
     }
 }
 
@@ -265,6 +294,10 @@ public extension PrinterProfile {
                 throw PrinterProfileError.unavailableTracking(tracking)
             }
         }
+        // Nominal stock never authorizes device geometry. The reference profile
+        // has no observed calibration or cited ordinary-job mapping, so an
+        // explicit geometry request fails instead of being dropped or guessed.
+        if request.mediaGeometry != nil { throw PrinterProfileError.unavailableMediaGeometry }
     }
 }
 
