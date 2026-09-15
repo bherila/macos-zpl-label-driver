@@ -48,6 +48,13 @@ dot-canvas planning. The 4×6 GC420d planning oracle is regression-tested as
 perform PDF box/rotation/UserUnit transformation, Quartz rendering, document
 capture, queue installation, or printer delivery.
 
+M2.1 PDF page planning extends that portable contract at
+`0a4ec84c4e6a1c99cc8a4db8b62db5b361b6a60a`. `NormalizedRect` is constrained
+to the upright top-left effective page box and maps once to a clipped original
+PDF-box rectangle for each supported rotation. `/UserUnit` affects only
+effective physical-size conversion. This is a tested planning contract; Quartz
+rendering and real-PDF integration remain M2.2 work.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
