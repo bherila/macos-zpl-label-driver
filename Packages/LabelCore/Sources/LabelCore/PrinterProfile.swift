@@ -42,6 +42,66 @@ public enum MediaTracking: String, Equatable, Sendable {
     case continuous
 }
 
+/// An observation is intentionally more precise than an optional: callers can
+/// preserve the fact that a value has not been measured rather than treating it
+/// as a missing default. Observed values carry their source separately from
+/// model capabilities.
+public enum Observation<Value: Equatable & Sendable>: Equatable, Sendable {
+    case unobserved
+    case observed(Value, evidence: CapabilityEvidence)
+}
+
+public enum MediaForm: String, Equatable, Sendable {
+    case preCut
+    case continuous
+}
+
+/// A calibrated printable rectangle is distinct from the nominal label face.
+/// Its origin and dimensions must not be guessed from the print head, liner,
+/// or pre-cut stock. Dot coordinates are intentionally not ZPL commands.
+public struct MediaCalibration: Equatable, Sendable {
+    public let widthDots: Int
+    public let lengthDots: Int
+    public let originXDot: Int
+    public let originYDot: Int
+
+    public init(widthDots: Int, lengthDots: Int, originXDot: Int, originYDot: Int) throws {
+        guard widthDots > 0, lengthDots > 0 else {
+            throw MediaConfigurationError.invalidCalibrationDimensions
+        }
+        self.widthDots = widthDots
+        self.lengthDots = lengthDots
+        self.originXDot = originXDot
+        self.originYDot = originYDot
+    }
+}
+
+public enum MediaConfigurationError: Error, Equatable, Sendable {
+    case invalidCalibrationDimensions
+}
+
+/// Installed media facts that a profile may bind to a job. A nominal face is
+/// useful for workflow planning, but is not a measured printable rectangle and
+/// cannot authorize an encoder to emit media length, width, or offset commands.
+public struct MediaConfiguration: Equatable, Sendable {
+    public let form: Observation<MediaForm>
+    public let nominalLabelFace: Observation<PhysicalSize>
+    public let configuredTracking: Observation<MediaTracking>
+    public let calibration: Observation<MediaCalibration>
+
+    public init(
+        form: Observation<MediaForm>,
+        nominalLabelFace: Observation<PhysicalSize>,
+        configuredTracking: Observation<MediaTracking>,
+        calibration: Observation<MediaCalibration>
+    ) {
+        self.form = form
+        self.nominalLabelFace = nominalLabelFace
+        self.configuredTracking = configuredTracking
+        self.calibration = calibration
+    }
+}
+
 public enum PrinterTransport: String, Equatable, Sendable {
     case usb
     case rawTCP
@@ -113,12 +173,14 @@ public struct PrinterProfile: Equatable, Sendable {
     public let revision: Int
     public let capabilities: PrinterCapabilities
     public let installedHardware: InstalledHardware
+    public let media: MediaConfiguration
 
     public init(
         schemaVersion: Int,
         revision: Int,
         capabilities: PrinterCapabilities,
-        installedHardware: InstalledHardware
+        installedHardware: InstalledHardware,
+        media: MediaConfiguration
     ) throws {
         guard schemaVersion == 1, revision > 0 else { throw PrinterProfileError.invalidProfileVersion }
         guard Self.isSafeModelIdentifier(capabilities.model) else {
@@ -134,6 +196,7 @@ public struct PrinterProfile: Equatable, Sendable {
         self.revision = revision
         self.capabilities = capabilities
         self.installedHardware = installedHardware
+        self.media = media
     }
 
     private static func isSafeModelIdentifier(_ model: String) -> Bool {
@@ -236,6 +299,18 @@ public extension PrinterProfile {
                 currentSpeedIps: nil,
                 currentDarkness: nil,
                 currentTracking: nil
+            ),
+            media: MediaConfiguration(
+                form: .observed(.preCut, evidence: .reportedInstallation),
+                nominalLabelFace: .observed(
+                    try PhysicalSize(
+                        width: Millimeters.inches(4),
+                        height: Millimeters.inches(6)
+                    ),
+                    evidence: .reportedInstallation
+                ),
+                configuredTracking: .unobserved,
+                calibration: .unobserved
             )
         )
     }
