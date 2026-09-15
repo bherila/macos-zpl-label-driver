@@ -55,6 +55,15 @@ PDF-box rectangle for each supported rotation. `/UserUnit` affects only
 effective physical-size conversion. This is a tested planning contract; Quartz
 rendering and real-PDF integration remain M2.2 work.
 
+M2.2 begins at `dd0667288c14377e467c7f226ffdfc4085c14244`. The unprivileged
+Quartz renderer accepts bounded original PDF bytes, draws one selected page to
+top-to-bottom grayscale with a white background and uniform fit, and rejects
+malformed, encrypted, out-of-range, annotation-bearing, or over-limit input.
+Native debug and release tests verify a generated source PDF and the output-row
+orientation. The renderer does not yet provide packed monochrome output, full
+annotation flattening, a cancelable worker boundary, CUPS integration, or any
+printer delivery.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
