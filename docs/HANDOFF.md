@@ -796,6 +796,18 @@ M2-AC03/07/08/10/11 remain open for their prescribed integration, compression,
 ownership, filter, or physical evidence. No scheduler, printer, transport, or
 system configuration was accessed by this validation.
 
+At `7ee78db`, a conservative M3 audit plus an exact-head local rerun closed four
+portable acceptance rows. All 98 LabelCore tests passed, including typed
+capability/evidence distinctions, rejection of every unqualified baseline
+request, exact safe control output, immutable prepared-label snapshots, and the
+GC420d USB/direct-thermal/tear-off negative-option matrix. The eight focused
+native raw-TCP tests also passed but were not used to claim installed transport
+acceptance. `docs/validation/M3-AUTOMATED-CONTROLS-2026-09-15.md` records
+M3-AC01, M3-AC02, M3-AC04, and M3-AC13 as automated passes. Full command
+coverage, network fault completeness, USB, cross-process integration,
+scheduler-visible uncertainty, privacy/status framing, and physical behavior
+remain open at their prescribed evidence levels.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
