@@ -22,7 +22,11 @@ uncertain-no-replay and complete-preparation tests pass: 29 focused tests.
 Full local `bash scripts/ci-swift.sh` completed with exit 0: 67 Python, 166 Core
 and 167 Mac tests in debug/release, 132 independent round trips, 15 backend and
 10 filter ABI cases, one inert pipeline case and ad-hoc command/app signatures.
-Hosted exact-head CI and independent review remain pending.
+Automatic hosted run `35075349804` passed exact code head
+`769f0c6a5cbd83cba0760938335044ad004e5746`, with all three required jobs green.
+Inspected logs confirm the full 67/166/167 debug/release suites, independent
+checks and ad-hoc signatures. Independent review completed cleanly at the same
+head with a completed summary, thumbs-up and no inline findings.
 
 The preparation deadline is cooperative across filesystem/configuration calls:
 those calls are checked when they return, not forcibly interrupted. Native
