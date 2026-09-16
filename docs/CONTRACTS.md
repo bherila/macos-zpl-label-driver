@@ -38,6 +38,13 @@ published before any transport call that might be effective. Publication
 uncertainty after that point never authorizes automatic replay. Transmitted
 means local handoff only; device confirmation remains a separate state.
 
+Restart discovery is descriptor-bound and bounded. Staging and invalid
+artifacts are reported rather than silently accepted, removed, or treated as
+missing jobs. A discovery pass is not an atomic snapshot of concurrent intake.
+Each discovered job is revalidated independently; abandoned transmitting state
+becomes terminal uncertainty only under the same physical-device lease used by
+delivery. Recovery never replays bytes or infers device confirmation.
+
 ## Option resolution
 
 Precedence: explicit job choice > immutable workflow defaults > configured physical-device defaults. Validate the resolved combination against capabilities and installed accessories. An explicit unsupported option is an error, not silently ignored. A 'leave printer setting unchanged' option must be explicitly named and may not be represented as a known numeric default.
