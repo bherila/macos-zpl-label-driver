@@ -77,6 +77,14 @@ The separately pinned maintainer manual-check artifact is retained unchanged;
 this build does not require repeating or upgrading that finite GUI procedure.
 Own hosted CI/review await publication; later evidence edits are source unchanged.
 
+Superseding PR #69 review checkpoint: original exact `03ea2fc` hosted 35106871876
+passed, but its first review found the effective crop/media intersection edge
+case. Correction `68264a6` passed 49 focused and full local 67/178/253
+debug/release tests, preserving this exact three-reference matrix. Corrected
+hosted/second review await publication. See
+[review remediation](M4-CROP-INTERSECTION-REVIEW-2026-09-16.md); the earlier
+source-unchanged claim describes only the initial evidence-only publication.
+
 M4-AC13 PASS combines the real three-plan/render/persistence matrix and
 preacceptance failures here with the existing four portable reference-workflow
 tests, including both unconfigured Letter/A4 definitions refusing guessed crops.
