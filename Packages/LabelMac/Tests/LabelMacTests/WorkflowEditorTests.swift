@@ -31,6 +31,25 @@ final class WorkflowEditorTests: XCTestCase {
         XCTAssertEqual(model.editGeneration, displayedGeneration)
     }
 
+    func testSavingInvalidatesDisplayedDraftCallbackWithoutCreatingCorrection() throws {
+        let (model, store) = try makeModel()
+        let original = model.profile
+        let binding = WorkflowEditorEditBinding(regionID: "selected", editGeneration: model.editGeneration)
+        try model.save()
+        let savedGeneration = model.editGeneration
+        XCTAssertEqual(savedGeneration, binding.editGeneration + 1)
+        XCTAssertThrowsError(try model.setSelectedRegionMillimeters(
+            left: 0.2, top: 0.2, width: 2, height: 2, expectedBinding: binding)) {
+            XCTAssertEqual($0 as? WorkflowEditorModel.Error, .editSnapshotChanged)
+        }
+        XCTAssertTrue(model.isSaved)
+        XCTAssertEqual(model.profile, original)
+        XCTAssertEqual(model.editGeneration, savedGeneration)
+        XCTAssertEqual(try store.load(profileID: original.id, revision: original.revision), original)
+        try model.save()
+        XCTAssertEqual(model.editGeneration, savedGeneration)
+    }
+
     func testDisplayedEditGenerationRejectsUndoAndStaleRegionActionsWithoutMutation() throws {
         let (model, _) = try makeModel()
         let old = WorkflowEditorEditBinding(regionID: "selected", editGeneration: model.editGeneration)

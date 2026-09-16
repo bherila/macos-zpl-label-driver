@@ -1,5 +1,14 @@
 # Current implementation handoff — revision 3
 
+PR #62 first-review remediation invalidates displayed draft edit callbacks when
+a revision is successfully saved; an idempotent saved retry does not advance
+the generation. Eighteen focused editor tests and the full local gate passed
+exit 0: 67 Python, 173 LabelCore and 234 LabelMac tests in debug/release,
+independent/accelerator/inert checks, ad-hoc signatures and packaged-worker
+equality. Hosted run 35097361258 passed the preceding exact 373c119 head;
+the correction requires new exact-head hosted validation and second review.
+Native interaction, administrator installation and printer evidence remain open.
+
 Displayed-region edit fix `308f1c9` passed the full local gate exit 0 with
 67/173/233 debug/release, accelerator/independent/inert/signature and packaged
 worker equality checks. Its pre-fix wrong-target regression failed as recorded;
@@ -12,9 +21,9 @@ callbacks editing a newly selected region. Native numeric/rotation/reorder/add/
 remove/draw actions now bind region and edit generation; the measurement callback
 retains displayed page geometry and drawing retains its starting binding.
 43 focused editor/opening/bootstrap tests passed after the pre-fix regression
-failed. Full combined gate and native interaction pending. See
+failed. The full combined local gate passed as recorded above; native interaction remains pending. See
 `validation/M4-DISPLAYED-EDIT-BINDING-2026-09-16.md`. Parent #61 hosted/first
-review remain live; no GUI/scheduler/printer evidence is added.
+review completed as recorded above; no GUI/scheduler/printer evidence is added.
 
 Integrated read-only discovery `84d397e` passed the full local gate exit 0 with
 67/173/231 debug/release, accelerator/independent/inert/signature and packaged
