@@ -1,5 +1,19 @@
 # Current implementation handoff — revision 3
 
+The accepted-job namespace slice now requires accepted-jobs/root/containing
+directory barriers on initial and identical publication, with descriptor/name
+bindings before and after synchronization. Three old-code regressions reproduced
+nine assertion failures; corrected 51 tests passed, then the added during-barrier
+replacement test brought the passing focused set to 52. All failures retain
+explicit commit uncertainty, exact source bytes and advanced lifecycle state.
+Full/hosted/review gates are pending; no scheduler/USB/physical acceptance is
+inferred. See `validation/M3-ACCEPTED-NAMESPACE-BARRIERS-2026-09-16.md`.
+
+Parent #73 latest `b4d78e8` hosted 35116981496 passed with inspected 82 Python/
+178 Core/258 Mac debug/release and independent/inert/signature/packaged checks.
+Source review is clean at base `fa6c247` / head `03992fd`; later edits are evidence
+only. No merge. This supersedes the earlier latest-head pending status.
+
 The new developer-only readback helper reuses native CUPS, with a verified local
 socket, controlled environment, cumulative 20-second/output bounds and immutable
 read-only request literals. It can inspect only absent experimental queue or
