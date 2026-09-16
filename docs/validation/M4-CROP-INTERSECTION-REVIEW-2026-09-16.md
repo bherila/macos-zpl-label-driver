@@ -1,6 +1,7 @@
 # PR #69 crop/media intersection review remediation
 
 Date: 2026-09-16. Evidence A, additional M2-AC01/03 and M4-AC02/07 coverage.
+Correction/full-gate SHA: `68264a6464e1eeb403d32c8f250d46fec05119a5`.
 No installed application/scheduler or physical acceptance.
 
 First review finding
@@ -43,7 +44,13 @@ PASS: 49 focused native renderer/extraction/pipeline tests, exit 0, including al
 three regressions, existing rotation/origin/UserUnit/near-zero bounds and the
 complete native/Letter/A4 immutable prepared/inert matrix. Native environment:
 macOS 26.6.2 build 25G83, Apple Silicon, Swift 6.3.3.
-Corrected full local gate is pending; no corrected hosted/review pass is claimed.
+PASS: corrected full local `bash scripts/ci-swift.sh` at the correction SHA,
+exit 0, bounded to 1200 seconds. 67 Python, 178 Core and 253 Mac tests
+debug/release, both accelerator modes, 132 independent round trips per mode,
+inert backend/filter ABI and discard pipeline checks, local-ad-hoc ARM/minimum-26
+executable/app/nested-worker signatures and packaged-worker PBM/ZPL equality.
+Publication evidence-only edits undergo repository preflight; no corrected
+hosted/second-review pass is claimed before publication.
 Original hosted 35106871876 passed at `03ea2fc`, with 178 Core/250 Mac tests
 debug/release, signatures and packaged-worker PBM/ZPL equality verified in logs.
 That result did not cover this edge case and is not a corrected-head pass.

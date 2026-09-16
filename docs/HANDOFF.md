@@ -30,8 +30,11 @@ PR #69's first review finding 4027048607 is reproduced and corrected: native
 page geometry and direct selected rendering now share the effective CropBox /
 MediaBox intersection. Three every-dot regressions cover expanded crops,
 effective-coordinate selection, non-square partial overlap and disjoint rejection.
-All 49 focused native renderer/extraction/pipeline tests passed exit 0; corrected
-full local/hosted/review remain pending. Original exact `03ea2fc` hosted 35106871876
+All 49 focused native renderer/extraction/pipeline tests passed exit 0. Corrected
+full local gate at `68264a6` passed exit 0: 67 Python, 178 Core and 253 Mac
+debug/release, accelerator/independent/inert checks, local signatures and packaged
+worker equality. Corrected hosted/second review await publication.
+Original exact `03ea2fc` hosted 35106871876
 passed 178 Core/250 Mac debug/release and signature/packaged checks, but did not
 cover this edge case. See `validation/M4-CROP-INTERSECTION-REVIEW-2026-09-16.md`.
 
