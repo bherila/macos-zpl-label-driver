@@ -5,11 +5,19 @@ host uses LogLevel warn, but the previous INFO filter marker is documented as
 error-log-visible only at debug2. The discard-only filter now warns once that
 the experiment produced no physical printing, with exact safe schema-2 metadata
 and an ABI-validated numeric job ID for private scheduler correlation. All 12
-focused filter ABI cases and one inert pipeline passed; full gate is pending.
+focused filter ABI cases and one inert pipeline passed. Full local gate at
+`a5fa614` passed exit 0: 67 Python/178 Core/258 Mac debug/release, both
+accelerators with 12 filter cases per mode, independent/inert/signature and
+packaged-worker PBM/ZPL checks. Own hosted/review await publication.
 No global logging is changed and no installation/job
 is run. The earlier private frozen snapshot is marked superseded, not replaced;
 new review/validation/freeze is required before execution. See
 `validation/M1-DISCARD-OBSERVABILITY-2026-09-16.md` and updated finite procedure.
+
+Parent PR #71 exact `889472c` hosted 35111712826 passed; fetched logs verify
+178 Core/258 Mac debug/release, local signatures and packaged-worker PBM/ZPL
+equality. Its actual final-dot synthetic barcode tests pass on hosted macOS too;
+no installed/physical acceptance or merge is inferred.
 
 The new test-only quality slice decodes the supplied synthetic Code128 and QR
 symbols from all three final 813 x 1219 bitmaps at one pixel per printer dot.
