@@ -902,6 +902,17 @@ CI-equivalent sequence pass with 126 LabelCore and 59 LabelMac tests in both
 configurations. This is partial M4-AC06/08/09/12 evidence; editor UI, container
 selection, installed identity, queue binding, and restart recovery remain open.
 
+At `05eb16d`, M4 gained portable teach-once draft state over the immutable
+profile contract. Canonical normalized region/rotation edits create a new
+revision, global reorder spans source pages, invalid edits are nonmutating, and
+revision overflow fails. A three-region/two-page draft survives exact JSON
+save/reopen and plans two collated copies as B,A,C,B,A,C; the shared planner
+also retains its uncollated and explicit non-label-page oracles. Four focused
+draft tests and all 130 LabelCore tests pass. This closes M4-AC03 and M4-AC05
+at automated level and adds partial M4-AC06 evidence only. Rendered native
+editor controls, keyboard operation, exact-preview presentation, and installed
+save/reload interaction remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
