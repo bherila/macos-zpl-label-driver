@@ -26,6 +26,17 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+Finite native read-only USB registry matching returned success with empty/null
+iterators for host device and interface classes in this execution context. No
+device connection/serial/property-table access or printer command occurred.
+This does not prove physical disconnection or qualify a stable identity; product
+discovery remains unimplemented. The public SDK's successful-empty contract is
+recorded with a finite reproduction in
+`validation/M5-USB-REGISTRY-PREFLIGHT-2026-09-16.md`.
+Parent #58 corrected hosted 35093979617 passed exact `730d65b`; logs confirm
+213 native debug/release tests, signatures and packaged-worker equality.
+Own #59 hosted 35094427805 and first review remain live at `04202d9`.
+
 Latest combined transfer checkpoint `f60d11a` integrates parent review correction
 `730d65b` and passed the full local gate exit 0: 67/173/219 debug/release,
 accelerator/independent/inert/signature and packaged-worker equality checks.

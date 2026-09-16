@@ -245,3 +245,15 @@ implementation or fonts are bundled in the runtime driver.
 Defines `ServerBin` as the scheduler directory containing backends and filters;
 changing it requires a scheduler restart. This documents the CUPS contract, not
 a permitted Tahoe installation path or successful local admission.
+
+<a id="r35"></a>
+## R35 — Apple read-only I/O Registry matching
+
+[IOServiceGetMatchingServices](https://developer.apple.com/documentation/iokit/1514494-ioservicegetmatchingservices)
+and [IORegistryEntryCreateCFProperty](https://developer.apple.com/documentation/iokit/1514293-ioregistryentrycreatecfproperty/).
+
+Public matching/property APIs; the installed SDK's `IOKitLib.h` explicitly
+permits successful empty matching with a null iterator. Public USB host class
+and matching-property constants are in `usb/IOUSBHostFamilyDefinitions.h`.
+Enumeration does not establish stable physical identity, device access, model
+qualification, printer status or transmission. No implementation is bundled.
