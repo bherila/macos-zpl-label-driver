@@ -32,7 +32,8 @@ as an identical retry.
 
 Delivery consumes the verified immutable prepared artifact, never unrelated
 caller-provided bytes or mutable defaults. The shared physical-device lease is
-held before delivery-state mutation, and a send-attempt state is durably
+derived from that artifact's ticket-bound coordination domain rather than a
+caller-supplied transport alias. It is held before delivery-state mutation, and a send-attempt state is durably
 published before any transport call that might be effective. Publication
 uncertainty after that point never authorizes automatic replay. Transmitted
 means local handoff only; device confirmation remains a separate state.
