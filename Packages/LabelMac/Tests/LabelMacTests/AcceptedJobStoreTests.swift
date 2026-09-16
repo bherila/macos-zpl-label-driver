@@ -22,7 +22,9 @@ final class AcceptedJobStoreTests: XCTestCase {
     }
 
     private func fixture(
-        acceptanceID: String = "accepted-42", regionID: String = "label"
+        acceptanceID: String = "accepted-42",
+        regionID: String = "label",
+        cancellationToken: Data = Data("synthetic cancellation capability".utf8)
     ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory.appending(
             path: "AcceptedJobStore-\(UUID().uuidString)"
@@ -89,7 +91,6 @@ final class AcceptedJobStoreTests: XCTestCase {
             copyPolicy: .engine(copies: 1, collated: true)
         )
         let sourcePDF = Data("%PDF-1.7\nsynthetic accepted source\n%%EOF\n".utf8)
-        let cancellationToken = Data("synthetic cancellation capability".utf8)
         let ticket = try ResolvedJobTicket.accept(
             acceptanceID: acceptanceID,
             cancellationSHA256: Self.digest(cancellationToken),
@@ -330,7 +331,9 @@ final class AcceptedJobStoreTests: XCTestCase {
             workflowStore: value.workflows, printerStore: value.printers
         )
         XCTAssertEqual(loaded, AcceptedJobBundle(
-            ticket: value.ticket, sourcePDF: value.sourcePDF
+            ticket: value.ticket,
+            acceptedTicketSHA256: Self.digest(try ResolvedJobTicketJSON.encode(value.ticket)),
+            sourcePDF: value.sourcePDF
         ))
         let entries = try FileManager.default.contentsOfDirectory(
             atPath: value.root.appending(path: "accepted-jobs").path
@@ -384,19 +387,20 @@ final class AcceptedJobStoreTests: XCTestCase {
             value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )
-        let states = AcceptedJobStateStore(root: value.root)
+        let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
         var state = try states.load(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )
         XCTAssertEqual(state, try AcceptedJobStateRecord.accepted(
-            acceptanceID: value.ticket.acceptanceID
+            acceptanceID: value.ticket.acceptanceID,
+            acceptedTicketSHA256: Self.digest(try ResolvedJobTicketJSON.encode(value.ticket))
         ))
         XCTAssertThrowsError(try states.compareAndSwap(
             acceptanceID: value.ticket.acceptanceID, expected: state,
             next: .prepared(payloadSHA256: String(repeating: "a", count: 64), byteCount: 20),
-            acceptedJobStore: value.jobs, queueStore: value.queues,
+            queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )) { XCTAssertEqual($0 as? AcceptedJobStateStore.Error, .preparedPayloadRequired) }
         let priorBytes = try AcceptedJobStateJSON.encode(state)
@@ -404,12 +408,12 @@ final class AcceptedJobStoreTests: XCTestCase {
         state = try states.publishPrepared(
             acceptanceID: value.ticket.acceptanceID, expected: state,
             payload: payload,
-            acceptedJobStore: value.jobs, queueStore: value.queues,
+            queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )
         XCTAssertEqual(state.previousStateSHA256, Self.digest(priorBytes))
         let stored = try states.loadPrepared(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )
@@ -429,36 +433,132 @@ final class AcceptedJobStoreTests: XCTestCase {
             value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )
-        let states = AcceptedJobStateStore(root: value.root)
+        let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
         let initial = try states.load(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )
         XCTAssertThrowsError(try states.compareAndSwap(
             acceptanceID: value.ticket.acceptanceID, expected: initial,
-            next: .cancelledBeforeTransmission, acceptedJobStore: value.jobs,
+            next: .cancelledBeforeTransmission,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )) { XCTAssertEqual($0 as? AcceptedJobStateStore.Error, .cancellationUnauthorized) }
         XCTAssertThrowsError(try states.cancel(
             acceptanceID: value.ticket.acceptanceID, expected: initial,
-            cancellationToken: Data("wrong".utf8), acceptedJobStore: value.jobs,
+            cancellationToken: Data("wrong".utf8),
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )) { XCTAssertEqual($0 as? AcceptedJobStateStore.Error, .cancellationUnauthorized) }
         XCTAssertEqual(try states.load(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         ), initial)
         let cancelled = try states.cancel(
             acceptanceID: value.ticket.acceptanceID, expected: initial,
-            cancellationToken: value.cancellationToken, acceptedJobStore: value.jobs,
+            cancellationToken: value.cancellationToken,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )
         XCTAssertEqual(cancelled.phase, .cancelledBeforeTransmission)
+    }
+
+    func testCrossStoreTokensAndExpectedStatesCannotMutateAnotherBundle() throws {
+        let acceptanceID = "state-cross-store"
+        let first = try fixture(
+            acceptanceID: acceptanceID,
+            cancellationToken: Data("first cancellation capability".utf8)
+        )
+        let second = try fixture(
+            acceptanceID: acceptanceID,
+            cancellationToken: Data("second cancellation capability".utf8)
+        )
+        for value in [first, second] {
+            try value.jobs.save(
+                value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+                workflowStore: value.workflows, printerStore: value.printers
+            )
+        }
+
+        let firstStates = AcceptedJobStateStore(acceptedJobStore: first.jobs)
+        let secondStates = AcceptedJobStateStore(acceptedJobStore: second.jobs)
+        let firstState = try firstStates.load(
+            acceptanceID: acceptanceID, queueStore: first.queues,
+            workflowStore: first.workflows, printerStore: first.printers
+        )
+        let secondState = try secondStates.load(
+            acceptanceID: acceptanceID, queueStore: second.queues,
+            workflowStore: second.workflows, printerStore: second.printers
+        )
+        XCTAssertNotEqual(firstState.acceptedTicketSHA256, secondState.acceptedTicketSHA256)
+
+        XCTAssertThrowsError(try secondStates.cancel(
+            acceptanceID: acceptanceID, expected: secondState,
+            cancellationToken: first.cancellationToken, queueStore: second.queues,
+            workflowStore: second.workflows, printerStore: second.printers
+        )) { XCTAssertEqual($0 as? AcceptedJobStateStore.Error, .cancellationUnauthorized) }
+        XCTAssertThrowsError(try secondStates.compareAndSwap(
+            acceptanceID: acceptanceID, expected: firstState,
+            next: .failedBeforeTransmission, queueStore: second.queues,
+            workflowStore: second.workflows, printerStore: second.printers
+        )) { XCTAssertEqual($0 as? AcceptedJobStateStore.Error, .acceptedJobMismatch) }
+        XCTAssertEqual(try secondStates.load(
+            acceptanceID: acceptanceID, queueStore: second.queues,
+            workflowStore: second.workflows, printerStore: second.printers
+        ), secondState)
+
+        let cancelled = try secondStates.cancel(
+            acceptanceID: acceptanceID, expected: secondState,
+            cancellationToken: second.cancellationToken, queueStore: second.queues,
+            workflowStore: second.workflows, printerStore: second.printers
+        )
+        XCTAssertEqual(cancelled.phase, .cancelledBeforeTransmission)
+    }
+
+    func testRepositoryCapabilitySurvivesRootPathReplacement() throws {
+        let value = try fixture(acceptanceID: "state-path-replacement")
+        try value.jobs.save(
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
+        let moved = value.root.deletingLastPathComponent().appending(
+            path: "AcceptedJobStore-moved-\(UUID().uuidString)"
+        )
+        addTeardownBlock { try? FileManager.default.removeItem(at: moved) }
+        try FileManager.default.moveItem(at: value.root, to: moved)
+        try FileManager.default.createDirectory(
+            at: value.root, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700]
+        )
+        _ = try AcceptedJobStore(root: value.root)
+
+        let workflows = try WorkflowProfileStore(root: moved)
+        let printers = try PrinterProfileStore(root: moved)
+        let queues = try VirtualQueueStore(root: moved)
+        let initial = try states.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        )
+        let cancelled = try states.cancel(
+            acceptanceID: value.ticket.acceptanceID, expected: initial,
+            cancellationToken: value.cancellationToken, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        )
+        XCTAssertEqual(cancelled.phase, .cancelledBeforeTransmission)
+        XCTAssertFalse(FileManager.default.fileExists(
+            atPath: value.root.appending(path: "accepted-jobs").appending(
+                path: AcceptedJobStore.directoryName(value.ticket.acceptanceID)
+            ).path
+        ))
+        let movedState = moved.appending(path: "accepted-jobs").appending(
+            path: AcceptedJobStore.directoryName(value.ticket.acceptanceID)
+        ).appending(path: "state.json")
+        XCTAssertEqual(
+            try AcceptedJobStateJSON.decode(Data(contentsOf: movedState)), cancelled
+        )
     }
 
     func testConcurrentStateWritersHaveOneWinnerAndStaleExpectedFails() async throws {
@@ -467,9 +567,9 @@ final class AcceptedJobStoreTests: XCTestCase {
             value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )
-        let states = AcceptedJobStateStore(root: value.root)
+        let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
         let initial = try states.load(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )
@@ -480,7 +580,7 @@ final class AcceptedJobStoreTests: XCTestCase {
                     (try? states.publishPrepared(
                         acceptanceID: value.ticket.acceptanceID, expected: initial,
                         payload: payload,
-                        acceptedJobStore: value.jobs, queueStore: value.queues,
+                        queueStore: value.queues,
                         workflowStore: value.workflows, printerStore: value.printers
                     )) != nil
                 }
@@ -491,7 +591,7 @@ final class AcceptedJobStoreTests: XCTestCase {
         XCTAssertThrowsError(try states.publishPrepared(
             acceptanceID: value.ticket.acceptanceID, expected: initial,
             payload: try preparedPayload(value, seed: 0x20),
-            acceptedJobStore: value.jobs, queueStore: value.queues,
+            queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )) { XCTAssertEqual($0 as? AcceptedJobStateStore.Error, .stateConflict) }
     }
@@ -503,24 +603,24 @@ final class AcceptedJobStoreTests: XCTestCase {
             value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )
-        let normal = AcceptedJobStateStore(root: value.root)
+        let normal = AcceptedJobStateStore(acceptedJobStore: value.jobs)
         let initial = try normal.load(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )
-        let faulted = AcceptedJobStateStore(root: value.root) { point in
+        let faulted = AcceptedJobStateStore(acceptedJobStore: value.jobs) { point in
             if point == .afterStateRename { throw Injected.stop }
         }
         let payload = try preparedPayload(value)
         XCTAssertThrowsError(try faulted.publishPrepared(
             acceptanceID: value.ticket.acceptanceID, expected: initial,
             payload: payload,
-            acceptedJobStore: value.jobs, queueStore: value.queues,
+            queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )) { XCTAssertEqual($0 as? AcceptedJobStateStore.Error, .commitUncertain) }
         let recovered = try normal.loadPrepared(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )
@@ -534,9 +634,9 @@ final class AcceptedJobStoreTests: XCTestCase {
             value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )
-        let states = AcceptedJobStateStore(root: value.root)
+        let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
         let initial = try states.load(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )
@@ -562,13 +662,13 @@ final class AcceptedJobStoreTests: XCTestCase {
         for payload in mismatches {
             XCTAssertThrowsError(try states.publishPrepared(
                 acceptanceID: value.ticket.acceptanceID, expected: initial,
-                payload: payload, acceptedJobStore: value.jobs,
-                queueStore: value.queues, workflowStore: value.workflows,
+                payload: payload,
+            queueStore: value.queues, workflowStore: value.workflows,
                 printerStore: value.printers
             )) { XCTAssertEqual($0 as? AcceptedJobStateStore.Error, .preparedPayloadMismatch) }
         }
         XCTAssertEqual(try states.load(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         ), initial)
@@ -592,31 +692,30 @@ final class AcceptedJobStoreTests: XCTestCase {
                     value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
                     workflowStore: value.workflows, printerStore: value.printers
                 )
-                let normal = AcceptedJobStateStore(root: value.root)
+                let normal = AcceptedJobStateStore(acceptedJobStore: value.jobs)
                 let initial = try normal.load(
                     acceptanceID: value.ticket.acceptanceID,
-                    acceptedJobStore: value.jobs,
                     queueStore: value.queues, workflowStore: value.workflows,
                     printerStore: value.printers
                 )
                 let first = try preparedPayload(value)
-                let faulted = AcceptedJobStateStore(root: value.root) { observed in
+                let faulted = AcceptedJobStateStore(acceptedJobStore: value.jobs) { observed in
                     if observed == point { throw Injected.stop }
                 }
                 XCTAssertThrowsError(try faulted.publishPrepared(
                     acceptanceID: value.ticket.acceptanceID, expected: initial,
-                    payload: first, acceptedJobStore: value.jobs,
-                    queueStore: value.queues, workflowStore: value.workflows,
+                    payload: first,
+            queueStore: value.queues, workflowStore: value.workflows,
                     printerStore: value.printers
                 )) { XCTAssertTrue($0 is Injected) }
                 XCTAssertEqual(try normal.load(
                     acceptanceID: value.ticket.acceptanceID,
-                    acceptedJobStore: value.jobs, queueStore: value.queues,
+                    queueStore: value.queues,
                     workflowStore: value.workflows, printerStore: value.printers
                 ), initial)
                 XCTAssertThrowsError(try normal.loadPrepared(
                     acceptanceID: value.ticket.acceptanceID,
-                    acceptedJobStore: value.jobs, queueStore: value.queues,
+                    queueStore: value.queues,
                     workflowStore: value.workflows, printerStore: value.printers
                 )) {
                     XCTAssertEqual(
@@ -631,8 +730,8 @@ final class AcceptedJobStoreTests: XCTestCase {
                 if conflict {
                     XCTAssertThrowsError(try normal.publishPrepared(
                         acceptanceID: value.ticket.acceptanceID, expected: initial,
-                        payload: retry, acceptedJobStore: value.jobs,
-                        queueStore: value.queues, workflowStore: value.workflows,
+                        payload: retry,
+            queueStore: value.queues, workflowStore: value.workflows,
                         printerStore: value.printers
                     )) {
                         XCTAssertEqual(
@@ -643,8 +742,8 @@ final class AcceptedJobStoreTests: XCTestCase {
                 } else {
                     let state = try normal.publishPrepared(
                         acceptanceID: value.ticket.acceptanceID, expected: initial,
-                        payload: retry, acceptedJobStore: value.jobs,
-                        queueStore: value.queues, workflowStore: value.workflows,
+                        payload: retry,
+            queueStore: value.queues, workflowStore: value.workflows,
                         printerStore: value.printers
                     )
                     XCTAssertEqual(state.generation, 2)
@@ -659,15 +758,15 @@ final class AcceptedJobStoreTests: XCTestCase {
             value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )
-        let states = AcceptedJobStateStore(root: value.root)
+        let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
         let initial = try states.load(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )
         let prepared = try states.publishPrepared(
             acceptanceID: value.ticket.acceptanceID, expected: initial,
-            payload: preparedPayload(value), acceptedJobStore: value.jobs,
+            payload: preparedPayload(value),
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )
@@ -676,12 +775,12 @@ final class AcceptedJobStoreTests: XCTestCase {
             .appending(path: "prepared.zpl")
         try Data("tampered".utf8).write(to: path)
         XCTAssertThrowsError(try states.load(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )) { XCTAssertEqual($0 as? AcceptedJobStateStore.Error, .preparedPayloadMismatch) }
         XCTAssertThrowsError(try states.loadPrepared(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )) { XCTAssertEqual($0 as? AcceptedJobStateStore.Error, .preparedPayloadMismatch) }
@@ -690,7 +789,7 @@ final class AcceptedJobStoreTests: XCTestCase {
             next: .waiting(
                 payloadSHA256: Self.digest(try preparedPayload(value).bytes),
                 byteCount: try preparedPayload(value).bytes.count
-            ), acceptedJobStore: value.jobs, queueStore: value.queues,
+            ), queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )) { XCTAssertEqual($0 as? AcceptedJobStateStore.Error, .preparedPayloadMismatch) }
     }
@@ -702,17 +801,17 @@ final class AcceptedJobStoreTests: XCTestCase {
                 value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
                 workflowStore: value.workflows, printerStore: value.printers
             )
-            let states = AcceptedJobStateStore(root: value.root)
+            let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
             let initial = try states.load(
                 acceptanceID: value.ticket.acceptanceID,
-                acceptedJobStore: value.jobs, queueStore: value.queues,
+                queueStore: value.queues,
                 workflowStore: value.workflows, printerStore: value.printers
             )
             let payload = try preparedPayload(value)
             _ = try states.publishPrepared(
                 acceptanceID: value.ticket.acceptanceID, expected: initial,
-                payload: payload, acceptedJobStore: value.jobs,
-                queueStore: value.queues, workflowStore: value.workflows,
+                payload: payload,
+            queueStore: value.queues, workflowStore: value.workflows,
                 printerStore: value.printers
             )
             let path = value.root.appending(path: "accepted-jobs")
@@ -733,7 +832,7 @@ final class AcceptedJobStoreTests: XCTestCase {
             }
             XCTAssertThrowsError(try states.loadPrepared(
                 acceptanceID: value.ticket.acceptanceID,
-                acceptedJobStore: value.jobs, queueStore: value.queues,
+                queueStore: value.queues,
                 workflowStore: value.workflows, printerStore: value.printers
             )) {
                 let expected: AcceptedJobStateStore.Error = kind == "symbolic"
@@ -766,8 +865,8 @@ final class AcceptedJobStoreTests: XCTestCase {
             acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .jobIdentityMismatch) }
-        XCTAssertThrowsError(try AcceptedJobStateStore(root: value.root).load(
-            acceptanceID: value.ticket.acceptanceID, acceptedJobStore: value.jobs,
+        XCTAssertThrowsError(try AcceptedJobStateStore(acceptedJobStore: value.jobs).load(
+            acceptanceID: value.ticket.acceptanceID,
             queueStore: value.queues, workflowStore: value.workflows,
             printerStore: value.printers
         )) { XCTAssertEqual($0 as? AcceptedJobStateStore.Error, .acceptedJobMismatch) }

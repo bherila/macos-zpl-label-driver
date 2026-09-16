@@ -14,13 +14,16 @@ public struct StoredPreparedJob: Equatable, Sendable {
     public let state: AcceptedJobStateRecord
 }
 
+private struct AcceptedJobStateStoreBodyFailure: Swift.Error {
+    let underlying: Swift.Error
+}
+
 /// Mutable lifecycle state inside an immutable accepted-job bundle. All
 /// replacements are serialized across processes and compare the complete
 /// expected record before publication.
 public struct AcceptedJobStateStore: @unchecked Sendable {
     public enum Error: Swift.Error, Equatable, Sendable {
         case cannotOpenStore
-        case unsafeStore
         case cannotRead
         case cannotWrite
         case commitUncertain
@@ -40,27 +43,35 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
         case afterStateRename
     }
 
-    public let root: URL
+    private let acceptedJobs: AcceptedJobStore
     private let injectFault: @Sendable (FaultPoint) throws -> Void
 
-    public init(root: URL) { self.root = root; injectFault = { _ in } }
-    init(root: URL, injectFault: @escaping @Sendable (FaultPoint) throws -> Void) {
-        self.root = root; self.injectFault = injectFault
+    public init(acceptedJobStore: AcceptedJobStore) {
+        acceptedJobs = acceptedJobStore
+        injectFault = { _ in }
+    }
+
+    init(
+        acceptedJobStore: AcceptedJobStore,
+        injectFault: @escaping @Sendable (FaultPoint) throws -> Void
+    ) {
+        acceptedJobs = acceptedJobStore
+        self.injectFault = injectFault
     }
 
     public func load(
         acceptanceID: String,
-        acceptedJobStore: AcceptedJobStore,
         queueStore: VirtualQueueStore,
         workflowStore: WorkflowProfileStore,
         printerStore: PrinterProfileStore
     ) throws -> AcceptedJobStateRecord {
-        let bundle = try loadBundle(
-            acceptanceID, acceptedJobStore, queueStore, workflowStore, printerStore
-        )
-        return try withLockedBundle(acceptanceID: acceptanceID) { directory in
+        try withLockedBundle(
+            acceptanceID: acceptanceID, queueStore: queueStore,
+            workflowStore: workflowStore, printerStore: printerStore
+        ) { directory, bundle in
             let state = try read(directory)
-            guard state.acceptanceID == bundle.ticket.acceptanceID else {
+            guard state.acceptanceID == bundle.ticket.acceptanceID,
+                  state.acceptedTicketSHA256 == bundle.acceptedTicketSHA256 else {
                 throw Error.acceptedJobMismatch
             }
             try validatePreparedArtifact(state: state, directory: directory)
@@ -75,28 +86,27 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
         acceptanceID: String,
         expected: AcceptedJobStateRecord,
         payload: PreparedJobPayload,
-        acceptedJobStore: AcceptedJobStore,
         queueStore: VirtualQueueStore,
         workflowStore: WorkflowProfileStore,
         printerStore: PrinterProfileStore
     ) throws -> AcceptedJobStateRecord {
-        let bundle = try loadBundle(
-            acceptanceID, acceptedJobStore, queueStore, workflowStore, printerStore
-        )
-        let profile: PrinterProfile
-        do { profile = try printerStore.load(reference: bundle.ticket.printerProfile) }
-        catch { throw Error.acceptedJobMismatch }
-        guard bundle.ticket.acceptanceID == acceptanceID,
-              expected.acceptanceID == acceptanceID else {
-            throw Error.acceptedJobMismatch
-        }
-        guard payload.outputLabels == bundle.ticket.outputLabels,
-              payload.monochromeConversion == bundle.ticket.monochromeConversion,
-              payload.profileSnapshot == JobProfileSnapshot(profile: profile),
-              payload.resolvedControls == bundle.ticket.controls else {
-            throw Error.preparedPayloadMismatch
-        }
-        return try withLockedBundle(acceptanceID: acceptanceID) { directory in
+        return try withLockedBundle(
+            acceptanceID: acceptanceID, queueStore: queueStore,
+            workflowStore: workflowStore, printerStore: printerStore
+        ) { directory, bundle in
+            let profile: PrinterProfile
+            do { profile = try printerStore.load(reference: bundle.ticket.printerProfile) }
+            catch { throw Error.acceptedJobMismatch }
+            guard expected.acceptanceID == acceptanceID,
+                  expected.acceptedTicketSHA256 == bundle.acceptedTicketSHA256 else {
+                throw Error.acceptedJobMismatch
+            }
+            guard payload.outputLabels == bundle.ticket.outputLabels,
+                  payload.monochromeConversion == bundle.ticket.monochromeConversion,
+                  payload.profileSnapshot == JobProfileSnapshot(profile: profile),
+                  payload.resolvedControls == bundle.ticket.controls else {
+                throw Error.preparedPayloadMismatch
+            }
             let current = try read(directory)
             guard current == expected else { throw Error.stateConflict }
             guard current.phase == .accepted else { throw Error.invalidTransition }
@@ -116,20 +126,20 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
     /// deliverable payload even if an inert orphan file exists.
     public func loadPrepared(
         acceptanceID: String,
-        acceptedJobStore: AcceptedJobStore,
         queueStore: VirtualQueueStore,
         workflowStore: WorkflowProfileStore,
         printerStore: PrinterProfileStore
     ) throws -> StoredPreparedJob {
-        let bundle = try loadBundle(
-            acceptanceID, acceptedJobStore, queueStore, workflowStore, printerStore
-        )
-        let profile: PrinterProfile
-        do { profile = try printerStore.load(reference: bundle.ticket.printerProfile) }
-        catch { throw Error.acceptedJobMismatch }
-        return try withLockedBundle(acceptanceID: acceptanceID) { directory in
+        try withLockedBundle(
+            acceptanceID: acceptanceID, queueStore: queueStore,
+            workflowStore: workflowStore, printerStore: printerStore
+        ) { directory, bundle in
+            let profile: PrinterProfile
+            do { profile = try printerStore.load(reference: bundle.ticket.printerProfile) }
+            catch { throw Error.acceptedJobMismatch }
             let state = try read(directory)
-            guard state.acceptanceID == bundle.ticket.acceptanceID else {
+            guard state.acceptanceID == bundle.ticket.acceptanceID,
+                  state.acceptedTicketSHA256 == bundle.acceptedTicketSHA256 else {
                 throw Error.acceptedJobMismatch
             }
             guard let binding = Self.payloadBinding(state.phase) else {
@@ -155,19 +165,16 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
         acceptanceID: String,
         expected: AcceptedJobStateRecord,
         next: AcceptedJobPhase,
-        acceptedJobStore: AcceptedJobStore,
         queueStore: VirtualQueueStore,
         workflowStore: WorkflowProfileStore,
         printerStore: PrinterProfileStore
     ) throws -> AcceptedJobStateRecord {
         guard next != .cancelledBeforeTransmission else { throw Error.cancellationUnauthorized }
         if case .prepared = next { throw Error.preparedPayloadRequired }
-        let bundle = try loadBundle(
-            acceptanceID, acceptedJobStore, queueStore, workflowStore, printerStore
-        )
         return try update(
             acceptanceID: acceptanceID, expected: expected, next: next,
-            bundle: bundle
+            queueStore: queueStore, workflowStore: workflowStore,
+            printerStore: printerStore
         )
     }
 
@@ -175,7 +182,6 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
         acceptanceID: String,
         expected: AcceptedJobStateRecord,
         cancellationToken: Data,
-        acceptedJobStore: AcceptedJobStore,
         queueStore: VirtualQueueStore,
         workflowStore: WorkflowProfileStore,
         printerStore: PrinterProfileStore
@@ -183,38 +189,60 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
         guard !cancellationToken.isEmpty, cancellationToken.count <= 256 else {
             throw Error.cancellationUnauthorized
         }
-        let bundle = try loadBundle(
-            acceptanceID, acceptedJobStore, queueStore, workflowStore, printerStore
-        )
-        let supplied = Array(SHA256.hash(data: cancellationToken))
-        guard let expectedDigest = Self.hexBytes(bundle.ticket.cancellationSHA256),
-              Self.constantTimeEqual(supplied, expectedDigest) else {
-            throw Error.cancellationUnauthorized
+        return try withLockedBundle(
+            acceptanceID: acceptanceID, queueStore: queueStore,
+            workflowStore: workflowStore, printerStore: printerStore
+        ) { directory, bundle in
+            let supplied = Array(SHA256.hash(data: cancellationToken))
+            guard let expectedDigest = Self.hexBytes(bundle.ticket.cancellationSHA256),
+                  Self.constantTimeEqual(supplied, expectedDigest) else {
+                throw Error.cancellationUnauthorized
+            }
+            return try updateLocked(
+                acceptanceID: acceptanceID, expected: expected,
+                next: .cancelledBeforeTransmission,
+                bundle: bundle, directory: directory
+            )
         }
-        return try update(
-            acceptanceID: acceptanceID, expected: expected,
-            next: .cancelledBeforeTransmission, bundle: bundle
-        )
     }
 
     private func update(
         acceptanceID: String,
         expected: AcceptedJobStateRecord,
         next: AcceptedJobPhase,
-        bundle: AcceptedJobBundle
+        queueStore: VirtualQueueStore,
+        workflowStore: WorkflowProfileStore,
+        printerStore: PrinterProfileStore
+    ) throws -> AcceptedJobStateRecord {
+        try withLockedBundle(
+            acceptanceID: acceptanceID, queueStore: queueStore,
+            workflowStore: workflowStore, printerStore: printerStore
+        ) { directory, bundle in
+            try updateLocked(
+                acceptanceID: acceptanceID, expected: expected,
+                next: next, bundle: bundle, directory: directory
+            )
+        }
+    }
+
+    private func updateLocked(
+        acceptanceID: String,
+        expected: AcceptedJobStateRecord,
+        next: AcceptedJobPhase,
+        bundle: AcceptedJobBundle,
+        directory: Int32
     ) throws -> AcceptedJobStateRecord {
         guard bundle.ticket.acceptanceID == acceptanceID,
-              expected.acceptanceID == acceptanceID else {
+              expected.acceptanceID == acceptanceID,
+              expected.acceptedTicketSHA256 == bundle.acceptedTicketSHA256 else {
             throw Error.acceptedJobMismatch
         }
-        return try withLockedBundle(acceptanceID: acceptanceID) { directory in
-            let current = try read(directory)
-            guard current == expected else { throw Error.stateConflict }
-            try validatePreparedArtifact(state: current, directory: directory)
-            let nextRecord = try advance(current, to: next)
-            try replace(try canonical(nextRecord, readFailure: false), directory: directory)
-            return nextRecord
-        }
+        let current = try read(directory)
+        guard current == expected else { throw Error.stateConflict }
+        try validatePreparedArtifact(state: current, directory: directory)
+        let nextRecord = try advance(current, to: next)
+        try replace(try canonical(nextRecord, readFailure: false), directory: directory)
+        return nextRecord
     }
 
     private func advance(
@@ -228,52 +256,36 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
         } catch { throw Error.invalidTransition }
     }
 
-    private func loadBundle(
-        _ acceptanceID: String,
-        _ jobs: AcceptedJobStore,
-        _ queues: VirtualQueueStore,
-        _ workflows: WorkflowProfileStore,
-        _ printers: PrinterProfileStore
-    ) throws -> AcceptedJobBundle {
-        do {
-            return try jobs.load(
-                acceptanceID: acceptanceID, queueStore: queues,
-                workflowStore: workflows, printerStore: printers
-            )
-        } catch { throw Error.acceptedJobMismatch }
-    }
-
     private func withLockedBundle<T>(
-        acceptanceID: String, body: (Int32) throws -> T
+        acceptanceID: String,
+        queueStore: VirtualQueueStore,
+        workflowStore: WorkflowProfileStore,
+        printerStore: PrinterProfileStore,
+        body: (Int32, AcceptedJobBundle) throws -> T
     ) throws -> T {
-        let rootFD = open(root.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-        guard rootFD >= 0 else { throw Error.cannotOpenStore }
-        defer { close(rootFD) }
-        try Self.validateDirectory(rootFD)
-        let jobs = openat(rootFD, "accepted-jobs", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-        guard jobs >= 0 else { throw Error.cannotOpenStore }
-        defer { close(jobs) }
-        try Self.validateDirectory(jobs)
-        let bundle = openat(
-            jobs, AcceptedJobStore.directoryName(acceptanceID),
-            O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
-        )
-        guard bundle >= 0 else { throw Error.cannotOpenStore }
-        defer { close(bundle) }
-        try Self.validateDirectory(bundle)
-        let lock = openat(bundle, ".state.lock", O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
-        guard lock >= 0 else { throw Error.cannotOpenStore }
-        defer { close(lock) }
-        var info = stat()
-        guard fstat(lock, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG,
-              info.st_uid == geteuid(), info.st_nlink == 1,
-              (info.st_mode & 0o077) == 0 else { throw Error.unsafeStore }
-        while flock(lock, LOCK_EX) != 0 {
-            if errno == EINTR { continue }
+        do {
+            return try acceptedJobs.withLockedBundle(acceptanceID: acceptanceID) { directory in
+                do {
+                    let bundle: AcceptedJobBundle
+                    do {
+                        bundle = try acceptedJobs.loadBundle(
+                            from: directory, acceptanceID: acceptanceID,
+                            queueStore: queueStore, workflowStore: workflowStore,
+                            printerStore: printerStore
+                        )
+                    } catch {
+                        throw Error.acceptedJobMismatch
+                    }
+                    return try body(directory, bundle)
+                } catch {
+                    throw AcceptedJobStateStoreBodyFailure(underlying: error)
+                }
+            }
+        } catch let failure as AcceptedJobStateStoreBodyFailure {
+            throw failure.underlying
+        } catch {
             throw Error.cannotOpenStore
         }
-        defer { _ = flock(lock, LOCK_UN) }
-        return try body(bundle)
     }
 
     private func read(_ directory: Int32) throws -> AcceptedJobStateRecord {
@@ -461,14 +473,6 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
 
     private static func digest(_ bytes: Data) -> String {
         SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
-    }
-
-    private static func validateDirectory(_ descriptor: Int32) throws {
-        var info = stat()
-        guard fstat(descriptor, &info) == 0, (info.st_mode & S_IFMT) == S_IFDIR,
-              info.st_uid == geteuid(), (info.st_mode & 0o077) == 0 else {
-            throw Error.unsafeStore
-        }
     }
 
     private static func hexBytes(_ value: String) -> [UInt8]? {
