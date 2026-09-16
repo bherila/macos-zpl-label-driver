@@ -12,6 +12,14 @@ Corrected hosted CI is pending. Hosted 35091595114 passed the preceding
 `a1e1f58`, not this correction. No third review request or merge is authorized.
 The dependent profile-transfer slice remains held until this fix is integrated.
 
+Latest combined transfer checkpoint `f60d11a` integrates parent review correction
+`730d65b` and passed the full local gate exit 0: 67/173/219 debug/release,
+accelerator/independent/inert/signature and packaged-worker equality checks.
+46 focused native tests passed. Publication hold for the combined local gate
+is cleared; dependent draft PR, own hosted CI/review and native-dialog validation
+remain separate gates. Parent corrected hosted 35093979617 is still live.
+This supersedes older held/pending combined-gate checkpoints below.
+
 Latest local slice connects capped canonical workflow JSON import/export through
 native dialog adapters. Imports get a fresh unqualified identity; exports verify
 the exact own-store saved snapshot. Publication uncertainty retains/reconciles

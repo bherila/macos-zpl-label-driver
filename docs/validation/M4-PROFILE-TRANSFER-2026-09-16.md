@@ -1,5 +1,13 @@
 # Native workflow definition transfer
 
+Latest combined checkpoint `f60d11a` passed the full fail-fast local gate exit 0:
+67 Python, 173 LabelCore and 219 LabelMac tests debug/release, both accelerator
+suites, 132 independent round trips, 15/10/1 inert ABI/pipeline cases, executable/
+app/nested-worker local signatures and packaged-worker PBM/ZPL equality.
+This supersedes the pending combined-gate statements at earlier checkpoints
+below. Own hosted CI/review and native dialogs remain pending; no integration
+or physical acceptance is inferred.
+
 The second-pass correction `501cdf1` is now integrated from parent head
 `730d65b`. Every successful edit/reload invalidates acknowledgement and advances
 its checked generation, including edit/undo returning to identical values.
