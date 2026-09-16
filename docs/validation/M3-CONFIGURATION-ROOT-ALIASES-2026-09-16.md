@@ -22,8 +22,15 @@ The corrected focused native suite passed exit 0: 35 workflow/printer/virtual-qu
 store tests, retaining ordinary-root round trips, publication uncertainty and
 conflicting/idempotent retries. Before-edit accelerator baseline is the unchanged
 source of PR #75's full `ead620c` gate: both independent/inert runs passed; the
-parent's later publications changed only evidence/manifest. Full new local and
-own hosted/review gates are pending. No supplied bitmap, graphic writer, ordering
+parent's later publications changed only evidence/manifest. Full local gate at
+`8ac3bbeb6682dd202ae6eb6339f7cef7caeeb699` passed exit 0 under a finite
+1200-second limit: 82 Python/178 Core/264 Mac debug/release tests, both accelerator
+configurations and independent/inert cases (132 round trips, backend15/filter14/
+pipeline1 per mode), local-ad-hoc ARM/minimum26 signatures and exact packaged
+worker PBM/ZPL equality. The local app is
+`artifacts/setup-app.SdhIaG/Label Printer Driver Setup.app`, not a replacement
+for the separately pinned maintainer GUI check. Own hosted/review gates remain
+pending. Publication changes only evidence/manifest. No supplied bitmap, graphic writer, ordering
 planner, independent decoder or fixture is rebuilt.
 
 This slice does not change the frozen M1 filter/script/PPD/PDF bytes. The finite
