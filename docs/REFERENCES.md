@@ -350,3 +350,14 @@ not a claim that ordinary fsync universally survives power loss. Native tests
 exercise real directory descriptors/barriers and separately injected failure;
 they do not simulate an APFS power failure. Stable provisioned ancestry and
 filesystem-specific installation/crash qualification remain explicit contracts.
+
+<a id="r42"></a>
+## R42 — Public CUPS null-file output routing
+
+OpenPrinting CUPS v2.4.12 [scheduler/job.c](https://github.com/OpenPrinting/cups/blob/v2.4.12/scheduler/job.c)
+and [scheduler/process.c](https://github.com/OpenPrinting/cups/blob/v2.4.12/scheduler/process.c)
+are Apache-2.0 public source: the null file URI selects negative final output fd,
+and subprocess setup opens that stdout as `/dev/null`. Source inspection informs
+the direct-descriptor regression, not installed Tahoe scheduler acceptance.
+No CUPS implementation is copied or bundled. Native direct-executable tests
+remain distinct from administrator admission and actual spooler execution.

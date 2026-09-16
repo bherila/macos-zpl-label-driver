@@ -28,6 +28,7 @@
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
       "evidence": [
+        "docs/validation/M1-NULL-OUTPUT-DESCRIPTOR-2026-09-16.md (direct-null native old-binary regression failed; matching kernel-null descriptor exception and two subprocess cases in progress; full gates, fresh freeze and installed-scheduler acceptance pending)",
         "docs/ACCELERATOR-VALIDATION.md (partial portable preparation evidence only; no full milestone pass)",
         "5a9be59d8e93e8a0b1f8cd3ca3e549e21dcfbed9 (inert CUPS pass-through filter ABI/privacy regressions only; no scheduler integration evidence)",
         "ad069255898e4a0e97684fc534cd82dd90aedfb9 (filter-to-discard backend pipeline regression only; no scheduler integration evidence)",
