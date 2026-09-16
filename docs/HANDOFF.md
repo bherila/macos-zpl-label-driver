@@ -1304,6 +1304,20 @@ retry. The regression retries the same acceptance ID and reaches
 `transmitted`, with no first-attempt sink action. The focused accepted-job
 suite passes all 33 tests.
 
+At `5a34971`, the previously separate intake, rendering, preparation, and inert
+delivery components gain one synthetic connected path. It reads an already
+opened PDF with bounded descriptor-relative `pread`, so pathname replacement
+cannot redirect the accepted bytes or alter the caller's file offset. The path
+resolves the active immutable queue/profile chain, rejects layout and
+unexpected-page mismatches before acceptance, persists the exact original PDF,
+renders each planned region at the documented GC420d 8 dots/mm reference
+pitch, publishes the complete typed prepared payload, and reaches only the
+persisted in-memory discard delivery. A committed vector PDF completes through
+`transmitted`; a multi-page mismatch publishes no accepted bundle. Three new
+tests bring LabelMac to 132 tests in debug and release. This is synthetic
+automated evidence only: no installed scheduler, production worker deadline,
+IPC identity, transport, USB, administrator path, or printer is proven.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
