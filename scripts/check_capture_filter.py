@@ -75,6 +75,21 @@ def verify(binary: Path) -> int:
         }
         tests += 1
         link = Path(tmp) / "input-link.pdf"
+        # CUPS' null file destination gives the last filter direct /dev/null
+        # stdout, not a pipe to a backend. Darwin poll rejects this descriptor.
+        # Exercise both documented input modes with a hard subprocess limit.
+        with open(os.devnull, "wb") as discard:
+            for argv, incoming, mode in [
+                (experiment + [str(source)], None, "file"),
+                (experiment, data, "stdin"),
+            ]:
+                result = subprocess.run(argv, input=incoming, stdout=discard,
+                                        stderr=subprocess.PIPE, env=env, timeout=15)
+                record = report(result)
+                assert record["input"] == mode and record["bytesObserved"] == len(data)
+                assert record["physicalOutput"] is False
+                assert marker.encode() not in result.stderr
+                tests += 1
         link.symlink_to(source)
         huge = Path(tmp) / "huge.pdf"
         with huge.open("wb") as handle:

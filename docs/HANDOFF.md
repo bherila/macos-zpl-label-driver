@@ -26,6 +26,15 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+M1 direct null-output correction is in progress on `codex/m1-null-output-descriptor`,
+based on PR #74 `3852e21`. The new native direct-stdout regression fails on the
+old frozen filter; public upstream CUPS uses this output route for the null URI.
+The exception is restricted to matching root-owned kernel-null identity, not
+generic character devices or POLLNVAL. Original pipe deadlines remain required.
+See `validation/M1-NULL-OUTPUT-DESCRIPTOR-2026-09-16.md`. Full gates and a new
+signature/hash freeze are pending; do not apply the previous frozen candidate.
+No scheduler job, queue installation, device access or physical print occurred.
+
 PR #74 follow-up: final dot-root aliases are rejected before namespace creation.
 The new regression reproduced three failures, then all 53 focused native store
 tests passed. This source guard is newer than the historical 5ff59b1/a3952ba

@@ -24,16 +24,32 @@ func safeMIME(_ value: String?) -> String {
     return allowed.contains(value ?? "") ? value! : "unrecognized-or-unset"
 }
 
-func writeAll(_ bytes: UnsafeRawBufferPointer, deadline: Double) throws {
+func outputIsKernelNull() -> Bool {
+    var output = stat()
+    var null = stat()
+    // Only the existing root-owned null device gets this exception. Darwin
+    // poll returns POLLNVAL for /dev/null; never generalize to character devices
+    // (including printers), regular files, or arbitrary invalid descriptors.
+    return fstat(STDOUT_FILENO, &output) == 0 && lstat("/dev/null", &null) == 0
+        && output.st_mode & mode_t(S_IFMT) == mode_t(S_IFCHR)
+        && null.st_mode & mode_t(S_IFMT) == mode_t(S_IFCHR)
+        && null.st_uid == 0 && output.st_uid == 0
+        && output.st_dev == null.st_dev && output.st_ino == null.st_ino
+        && output.st_rdev == null.st_rdev
+}
+
+func writeAll(_ bytes: UnsafeRawBufferPointer, deadline: Double, kernelNull: Bool) throws {
     var offset = 0
     while offset < bytes.count {
         let remaining = deadline - monotonic()
         guard remaining > 0 else { throw FilterFailure.timeout }
-        var descriptor = pollfd(fd: STDOUT_FILENO, events: Int16(POLLOUT), revents: 0)
-        let ready = poll(&descriptor, 1, Int32(min(remaining * 1000, 250)))
-        if ready < 0 { if errno == EINTR { continue }; throw FilterFailure.output }
-        if ready == 0 { continue }
-        if descriptor.revents & Int16(POLLNVAL | POLLERR | POLLHUP) != 0 { throw FilterFailure.output }
+        if !kernelNull {
+            var descriptor = pollfd(fd: STDOUT_FILENO, events: Int16(POLLOUT), revents: 0)
+            let ready = poll(&descriptor, 1, Int32(min(remaining * 1000, 250)))
+            if ready < 0 { if errno == EINTR { continue }; throw FilterFailure.output }
+            if ready == 0 { continue }
+            if descriptor.revents & Int16(POLLNVAL | POLLERR | POLLHUP) != 0 { throw FilterFailure.output }
+        }
         let count = write(STDOUT_FILENO, bytes.baseAddress!.advanced(by: offset), bytes.count - offset)
         if count < 0 { if errno == EINTR || errno == EAGAIN { continue }; throw FilterFailure.output }
         guard count > 0 else { throw FilterFailure.output }
@@ -69,6 +85,7 @@ func run() throws {
         throw FilterFailure.output
     }
     defer { _ = fcntl(STDOUT_FILENO, F_SETFL, outputFlags) }
+    let kernelNull = outputIsKernelNull()
 
     let deadline = monotonic() + 10
     let maximumBytes = 64 * 1024 * 1024
@@ -86,7 +103,7 @@ func run() throws {
         if readCount < 0 { if errno == EINTR || errno == EAGAIN { continue }; throw FilterFailure.input }
         if readCount == 0 { break }
         guard readCount <= maximumBytes - count else { throw FilterFailure.limit }
-        try buffer.withUnsafeBytes { raw in try writeAll(UnsafeRawBufferPointer(rebasing: raw[..<readCount]), deadline: deadline) }
+        try buffer.withUnsafeBytes { raw in try writeAll(UnsafeRawBufferPointer(rebasing: raw[..<readCount]), deadline: deadline, kernelNull: kernelNull) }
         count += readCount
     }
     guard count > 0 else { throw FilterFailure.empty }
