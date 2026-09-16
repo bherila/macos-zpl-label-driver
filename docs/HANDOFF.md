@@ -1083,6 +1083,22 @@ no source or rendered payload, and scheduler intake, source-spool ownership,
 job-state/cancellation persistence, retention, restart recovery, publication,
 delivery, and administrator/hardware evidence remain open.
 
+At `e2b6332`, accepted-job persistence became an atomic ticket/source bundle.
+The canonical resolved ticket and its exact original PDF bytes are fully
+written and synchronized in an owner-only temporary directory before one
+exclusive directory rename publishes the pair. Source count and digest are
+checked before publication and on every load, exact immutable references are
+re-resolved, and owner-only no-follow directory plus regular single-link file
+checks constrain reloads. Injected failures at three pre-commit boundaries
+leave no visible or temporary bundle; a failure after rename reports an
+uncertain commit while preserving a complete recoverable bundle. Nine focused
+tests and the complete CI-equivalent sequence pass with 153 LabelCore and 96
+LabelMac tests in both configurations. This is additional partial automated
+M3-AC12 and M5-AC05/07 evidence only. Descriptor-bound scheduler intake,
+job-state/cancellation persistence, retention and deletion policy, held-job
+release, restart recovery, cross-process delivery, and all administrator and
+hardware evidence remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
