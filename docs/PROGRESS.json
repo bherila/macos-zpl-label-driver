@@ -118,7 +118,9 @@
         "docs/validation/M3-DESCRIPTOR-BOUND-JOB-LIFECYCLE-2026-09-15.md (5a1d04a + 8a3ef38 same-bundle ticket authorization, lifecycle digest binding, canonical schema-1 migration, cross-store rejection, path-replacement stability, and byte-progress preservation; additional partial M3-AC09/12 evidence only)",
         "docs/validation/M3-DESCRIPTOR-BOUND-JOB-LIFECYCLE-2026-09-15.md (5a1d04a same-bundle ticket authorization, lifecycle digest binding, cross-store rejection, and path-replacement stability; additional partial M3-AC09/12 evidence only)",
         "docs/validation/M3-IDEMPOTENT-ACCEPTANCE-DURABILITY-2026-09-15.md (1e51a8b identical accepted-bundle retries require a successful parent barrier, preserve advanced state, and retain explicit uncertainty on sync failure; additional partial M3-AC12 evidence only)",
-        "docs/validation/M5-IMMUTABLE-PUBLICATION-UNCERTAINTY-2026-09-15.md (f42226d + f4bb7f8 + c4798ef exact post-rename uncertainty, complete category/root/containing-parent barriers, and pre-staging reconciliation for immutable configuration references; additional partial M3-AC12/13 evidence only)"
+        "docs/validation/M5-IMMUTABLE-PUBLICATION-UNCERTAINTY-2026-09-15.md (f42226d + f4bb7f8 + c4798ef exact post-rename uncertainty, complete category/root/containing-parent barriers, and pre-staging reconciliation for immutable configuration references; additional partial M3-AC12/13 evidence only)",
+        "docs/validation/M5-IMMUTABLE-PUBLICATION-UNCERTAINTY-2026-09-15.md (f42226d + f4bb7f8 exact post-rename uncertainty and category/root durability barriers for immutable configuration references; additional partial M3-AC12/13 evidence only)",
+        "docs/validation/M3-PERSISTED-INERT-DELIVERY-2026-09-15.md (c2e6e53 validated immutable prepared bundle through shared lease and persisted send-attempt ordering to bounded discard outcomes; additional partial M3-AC05/07/08/09/12 evidence only)"
       ],
       "blockers": []
     },

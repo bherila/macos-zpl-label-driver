@@ -1287,6 +1287,18 @@ staging, so an ambiguous retry cannot be downgraded by a redundant staging
 failure. Two targeted regressions cover both cases; LabelMac reaches 121 tests
 in debug and release on the PR #34 stack.
 
+At `c2e6e53`, M3 gains its first connected persisted-delivery path while
+remaining deliberately inert. It reloads the exact accepted ticket and
+prepared artifact, acquires the common physical-device lease, persists
+zero-byte transmitting intent before any discard-sink action, advances bounded
+monotonic byte progress, and records transmitted versus zero/partial uncertain
+outcomes. Lease contention and invalid or repeated attempts have no sink side
+effects. Seven new regressions bring LabelMac to 127 tests in debug and release;
+the complete local sequence remains green with 64 Python and 165 LabelCore
+tests. This is partial automated M3-AC05/07/08/09/12 evidence only. No CUPS,
+TCP, USB, daemon, scheduler retry mapping, administrator path, or printer was
+used, so all prescribed integration and hardware rows remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
