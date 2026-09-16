@@ -92,6 +92,7 @@ struct SetupDocumentView: View {
     let workerExecutable: URL
     let canOpen: Bool
     @State private var importing = false
+    @State private var openingMode: WorkflowOpeningMode = .assisted
 
     var body: some View {
         VStack {
@@ -103,13 +104,16 @@ struct SetupDocumentView: View {
             } else {
                 Text("Open a local PDF to create an offline label workflow.")
             }
-            Button("Open PDF…") { importing = true }
+            Button("Open PDF…") { openingMode = .assisted; importing = true }
                 .keyboardShortcut("o", modifiers: [.command])
+                .disabled(!canOpen || documents.isOpening)
+            Button("Open PDF for Manual Extraction…") { openingMode = .manual; importing = true }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
                 .disabled(!canOpen || documents.isOpening)
             if let error = documents.error { Text(error).foregroundStyle(.red) }
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
-            if case let .success(url) = result { documents.open(url) }
+            if case let .success(url) = result { documents.open(url, mode: openingMode) }
             if case .failure = result { documents.reportImportFailure() }
         }
         .onDisappear { documents.cancelOpening() }
