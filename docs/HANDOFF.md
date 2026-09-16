@@ -7,10 +7,16 @@ Old qualification is retained, never inherited. The bounded descriptor-relative
 catalog ignores unpublished staging and rejects unsafe/malformed candidates.
 48 focused native tests passed. Initial `3118dbb` passes full local 67/171/203
 debug/release, independent/inert/signature/packaged-worker checks. Final
-canonical-reload/error/copy correction full gate pending. See
+`b836b42` passed full local 67/171/204 debug/release plus all independent/inert,
+signature and packaged-worker checks. Own hosted/review pending. See
 `validation/M4-SAVED-WORKFLOW-REOPENING-2026-09-16.md` for limits and finite unrun
 GUI procedure. Parent PR #55 run 35084288575 passed exact `55dd7d2`, and its first
 independent review is clean. No scheduler, installation or physical result added.
+Native AX trust is available. A finite direct-executable GUI probe observed our
+own test app window, but expected-control lookup failed; all owned instances were
+closed/reaped, with no button actions or hardware assertions. GUI acceptance is
+unproven. Next: separate offline editing from actual stock/tear-off confirmation
+and resolve the bounded accessibility traversal rather than fake hardware facts.
 
 Current local slice connects add/remove region controls to the typed draft, with
 global order, original-source child previews and immutable revisions preserved.

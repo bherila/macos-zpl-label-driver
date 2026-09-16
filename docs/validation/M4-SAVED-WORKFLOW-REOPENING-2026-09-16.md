@@ -47,6 +47,23 @@ No placeholder renderer or validator was added. The first implementation
 132 independent round trips, 15/10/one inert checks, ad-hoc app/worker signatures
 and packaged-worker equality. The final canonical reload/error/copy correction
 passes 48 focused tests; its full local gate and own hosted/review are pending.
+The final implementation `b836b42c88243381ac46a25a436d249d53a1ade3` passed
+`bash scripts/ci-swift.sh`: 67 Python, 171 Core and 204 Mac tests in debug/release,
+132 independent round trips, 15/10/one inert checks, executable/app/nested-worker
+ad-hoc signatures and packaged-worker equality. Own hosted/review remain pending.
+
+Additional local native observation: `AXIsProcessTrusted()` returned true. A
+finite helper launched the newly built ad-hoc setup executable as its own child,
+observed an AX window, and terminated/reaped only that instance. It did not use
+Launch Services, open a PDF, assert hardware facts or perform button actions.
+The initial bounded traversal failed on repeated elements; a deduplicated version
+then failed to locate all expected controls, including after a 15-second startup
+wait. This is a failed/unresolved harness/control lookup, not a GUI pass or a
+diagnosed product defect. No private UI dump was captured. Native accessibility
+is available, but complete teach-once interaction remains unverified. Existing
+offline-edit gating requires physical stock/tear-off confirmations; do not invent
+those observations merely to test offline editing. Separating that gate and
+resolving accessibility lookup are the next connected slice.
 
 Parent PR #55 at `55dd7d2` has passing hosted run 35084288575 and a clean first
 review. These do not establish this slice's hosted or GUI acceptance.
