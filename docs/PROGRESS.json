@@ -135,7 +135,8 @@
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
       "evidence": [
-        "docs/validation/M5-SETUP-APP-LOCAL-SIGNING-2026-09-15.md (75c2aee bounded SwiftUI app host and original-PDF workflow bootstrap; M5-AC12 automated pass, all install/scheduler/Gatekeeper/hardware rows remain open)"
+        "docs/validation/M5-SETUP-APP-LOCAL-SIGNING-2026-09-15.md (75c2aee bounded SwiftUI app host and original-PDF workflow bootstrap; M5-AC12 automated pass, all install/scheduler/Gatekeeper/hardware rows remain open)",
+        "docs/validation/M5-REFERENCE-SETUP-2026-09-15.md (349731e typed reference-printer facts, confirmation gating, unobserved USB identity, qualified session speed choices, and local launch; partial M5-AC01/04/05/10 only)"
       ],
       "blockers": []
     },
