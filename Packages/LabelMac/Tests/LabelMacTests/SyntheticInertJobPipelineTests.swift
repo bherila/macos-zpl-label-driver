@@ -332,11 +332,46 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         XCTAssertEqual(recovered, first)
     }
 
+    func testUnavailableWorkerLeavesAcceptedJobWithoutPreparationOrSendIntent() throws {
+        let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
+        let fixture = try makeFixture(workflowSource: original,
+            workerOverride: URL(fileURLWithPath: "/nonexistent-label-render-worker"))
+        let path = fixture.root.appending(path: "scheduler-input.pdf")
+        try original.write(to: path, options: .withoutOverwriting)
+        let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+        XCTAssertThrowsError(try fixture.pipeline.run(queueID: "shipping-native",
+            sourcePDFDescriptor: descriptor, acceptanceID: "synthetic-worker-unavailable",
+            cancellationToken: Data("synthetic capability".utf8), scenario: InertDeliveryScenario())) {
+            XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, .preparationFailed)
+        }
+        let bundle = try fixture.jobs.load(acceptanceID: "synthetic-worker-unavailable",
+            queueStore: fixture.queues, workflowStore: fixture.workflows, printerStore: fixture.printers)
+        XCTAssertEqual(bundle.sourcePDF, original)
+        let state = try AcceptedJobStateStore(acceptedJobStore: fixture.jobs).load(
+            acceptanceID: "synthetic-worker-unavailable", queueStore: fixture.queues,
+            workflowStore: fixture.workflows, printerStore: fixture.printers)
+        XCTAssertEqual(state.phase, .accepted)
+    }
+
+    private func renderWorkerExecutable() throws -> URL {
+        let root = fixtureURL("native-vector.pdf").deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        #if DEBUG
+        let configuration = "debug"
+        #else
+        let configuration = "release"
+        #endif
+        let executable = root.appending(path: "Packages/LabelMac/.build/\(configuration)/label-render-worker")
+        return try XCTUnwrap(FileManager.default.isExecutableFile(atPath: executable.path) ? executable : nil)
+    }
+
     private func makeFixture(
         workflowSource: Data,
         regionCount: Int = 1,
         maximumPreparedBytes: Int = PreparedJobPayload.maximumBytes,
-        useMismatchedOutputStock: Bool = false
+        useMismatchedOutputStock: Bool = false,
+        workerOverride: URL? = nil
     ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory.appending(
             path: "SyntheticInertJobPipeline-\(UUID().uuidString)"
@@ -441,6 +476,7 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
                 printerStore: printers,
                 acceptedJobStore: jobs,
                 leaseDirectory: leases,
+                workerExecutable: try workerOverride ?? renderWorkerExecutable(),
                 maximumPreparedBytes: maximumPreparedBytes
             ),
             physicalDevice: physicalDevice,

@@ -40,6 +40,7 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
     private let states: AcceptedJobStateStore
     private let delivery: InertPersistedDelivery
     private let maximumPreparedBytes: Int
+    private let workerExecutable: URL
 
     public init(
         activeQueueStore: ActiveVirtualQueueStore,
@@ -47,7 +48,8 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
         workflowStore: WorkflowProfileStore,
         printerStore: PrinterProfileStore,
         acceptedJobStore: AcceptedJobStore,
-        leaseDirectory: URL
+        leaseDirectory: URL,
+        workerExecutable: URL
     ) {
         self.init(
             activeQueueStore: activeQueueStore,
@@ -56,6 +58,7 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
             printerStore: printerStore,
             acceptedJobStore: acceptedJobStore,
             leaseDirectory: leaseDirectory,
+            workerExecutable: workerExecutable,
             maximumPreparedBytes: PreparedJobPayload.maximumBytes
         )
     }
@@ -67,6 +70,7 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
         printerStore: PrinterProfileStore,
         acceptedJobStore: AcceptedJobStore,
         leaseDirectory: URL,
+        workerExecutable: URL,
         maximumPreparedBytes: Int
     ) {
         precondition((8...PreparedJobPayload.maximumBytes).contains(maximumPreparedBytes))
@@ -84,6 +88,7 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
             leaseDirectory: leaseDirectory
         )
         self.maximumPreparedBytes = maximumPreparedBytes
+        self.workerExecutable = workerExecutable
     }
 
     public func run(
@@ -483,18 +488,17 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
             for (planned, output) in zip(plan.outputLabels, ticket.outputLabels) {
                 let remaining = maximumPreparedBytes - totalBytes
                 guard remaining >= 8 else { throw Error.preparationFailed }
-                let rendered = try QuartzPlannedExtraction.prepare(
+                let bitmap = try OfflineExtractionWorker.render(
                     originalPDF: sourcePDF,
                     label: planned,
                     canvas: canvas,
                     conversion: ticket.monochromeConversion,
-                    maximumInputBytes: ResolvedJobTicket.maximumSourceBytes,
-                    maximumSourcePages: ResolvedJobTicket.maximumSourcePages
+                    workerExecutable: workerExecutable
                 )
                 let prepared = try ZPLPreparedLabelEncoder(
                     maxOutputBytes: remaining
                 ).prepare(
-                    bitmap: rendered.bitmap,
+                    bitmap: bitmap,
                     profile: printer,
                     workflowDefaults: defaults
                 )
