@@ -966,6 +966,20 @@ start on this host, so visual layout, keyboard traversal, VoiceOver, discovery,
 saved defaults, install, scheduler, restart, and hardware behavior remain
 unverified; no M5 acceptance row is newly closed by this slice.
 
+At `d502d49`, M5 gained a portable virtual-queue definition. Each queue binds
+the exact immutable workflow and printer profile schema/revision/digest, uses a
+deterministic scheduler-safe name, and targets an opaque physical-device
+coordination digest shared by every workflow for that device. Version 1 admits
+only direct-thermal, tear-off, and an optional speed already validated by the
+bound printer profile; it rejects unqualified controls, unknown fields, paths,
+raw commands, document payloads, duplicate identities, and oversized data. Six
+focused tests and the complete CI-equivalent sequence pass with 136 LabelCore
+and 74 LabelMac tests in both configurations. This is partial automated
+M5-AC04/05/07 evidence only. No queue was created, no administrator path ran,
+and scheduler defaults, unrelated printers, restart recovery, system-dialog
+propagation, installed serialization, USB delivery, and physical output remain
+unverified.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
