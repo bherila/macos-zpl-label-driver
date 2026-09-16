@@ -65,7 +65,7 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
         maximumBytes: Int
     ) throws {
         guard data.count <= maximumBytes else { throw Error.cannotWrite }
-        try withDirectory(name) { directory in
+        try withDirectory(name, syncRootAfterBody: true) { directory in
             let temporary = ".tmp-\(UUID().uuidString)"
             let descriptor = openat(
                 directory, temporary,
@@ -118,7 +118,11 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
         }
     }
 
-    private func withDirectory<T>(_ name: String, body: (Int32) throws -> T) throws -> T {
+    private func withDirectory<T>(
+        _ name: String,
+        syncRootAfterBody: Bool = false,
+        body: (Int32) throws -> T
+    ) throws -> T {
         let rootDescriptor = open(root.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard rootDescriptor >= 0 else { throw Error.cannotOpen }
         defer { close(rootDescriptor) }
@@ -132,7 +136,13 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
         guard directory >= 0 else { throw Error.cannotOpen }
         defer { close(directory) }
         try Self.validateDirectory(directory)
-        return try body(directory)
+        let result = try body(directory)
+        if syncRootAfterBody {
+            guard syncDirectory(rootDescriptor) == 0 else {
+                throw Error.commitUncertain
+            }
+        }
+        return result
     }
 
     private func read(
