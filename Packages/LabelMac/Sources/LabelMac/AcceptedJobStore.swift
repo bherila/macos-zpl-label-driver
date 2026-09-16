@@ -30,6 +30,7 @@ public struct AcceptedJobStore: @unchecked Sendable {
     enum FaultPoint: Equatable, Sendable {
         case afterTicketWrite
         case afterSourceWrite
+        case afterStateWrite
         case beforeRename
         case afterRename
     }
@@ -72,6 +73,9 @@ public struct AcceptedJobStore: @unchecked Sendable {
         printerStore: PrinterProfileStore
     ) throws {
         let ticketBytes = try ResolvedJobTicketJSON.encode(ticket)
+        let stateBytes = try AcceptedJobStateJSON.encode(
+            AcceptedJobStateRecord.accepted(acceptanceID: ticket.acceptanceID)
+        )
         try Self.validateSource(sourcePDF, ticket: ticket)
         _ = try validateTicket(
             ticketBytes, sourcePDF: sourcePDF,
@@ -107,6 +111,11 @@ public struct AcceptedJobStore: @unchecked Sendable {
                 maximumBytes: ResolvedJobTicket.maximumSourceBytes
             )
             try injectFault(.afterSourceWrite)
+            try Self.write(
+                stateBytes, name: "state.json", directory: temporary,
+                maximumBytes: AcceptedJobStateJSON.maximumBytes
+            )
+            try injectFault(.afterStateWrite)
             guard fsync(temporary) == 0 else { throw Error.cannotWrite }
             try injectFault(.beforeRename)
 
@@ -117,7 +126,8 @@ public struct AcceptedJobStore: @unchecked Sendable {
                 let existing = try readBundleBytes(
                     directory: directory, name: finalName
                 )
-                guard existing.ticket == ticketBytes, existing.source == sourcePDF else {
+                guard existing.ticket == ticketBytes, existing.source == sourcePDF,
+                      existing.state.acceptanceID == ticket.acceptanceID else {
                     throw Error.jobConflict
                 }
                 return
@@ -148,6 +158,9 @@ public struct AcceptedJobStore: @unchecked Sendable {
                 queueStore: queueStore, workflowStore: workflowStore,
                 printerStore: printerStore
             )
+            guard bytes.state.acceptanceID == ticket.acceptanceID else {
+                throw Error.jobIdentityMismatch
+            }
             return AcceptedJobBundle(ticket: ticket, sourcePDF: bytes.source)
         }
     }
@@ -236,21 +249,31 @@ public struct AcceptedJobStore: @unchecked Sendable {
 
     private func readBundleBytes(
         directory: Int32, name: String
-    ) throws -> (ticket: Data, source: Data) {
+    ) throws -> (ticket: Data, source: Data, state: AcceptedJobStateRecord) {
         let bundle = openat(directory, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard bundle >= 0 else { throw Error.cannotRead }
         defer { close(bundle) }
         try Self.validateDirectory(bundle)
-        return (
-            try Self.read(
+        let ticket = try Self.read(
                 name: "ticket.json", directory: bundle,
                 maximumBytes: ResolvedJobTicketJSON.maximumBytes
-            ),
-            try Self.read(
+            )
+        let source = try Self.read(
                 name: "source.pdf", directory: bundle,
                 maximumBytes: ResolvedJobTicket.maximumSourceBytes
             )
+        let stateBytes = try Self.read(
+            name: "state.json", directory: bundle,
+            maximumBytes: AcceptedJobStateJSON.maximumBytes
         )
+        let state: AcceptedJobStateRecord
+        do {
+            state = try AcceptedJobStateJSON.decode(stateBytes)
+            guard try AcceptedJobStateJSON.encode(state) == stateBytes else {
+                throw Error.cannotRead
+            }
+        } catch { throw Error.cannotRead }
+        return (ticket, source, state)
     }
 
     private static func validateSource(
@@ -343,6 +366,7 @@ public struct AcceptedJobStore: @unchecked Sendable {
         if directory >= 0 {
             _ = unlinkat(directory, "ticket.json", 0)
             _ = unlinkat(directory, "source.pdf", 0)
+            _ = unlinkat(directory, "state.json", 0)
             close(directory)
         }
         _ = unlinkat(parent, name, AT_REMOVEDIR)
