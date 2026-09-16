@@ -57,6 +57,9 @@ operations. A failed query is not absence.
    for this job, with matching positive numeric `jobID` and the fixed discard-only
    `auditReason`. The scheduler's own job context must independently agree;
    caller-provided JSON or a direct executable run is not scheduler evidence.
+   Log formatting may represent warning severity separately rather than preserve
+   the literal stderr `WARNING:` prefix; match the marker, complete schema and
+   scheduler job context, not only a textual severity wrapper.
    Require:
    expected file/stdin mode, PDF input MIME, nonzero bounded byte count, copies
    argument, all four selected option values, and final MIME

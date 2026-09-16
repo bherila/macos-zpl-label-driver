@@ -29,7 +29,23 @@ Before edits the offline accelerator passed exit 0 with 132 independent round
 trips, 15 backend ABI, 10 filter ABI and one inert pipeline. New focused and full
 gates are pending at this source checkpoint. The new focused build passed;
 all 12 filter ABI/negative cases and the one real inert pipeline passed exit 0.
-The final failure-marker assertion and full gate will be checked next.
+The final failure-marker assertion was exercised by the full gate.
+
+Full local gate at `a5fa6141a66c985c566e8c1b05a9064edec99237` passed exit 0:
+`bash scripts/ci-swift.sh` under a finite 1200-second outer limit; 67 Python,
+178 Core and 258 Mac debug/release tests, both accelerator configurations,
+132 independent round trips and 15 backend/12 filter/one inert pipeline cases
+per mode passed. Local-ad-hoc ARM/minimum-26 executable/app/nested-worker checks
+and packaged-worker PBM/ZPL equality passed. The app artifact is local only,
+`artifacts/setup-app.Saihmt/Label Printer Driver Setup.app`; it does not replace
+the maintainer's separately pinned manual GUI artifact. Publication edits are
+documentation/manifest only. Own hosted CI and correctness review await
+publication; no new execution snapshot is approved yet.
+
+Parent PR #71 exact `889472c803fa1e07aba60c0c97817b0bdf8ea9f8` hosted run
+35111712826 passed. Fetched logs verify 178 Core/258 Mac debug/release, local
+signatures and packaged-worker PBM/ZPL equality, including final-dot synthetic
+Code128/QR decoding. No physical or installed-scheduler result is inferred.
 
 No traditional filesystem CUPS error log was present. A marker-only cupsd
 unified-log query under a hard 15-second process limit completed successfully
