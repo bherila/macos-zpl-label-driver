@@ -62,7 +62,10 @@ SDK 26.5, Swift 6.3.3; minimum deployment remains macOS 26.0.
   tests in debug/release, both accelerator configurations, independent round
   trips, inert ABI/pipeline checks, local-ad-hoc signatures and packaged-worker
   PBM/ZPL equality. Repository preflight is repeated after evidence-only edits.
-- PENDING: own hosted exact-head CI and review.
+- PASS: hosted run 35100066256 at exact f1912b3, including 237 Mac tests in
+  debug/release, local-ad-hoc signatures and packaged-worker PBM/ZPL equality.
+  First review found a stale handoff local-gate clause; that is corrected on the
+  same branch. Correction exact-head hosted CI and second review remain pending.
 - NOT RUN: actual GUI interaction, network-disabled Vision, administrator
   installation, installed scheduler, USB delivery, physical printing/scanning,
   clean-host installation and public distribution.
