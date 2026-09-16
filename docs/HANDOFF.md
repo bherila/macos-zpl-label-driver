@@ -1601,6 +1601,16 @@ results and replacement opening. Four real-worker tests pass; full validation
 is pending. `M4-SOURCE-PAGE-REFERENCE-2026-09-16.md` records remaining GUI,
 zoom and direct-selection gates. No installed or physical acceptance follows.
 
+PR #52's first review identified fixed manual IDs preventing a second workflow
+save. The same-branch correction assigns distinct IDs to new manual drafts and
+preserves existing immutable records. Twelve focused bootstrap tests pass,
+including two edited Letter/A4 workflows in one store and idempotent resave.
+Full local validation passed 67/167/188 debug/release with all independent and
+signing checks. Second review and new exact-head hosted validation remain
+pending. Source-reference work is checkpointed locally
+at `f1adeeb`; its full gate passed 67/167/191 debug/release with all independent
+and signing checks, but publication waits for this dependency correction.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

@@ -23,7 +23,11 @@ Letter, A4 and ambiguous fixtures; dimensions/byte ceiling and no-fallback limit
 connected editor reference versus exact original-source region rendering; and a
 finite barrier proving completed stale source output cannot survive a selection
 change. The barrier uses real preparation, not a placeholder bitmap.
-Full local gate, hosted CI and independent review are pending.
+The full pre-integration local gate passed at `f1adeeb`: 67 Python, 167 Core and
+191 Mac tests in debug/release, all independent/ABI/inert checks, ad-hoc
+signatures and packaged-worker equality. PR #52's distinct-ID correction
+`5df242b` is now integrated; combined local validation, hosted CI and independent
+review remain pending. GUI and physical acceptance are still unproven.
 
 GUI/source-overlay alignment, keyboard/VoiceOver operation, display zoom and
 direct mouse region selection are NOT RUN or unfinished. This does not complete

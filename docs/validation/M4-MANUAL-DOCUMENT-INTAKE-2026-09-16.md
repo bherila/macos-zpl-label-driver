@@ -36,3 +36,14 @@ GUI inspection remains NOT RUN because the automation runtime failed before
 launch. Region controls are numerical; source-page visual selection, save/reload
 GUI round trips, accessibility and physical workflow acceptance remain required.
 No queue, administrator, transport, printer command or physical label was used.
+
+First review at published `6d06afb` found fixed manual workflow identity colliding
+on a second saved draft. New manual opening now allocates a distinct UUID-based
+profile ID at revision 1. This does not rename existing records or turn an edit
+into an implicit overwrite. Twelve bootstrap tests pass, including two different
+edited Letter/A4 drafts saved/reloaded in one store, repeated identical save,
+and continued qualification rejection. Full validation of this correction is
+passed: 67 Python, 167 Core and 188 Mac tests in debug/release, all independent/
+ABI/inert checks, signatures and packaged-worker equality. Published pre-fix
+run `35081197221` passed exact `6d06afb`, with logs inspected; it does not prove
+the correction. Second review and new exact-head hosted validation remain pending.

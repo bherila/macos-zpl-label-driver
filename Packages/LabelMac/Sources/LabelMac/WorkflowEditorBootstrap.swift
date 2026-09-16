@@ -89,7 +89,8 @@ public enum WorkflowEditorBootstrap {
                         outputOrder: index)]))
             }
             return try editorModel(originalPDF: originalPDF, store: store, analyzed: analyzed,
-                reference: reference, rules: rules, id: "manual-to-4x6-local", manual: true)
+                reference: reference, rules: rules,
+                id: "manual-to-4x6-\(UUID().uuidString.lowercased())", manual: true)
         }
         let matches = try boxes.enumerated().map { index, box -> ReferenceWorkflowDefinition in
             let size = try box.effectivePhysicalSize()
