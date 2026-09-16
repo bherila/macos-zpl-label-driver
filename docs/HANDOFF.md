@@ -898,6 +898,19 @@ LabelCore tests pass. This is partial automated M4-AC09/M4-AC12 evidence only:
 durable local storage, UI confirmation, installed offline operation, queue
 binding, and recovery still require their prescribed integration evidence.
 
+At `df06929`, M4 added a private native profile store with immutable revisions
+and separately persisted unattended-use qualification. Profile identifiers are
+hashed rather than used as paths. Owner-only no-follow directories,
+descriptor-relative regular-file reads, exclusive temporary files, complete
+writes, file/directory `fsync`, and exclusive atomic rename prevent partial or
+silent replacement. Concurrent conflicting writers leave one complete winner;
+same-byte saves are idempotent. Import/save alone cannot create qualification,
+which binds the exact canonical profile digest and fails closed on missing,
+changed, malformed, or tampered state. Six focused tests and the complete
+CI-equivalent sequence pass with 126 LabelCore and 59 LabelMac tests in both
+configurations. This is partial M4-AC06/08/09/12 evidence; editor UI, container
+selection, installed identity, queue binding, and restart recovery remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
