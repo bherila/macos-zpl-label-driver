@@ -69,7 +69,8 @@
         "f1e2976 (empty annotation arrays render while nonempty interactive form annotations still reject; additional automated M2-AC03 evidence)",
         "docs/validation/M2-PERFORMANCE-BASELINE-2026-09-15.md (6fcb63e clean-worktree release baseline: 20 warm runs, 123.138 ms p95, 14,106,624 maximum warm resident bytes, 248,814 prepared bytes; M2-AC12 pass for offline scope)",
         "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md (3ad4bf0 clean-worktree macOS CI-equivalent pass: M2-AC01/02/04/05/06/09/13 automated evidence; no scheduler, transport, or physical-printer claim)",
-        "docs/validation/M3-IMMUTABLE-IMAGING-POLICY-2026-09-15.md (8a7fef8 workflow/ticket/prepared-payload conversion binding and fail-closed schema transition; additional partial M2-AC05/09 evidence only)"
+        "docs/validation/M3-IMMUTABLE-IMAGING-POLICY-2026-09-15.md (8a7fef8 workflow/ticket/prepared-payload conversion binding and fail-closed schema transition; additional partial M2-AC05/09 evidence only)",
+        "docs/validation/M2-NONBLOCKING-REGULAR-FILE-OPEN-2026-09-15.md (88fb87e shared nonblocking no-follow PDF/ticket/private-record opens with hard-deadline FIFO subprocess regressions; additional partial M2-AC09/10 evidence only)"
       ],
       "blockers": []
     },
@@ -112,7 +113,8 @@
         "docs/validation/M3-JOB-STATE-STORE-2026-09-15.md (fc2c8de atomic initial accepted state, private cross-process CAS persistence, constant-time capability cancellation, and explicit uncertain commit recovery; additional partial M3-AC09/12 evidence only)",
         "docs/validation/M3-PREPARED-JOB-PAYLOAD-2026-09-15.md (acf11ab exact-count ordered full-job bytes, one immutable profile snapshot, aggregate bounds, and typed encoder-only label construction; additional partial M3-AC02/09 evidence only)",
         "docs/validation/M3-PREPARED-JOB-STORE-2026-09-15.md (9dfe442 exact ordered-output/control/profile binding, artifact-before-state publication, exact orphan recovery, payload revalidation, and uncertain post-state recovery; additional partial M3-AC02/09/12 and M5-AC07/09 evidence only)",
-        "docs/validation/M3-IMMUTABLE-IMAGING-POLICY-2026-09-15.md (8a7fef8 exact workflow/ticket/prepared-payload conversion binding; additional partial M3-AC02/12 and M5-AC07/09 evidence only)"
+        "docs/validation/M3-IMMUTABLE-IMAGING-POLICY-2026-09-15.md (8a7fef8 exact workflow/ticket/prepared-payload conversion binding; additional partial M3-AC02/12 and M5-AC07/09 evidence only)",
+        "docs/validation/M2-NONBLOCKING-REGULAR-FILE-OPEN-2026-09-15.md (88fb87e descriptor-relative private-record opens cannot block on FIFOs before validation; additional partial M3-AC09/12 evidence only)"
       ],
       "blockers": []
     },
