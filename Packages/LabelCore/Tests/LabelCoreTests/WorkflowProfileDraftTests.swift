@@ -81,4 +81,36 @@ final class WorkflowProfileDraftTests: XCTestCase {
             XCTAssertEqual($0 as? WorkflowProfileDraft.Error, .revisionOverflow)
         }
     }
+
+    func testAddRemovePreservePagesGlobalOrderAndCanonicalRoundTrip() throws {
+        var draft = WorkflowProfileDraft(profile: try profile())
+        try draft.duplicateRegion(id: "A", newID: "D")
+        let added = draft.profile
+        XCTAssertEqual(try WorkflowProfileJSON.decode(WorkflowProfileJSON.encode(added)), added)
+        let pages = try (0..<2).map { _ in try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792) }
+        let plan = try ExtractionPlanner.plan(sourcePages: pages, profile: added,
+            copyPolicy: .engine(copies: 2, collated: false))
+        XCTAssertEqual(plan.outputLabels.map(\.regionID), ["A", "A", "D", "D", "C", "C", "B", "B"])
+        XCTAssertEqual(plan.outputLabels.map(\.sourcePage), [1, 1, 1, 1, 2, 2, 1, 1])
+        try draft.removeRegion(id: "A")
+        XCTAssertEqual(try ExtractionPlanner.plan(sourcePages: pages, profile: draft.profile)
+            .outputLabels.map(\.regionID), ["D", "C", "B"])
+        XCTAssertEqual(draft.profile.pageRules.map(\.expectedInput), added.pageRules.map(\.expectedInput))
+        let before = draft
+        XCTAssertThrowsError(try draft.removeRegion(id: "C")) {
+            XCTAssertEqual($0 as? WorkflowProfileDraft.Error, .lastRegionOnPage)
+        }
+        XCTAssertThrowsError(try draft.duplicateRegion(id: "D", newID: "B"))
+        XCTAssertThrowsError(try draft.duplicateRegion(id: "missing", newID: "E"))
+        XCTAssertEqual(draft, before)
+    }
+
+    func testAddRejectsPublicPerPageLimitWithoutChangingDraft() throws {
+        var draft = WorkflowProfileDraft(profile: try profile())
+        for index in 0..<254 { try draft.duplicateRegion(id: "A", newID: "new-\(index)") }
+        let before = draft
+        XCTAssertThrowsError(try draft.duplicateRegion(id: "A", newID: "overflow"))
+        XCTAssertEqual(draft, before)
+        XCTAssertEqual(try WorkflowProfileJSON.decode(WorkflowProfileJSON.encode(draft.profile)), draft.profile)
+    }
 }
