@@ -52,6 +52,8 @@ export M1_TRANSACTION_SOURCE_ONLY=1
 source {str(SCRIPT)!r}
 scheduler=/private/var/run/cupsd
 approved_sha={'a' * 64!r}
+transaction_id='11111111-1111-1111-1111-111111111111'
+approved_transaction_id="$transaction_id"
 root_present=0
 intent_present=0
 filter_present=0
@@ -61,6 +63,7 @@ record() {{ events="${{events}}$1"; }}
 create_root() {{ root_present=1; record A; }}
 install_intent() {{ intent_present=1; record I; }}
 ownership_record_matches() {{ [[ $root_present == 1 && $intent_present == 1 ]]; }}
+ownership_record_matches_current() {{ ownership_record_matches && [[ $approved_transaction_id == $transaction_id ]]; }}
 empty_reserved_root_matches() {{ [[ $root_present == 1 && $intent_present == 0 && $filter_present == 0 ]]; }}
 install_filter() {{ filter_present=1; record F; }}
 validate_installed_filter() {{ [[ $filter_present == 1 ]]; }}
@@ -86,7 +89,54 @@ report_residual_state() {{ record X; }}
 if install_transaction snapshot generated intent; then
   exit 90
 fi
-cleanup_owned_artifacts || true
+cleanup_owned_artifacts automatic || true
+printf '%s|%s%s%s%s\n' "$events" "$root_present" "$intent_present" "$filter_present" "$queue_present"
+"""
+        return subprocess.run(["bash", "-c", harness], capture_output=True, text=True)
+
+    def run_contention_harness(self, setup: str, operation: str) -> subprocess.CompletedProcess[str]:
+        harness = f"""
+set -euo pipefail
+export M1_TRANSACTION_SOURCE_ONLY=1
+source {str(SCRIPT)!r}
+scheduler=/private/var/run/cupsd
+approved_sha={'a' * 64!r}
+transaction_id='11111111-1111-1111-1111-111111111111'
+approved_transaction_id="$transaction_id"
+root_present=0
+intent_present=0
+filter_present=0
+queue_present=0
+events=''
+record() {{ events="${{events}}$1"; }}
+create_root() {{ root_present=1; record A; }}
+install_intent() {{ intent_present=1; record I; }}
+ownership_record_matches() {{ [[ $root_present == 1 && $intent_present == 1 ]]; }}
+ownership_record_matches_current() {{ ownership_record_matches && [[ $approved_transaction_id == $transaction_id ]]; }}
+empty_reserved_root_matches() {{ [[ $root_present == 1 && $intent_present == 0 && $filter_present == 0 ]]; }}
+install_filter() {{ filter_present=1; record F; }}
+validate_installed_filter() {{ return 0; }}
+validate_installed_ppd() {{ return 0; }}
+ensure_queue_absent() {{ [[ $queue_present == 0 ]]; }}
+create_queue() {{ queue_present=1; record Q; }}
+disable_queue() {{ record D; }}
+reject_queue() {{ record J; }}
+queue_uri_matches() {{ [[ $queue_present == 1 ]]; }}
+queue_is_default() {{ return 1; }}
+queue_is_disabled() {{ return 0; }}
+queue_is_rejecting() {{ return 0; }}
+transaction_checkpoint() {{ return 0; }}
+protected_root_state() {{ [[ $root_present == 1 ]] && return 0; return 1; }}
+queue_state() {{ [[ $queue_present == 1 ]] && return 0; return 1; }}
+remove_queue() {{ queue_present=0; record q; }}
+filter_state() {{ [[ $filter_present == 1 ]] && return 0; return 1; }}
+remove_filter() {{ filter_present=0; record f; }}
+filter_is_absent() {{ [[ $filter_present == 0 ]]; }}
+remove_ownership() {{ intent_present=0; record o; }}
+remove_root() {{ root_present=0; record r; }}
+report_residual_state() {{ record X; }}
+{setup}
+{operation}
 printf '%s|%s%s%s%s\n' "$events" "$root_present" "$intent_present" "$filter_present" "$queue_present"
 """
         return subprocess.run(["bash", "-c", harness], capture_output=True, text=True)
@@ -208,8 +258,9 @@ printf '%s|%s%s%s%s\n' "$events" "$root_present" "$intent_present" "$filter_pres
         self.assertIn('/usr/sbin/lpadmin -h "$scheduler"', text)
         self.assertIn("CUPS_SERVER", text)
         self.assertIn("IPP_PORT", text)
-        self.assertIn("schemaVersion=2", text)
+        self.assertIn("schemaVersion=3", text)
         self.assertIn("state=apply-intent", text)
+        self.assertIn("transactionID", text)
         self.assertIn("scheduler=$scheduler", text)
         self.assertIn("sudo -n", text)
         self.assertNotIn("ServerBin", text)
@@ -221,7 +272,7 @@ printf '%s|%s%s%s%s\n' "$events" "$root_present" "$intent_present" "$filter_pres
         result = self.run_recovery_harness("""
 calls=0
 queue_state() { calls=$((calls + 1)); if [[ $calls == 1 ]]; then return 0; fi; return 1; }
-cleanup_owned_artifacts
+cleanup_owned_artifacts recovery
 printf '%s\n' "$events"
 """)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -231,7 +282,7 @@ printf '%s\n' "$events"
         result = self.run_recovery_harness("""
 queue_state() { return 0; }
 queue_uri_matches() { return 1; }
-cleanup_owned_artifacts || true
+cleanup_owned_artifacts recovery || true
 printf '%s\n' "$events"
 """)
         self.assertEqual(result.stdout.strip(), "X")
@@ -240,7 +291,7 @@ printf '%s\n' "$events"
         result = self.run_recovery_harness("""
 queue_state() { return 0; }
 remove_queue() { record Q; return 1; }
-cleanup_owned_artifacts || true
+cleanup_owned_artifacts recovery || true
 printf '%s\n' "$events"
 """)
         self.assertEqual(result.stdout.strip(), "QX")
@@ -248,13 +299,13 @@ printf '%s\n' "$events"
     def test_recovery_retains_everything_when_scheduler_or_auth_is_unavailable(self) -> None:
         scheduler_failure = self.run_recovery_harness("""
 queue_state() { return 2; }
-cleanup_owned_artifacts || true
+cleanup_owned_artifacts recovery || true
 printf '%s\n' "$events"
 """)
         self.assertEqual(scheduler_failure.stdout.strip(), "X")
         expired_auth = self.run_recovery_harness("""
 protected_root_state() { return 2; }
-cleanup_owned_artifacts || true
+cleanup_owned_artifacts recovery || true
 printf '%s\n' "$events"
 """)
         self.assertEqual(expired_auth.stdout.strip(), "X")
@@ -262,14 +313,14 @@ printf '%s\n' "$events"
     def test_recovery_retains_record_for_altered_filter_or_uncertain_post_delete_query(self) -> None:
         altered = self.run_recovery_harness("""
 filter_state() { return 2; }
-cleanup_owned_artifacts || true
+cleanup_owned_artifacts recovery || true
 printf '%s\n' "$events"
 """)
         self.assertEqual(altered.stdout.strip(), "X")
         uncertain = self.run_recovery_harness("""
 calls=0
 queue_state() { calls=$((calls + 1)); if [[ $calls == 1 ]]; then return 0; fi; return 2; }
-cleanup_owned_artifacts || true
+cleanup_owned_artifacts recovery || true
 printf '%s\n' "$events"
 """)
         self.assertEqual(uncertain.stdout.strip(), "QX")
@@ -277,7 +328,7 @@ printf '%s\n' "$events"
     def test_recovery_handles_partial_state_with_no_filter(self) -> None:
         result = self.run_recovery_harness("""
 filter_state() { return 1; }
-cleanup_owned_artifacts
+cleanup_owned_artifacts recovery
 printf '%s\n' "$events"
 """)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -301,6 +352,38 @@ printf '%s\n' "$events"
         result = self.run_install_fault_harness("root-created")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "Ar|0000")
+
+    def test_failed_reservation_never_cleans_competing_empty_root(self) -> None:
+        result = self.run_contention_harness(
+            "root_present=1; create_root() { record A; return 1; }",
+            "install_transaction snapshot generated intent || true; cleanup_owned_artifacts automatic || true",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "A|1000")
+
+    def test_failed_reservation_never_cleans_competing_completed_transaction(self) -> None:
+        result = self.run_contention_harness(
+            "root_present=1; intent_present=1; filter_present=1; queue_present=1; create_root() { record A; return 1; }",
+            "install_transaction snapshot generated intent || true; cleanup_owned_artifacts automatic || true",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "A|1111")
+
+    def test_late_same_name_queue_conflict_is_retained_without_deletion(self) -> None:
+        result = self.run_contention_harness(
+            "ensure_queue_absent() { queue_present=1; return 1; }",
+            "install_transaction snapshot generated intent || true; cleanup_owned_artifacts automatic || true",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "AIFX|1111")
+
+    def test_ambiguous_queue_creation_retains_queue_and_recovery_evidence(self) -> None:
+        result = self.run_contention_harness(
+            "create_queue() { queue_present=1; record Q; return 1; }",
+            "install_transaction snapshot generated intent || true; cleanup_owned_artifacts automatic || true",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "AIFQX|1111")
 
     def test_preflight_distinguishes_existing_queue_query_failure_and_existing_root(self) -> None:
         for state, expected in [(0, "refusing to replace an existing"), (2, "could not prove")]:
@@ -327,9 +410,13 @@ source {str(SCRIPT)!r}
 scheduler=/private/var/run/cupsd
 temporary=''
 transaction_active=1
+root_reserved=1
+queue_created_by_transaction=1
+transaction_id='11111111-1111-1111-1111-111111111111'
 calls=0
 protected_root_state() {{ return 0; }}
 ownership_record_matches() {{ return 0; }}
+ownership_record_matches_current() {{ return 0; }}
 queue_state() {{ calls=$((calls + 1)); [[ $calls == 1 ]] && return 0; return 1; }}
 queue_uri_matches() {{ return 0; }}
 remove_queue() {{ printf 'Q'; }}
