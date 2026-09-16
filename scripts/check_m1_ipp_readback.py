@@ -107,36 +107,51 @@ def socket_uri(path: str) -> str:
 def bounded_command(argv: list[str], deadline: float, maximum_bytes: int = 65_536) -> bytes:
     if time.monotonic() >= deadline:
         raise Rejected("READBACK_TIMEOUT")
-    with subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                          env=CLIENT_ENV, stdin=subprocess.DEVNULL) as child:
-        assert child.stdout is not None
+    child = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                             env=CLIENT_ENV, stdin=subprocess.DEVNULL)
+    assert child.stdout is not None
+    try:
+        os.set_blocking(child.stdout.fileno(), False)
+        output = bytearray()
+        with selectors.DefaultSelector() as selector:
+            selector.register(child.stdout, selectors.EVENT_READ)
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise Rejected("READBACK_TIMEOUT")
+                if not selector.select(min(remaining, 0.1)):
+                    continue
+                chunk = os.read(child.stdout.fileno(), min(4096, maximum_bytes + 1 - len(output)))
+                if not chunk:
+                    break
+                output.extend(chunk)
+                if len(output) > maximum_bytes:
+                    raise Rejected("READBACK_OUTPUT_LIMIT")
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise Rejected("READBACK_TIMEOUT")
         try:
-            os.set_blocking(child.stdout.fileno(), False)
-            output = bytearray()
-            with selectors.DefaultSelector() as selector:
-                selector.register(child.stdout, selectors.EVENT_READ)
-                while True:
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0:
-                        raise Rejected("READBACK_TIMEOUT")
-                    if not selector.select(min(remaining, 0.1)):
-                        continue
-                    chunk = os.read(child.stdout.fileno(), min(4096, maximum_bytes + 1 - len(output)))
-                    if not chunk:
-                        break
-                    output.extend(chunk)
-                    if len(output) > maximum_bytes:
-                        raise Rejected("READBACK_OUTPUT_LIMIT")
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                raise Rejected("READBACK_TIMEOUT")
-            if child.wait(timeout=remaining) != 0:
-                raise Rejected("READBACK_REJECTED")
-            return bytes(output)
-        finally:
+            status = child.wait(timeout=remaining)
+        except subprocess.TimeoutExpired:
+            raise Rejected("READBACK_TIMEOUT") from None
+        if status != 0:
+            raise Rejected("READBACK_REJECTED")
+        return bytes(output)
+    finally:
+        try:
             if child.poll() is None:
-                child.kill()
-                child.wait(timeout=3)
+                try:
+                    child.kill()
+                except ProcessLookupError:
+                    pass
+                try:
+                    child.wait(timeout=3)
+                except subprocess.TimeoutExpired:
+                    # Never fall back to Popen.__exit__'s unbounded wait or
+                    # describe an unconfirmed termination as successful cleanup.
+                    raise Rejected("READBACK_TERMINATION_UNCONFIRMED") from None
+        finally:
+            child.stdout.close()
 
 
 def verify(job_id: str | None) -> None:
