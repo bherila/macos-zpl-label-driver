@@ -27,22 +27,27 @@ public enum AcceptedJobStateError: Error, Equatable, Sendable {
 public struct AcceptedJobStateRecord: Equatable, Sendable {
     public let schemaVersion: Int
     public let acceptanceID: String
+    public let acceptedTicketSHA256: String
     public let generation: Int
     public let previousStateSHA256: String?
     public let phase: AcceptedJobPhase
 
     public init(
-        schemaVersion: Int = 1,
+        schemaVersion: Int = 2,
         acceptanceID: String,
+        acceptedTicketSHA256: String,
         generation: Int,
         previousStateSHA256: String?,
         phase: AcceptedJobPhase
     ) throws {
-        guard schemaVersion == 1,
+        guard schemaVersion == 2,
               (try? ImmutableProfileReference(
                 id: acceptanceID, revision: 1,
                 sha256: String(repeating: "0", count: 64)
-              )) != nil else { throw AcceptedJobStateError.invalidIdentity }
+              )) != nil,
+              VirtualQueueDefinition.isSHA256(acceptedTicketSHA256) else {
+            throw AcceptedJobStateError.invalidIdentity
+        }
         guard generation > 0 else { throw AcceptedJobStateError.invalidGeneration }
         if generation == 1 {
             guard previousStateSHA256 == nil, phase == .accepted else {
@@ -58,14 +63,20 @@ public struct AcceptedJobStateRecord: Equatable, Sendable {
         try Self.validatePayload(phase)
         self.schemaVersion = schemaVersion
         self.acceptanceID = acceptanceID
+        self.acceptedTicketSHA256 = acceptedTicketSHA256
         self.generation = generation
         self.previousStateSHA256 = previousStateSHA256
         self.phase = phase
     }
 
-    public static func accepted(acceptanceID: String) throws -> Self {
+    public static func accepted(
+        acceptanceID: String,
+        acceptedTicketSHA256: String
+    ) throws -> Self {
         try Self(
-            acceptanceID: acceptanceID, generation: 1,
+            acceptanceID: acceptanceID,
+            acceptedTicketSHA256: acceptedTicketSHA256,
+            generation: 1,
             previousStateSHA256: nil, phase: .accepted
         )
     }
@@ -80,7 +91,9 @@ public struct AcceptedJobStateRecord: Equatable, Sendable {
             throw AcceptedJobStateError.invalidTransition
         }
         return try Self(
-            acceptanceID: acceptanceID, generation: generation + 1,
+            acceptanceID: acceptanceID,
+            acceptedTicketSHA256: acceptedTicketSHA256,
+            generation: generation + 1,
             previousStateSHA256: previousStateSHA256, phase: next
         )
     }
@@ -168,6 +181,7 @@ public enum AcceptedJobStateJSON {
         let data = try JSONSerialization.data(withJSONObject: [
             "schemaVersion": record.schemaVersion,
             "acceptanceID": record.acceptanceID,
+            "acceptedTicketSHA256": record.acceptedTicketSHA256,
             "generation": record.generation,
             "previousStateSHA256": record.previousStateSHA256.map { $0 as Any } ?? NSNull(),
             "phase": phaseObject(record.phase),
@@ -189,10 +203,10 @@ public enum AcceptedJobStateJSON {
         catch { throw AcceptedJobStateJSONError.malformedJSON }
         do {
             let root = try object(raw, allowed: [
-                "schemaVersion", "acceptanceID", "generation",
+                "schemaVersion", "acceptanceID", "acceptedTicketSHA256", "generation",
                 "previousStateSHA256", "phase",
             ])
-            guard try integer(root, "schemaVersion") == 1 else {
+            guard try integer(root, "schemaVersion") == 2 else {
                 throw AcceptedJobStateJSONError.unsupportedSchema
             }
             let previousRaw = try required(root, "previousStateSHA256")
@@ -202,6 +216,7 @@ public enum AcceptedJobStateJSON {
             else { throw AcceptedJobStateJSONError.invalidType("previousStateSHA256") }
             return try AcceptedJobStateRecord(
                 acceptanceID: string(root, "acceptanceID"),
+                acceptedTicketSHA256: string(root, "acceptedTicketSHA256"),
                 generation: integer(root, "generation"),
                 previousStateSHA256: previous,
                 phase: phase(try required(root, "phase"))
