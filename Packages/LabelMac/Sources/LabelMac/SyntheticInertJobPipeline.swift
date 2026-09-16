@@ -113,6 +113,7 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
             ) {
                 return try resume(
                     existing: existing, suppliedSourcePDF: sourcePDF,
+                    requestedQueueID: queueID,
                     cancellationToken: cancellationToken, scenario: scenario
                 )
             }
@@ -237,10 +238,12 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
     private func resume(
         existing: AcceptedJobBundle,
         suppliedSourcePDF: Data,
+        requestedQueueID: String,
         cancellationToken: Data,
         scenario: InertDeliveryScenario
     ) throws -> SyntheticInertJobResult {
-        guard existing.sourcePDF == suppliedSourcePDF,
+        guard existing.ticket.queue.id == requestedQueueID,
+              existing.sourcePDF == suppliedSourcePDF,
               Self.constantTimeEqual(
                   Self.digestBytes(cancellationToken),
                   Self.hexBytes(existing.ticket.cancellationSHA256)
@@ -331,6 +334,28 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
             } catch {
                 throw Error.preparationFailed
             }
+        case let .uncertain(_, byteCount, bytesAccepted):
+            try validateStoredPayload(
+                acceptanceID: existing.ticket.acceptanceID,
+                expectedByteCount: byteCount
+            )
+            return SyntheticInertJobResult(
+                acceptanceID: existing.ticket.acceptanceID,
+                outputLabelCount: existing.ticket.outputLabels.count,
+                preparedByteCount: byteCount,
+                delivery: .uncertain(bytesAccepted: bytesAccepted)
+            )
+        case let .transmitted(_, byteCount):
+            try validateStoredPayload(
+                acceptanceID: existing.ticket.acceptanceID,
+                expectedByteCount: byteCount
+            )
+            return SyntheticInertJobResult(
+                acceptanceID: existing.ticket.acceptanceID,
+                outputLabelCount: existing.ticket.outputLabels.count,
+                preparedByteCount: byteCount,
+                delivery: .transmitted(byteCount: byteCount)
+            )
         default:
             throw Error.deliveryFailed
         }
@@ -339,6 +364,25 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
             preparedByteCount: preparedByteCount,
             scenario: scenario
         )
+    }
+
+    private func validateStoredPayload(
+        acceptanceID: String, expectedByteCount: Int
+    ) throws {
+        do {
+            let stored = try states.loadPrepared(
+                acceptanceID: acceptanceID,
+                queueStore: queues, workflowStore: workflows,
+                printerStore: printers
+            )
+            guard stored.bytes.count == expectedByteCount else {
+                throw Error.preparationFailed
+            }
+        } catch let error as Error {
+            throw error
+        } catch {
+            throw Error.preparationFailed
+        }
     }
 
     private func extractionPlan(
