@@ -1510,6 +1510,15 @@ gate passed 67 Python, 166 Core and 156 Mac tests in debug/release, all oracle,
 ABI/inert cases, and ad-hoc signatures. Hosted CI/review and persisted-intake
 connection remain pending; no scheduler or physical acceptance follows.
 
+Synthetic intake now prepares each planned region through the bounded existing
+worker, validates exact PBM dimensions/header/count/padding and regenerated
+diagnostic encoding, then applies immutable production controls in the parent.
+No in-process raster fallback remains. Full local validation passed 67 Python,
+166 Core and 158 Mac tests in debug/release, oracle/ABI/inert checks, and ad-hoc
+signatures. Ten focused tests passed. Page/structural PDF analysis remains
+in-process, and deadlines are per child rather than whole-job. Hosted CI/review
+and all scheduler/USB/installation evidence remain separate gates.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
