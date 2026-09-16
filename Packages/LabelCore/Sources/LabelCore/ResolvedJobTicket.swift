@@ -8,6 +8,7 @@ public enum ResolvedJobTicketError: Error, Equatable, Sendable {
     case invalidPlan
     case invalidCopyOwnership
     case invalidControls
+    case invalidImaging
     case invalidLimit
     case inputTooLarge
     case outputTooLarge
@@ -71,6 +72,7 @@ public struct ResolvedJobTicket: Equatable, Sendable {
     public let copyOwnership: JobCopyOwnership
     public let pageRangeOwnership: JobPageRangeOwnership
     public let transformOwnership: JobTransformOwnership
+    public let monochromeConversion: MonochromeConversion
     public let controls: ResolvedPrinterControls
     public let outputLabels: [ResolvedOutputLabel]
     public let skippedPages: [ResolvedSkippedPage]
@@ -120,7 +122,7 @@ public struct ResolvedJobTicket: Equatable, Sendable {
         do { controls = try printerProfile.resolveControls(job: explicitControls, workflowDefaults: defaults) }
         catch { throw ResolvedJobTicketError.invalidControls }
         return try ResolvedJobTicket(
-            schemaVersion: 1,
+            schemaVersion: 2,
             acceptanceID: acceptanceID,
             cancellationSHA256: cancellationSHA256,
             activeSelectionGeneration: activeSelection.generation,
@@ -135,6 +137,7 @@ public struct ResolvedJobTicket: Equatable, Sendable {
             copyOwnership: copyOwnership,
             pageRangeOwnership: pageRangeOwnership,
             transformOwnership: .workflowProfile,
+            monochromeConversion: workflowProfile.monochromeConversion,
             controls: controls,
             outputLabels: plan.outputLabels.map {
                 ResolvedOutputLabel(sourcePage: $0.sourcePage, regionID: $0.regionID)
@@ -161,16 +164,17 @@ public struct ResolvedJobTicket: Equatable, Sendable {
         copyOwnership: JobCopyOwnership,
         pageRangeOwnership: JobPageRangeOwnership,
         transformOwnership: JobTransformOwnership,
+        monochromeConversion: MonochromeConversion,
         controls: ResolvedPrinterControls,
         outputLabels: [ResolvedOutputLabel],
         skippedPages: [ResolvedSkippedPage]
     ) throws {
-        guard schemaVersion == 1 else { throw ResolvedJobTicketError.unsupportedSchema }
+        guard schemaVersion == 2 else { throw ResolvedJobTicketError.unsupportedSchema }
         guard VirtualQueueDefinition.isSelector(acceptanceID),
               VirtualQueueDefinition.isSHA256(cancellationSHA256)
         else { throw ResolvedJobTicketError.invalidIdentity }
         guard activeSelectionGeneration > 0,
-              workflowProfile.schemaVersion == 1, printerProfile.schemaVersion == 1,
+              workflowProfile.schemaVersion == 2, printerProfile.schemaVersion == 1,
               controls.profileSchemaVersion == printerProfile.schemaVersion,
               controls.profileRevision == printerProfile.revision else {
             throw ResolvedJobTicketError.invalidReference
@@ -230,6 +234,7 @@ public struct ResolvedJobTicket: Equatable, Sendable {
         self.copyOwnership = copyOwnership
         self.pageRangeOwnership = pageRangeOwnership
         self.transformOwnership = transformOwnership
+        self.monochromeConversion = monochromeConversion
         self.controls = controls
         self.outputLabels = outputLabels
         self.skippedPages = skippedPages
@@ -276,6 +281,7 @@ public enum ResolvedJobTicketJSON {
                 "orientation": ticket.transformOwnership.rawValue,
                 "scaling": ticket.transformOwnership.rawValue,
             ],
+            "monochromeConversion": encodeConversion(ticket.monochromeConversion),
             "controls": encodeControls(ticket.controls),
             "outputLabels": ticket.outputLabels.map {
                 ["sourcePage": $0.sourcePage, "regionID": $0.regionID]
@@ -322,6 +328,9 @@ public enum ResolvedJobTicketJSON {
               printerProfile.revision == ticket.printerProfile.revision else {
             throw ResolvedJobTicketError.invalidReference
         }
+        guard ticket.monochromeConversion == workflowProfile.monochromeConversion else {
+            throw ResolvedJobTicketError.invalidImaging
+        }
         try validateTicketPlan(ticket, workflowProfile: workflowProfile)
         do { try printerProfile.validate(controlRequest(ticket.controls)) }
         catch { throw ResolvedJobTicketError.invalidControls }
@@ -345,9 +354,9 @@ public enum ResolvedJobTicketJSON {
                 "activeSelectionGeneration", "queue", "workflowProfile",
                 "printerProfile", "physicalDeviceSHA256", "source",
                 "copyOwnership", "pageRangeOwnership", "transformOwnership",
-                "controls", "outputLabels", "skippedPages",
+                "monochromeConversion", "controls", "outputLabels", "skippedPages",
             ])
-            guard try integer(root, "schemaVersion") == 1 else {
+            guard try integer(root, "schemaVersion") == 2 else {
                 throw ResolvedJobTicketError.unsupportedSchema
             }
             let source = try object(try required(root, "source"), keys: [
@@ -373,7 +382,7 @@ public enum ResolvedJobTicketJSON {
                 return ResolvedSkippedPage(sourcePage: try integer(value, "sourcePage"), reason: reason)
             }
             return try ResolvedJobTicket(
-                schemaVersion: 1,
+                schemaVersion: 2,
                 acceptanceID: string(root, "acceptanceID"),
                 cancellationSHA256: string(root, "cancellationSHA256"),
                 activeSelectionGeneration: integer(root, "activeSelectionGeneration"),
@@ -393,6 +402,9 @@ public enum ResolvedJobTicketJSON {
                 ),
                 transformOwnership: decodeTransformOwnership(
                     try required(root, "transformOwnership")
+                ),
+                monochromeConversion: decodeConversion(
+                    try required(root, "monochromeConversion")
                 ),
                 controls: decodeControls(try required(root, "controls")),
                 outputLabels: output,
@@ -486,6 +498,34 @@ public enum ResolvedJobTicketJSON {
             throw ResolvedJobTicketError.invalidPlan
         }
         return .workflowProfile
+    }
+
+    private static func encodeConversion(_ value: MonochromeConversion) -> [String: Any] {
+        switch value {
+        case let .textAndBarcodeThreshold(cutoff):
+            ["mode": "textAndBarcodeThreshold", "cutoff": Int(cutoff)]
+        case .photographicOrderedDither4x4:
+            ["mode": "photographicOrderedDither4x4", "cutoff": NSNull()]
+        }
+    }
+
+    private static func decodeConversion(_ raw: Any) throws -> MonochromeConversion {
+        let value = try object(raw, keys: ["mode", "cutoff"])
+        switch try string(value, "mode") {
+        case "textAndBarcodeThreshold":
+            let cutoff = try integer(value, "cutoff")
+            guard (0...255).contains(cutoff) else {
+                throw ResolvedJobTicketError.invalidImaging
+            }
+            return .textAndBarcodeThreshold(cutoff: UInt8(cutoff))
+        case "photographicOrderedDither4x4":
+            guard try required(value, "cutoff") is NSNull else {
+                throw ResolvedJobTicketError.invalidImaging
+            }
+            return .photographicOrderedDither4x4
+        default:
+            throw ResolvedJobTicketError.invalidImaging
+        }
     }
 
     private static func encodeControls(_ value: ResolvedPrinterControls) -> [String: Any] {

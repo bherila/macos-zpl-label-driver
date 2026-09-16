@@ -39,6 +39,7 @@ public struct ReferenceWorkflowDefinition: Equatable, Sendable {
             revision: revision,
             outputStockID: stockID,
             outputStock: stock,
+            monochromeConversion: .textAndBarcodeThreshold(cutoff: 128),
             pageRules: [
                 try WorkflowPageRule(
                     sourcePage: 1,

@@ -64,7 +64,6 @@ final class WorkflowEditorTests: XCTestCase {
                 anchors: [.init(kind: .border, normalizedRect: anchor)]
             )],
             canvas: canvas,
-            conversion: .textAndBarcodeThreshold(cutoff: 128),
             store: store
         ), store)
     }

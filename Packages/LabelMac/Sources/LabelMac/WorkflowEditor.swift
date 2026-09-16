@@ -23,7 +23,6 @@ public final class WorkflowEditorModel: ObservableObject {
     private let originalPDF: Data
     private let analyzedPages: [AnalyzedSourcePage]
     private let canvas: DotCanvas
-    private let conversion: MonochromeConversion
     private let store: WorkflowProfileStore
 
     public init(
@@ -31,14 +30,12 @@ public final class WorkflowEditorModel: ObservableObject {
         originalPDF: Data,
         analyzedPages: [AnalyzedSourcePage],
         canvas: DotCanvas,
-        conversion: MonochromeConversion,
         store: WorkflowProfileStore
     ) {
         self.draft = draft
         self.originalPDF = originalPDF
         self.analyzedPages = analyzedPages
         self.canvas = canvas
-        self.conversion = conversion
         self.store = store
         self.selectedRegionID = Self.regions(in: draft.profile).first?.id
     }
@@ -104,7 +101,7 @@ public final class WorkflowEditorModel: ObservableObject {
             originalPDF: originalPDF,
             label: label,
             canvas: canvas,
-            conversion: conversion
+            conversion: profile.monochromeConversion
         )
         lastError = nil
     }

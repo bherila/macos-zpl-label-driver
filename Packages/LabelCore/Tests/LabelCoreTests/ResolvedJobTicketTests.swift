@@ -19,7 +19,8 @@ final class ResolvedJobTicketTests: XCTestCase {
     ) {
         let printer = try PrinterProfile.gc420dUSBReference(revision: 7)
         let workflowReference = try ImmutableProfileReference(
-            id: "letter-two-labels", revision: 3, sha256: workflowDigest
+            id: "letter-two-labels", schemaVersion: 2,
+            revision: 3, sha256: workflowDigest
         )
         let printerReference = try ImmutableProfileReference(
             id: "gc420d-usb", revision: 7, sha256: printerDigest
@@ -48,6 +49,7 @@ final class ResolvedJobTicketTests: XCTestCase {
             outputStock: PhysicalSize(
                 width: try Millimeters.inches(4), height: try Millimeters.inches(6)
             ),
+            monochromeConversion: .photographicOrderedDither4x4,
             pageRules: [
                 try WorkflowPageRule(
                     sourcePage: 1,
@@ -119,6 +121,7 @@ final class ResolvedJobTicketTests: XCTestCase {
         XCTAssertEqual(original.copyOwnership, .engine(copies: 2, collated: true))
         XCTAssertEqual(original.pageRangeOwnership, .engine(selectedSourcePages: [1, 2]))
         XCTAssertEqual(original.transformOwnership, .workflowProfile)
+        XCTAssertEqual(original.monochromeConversion, .photographicOrderedDither4x4)
         XCTAssertEqual(original.intakeProvenance, .cupsScheduler)
     }
 
@@ -218,6 +221,15 @@ final class ResolvedJobTicketTests: XCTestCase {
             JSONSerialization.data(withJSONObject: root), queueReference: reference,
             queueDefinition: queue, workflowProfile: workflow, printerProfile: printer
         )) { XCTAssertEqual($0 as? ResolvedJobTicketError, .invalidPlan) }
+
+        root = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+        root["monochromeConversion"] = [
+            "mode": "textAndBarcodeThreshold", "cutoff": 128,
+        ]
+        XCTAssertThrowsError(try ResolvedJobTicketJSON.decode(
+            JSONSerialization.data(withJSONObject: root), queueReference: reference,
+            queueDefinition: queue, workflowProfile: workflow, printerProfile: printer
+        )) { XCTAssertEqual($0 as? ResolvedJobTicketError, .invalidImaging) }
     }
 
     func testWireAndSourceBoundsApplyBeforeAcceptance() throws {
