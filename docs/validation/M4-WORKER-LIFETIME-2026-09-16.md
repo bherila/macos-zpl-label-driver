@@ -30,3 +30,12 @@ installed scheduler, privileged installation, transport, or physical acceptance
 is established. Supervision requires OS scheduling; it is not a hard real-time
 or power-loss guarantee. SIGKILL cannot run parent cleanup. Recovery is narrowly
 owned temporary-data cleanup, not a spool/job retention implementation.
+
+The second review identified ancillary recovery failure disabling setup. The
+controller now obtains a nonthrowing sanitized warning before its independent
+setup initialization. A failed/unavailable scan does not nil out setup state or
+authorize broader cleanup. Six focused native tests passed, including injected
+failure and an actual non-private recovery base. Full validation of this
+follow-up passed: 67 Python, 166 Core and 178 Mac tests in debug/release,
+all independent/ABI/inert checks, ad-hoc signatures and packaged-worker equality.
+No third review will be requested. Hosted exact-head validation remains separate.

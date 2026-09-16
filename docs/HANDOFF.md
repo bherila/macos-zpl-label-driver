@@ -1567,6 +1567,13 @@ exact-head CI remain pending; details and limitations
 are in `M4-WORKER-LIFETIME-2026-09-16.md`. Hosted run `35076644936` passed the
 earlier `77874a3` head but does not validate this remediation.
 
+PR #50's second review completed at `6ff328a` with one genuine ancillary-recovery
+failure issue. Recovery now returns a sanitized nonthrowing warning outside the
+controller's setup initialization. Six focused native tests pass; full local
+validation of this follow-up passed 67/166/178 debug/release with independent
+checks, signatures and packaged-worker equality. The existing hosted run remains live;
+it is not restarted or claimed terminal. No third review is requested.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
