@@ -33,14 +33,17 @@ and preserves the earlier qualification. A new real-worker regression rejects
 acknowledgement without preview, requires explicit acknowledgement after preview,
 and makes a rotation edit invalidate prior review before requalification.
 Existing manual/no-anchor rejection and immutable-source/preview/history tests
-remain intact. Full local corrected gate and second review/hosted CI pending.
+remain intact.
 The displayed-snapshot regression rejects old profile and old-selection previews
 after real-worker completion without acknowledging any region, then accepts the
 current displayed snapshot. Initial correction `5fb351e` passed the full local
 gate exit 0 with 67/173/211 debug/release, independent/inert/signature and packaged
-worker equality checks. The final displayed-snapshot correction's full gate and
-corrected hosted/second review remain pending; the earlier full pass does not
-establish the additional change.
+worker equality checks. Final displayed-snapshot implementation `a51780f` then
+passed the full local gate exit 0 with 67 Python/173 LabelCore/212 LabelMac tests
+in debug/release, both accelerator suites and independent/inert checks, local
+executable/app/nested-worker signatures and packaged-worker PBM/ZPL equality.
+Corrected hosted CI/second review remain pending. This is not native
+dialog/VoiceOver or physical acceptance.
 
 No profile schema, oracle, renderer, transport, queue, privileged or hardware
 setting changed. Native button/VoiceOver operation remains NOT RUN. Extend the
