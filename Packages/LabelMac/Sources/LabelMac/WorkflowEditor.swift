@@ -12,6 +12,16 @@ public struct WorkflowEditorRegion: Identifiable, Equatable, Sendable {
     public let outputOrder: Int
 }
 
+/// In-memory displayed edit context, not authorization or a persisted schema.
+public struct WorkflowEditorEditBinding: Equatable, Sendable {
+    public let regionID: String
+    public let editGeneration: UInt64
+    public init(regionID: String, editGeneration: UInt64) {
+        self.regionID = regionID
+        self.editGeneration = editGeneration
+    }
+}
+
 @MainActor
 public final class WorkflowEditorModel: ObservableObject {
     public enum Error: Swift.Error, Equatable, Sendable {
@@ -20,6 +30,7 @@ public final class WorkflowEditorModel: ObservableObject {
         case regionReviewRequired
         case reviewSnapshotChanged
         case editSequenceExhausted
+        case editSnapshotChanged
     }
     @Published public private(set) var draft: WorkflowProfileDraft
     @Published public var selectedRegionID: String? {
@@ -158,8 +169,10 @@ public final class WorkflowEditorModel: ObservableObject {
     }
 
     public func setSelectedRegionMillimeters(
-        left: Double, top: Double, width: Double, height: Double
+        left: Double, top: Double, width: Double, height: Double,
+        expectedBinding: WorkflowEditorEditBinding? = nil
     ) throws {
+        try validateEditBinding(expectedBinding)
         guard let selectedRegionID,
               let region = regions.first(where: { $0.id == selectedRegionID }),
               let rule = profile.pageRules.first(where: { $0.sourcePage == region.sourcePage }) else {
@@ -176,7 +189,9 @@ public final class WorkflowEditorModel: ObservableObject {
     }
 
     /// A stale drawing cannot edit whichever region happens to be selected now.
-    public func updateSelectedRegion(_ rect: NormalizedRect, expectedRegionID: String) throws {
+    public func updateSelectedRegion(_ rect: NormalizedRect, expectedRegionID: String,
+                                     expectedBinding: WorkflowEditorEditBinding? = nil) throws {
+        try validateEditBinding(expectedBinding)
         guard selectedRegionID == expectedRegionID,
               let region = regions.first(where: { $0.id == expectedRegionID }) else {
             throw WorkflowProfileDraft.Error.regionNotFound(expectedRegionID)
@@ -188,7 +203,9 @@ public final class WorkflowEditorModel: ObservableObject {
         isSaved = false
     }
 
-    public func setSelectedRotation(_ rotation: ExtractionRotation) throws {
+    public func setSelectedRotation(_ rotation: ExtractionRotation,
+                                    expectedBinding: WorkflowEditorEditBinding? = nil) throws {
+        try validateEditBinding(expectedBinding)
         guard let selectedRegionID,
               let region = regions.first(where: { $0.id == selectedRegionID }) else {
             throw WorkflowProfileDraft.Error.regionNotFound(selectedRegionID ?? "")
@@ -204,7 +221,8 @@ public final class WorkflowEditorModel: ObservableObject {
         isSaved = false
     }
 
-    public func moveSelected(by offset: Int) throws {
+    public func moveSelected(by offset: Int, expectedBinding: WorkflowEditorEditBinding? = nil) throws {
+        try validateEditBinding(expectedBinding)
         guard let selectedRegionID,
               let current = regions.firstIndex(where: { $0.id == selectedRegionID }) else {
             throw WorkflowProfileDraft.Error.regionNotFound(selectedRegionID ?? "")
@@ -218,7 +236,8 @@ public final class WorkflowEditorModel: ObservableObject {
         isSaved = false
     }
 
-    public func addRegionOnSelectedPage() throws {
+    public func addRegionOnSelectedPage(expectedBinding: WorkflowEditorEditBinding? = nil) throws {
+        try validateEditBinding(expectedBinding)
         guard let selectedRegionID else { throw WorkflowProfileDraft.Error.regionNotFound("") }
         let newID = "region-" + UUID().uuidString.lowercased()
         var next = try editableDraft()
@@ -228,7 +247,8 @@ public final class WorkflowEditorModel: ObservableObject {
         self.selectedRegionID = newID
     }
 
-    public func removeSelectedRegion() throws {
+    public func removeSelectedRegion(expectedBinding: WorkflowEditorEditBinding? = nil) throws {
+        try validateEditBinding(expectedBinding)
         guard let selectedRegionID,
               let selected = regions.first(where: { $0.id == selectedRegionID }) else {
             throw WorkflowProfileDraft.Error.regionNotFound(selectedRegionID ?? "")
@@ -362,6 +382,13 @@ public final class WorkflowEditorModel: ObservableObject {
 
     private func editableDraft() throws -> WorkflowProfileDraft {
         isSaved ? try store.correctionDraft(for: profile) : draft
+    }
+
+    private func validateEditBinding(_ binding: WorkflowEditorEditBinding?) throws {
+        guard let binding else { return } // Trusted immediate current-selection API.
+        guard selectedRegionID == binding.regionID, editGeneration == binding.editGeneration else {
+            throw Error.editSnapshotChanged
+        }
     }
 
     /// Successful mutations invalidate review even when values are later undone.
@@ -552,25 +579,26 @@ public struct WorkflowEditorView: View {
     private func regionControls(_ region: WorkflowEditorRegion) -> some View {
         let rule = model.profile.pageRules.first { $0.sourcePage == region.sourcePage }!
         let size = rule.expectedInput.uprightPhysicalSize
+        let binding = WorkflowEditorEditBinding(regionID: region.id, editGeneration: model.editGeneration)
         return VStack(alignment: .leading) {
             Text("Region \(region.id) — source page \(region.sourcePage)").font(.headline)
             HStack {
                 measurementField("Left (mm)", value: region.normalizedRect.x * size.width.value) { left in
-                    try update(region, left: left)
+                    try update(region, size: size, expectedBinding: binding, left: left)
                 }
                 measurementField("Top (mm)", value: region.normalizedRect.y * size.height.value) { top in
-                    try update(region, top: top)
+                    try update(region, size: size, expectedBinding: binding, top: top)
                 }
                 measurementField("Width (mm)", value: region.normalizedRect.width * size.width.value) { width in
-                    try update(region, width: width)
+                    try update(region, size: size, expectedBinding: binding, width: width)
                 }
                 measurementField("Height (mm)", value: region.normalizedRect.height * size.height.value) { height in
-                    try update(region, height: height)
+                    try update(region, size: size, expectedBinding: binding, height: height)
                 }
             }
             Picker("Rotation", selection: Binding(
                 get: { region.rotation },
-                set: { value in perform { try model.setSelectedRotation(value) } }
+                set: { value in perform { try model.setSelectedRotation(value, expectedBinding: binding) } }
             )) {
                 Text("0°").tag(ExtractionRotation.degrees0)
                 Text("90°").tag(ExtractionRotation.degrees90)
@@ -578,18 +606,18 @@ public struct WorkflowEditorView: View {
                 Text("270°").tag(ExtractionRotation.degrees270)
             }.pickerStyle(.segmented)
             HStack {
-                Button("Add Region on This Page") { perform(model.addRegionOnSelectedPage) }
+                Button("Add Region on This Page") { perform { try model.addRegionOnSelectedPage(expectedBinding: binding) } }
                     .accessibilityHint("Starts with the selected bounds. Set the new label bounds before printing.")
-                Button("Remove Region") { perform(model.removeSelectedRegion) }
+                Button("Remove Region") { perform { try model.removeSelectedRegion(expectedBinding: binding) } }
                     .disabled(model.regions.filter { $0.sourcePage == region.sourcePage }.count <= 1)
             }
             Text("Each region produces a label. Added regions start with these bounds; adjust them explicitly. A page's last region requires a separate page-handling policy.")
                 .font(.caption)
             HStack {
-                Button("Move Earlier") { perform { try model.moveSelected(by: -1) } }
+                Button("Move Earlier") { perform { try model.moveSelected(by: -1, expectedBinding: binding) } }
                     .keyboardShortcut(.upArrow, modifiers: [.command])
                     .disabled(region.outputOrder == 0)
-                Button("Move Later") { perform { try model.moveSelected(by: 1) } }
+                Button("Move Later") { perform { try model.moveSelected(by: 1, expectedBinding: binding) } }
                     .keyboardShortcut(.downArrow, modifiers: [.command])
                     .disabled(region.outputOrder == model.regions.count - 1)
             }
@@ -617,10 +645,12 @@ public struct WorkflowEditorView: View {
                     .overlay {
                         GeometryReader { geometry in
                             if let region = selectedRegion, region.sourcePage == source.sourcePage {
-                                SourceSelectionOverlay(regionID: region.id, rect: region.normalizedRect,
+                                SourceSelectionOverlay(binding: WorkflowEditorEditBinding(regionID: region.id,
+                                                       editGeneration: model.editGeneration), rect: region.normalizedRect,
                                                        viewport: geometry.size) { owner, rect in
                                     guard model.sourcePreview?.sourcePage == source.sourcePage else { return }
-                                    perform { try model.updateSelectedRegion(rect, expectedRegionID: owner) }
+                                    perform { try model.updateSelectedRegion(rect, expectedRegionID: owner.regionID,
+                                                                             expectedBinding: owner) }
                                 }
                             }
                         }
@@ -653,16 +683,16 @@ public struct WorkflowEditorView: View {
 
     private func update(
         _ region: WorkflowEditorRegion,
+        size: PhysicalSize, expectedBinding: WorkflowEditorEditBinding,
         left: Double? = nil, top: Double? = nil,
         width: Double? = nil, height: Double? = nil
     ) throws {
-        let rule = model.profile.pageRules.first { $0.sourcePage == region.sourcePage }!
-        let size = rule.expectedInput.uprightPhysicalSize
         try model.setSelectedRegionMillimeters(
             left: left ?? region.normalizedRect.x * size.width.value,
             top: top ?? region.normalizedRect.y * size.height.value,
             width: width ?? region.normalizedRect.width * size.width.value,
-            height: height ?? region.normalizedRect.height * size.height.value
+            height: height ?? region.normalizedRect.height * size.height.value,
+            expectedBinding: expectedBinding
         )
     }
 
@@ -685,11 +715,11 @@ public struct WorkflowEditorView: View {
 
 /// Display coordinates only. Final rendering continues to consume the original PDF.
 private struct SourceSelectionOverlay: View {
-    let regionID: String
+    let binding: WorkflowEditorEditBinding
     let rect: NormalizedRect
     let viewport: CGSize
-    let commit: (String, NormalizedRect) -> Void
-    @State private var owner: String?
+    let commit: (WorkflowEditorEditBinding, NormalizedRect) -> Void
+    @State private var owner: WorkflowEditorEditBinding?
     @State private var startingViewport: CGSize?
     @State private var pending: NormalizedRect?
 
@@ -707,8 +737,8 @@ private struct SourceSelectionOverlay: View {
             }
             .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .local)
                 .onChanged { value in
-                    if owner == nil { owner = regionID; startingViewport = viewport }
-                    guard owner == regionID, startingViewport == viewport else {
+                    if owner == nil { owner = binding; startingViewport = viewport }
+                    guard owner == binding, startingViewport == viewport else {
                         pending = nil
                         return
                     }
@@ -716,7 +746,7 @@ private struct SourceSelectionOverlay: View {
                 }
                 .onEnded { value in
                     defer { owner = nil; startingViewport = nil; pending = nil }
-                    guard let owner, owner == regionID, startingViewport == viewport,
+                    guard let owner, owner == binding, startingViewport == viewport,
                           let selection = selection(value) else { return }
                     commit(owner, selection)
                 })
