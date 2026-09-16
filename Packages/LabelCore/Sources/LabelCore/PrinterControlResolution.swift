@@ -39,6 +39,7 @@ public struct ResolvedPrinterControls: Equatable, Sendable {
     public let printSpeedIps: ResolvedSetting<Int>
     public let darkness: ResolvedSetting<Int>
     public let tracking: ResolvedSetting<MediaTracking>
+    public let mediaGeometry: ResolvedSetting<MediaGeometryRequest>
 }
 
 public extension PrinterProfile {
@@ -74,7 +75,8 @@ public extension PrinterProfile {
             finishing: .value(finishing),
             printSpeedIps: speed.map(ResolvedSetting.value) ?? .leaveUnchanged,
             darkness: darkness.map(ResolvedSetting.value) ?? .leaveUnchanged,
-            tracking: tracking.map(ResolvedSetting.value) ?? .leaveUnchanged
+            tracking: tracking.map(ResolvedSetting.value) ?? .leaveUnchanged,
+            mediaGeometry: mediaGeometry.map(ResolvedSetting.value) ?? .leaveUnchanged
         )
     }
 }
