@@ -16,6 +16,7 @@ final class AcceptedJobStoreTests: XCTestCase {
         let printer: PrinterProfile
         let queue: VirtualQueueDefinition
         let selection: ActiveVirtualQueueSelection
+        let sourcePDF: Data
         let ticket: ResolvedJobTicket
     }
 
@@ -83,27 +84,28 @@ final class AcceptedJobStoreTests: XCTestCase {
             )], profile: workflow,
             copyPolicy: .engine(copies: 1, collated: true)
         )
+        let sourcePDF = Data("%PDF-1.7\nsynthetic accepted source\n%%EOF\n".utf8)
         let ticket = try ResolvedJobTicket.accept(
             acceptanceID: acceptanceID,
             cancellationSHA256: String(repeating: "f", count: 64),
             activeSelection: selection, queueReference: queueReference,
             queueDefinition: queue, workflowProfile: workflow, printerProfile: printer,
-            sourceDocumentSHA256: String(repeating: "e", count: 64),
-            sourceByteCount: 4_096, intakeProvenance: .cupsScheduler,
+            sourceDocumentSHA256: Self.digest(sourcePDF),
+            sourceByteCount: sourcePDF.count, intakeProvenance: .cupsScheduler,
             plan: plan, copyOwnership: .engine(copies: 1, collated: true),
             pageRangeOwnership: .engine(selectedSourcePages: [1])
         )
         return Fixture(
             root: root, workflows: workflows, printers: printers,
             queues: queues, active: active, jobs: jobs, printer: printer,
-            queue: queue, selection: selection, ticket: ticket
+            queue: queue, selection: selection, sourcePDF: sourcePDF, ticket: ticket
         )
     }
 
     func testImmutableRoundTripSurvivesActiveSelectionChange() throws {
         let value = try fixture()
         try value.jobs.save(
-            value.ticket, queueStore: value.queues,
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )
 
@@ -124,11 +126,13 @@ final class AcceptedJobStoreTests: XCTestCase {
             workflowStore: value.workflows, printerStore: value.printers
         )
 
-        XCTAssertEqual(try value.jobs.load(
+        let loaded = try value.jobs.load(
             acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
-        ), value.ticket)
-        XCTAssertFalse(AcceptedJobStore.fileName(value.ticket.acceptanceID).contains("accepted"))
+        )
+        XCTAssertEqual(loaded.ticket, value.ticket)
+        XCTAssertEqual(loaded.sourcePDF, value.sourcePDF)
+        XCTAssertFalse(AcceptedJobStore.directoryName(value.ticket.acceptanceID).contains("accepted"))
         XCTAssertEqual(value.ticket.activeSelectionGeneration, 1)
         XCTAssertEqual(laterSelection.generation, 2)
         XCTAssertNotEqual(laterSelection.queue, value.ticket.queue)
@@ -137,11 +141,11 @@ final class AcceptedJobStoreTests: XCTestCase {
     func testSameBytesAreIdempotentAndConflictingBytesFailClosed() throws {
         let first = try fixture()
         try first.jobs.save(
-            first.ticket, queueStore: first.queues,
+            first.ticket, sourcePDF: first.sourcePDF, queueStore: first.queues,
             workflowStore: first.workflows, printerStore: first.printers
         )
         try first.jobs.save(
-            first.ticket, queueStore: first.queues,
+            first.ticket, sourcePDF: first.sourcePDF, queueStore: first.queues,
             workflowStore: first.workflows, printerStore: first.printers
         )
 
@@ -151,14 +155,13 @@ final class AcceptedJobStoreTests: XCTestCase {
             ["byteCount": 4_097], uniquingKeysWith: { _, new in new }
         )
         let target = first.root.appending(path: "accepted-jobs").appending(
-            path: AcceptedJobStore.fileName(first.ticket.acceptanceID)
-        )
-        try FileManager.default.removeItem(at: target)
+            path: AcceptedJobStore.directoryName(first.ticket.acceptanceID)
+        ).appending(path: "ticket.json")
         try JSONSerialization.data(
             withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes]
         ).write(to: target)
         XCTAssertThrowsError(try first.jobs.save(
-            first.ticket, queueStore: first.queues,
+            first.ticket, sourcePDF: first.sourcePDF, queueStore: first.queues,
             workflowStore: first.workflows, printerStore: first.printers
         )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .jobConflict) }
     }
@@ -166,12 +169,12 @@ final class AcceptedJobStoreTests: XCTestCase {
     func testTamperedIdentityNoncanonicalBytesAndMissingReferencesAreRejected() throws {
         let value = try fixture()
         try value.jobs.save(
-            value.ticket, queueStore: value.queues,
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )
         let target = value.root.appending(path: "accepted-jobs").appending(
-            path: AcceptedJobStore.fileName(value.ticket.acceptanceID)
-        )
+            path: AcceptedJobStore.directoryName(value.ticket.acceptanceID)
+        ).appending(path: "ticket.json")
         var object = try XCTUnwrap(
             JSONSerialization.jsonObject(with: Data(contentsOf: target)) as? [String: Any]
         )
@@ -194,8 +197,15 @@ final class AcceptedJobStoreTests: XCTestCase {
             workflowStore: value.workflows, printerStore: value.printers
         )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .cannotRead) }
 
-        try FileManager.default.removeItem(at: target)
         try ResolvedJobTicketJSON.encode(value.ticket).write(to: target)
+        let sourceTarget = target.deletingLastPathComponent().appending(path: "source.pdf")
+        try Data("different source".utf8).write(to: sourceTarget)
+        XCTAssertThrowsError(try value.jobs.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .sourceMismatch) }
+        try value.sourcePDF.write(to: sourceTarget)
+
         let queueTarget = value.root.appending(path: "queues").appending(
             path: VirtualQueueStore.fileName(
                 value.ticket.queue.id, value.ticket.queue.revision
@@ -212,9 +222,7 @@ final class AcceptedJobStoreTests: XCTestCase {
         let value = try fixture()
         let bytes = try ResolvedJobTicketJSON.encode(value.ticket)
         var object = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
-        var source = try XCTUnwrap(object["source"] as? [String: Any])
-        source["byteCount"] = 4_097
-        object["source"] = source
+        object["cancellationSHA256"] = String(repeating: "a", count: 64)
         let changed = try ResolvedJobTicketJSON.decode(
             JSONSerialization.data(
                 withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes]
@@ -234,7 +242,7 @@ final class AcceptedJobStoreTests: XCTestCase {
             for ticket in [value.ticket, changed] {
                 group.addTask {
                     (try? value.jobs.save(
-                        ticket, queueStore: value.queues,
+                        ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
                         workflowStore: value.workflows, printerStore: value.printers
                     )) != nil
                 }
@@ -248,7 +256,93 @@ final class AcceptedJobStoreTests: XCTestCase {
             acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         )
-        XCTAssertTrue(stored == value.ticket || stored == changed)
+        XCTAssertTrue(stored.ticket == value.ticket || stored.ticket == changed)
+        XCTAssertEqual(stored.sourcePDF, value.sourcePDF)
+    }
+
+    func testPreCommitFaultsLeaveNoVisibleOrTemporaryBundle() throws {
+        enum Injected: Swift.Error { case stop }
+        for (index, point) in [
+            AcceptedJobStore.FaultPoint.afterTicketWrite,
+            .afterSourceWrite,
+            .beforeRename,
+        ].enumerated() {
+            let value = try fixture(acceptanceID: "fault-\(index + 1)")
+            let faulted = try AcceptedJobStore(root: value.root) { observed in
+                if observed == point { throw Injected.stop }
+            }
+            XCTAssertThrowsError(try faulted.save(
+                value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+                workflowStore: value.workflows, printerStore: value.printers
+            )) { XCTAssertTrue($0 is Injected) }
+            let entries = try FileManager.default.contentsOfDirectory(
+                atPath: value.root.appending(path: "accepted-jobs").path
+            )
+            XCTAssertTrue(entries.isEmpty)
+        }
+    }
+
+    func testPostRenameFaultIsUncertainButCompleteBundleIsRecoverable() throws {
+        enum Injected: Swift.Error { case stop }
+        let value = try fixture(acceptanceID: "fault-after-rename")
+        let faulted = try AcceptedJobStore(root: value.root) { point in
+            if point == .afterRename { throw Injected.stop }
+        }
+        XCTAssertThrowsError(try faulted.save(
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .commitUncertain) }
+        let loaded = try value.jobs.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        XCTAssertEqual(loaded, AcceptedJobBundle(
+            ticket: value.ticket, sourcePDF: value.sourcePDF
+        ))
+        let entries = try FileManager.default.contentsOfDirectory(
+            atPath: value.root.appending(path: "accepted-jobs").path
+        )
+        XCTAssertEqual(entries, [AcceptedJobStore.directoryName(value.ticket.acceptanceID)])
+    }
+
+    func testMismatchedSourceIsRejectedBeforePublication() throws {
+        let value = try fixture()
+        XCTAssertThrowsError(try value.jobs.save(
+            value.ticket, sourcePDF: Data("different".utf8), queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .sourceMismatch) }
+        let entries = try FileManager.default.contentsOfDirectory(
+            atPath: value.root.appending(path: "accepted-jobs").path
+        )
+        XCTAssertTrue(entries.isEmpty)
+    }
+
+    func testSourceLinksAreRejectedOnReload() throws {
+        let value = try fixture()
+        try value.jobs.save(
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let source = value.root.appending(path: "accepted-jobs").appending(
+            path: AcceptedJobStore.directoryName(value.ticket.acceptanceID)
+        ).appending(path: "source.pdf")
+        let alternate = value.root.appending(path: "alternate.pdf")
+        try value.sourcePDF.write(to: alternate)
+        XCTAssertEqual(chmod(alternate.path, 0o600), 0)
+
+        try FileManager.default.removeItem(at: source)
+        XCTAssertEqual(link(alternate.path, source.path), 0)
+        XCTAssertThrowsError(try value.jobs.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .cannotRead) }
+
+        try FileManager.default.removeItem(at: source)
+        XCTAssertEqual(symlink(alternate.path, source.path), 0)
+        XCTAssertThrowsError(try value.jobs.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .cannotRead) }
     }
 
     func testUnsafeRootAndInvalidLookupAreRejected() throws {
