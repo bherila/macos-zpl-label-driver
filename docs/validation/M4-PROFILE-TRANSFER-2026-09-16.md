@@ -1,5 +1,15 @@
 # Native workflow definition transfer
 
+The second-pass correction `501cdf1` is now integrated from parent head
+`730d65b`. Every successful edit/reload invalidates acknowledgement and advances
+its checked generation, including edit/undo returning to identical values.
+The transfer preservation test uses the displayed-generation API. The parent's
+40 focused and full 67/173/213 local gate passed. At `7cbbd56`, 46 combined
+focused native tests passed: 15 editor, five transfer, 14 document-opening and
+12 bootstrap. This combined full gate is pending.
+Hosted parent run 35093979617 was confirmed live at `730d65b`. No third review
+request, merge, GUI, installation or hardware pass is claimed.
+
 Partial M4-AC06/08/12 and M5-AC10 implementation/automated evidence only.
 No GUI, queue, installer, scheduler or physical result is added.
 
