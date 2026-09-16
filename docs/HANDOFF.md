@@ -2,10 +2,12 @@
 
 Current local slice connects add/remove region controls to the typed draft, with
 global order, original-source child previews and immutable revisions preserved.
-The last region on a page cannot be removed implicitly. Six portable draft and
-eleven native editor focused tests passed; full gate pending. See
+The last region on a page cannot be removed implicitly. At `fafd7a1`, six portable
+draft and eleven native editor focused tests plus full local 67/171/194
+debug/release, independent/inert/signature/packaged-worker checks passed. Own
+hosted CI/review pending. See
 `validation/M4-MULTIPLE-REGION-EDITOR-2026-09-16.md`. Parent PR #54's hosted run
-35083659869 and first independent review are still live at the last readback.
+35083659869 passed exact `2bf83ba`, and its first independent review is clean.
 
 Latest local slice: source-page dragging now commits normalized extraction
 bounds through the existing editor model, with captured region/viewport guards.

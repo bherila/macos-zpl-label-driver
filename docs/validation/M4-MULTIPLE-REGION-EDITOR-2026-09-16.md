@@ -23,7 +23,14 @@ editor tests passed. The added regression creates and adjusts a region, renders
 its original-PDF crop through the real supervised child, verifies packed bytes
 and PBM, reorders, saves/reloads, removes and verifies old immutable records.
 No placeholder renderer, bitmap or independent validator was introduced.
-Full local gate, own hosted CI and independent review are pending.
+Implementation `fafd7a13f2c03e011d99544c32de106ca015f14e` passed the full local
+`bash scripts/ci-swift.sh` gate: 67 Python, 171 Core and 194 Mac tests in
+debug/release, 132 independent round trips, 15 backend/10 filter/one inert
+pipeline cases, executable/app/nested-worker ad-hoc signatures and packaged
+worker PBM/ZPL equality. Own hosted CI and independent review are pending.
+Parent PR #54 passed hosted run 35083659869 at exact `2bf83ba`; logs confirm
+193 Mac debug/release tests and packaged-worker/signature checks. Its first
+independent review is clean. These parent results do not validate this slice.
 
 Finite GUI procedure (NOT RUN): open committed synthetic Letter 2-up input in
 manual mode; set the first label's bounds; add a region, set the second label's
