@@ -14,6 +14,11 @@ public struct WorkflowEditorRegion: Identifiable, Equatable, Sendable {
 
 @MainActor
 public final class WorkflowEditorModel: ObservableObject {
+    public enum Error: Swift.Error, Equatable, Sendable {
+        case previewRequired
+        case savedRevisionRequired
+        case regionReviewRequired
+    }
     @Published public private(set) var draft: WorkflowProfileDraft
     @Published public var selectedRegionID: String? {
         didSet { if selectedRegionID != oldValue { cancelPreview(); cancelSourcePreview() } }
@@ -25,6 +30,8 @@ public final class WorkflowEditorModel: ObservableObject {
     @Published public private(set) var sourcePreview: WorkflowSourcePagePreview?
     @Published public private(set) var sourcePreviewError: String?
     @Published public private(set) var isPreparingSourcePreview = false
+    @Published private var reviewedProfile: WorkflowProfile?
+    @Published private var reviewedRegionIDs: Set<String> = []
 
     private var sourceRequest: UUID?
     private var sourceCancellation: OfflineRenderWorkerCancellation?
@@ -60,6 +67,30 @@ public final class WorkflowEditorModel: ObservableObject {
 
     public var profile: WorkflowProfile { draft.validatedProfile() }
     public var regions: [WorkflowEditorRegion] { Self.regions(in: profile) }
+
+    /// Review is session-local and exact-profile bound. Every newly opened
+    /// editor starts unreviewed, so saving/reopening cannot bypass the UI gate.
+    public var unreviewedRegionCount: Int {
+        reviewedProfile == profile
+            ? regions.filter { !reviewedRegionIDs.contains($0.id) }.count : regions.count
+    }
+
+    public var canConfirmSelectedBoundsAndPreview: Bool {
+        guard !isPreparingPreview, let selectedRegionID,
+              let region = regions.first(where: { $0.id == selectedRegionID }), let preview else { return false }
+        return preview.regionID == region.id && preview.sourcePage == region.sourcePage
+            && preview.profileID == profile.id && preview.profileRevision == profile.revision
+    }
+
+    public var canApproveForUnattendedUse: Bool {
+        isSaved && unreviewedRegionCount == 0 && !profile.pageRules.contains { $0.structuralAnchors.isEmpty }
+    }
+
+    public func confirmSelectedBoundsAndPreviewReviewed() throws {
+        guard canConfirmSelectedBoundsAndPreview, let selectedRegionID else { throw Error.previewRequired }
+        if reviewedProfile != profile { reviewedRegionIDs = []; reviewedProfile = profile }
+        reviewedRegionIDs.insert(selectedRegionID)
+    }
 
     public func select(_ id: String) { selectedRegionID = id }
 
@@ -327,6 +358,9 @@ public final class WorkflowEditorModel: ObservableObject {
     }
 
     public func approveForUnattendedUse() throws {
+        _ = try UnattendedWorkflowQualification(userConfirmed: profile)
+        guard isSaved else { throw Error.savedRevisionRequired }
+        guard unreviewedRegionCount == 0 else { throw Error.regionReviewRequired }
         try store.confirmForUnattendedUse(profile)
         lastError = nil
     }
@@ -396,6 +430,13 @@ public struct WorkflowEditorView: View {
                 if let region = selectedRegion { regionControls(region) }
                 sourceReferenceView
                 previewView
+                HStack {
+                    Button("Confirm Bounds and Exact Preview Reviewed") {
+                        perform(model.confirmSelectedBoundsAndPreviewReviewed)
+                    }.disabled(!model.canConfirmSelectedBoundsAndPreview)
+                    Text("\(model.unreviewedRegionCount) regions require review before unattended approval.")
+                        .font(.caption)
+                }
                 if let error = model.lastError {
                     Text(error).foregroundStyle(.red).accessibilityLabel("Editor error: \(error)")
                 }
@@ -414,7 +455,7 @@ public struct WorkflowEditorView: View {
                     Button("Save Revision") { perform(model.save) }
                         .keyboardShortcut("s", modifiers: [.command])
                     Button("Approve for Unattended Use") { perform(model.approveForUnattendedUse) }
-                        .disabled(!model.isSaved || model.profile.pageRules.contains { $0.structuralAnchors.isEmpty })
+                        .disabled(!model.canApproveForUnattendedUse)
                 }
             }
             .padding()
