@@ -27,11 +27,16 @@ public struct PersistedJobRecovery: @unchecked Sendable {
         case invalidState
     }
 
+    enum Event: Equatable, Sendable {
+        case initialStateLoaded
+    }
+
     private let states: AcceptedJobStateStore
     private let queues: VirtualQueueStore
     private let workflows: WorkflowProfileStore
     private let printers: PrinterProfileStore
     private let leaseDirectory: URL
+    private let observe: @Sendable (Event) -> Void
 
     public init(
         acceptedJobStore: AcceptedJobStore,
@@ -45,12 +50,30 @@ public struct PersistedJobRecovery: @unchecked Sendable {
         workflows = workflowStore
         printers = printerStore
         self.leaseDirectory = leaseDirectory
+        observe = { _ in }
+    }
+
+    init(
+        acceptedJobStore: AcceptedJobStore,
+        queueStore: VirtualQueueStore,
+        workflowStore: WorkflowProfileStore,
+        printerStore: PrinterProfileStore,
+        leaseDirectory: URL,
+        observe: @escaping @Sendable (Event) -> Void
+    ) {
+        states = AcceptedJobStateStore(acceptedJobStore: acceptedJobStore)
+        queues = queueStore
+        workflows = workflowStore
+        printers = printerStore
+        self.leaseDirectory = leaseDirectory
+        self.observe = observe
     }
 
     public func reconcile(
         acceptanceID: String
     ) throws -> PersistedJobRecoveryOutcome {
         let state = try loadState(acceptanceID: acceptanceID)
+        observe(.initialStateLoaded)
         switch state.phase {
         case .accepted:
             return .acceptedNeedsPreparation
@@ -59,16 +82,23 @@ public struct PersistedJobRecovery: @unchecked Sendable {
         case .cancelledBeforeTransmission:
             return .cancelledBeforeTransmission
         case .prepared, .waiting, .transmitted, .deviceConfirmed, .uncertain:
-            return try classify(try loadPrepared(acceptanceID: acceptanceID))
+            let prepared = try loadPrepared(acceptanceID: acceptanceID)
+            if case .transmitting = prepared.state.phase {
+                return try reconcileTransmission(
+                    acceptanceID: acceptanceID, initial: prepared
+                )
+            }
+            return try classify(prepared)
         case .transmitting:
             return try reconcileTransmission(acceptanceID: acceptanceID)
         }
     }
 
     private func reconcileTransmission(
-        acceptanceID: String
+        acceptanceID: String,
+        initial suppliedInitial: StoredPreparedJob? = nil
     ) throws -> PersistedJobRecoveryOutcome {
-        let initial = try loadPrepared(acceptanceID: acceptanceID)
+        let initial = try suppliedInitial ?? loadPrepared(acceptanceID: acceptanceID)
         guard case .transmitting = initial.state.phase else {
             return try classify(initial)
         }
