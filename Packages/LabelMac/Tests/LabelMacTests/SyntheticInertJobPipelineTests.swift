@@ -14,6 +14,11 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         let active: ActiveVirtualQueueStore
         let jobs: AcceptedJobStore
         let pipeline: SyntheticInertJobPipeline
+        let physicalDevice: PhysicalDeviceCoordinationID
+        let leaseDirectory: URL
+        let queue: VirtualQueueDefinition
+        let selection: ActiveVirtualQueueSelection
+        let printer: PrinterProfile
     }
 
     func testDescriptorBoundPDFIsAcceptedPreparedAndInertlyDelivered() throws {
@@ -104,7 +109,164 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         ))
     }
 
-    private func makeFixture(workflowSource: Data) throws -> Fixture {
+    func testRetryableWaitingStateResumesThroughPipelineEntryPoint() throws {
+        let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
+        let fixture = try makeFixture(workflowSource: original)
+        let path = fixture.root.appending(path: "retryable-waiting.pdf")
+        try original.write(to: path, options: .withoutOverwriting)
+        let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+
+        let first = try fixture.pipeline.run(
+            queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: "synthetic-waiting-retry",
+            cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario(failBeforeTransmission: true)
+        )
+        XCTAssertEqual(first.delivery, .failedBeforeTransmission)
+        XCTAssertTrue(first.delivery.mayRetryAutomatically)
+        XCTAssertThrowsError(try fixture.pipeline.run(
+            queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: "synthetic-waiting-retry",
+            cancellationToken: Data("wrong cancellation capability".utf8),
+            scenario: try InertDeliveryScenario()
+        )) {
+            XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, .acceptanceFailed)
+        }
+
+        let laterQueue = try VirtualQueueDefinition(
+            id: fixture.queue.id,
+            revision: fixture.queue.revision + 1,
+            displayName: fixture.queue.displayName,
+            physicalDevice: fixture.queue.physicalDevice,
+            workflowProfile: fixture.queue.workflowProfile,
+            printerProfile: fixture.queue.printerProfile,
+            workflowDefaults: fixture.queue.workflowDefaults,
+            validatingAgainst: fixture.printer
+        )
+        let laterReference = try fixture.queues.save(
+            laterQueue, workflowStore: fixture.workflows,
+            printerStore: fixture.printers
+        )
+        _ = try fixture.active.compareAndSwap(
+            queue: laterReference, expected: fixture.selection,
+            queueStore: fixture.queues, workflowStore: fixture.workflows,
+            printerStore: fixture.printers
+        )
+
+        let retry = try fixture.pipeline.run(
+            queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: "synthetic-waiting-retry",
+            cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario()
+        )
+        XCTAssertEqual(
+            retry.delivery, .transmitted(byteCount: first.preparedByteCount)
+        )
+        XCTAssertEqual(retry.preparedByteCount, first.preparedByteCount)
+    }
+
+    func testRetryableDeviceContentionResumesPreparedArtifact() throws {
+        let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
+        let fixture = try makeFixture(workflowSource: original)
+        let path = fixture.root.appending(path: "retryable-contention.pdf")
+        try original.write(to: path, options: .withoutOverwriting)
+        let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+        let held = try PhysicalDeviceLease(
+            acquiring: PhysicalDeviceIdentity(coordinationID: fixture.physicalDevice),
+            inExistingDirectory: fixture.leaseDirectory
+        )
+
+        let first = try fixture.pipeline.run(
+            queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: "synthetic-contention-retry",
+            cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario()
+        )
+        XCTAssertEqual(first.delivery, .deviceBusy)
+        XCTAssertTrue(first.delivery.mayRetryAutomatically)
+        held.release()
+
+        let retry = try fixture.pipeline.run(
+            queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: "synthetic-contention-retry",
+            cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario()
+        )
+        XCTAssertEqual(
+            retry.delivery, .transmitted(byteCount: first.preparedByteCount)
+        )
+    }
+
+    func testPreparedByteBudgetStopsMultiLabelJobWithoutPublishingPayload() throws {
+        let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
+        let fixture = try makeFixture(
+            workflowSource: original, regionCount: 2,
+            maximumPreparedBytes: 400_000
+        )
+        let path = fixture.root.appending(path: "bounded-multi-label.pdf")
+        try original.write(to: path, options: .withoutOverwriting)
+        let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+
+        XCTAssertThrowsError(try fixture.pipeline.run(
+            queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: "synthetic-bounded-payload",
+            cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario()
+        )) {
+            XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, .preparationFailed)
+        }
+        let state = try AcceptedJobStateStore(
+            acceptedJobStore: fixture.jobs
+        ).load(
+            acceptanceID: "synthetic-bounded-payload",
+            queueStore: fixture.queues,
+            workflowStore: fixture.workflows,
+            printerStore: fixture.printers
+        )
+        XCTAssertEqual(state.phase, .accepted)
+    }
+
+    func testWorkflowStockMustMatchObservedLoadedFace() throws {
+        let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
+        let fixture = try makeFixture(
+            workflowSource: original, useMismatchedOutputStock: true
+        )
+        let path = fixture.root.appending(path: "stock-mismatch.pdf")
+        try original.write(to: path, options: .withoutOverwriting)
+        let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+
+        XCTAssertThrowsError(try fixture.pipeline.run(
+            queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: "synthetic-stock-mismatch",
+            cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario()
+        )) {
+            XCTAssertEqual(
+                $0 as? SyntheticInertJobPipeline.Error, .configurationUnavailable
+            )
+        }
+        XCTAssertThrowsError(try fixture.jobs.load(
+            acceptanceID: "synthetic-stock-mismatch",
+            queueStore: fixture.queues,
+            workflowStore: fixture.workflows,
+            printerStore: fixture.printers
+        ))
+    }
+
+    private func makeFixture(
+        workflowSource: Data,
+        regionCount: Int = 1,
+        maximumPreparedBytes: Int = PreparedJobPayload.maximumBytes,
+        useMismatchedOutputStock: Bool = false
+    ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory.appending(
             path: "SyntheticInertJobPipeline-\(UUID().uuidString)"
         )
@@ -126,10 +288,24 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
             originalPDF: workflowSource, pageNumber: 1
         )
         let observed = try XCTUnwrap(analyzed.anchors?.first)
-        let stock = PhysicalSize(
-            width: try Millimeters.inches(4),
-            height: try Millimeters.inches(6)
-        )
+        let stock = if useMismatchedOutputStock {
+            PhysicalSize(
+                width: try Millimeters.inches(2),
+                height: try Millimeters.inches(3)
+            )
+        } else {
+            PhysicalSize(
+                width: try Millimeters.inches(4),
+                height: try Millimeters.inches(6)
+            )
+        }
+        let regions = try (0..<regionCount).map { index in
+            try ExtractionRegion(
+                id: "full-page-\(index)",
+                normalizedRect: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+                outputOrder: index
+            )
+        }
         let workflow = try WorkflowProfile(
             id: "native-4x6-local", revision: 1,
             outputStockID: "nominal-4x6", outputStock: stock,
@@ -138,11 +314,7 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
                 expectedInput: ExpectedInputPage(
                     uprightPhysicalSize: try box.effectivePhysicalSize()
                 ),
-                disposition: .extract([try ExtractionRegion(
-                    id: "full-page",
-                    normalizedRect: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
-                    outputOrder: 0
-                )]),
+                disposition: .extract(regions),
                 structuralAnchors: [try StructuralAnchorExpectation(
                     id: "observed-border",
                     kind: observed.kind,
@@ -159,12 +331,13 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         )
         let printer = try PrinterProfile.gc420dUSBReference(revision: 1)
         let printerReference = try printers.save(id: "gc420d-usb", profile: printer)
+        let physicalDevice = try PhysicalDeviceCoordinationID(
+            sha256: String(repeating: "d", count: 64)
+        )
         let queue = try VirtualQueueDefinition(
             id: "shipping-native", revision: 1,
             displayName: "Synthetic native labels",
-            physicalDevice: try PhysicalDeviceCoordinationID(
-                sha256: String(repeating: "d", count: 64)
-            ),
+            physicalDevice: physicalDevice,
             workflowProfile: workflowReference,
             printerProfile: printerReference,
             workflowDefaults: PrinterControlRequest(
@@ -196,8 +369,17 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
                 workflowStore: workflows,
                 printerStore: printers,
                 acceptedJobStore: jobs,
-                leaseDirectory: leases
-            )
+                leaseDirectory: leases,
+                maximumPreparedBytes: maximumPreparedBytes
+            ),
+            physicalDevice: physicalDevice,
+            leaseDirectory: leases,
+            queue: queue,
+            selection: try XCTUnwrap(try active.load(
+                queueID: queue.id, queueStore: queues,
+                workflowStore: workflows, printerStore: printers
+            )),
+            printer: printer
         )
     }
 
