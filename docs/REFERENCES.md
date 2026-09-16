@@ -324,3 +324,18 @@ unknown options. A positive local numeric job ID is for private scheduler
 correlation, not public job-identity disclosure. Actual Tahoe log routing and
 correlated invocation still require the finite administrator experiment; API
 documentation and direct ABI success are not installed acceptance.
+
+<a id="r40"></a>
+## R40 — Native CUPS read-only IPP test client
+
+[ipptool](https://www.cups.org/doc/man-ipptool.html) documents URI selection,
+named variables and native timeouts. [ipptoolfile](https://www.cups.org/doc/man-ipptoolfile.html)
+documents required EXPECT/EXPECT-ALL, type/count/value/resource predicates and
+skip-after-error behavior. [Public native client source](https://github.com/OpenPrinting/cups/blob/v2.4.12/tools/ipptool.c)
+uses decoded URI hosts with httpConnect2. This later upstream source is context,
+not a claim about every byte of Apple's installed v2.3.4. The current native
+Unix-socket fixture and read-only absent-queue result establish the recorded
+runtime behavior; they do not establish held-job or privileged acceptance.
+The helper requests only fixed-queue standard metadata and never mutates jobs.
+System-provided CUPS is reused, not redistributed; no new third-party
+implementation/server/dependency is bundled.

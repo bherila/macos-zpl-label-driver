@@ -1,5 +1,20 @@
 # Current implementation handoff — revision 3
 
+The new developer-only readback helper reuses native CUPS, with a verified local
+socket, controlled environment, cumulative 20-second/output bounds and immutable
+read-only request literals. It can inspect only absent experimental queue or
+the exact expected held PDF; no mutations exist. All 14 focused Python tests,
+including the real native Unix-socket HTTP fixture, and the live absent-queue
+query passed. Full/hosted/review gates are pending. Actual held-job mode remains
+NOT RUN. See `validation/M1-READONLY-IPP-READBACK-2026-09-16.md`.
+
+Parent #72 exact `fa6c247` hosted 35112614847 passed with 178 Core/258 Mac
+debug/release, 12 filter ABI cases per mode, signatures and packaged equality.
+First review is clean at base `889472c`, no threads/findings; no merge. The private
+warning-filter candidate checks pass, but noninteractive OS authorization is
+unavailable. No administrator apply, queue/job or device I/O occurred. These
+terminal results supersede the historical pending publication entries below.
+
 The current M1 preparation slice corrects a real observability mismatch: the
 host uses LogLevel warn, but the previous INFO filter marker is documented as
 error-log-visible only at debug2. The discard-only filter now warns once that
