@@ -423,6 +423,9 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
                 originalPDF: sourcePDF,
                 structuralPages: workflow.pageRules.filter { !$0.structuralAnchors.isEmpty }.map(\.sourcePage),
                 workerExecutable: workerExecutable,
+                barcodePages: workflow.pageRules.filter { rule in
+                    rule.structuralAnchors.contains { $0.kind == .barcodeLike }
+                }.map(\.sourcePage),
                 deadlineSeconds: budget.remainingSeconds(), cancellation: budget.cancellation
             )
         } catch OfflineRenderWorkerProcess.Error.cancelled {

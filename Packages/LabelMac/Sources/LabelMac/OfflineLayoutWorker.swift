@@ -14,28 +14,37 @@ public enum OfflineLayoutWorker {
         let structuralPages: [Int]
         let maximumPages: Int?
         let analyzeAllPages: Bool?
+        let barcodePages: [Int]?
 
         init(schemaVersion: Int, structuralPages: [Int], maximumPages: Int? = nil,
-             analyzeAllPages: Bool? = nil) {
+             analyzeAllPages: Bool? = nil, barcodePages: [Int]? = nil) {
             self.schemaVersion = schemaVersion
             self.structuralPages = structuralPages
             self.maximumPages = maximumPages
             self.analyzeAllPages = analyzeAllPages
+            self.barcodePages = barcodePages
         }
 
         var pageLimit: Int { maximumPages ?? ResolvedJobTicket.maximumSourcePages }
+        var requestedBarcodePages: Set<Int> { Set(barcodePages ?? []) }
 
         func requestedPages(count: Int) -> Set<Int> {
             analyzeAllPages == true ? Set(1...count) : Set(structuralPages)
         }
 
         func validate() throws {
-            guard schemaVersion == 1,
+            // Explicit barcode analysis uses a new private protocol version so
+            // an older border-only worker cannot silently ignore the request.
+            guard schemaVersion == (requestedBarcodePages.isEmpty ? 1 : 2),
                   (1...ResolvedJobTicket.maximumSourcePages).contains(pageLimit),
                   analyzeAllPages != true || structuralPages.isEmpty,
                   structuralPages.count <= ResolvedJobTicket.maximumSourcePages,
                   structuralPages == Array(Set(structuralPages)).sorted(),
-                  structuralPages.allSatisfy({ (1...pageLimit).contains($0) }) else {
+                  structuralPages.allSatisfy({ (1...pageLimit).contains($0) }),
+                  (barcodePages ?? []).count <= pageLimit,
+                  (barcodePages ?? []) == Array(requestedBarcodePages).sorted(),
+                  requestedBarcodePages.allSatisfy({ (1...pageLimit).contains($0) }),
+                  analyzeAllPages == true || requestedBarcodePages.isSubset(of: Set(structuralPages)) else {
                 throw OfflineConversionTicket.TicketError.malformedJSON
             }
         }
@@ -64,12 +73,13 @@ public enum OfflineLayoutWorker {
             anchors = page.anchors?.map(Anchor.init)
         }
 
-        func validated() throws -> AnalyzedSourcePage {
+        func validated(allowBarcodeLocations: Bool = false) throws -> AnalyzedSourcePage {
             _ = try PDFSourceRect.validated(x: originX, y: originY, width: width, height: height)
             let box = try PDFPageBox(originX: originX, originY: originY, width: width,
                                      height: height, rotationDegreesClockwise: rotation, userUnit: userUnit)
             _ = try box.effectivePhysicalSize()
-            return try AnalyzedSourcePage(pageBox: box, anchors: anchors?.map { try $0.validated() })
+            return try AnalyzedSourcePage(pageBox: box,
+                anchors: anchors?.map { try $0.validated(allowBarcodeLocations: allowBarcodeLocations) })
         }
     }
 
@@ -86,13 +96,12 @@ public enum OfflineLayoutWorker {
             x = rect.x; y = rect.y; width = rect.width; height = rect.height
         }
 
-        func validated() throws -> ObservedPageAnchor {
-            // This concrete analyzer supports borders only, not invented
-            // barcode values or unqualified detector kinds.
-            guard kind == StructuralAnchorKind.border.rawValue else {
+        func validated(allowBarcodeLocations: Bool = false) throws -> ObservedPageAnchor {
+            guard let typedKind = StructuralAnchorKind(rawValue: kind),
+                  typedKind == .border || (allowBarcodeLocations && typedKind == .barcodeLike) else {
                 throw OfflineRenderWorkerProcess.Error.invalidResult
             }
-            return ObservedPageAnchor(kind: .border,
+            return ObservedPageAnchor(kind: typedKind,
                 normalizedRect: try NormalizedRect(x: x, y: y, width: width, height: height))
         }
     }
@@ -101,11 +110,13 @@ public enum OfflineLayoutWorker {
         originalPDF: Data, structuralPages: [Int], workerExecutable: URL,
         maximumSourcePages: Int = ResolvedJobTicket.maximumSourcePages,
         analyzeAllPages: Bool = false,
+        barcodePages: [Int] = [],
         deadlineSeconds: Double = OfflineRenderWorkerProcess.defaultDeadlineSeconds,
         cancellation: OfflineRenderWorkerCancellation = .init()
     ) throws -> [AnalyzedSourcePage] {
-        let request = Request(schemaVersion: 1, structuralPages: structuralPages.sorted(),
-                              maximumPages: maximumSourcePages, analyzeAllPages: analyzeAllPages)
+        let request = Request(schemaVersion: barcodePages.isEmpty ? 1 : 2, structuralPages: structuralPages.sorted(),
+                              maximumPages: maximumSourcePages, analyzeAllPages: analyzeAllPages,
+                              barcodePages: barcodePages.sorted())
         try request.validate()
         let ticket = try JSONEncoder().encode(request)
         return try OfflineRenderWorkerProcess.runJob(
@@ -125,9 +136,10 @@ public enum OfflineLayoutWorker {
             guard data.count <= maximumOutputBytes else { throw OfflineRenderWorkerProcess.Error.outputLimitExceeded }
             try request.validate()
             let result = try JSONDecoder().decode(Result.self, from: data)
-            guard result.schemaVersion == 1, result.sourceSHA256 == digest(originalPDF),
+            guard result.schemaVersion == request.schemaVersion, result.sourceSHA256 == digest(originalPDF),
                   !result.pages.isEmpty, result.pages.count <= request.pageLimit,
-                  request.structuralPages.allSatisfy({ $0 <= result.pages.count }) else {
+                  request.structuralPages.allSatisfy({ $0 <= result.pages.count }),
+                  request.requestedBarcodePages.allSatisfy({ $0 <= result.pages.count }) else {
                 throw OfflineRenderWorkerProcess.Error.invalidResult
             }
             let requested = request.requestedPages(count: result.pages.count)
@@ -139,7 +151,11 @@ public enum OfflineLayoutWorker {
                 }
                 total += page.anchors?.count ?? 0
                 guard total <= maximumAnchors else { throw OfflineRenderWorkerProcess.Error.outputLimitExceeded }
-                return try page.validated()
+                guard (page.anchors?.filter { $0.kind == StructuralAnchorKind.barcodeLike.rawValue }.count ?? 0)
+                        <= QuartzBarcodeAnalyzer.maximumObservations else {
+                    throw OfflineRenderWorkerProcess.Error.outputLimitExceeded
+                }
+                return try page.validated(allowBarcodeLocations: request.requestedBarcodePages.contains(index + 1))
             }
         } catch let error as OfflineRenderWorkerProcess.Error {
             throw error
@@ -170,22 +186,31 @@ extension OfflineRenderWorkerProcess {
         let boxes = try QuartzPDFRenderer.documentPageBoxes(originalPDF: source,
             maximumInputBytes: ResolvedJobTicket.maximumSourceBytes,
             maximumSourcePages: request.pageLimit)
-        for page in request.structuralPages where page > boxes.count {
+        for page in Set(request.structuralPages).union(request.requestedBarcodePages) where page > boxes.count {
             throw QuartzPDFRenderer.Error.pageOutOfRange(requested: page, pageCount: boxes.count)
         }
         let requested = request.requestedPages(count: boxes.count)
         var total = 0
         let pages = try boxes.enumerated().map { index, box in
-            let page = requested.contains(index + 1)
+            var page = requested.contains(index + 1)
                 ? try QuartzStructuralAnalyzer.analyzeBorders(originalPDF: source, pageNumber: index + 1,
                     maximumInputBytes: ResolvedJobTicket.maximumSourceBytes,
                     maximumSourcePages: request.pageLimit)
                 : try AnalyzedSourcePage(pageBox: box, anchors: nil)
+            if request.requestedBarcodePages.contains(index + 1) {
+                let barcodes = try QuartzBarcodeAnalyzer.analyze(originalPDF: source, pageNumber: index + 1,
+                    maximumInputBytes: ResolvedJobTicket.maximumSourceBytes,
+                    maximumSourcePages: request.pageLimit)
+                guard barcodes.pageBox == page.pageBox else { throw Error.invalidResult }
+                let combined = (page.anchors ?? []) + (barcodes.anchors ?? [])
+                guard combined.count <= 256 else { throw Error.outputLimitExceeded }
+                page = try AnalyzedSourcePage(pageBox: page.pageBox, anchors: combined)
+            }
             total += page.anchors?.count ?? 0
             guard total <= OfflineLayoutWorker.maximumAnchors else { throw Error.outputLimitExceeded }
             return OfflineLayoutWorker.Page(page)
         }
-        let result = OfflineLayoutWorker.Result(schemaVersion: 1,
+        let result = OfflineLayoutWorker.Result(schemaVersion: request.schemaVersion,
             sourceSHA256: OfflineLayoutWorker.digest(source), pages: pages)
         let data = try JSONEncoder().encode(result)
         // Apply the same checked result contract before publishing any facts.
