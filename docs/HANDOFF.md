@@ -5,7 +5,8 @@ real stopped-reader backpressure, reset after observed prefix, exact prepared
 format reassembly across variable reads, and owned non-listening-port failure.
 The production adapter/state machine are unchanged. Twelve focused tests and the
 final descriptor-hygiene repeat passed. Parent PR #69's reviewed crop/media fix
-is inherited; combined focused/full validation is pending. This local work is
+is inherited; all 61 combined focused native tests passed exit 0. Combined full
+validation is in progress. This local work is
 preserved, not published ready.
 M3-AC05 stays open and no
 network-printer/scheduler/USB support is inferred. See
