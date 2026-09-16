@@ -16,8 +16,11 @@ temporary=''
 scheduler=''
 transaction_active=0
 root_reserved=0
+queue_created_by_transaction=0
+transaction_id=''
 approved_sha=''
 approved_ppd_sha=''
+approved_transaction_id=''
 
 die() { echo "ERROR: $*" >&2; exit 2; }
 
@@ -148,8 +151,12 @@ report_residual_state() {
 # remain until the queue is confirmed absent, preserving both behavior and the
 # exact evidence needed for a finite manual recovery.
 cleanup_owned_artifacts() {
-  local state root_state
+  local mode="${1:-automatic}" state root_state
+  [[ "$mode" == automatic || "$mode" == recovery ]] || return 1
   set +e
+  if [[ "$mode" == automatic && "$root_reserved" != 1 ]]; then
+    return 0
+  fi
   protected_root_state
   root_state=$?
   if [[ "$root_state" == 1 ]]; then return 0; fi
@@ -158,7 +165,8 @@ cleanup_owned_artifacts() {
     report_residual_state
     return 1
   fi
-  if ! ownership_record_matches; then
+  if { [[ "$mode" == automatic ]] && ! ownership_record_matches_current; } ||
+    { [[ "$mode" == recovery ]] && ! ownership_record_matches; }; then
     if [[ "$root_reserved" == 1 ]] && empty_reserved_root_matches && remove_root; then
       root_reserved=0
       return 0
@@ -171,6 +179,11 @@ cleanup_owned_artifacts() {
   state=$?
   case "$state" in
     0)
+      if [[ "$mode" == automatic && "$queue_created_by_transaction" != 1 ]]; then
+        echo 'WARNING: retained an ambiguously owned queue and all recovery artifacts' >&2
+        report_residual_state
+        return 1
+      fi
       if ! queue_uri_matches; then
         echo 'WARNING: retained altered queue and all recovery artifacts' >&2
         report_residual_state
@@ -222,7 +235,7 @@ finish_process() {
   local status=$?
   trap - EXIT INT TERM HUP
   if [[ "$transaction_active" == 1 ]]; then
-    cleanup_owned_artifacts || status=2
+    cleanup_owned_artifacts automatic || status=2
   fi
   cleanup_temporary || status=2
   exit "$status"
@@ -248,19 +261,21 @@ reject_queue() { controlled_cupsreject; }
 
 install_transaction() {
   local snapshot="$1" generated="$2" intent="$3"
-  transaction_active=1
-  root_reserved=1
   create_root || return 1
+  root_reserved=1
+  transaction_active=1
   transaction_checkpoint root-created || return 1
   install_intent "$intent" || return 1
   transaction_checkpoint intent-installed || return 1
-  ownership_record_matches || return 1
+  ownership_record_matches_current || return 1
   install_filter "$snapshot" || return 1
   transaction_checkpoint filter-installed || return 1
   validate_installed_filter || return 1
   validate_installed_ppd "$generated" || return 1
-  ensure_queue_absent
+  ensure_queue_absent || return 1
   create_queue "$generated" || return 1
+  queue_uri_matches || return 1
+  queue_created_by_transaction=1
   transaction_checkpoint queue-created || return 1
   disable_queue || return 1
   transaction_checkpoint queue-disabled || return 1
@@ -377,8 +392,8 @@ ownership_record_matches() {
     ! /usr/bin/sudo -n /usr/bin/test -L "$root" || return 1
   root_metadata="$(/usr/bin/sudo -n /usr/bin/stat -f '%u:%g:%Lp' "$root")" || return 1
   [[ "$root_metadata" == '0:0:755' ]] || return 1
-  [[ "$(/usr/bin/sudo -n /usr/bin/awk 'END { print NR }' "$ownership")" == 8 ]] || return 1
-  /usr/bin/sudo -n /usr/bin/grep -Fqx 'schemaVersion=2' "$ownership" || return 1
+  [[ "$(/usr/bin/sudo -n /usr/bin/awk 'END { print NR }' "$ownership")" == 9 ]] || return 1
+  /usr/bin/sudo -n /usr/bin/grep -Fqx 'schemaVersion=3' "$ownership" || return 1
   /usr/bin/sudo -n /usr/bin/grep -Fqx 'state=apply-intent' "$ownership" || return 1
   /usr/bin/sudo -n /usr/bin/grep -Fqx "queue=$queue" "$ownership" || return 1
   /usr/bin/sudo -n /usr/bin/grep -Fqx "uri=$uri" "$ownership" || return 1
@@ -386,9 +401,17 @@ ownership_record_matches() {
   approved_sha="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "filterSHA256" { print $2 }' "$ownership")" || return 1
   source_ppd_sha="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "sourcePPDSHA256" { print $2 }' "$ownership")" || return 1
   recorded_scheduler="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "scheduler" { print $2 }' "$ownership")" || return 1
+  approved_transaction_id="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "transactionID" { print $2 }' "$ownership")" || return 1
   [[ "$approved_sha" =~ ^[0-9a-f]{64}$ && "$source_ppd_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
+  [[ "$approved_transaction_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || return 1
   is_supplied_ppd_sha "$source_ppd_sha" || return 1
   [[ "$recorded_scheduler" == "$scheduler" ]] || return 1
+}
+
+ownership_record_matches_current() {
+  [[ -n "$transaction_id" ]] || return 1
+  ownership_record_matches || return 1
+  [[ "$approved_transaction_id" == "$transaction_id" ]]
 }
 
 plan() {
@@ -447,11 +470,14 @@ apply() {
   discover_local_scheduler
   validate_staging_parent
   ensure_not_existing
-  transaction_active=1
+  transaction_id="$(/usr/bin/uuidgen | /usr/bin/tr '[:upper:]' '[:lower:]')"
+  [[ "$transaction_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] ||
+    die 'could not create a valid transaction identifier'
   local intent="$temporary/OWNERSHIP"
   {
-    echo 'schemaVersion=2'
+    echo 'schemaVersion=3'
     echo 'state=apply-intent'
+    echo "transactionID=$transaction_id"
     echo "queue=$queue"
     echo "uri=$uri"
     echo "scheduler=$scheduler"
@@ -468,7 +494,7 @@ remove() {
   /usr/bin/sudo -v
   discover_local_scheduler
   ownership_record_matches || die 'refusing removal: protected transaction intent does not match'
-  cleanup_owned_artifacts || die 'owned experiment removal is incomplete; residual state was retained'
+  cleanup_owned_artifacts recovery || die 'owned experiment removal is incomplete; residual state was retained'
   echo "Removed owned inert experiment."
 }
 
