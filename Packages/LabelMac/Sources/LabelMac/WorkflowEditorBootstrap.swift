@@ -96,6 +96,7 @@ public enum WorkflowEditorBootstrap {
             revision: 1,
             outputStockID: reference.outputStockID,
             outputStock: reference.outputStock,
+            monochromeConversion: .textAndBarcodeThreshold(cutoff: 128),
             pageRules: rules
         )
         let canvas = try DotCanvas(
@@ -107,7 +108,6 @@ public enum WorkflowEditorBootstrap {
             originalPDF: originalPDF,
             analyzedPages: analyzed,
             canvas: canvas,
-            conversion: .textAndBarcodeThreshold(cutoff: 128),
             store: store
         )
     }

@@ -59,7 +59,8 @@ final class ZPLPreparedLabelEncoderTests: XCTestCase {
                 PreparedOutputLabel(output: outputs[0], prepared: first),
                 PreparedOutputLabel(output: outputs[1], prepared: second),
             ],
-            expectedOutputLabels: outputs
+            expectedOutputLabels: outputs,
+            monochromeConversion: .textAndBarcodeThreshold(cutoff: 128)
         )
         XCTAssertEqual(job.bytes, first.bytes + second.bytes)
         XCTAssertEqual(job.labelCount, 2)
@@ -77,12 +78,14 @@ final class ZPLPreparedLabelEncoderTests: XCTestCase {
         )
         let item = PreparedOutputLabel(output: output, prepared: label)
         XCTAssertThrowsError(try PreparedJobPayload(
-            labels: [item], expectedOutputLabels: [output, output]
+            labels: [item], expectedOutputLabels: [output, output],
+            monochromeConversion: .textAndBarcodeThreshold(cutoff: 128)
         )) {
             XCTAssertEqual($0 as? PreparedJobPayload.Error, .invalidLabelCount)
         }
         XCTAssertThrowsError(try PreparedJobPayload(
-            labels: [item, item], expectedOutputLabels: [output]
+            labels: [item, item], expectedOutputLabels: [output],
+            monochromeConversion: .textAndBarcodeThreshold(cutoff: 128)
         )) {
             XCTAssertEqual($0 as? PreparedJobPayload.Error, .invalidLabelCount)
         }
@@ -94,7 +97,8 @@ final class ZPLPreparedLabelEncoderTests: XCTestCase {
                     resolvedControls: try profile.resolveControls(job: .init())
                 )
             )],
-            expectedOutputLabels: [output]
+            expectedOutputLabels: [output],
+            monochromeConversion: .textAndBarcodeThreshold(cutoff: 128)
         )) { XCTAssertEqual($0 as? PreparedJobPayload.Error, .emptyLabel) }
     }
 
@@ -117,7 +121,8 @@ final class ZPLPreparedLabelEncoderTests: XCTestCase {
             labels: [
                 PreparedOutputLabel(output: outputA, prepared: first),
                 PreparedOutputLabel(output: outputB, prepared: second),
-            ], expectedOutputLabels: [outputA, outputB]
+            ], expectedOutputLabels: [outputA, outputB],
+            monochromeConversion: .textAndBarcodeThreshold(cutoff: 128)
         )) { XCTAssertEqual($0 as? PreparedJobPayload.Error, .profileMismatch) }
 
         let changedControls = PreparedLabel(
@@ -128,14 +133,16 @@ final class ZPLPreparedLabelEncoderTests: XCTestCase {
             labels: [
                 PreparedOutputLabel(output: outputA, prepared: first),
                 PreparedOutputLabel(output: outputB, prepared: changedControls),
-            ], expectedOutputLabels: [outputA, outputB]
+            ], expectedOutputLabels: [outputA, outputB],
+            monochromeConversion: .textAndBarcodeThreshold(cutoff: 128)
         )) { XCTAssertEqual($0 as? PreparedJobPayload.Error, .controlsMismatch) }
 
         XCTAssertThrowsError(try PreparedJobPayload(
             labels: [
                 PreparedOutputLabel(output: outputB, prepared: first),
                 PreparedOutputLabel(output: outputA, prepared: first),
-            ], expectedOutputLabels: [outputA, outputB]
+            ], expectedOutputLabels: [outputA, outputB],
+            monochromeConversion: .textAndBarcodeThreshold(cutoff: 128)
         )) { XCTAssertEqual($0 as? PreparedJobPayload.Error, .outputOrderMismatch) }
     }
 
@@ -155,7 +162,8 @@ final class ZPLPreparedLabelEncoderTests: XCTestCase {
             labels: [
                 PreparedOutputLabel(output: outputA, prepared: first),
                 PreparedOutputLabel(output: outputB, prepared: second),
-            ], expectedOutputLabels: [outputA, outputB], maximumBytes: 3
+            ], expectedOutputLabels: [outputA, outputB],
+            monochromeConversion: .textAndBarcodeThreshold(cutoff: 128), maximumBytes: 3
         )) { XCTAssertEqual($0 as? PreparedJobPayload.Error, .outputLimit) }
     }
 }

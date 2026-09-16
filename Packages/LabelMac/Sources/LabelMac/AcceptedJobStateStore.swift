@@ -8,6 +8,7 @@ import LabelCore
 public struct StoredPreparedJob: Equatable, Sendable {
     public let bytes: Data
     public let outputLabels: [ResolvedOutputLabel]
+    public let monochromeConversion: MonochromeConversion
     public let profileSnapshot: JobProfileSnapshot
     public let resolvedControls: ResolvedPrinterControls
     public let state: AcceptedJobStateRecord
@@ -90,6 +91,7 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
             throw Error.acceptedJobMismatch
         }
         guard payload.outputLabels == bundle.ticket.outputLabels,
+              payload.monochromeConversion == bundle.ticket.monochromeConversion,
               payload.profileSnapshot == JobProfileSnapshot(profile: profile),
               payload.resolvedControls == bundle.ticket.controls else {
             throw Error.preparedPayloadMismatch
@@ -141,6 +143,7 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
             return StoredPreparedJob(
                 bytes: bytes,
                 outputLabels: bundle.ticket.outputLabels,
+                monochromeConversion: bundle.ticket.monochromeConversion,
                 profileSnapshot: JobProfileSnapshot(profile: profile),
                 resolvedControls: bundle.ticket.controls,
                 state: state
