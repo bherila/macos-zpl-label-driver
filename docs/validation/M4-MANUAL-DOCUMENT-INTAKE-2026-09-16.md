@@ -1,6 +1,7 @@
 # Explicit manual document intake
 
 Partial M4-AC01/05/06/09/13 implementation and automated evidence only.
+Implementation commit: `f9db898750cfb897c8b56fd2421a8d9ce09a7c37`.
 
 An explicit Open PDF for Manual Extraction action (Command-Shift-O) uses the
 existing bounded original-document worker for page geometry, without requiring
