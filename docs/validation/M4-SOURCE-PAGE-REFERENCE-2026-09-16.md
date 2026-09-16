@@ -26,8 +26,12 @@ change. The barrier uses real preparation, not a placeholder bitmap.
 The full pre-integration local gate passed at `f1adeeb`: 67 Python, 167 Core and
 191 Mac tests in debug/release, all independent/ABI/inert checks, ad-hoc
 signatures and packaged-worker equality. PR #52's distinct-ID correction
-`5df242b` is now integrated; combined local validation, hosted CI and independent
-review remain pending. GUI and physical acceptance are still unproven.
+`5df242b` is integrated at combined `cdedc7117c474ef3f47d98c60acd2ae5ab0ee2cb`.
+Its full local `bash scripts/ci-swift.sh` gate passed 67 Python, 167 Core and
+192 Mac tests in debug/release, 132 independent round trips, 15/10/1 ABI/inert
+cases, ad-hoc signatures and packaged-worker equality. Own hosted CI and
+independent review remain pending; parent PR #52's correction checks are live.
+GUI and physical acceptance are still unproven.
 
 GUI/source-overlay alignment, keyboard/VoiceOver operation, display zoom and
 direct mouse region selection are NOT RUN or unfinished. This does not complete

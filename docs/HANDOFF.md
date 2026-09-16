@@ -1597,8 +1597,10 @@ The source-page-reference slice is connected locally to the editor. It reuses th
 bounded original-PDF child and strict packed-output validator, labels display
 pixels separately from exact print output, and overlays normalized bounds for
 numerical/keyboard editing. Independent UUID/cancellation protects stale source
-results and replacement opening. Four real-worker tests pass; full validation
-is pending. `M4-SOURCE-PAGE-REFERENCE-2026-09-16.md` records remaining GUI,
+results and replacement opening. Four real-worker tests and combined `cdedc71`
+full gate pass 67/167/192 debug/release, independent checks, signatures and
+packaged-worker equality. Own hosted/review and parent's correction checks remain
+pending. `M4-SOURCE-PAGE-REFERENCE-2026-09-16.md` records remaining GUI,
 zoom and direct-selection gates. No installed or physical acceptance follows.
 
 PR #52's first review identified fixed manual IDs preventing a second workflow
