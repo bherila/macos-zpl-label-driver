@@ -177,6 +177,28 @@ public final class WorkflowEditorModel: ObservableObject {
         isSaved = false
     }
 
+    public func addRegionOnSelectedPage() throws {
+        guard let selectedRegionID else { throw WorkflowProfileDraft.Error.regionNotFound("") }
+        let newID = "region-" + UUID().uuidString.lowercased()
+        var next = try editableDraft()
+        try next.duplicateRegion(id: selectedRegionID, newID: newID)
+        draft = next
+        isSaved = false
+        self.selectedRegionID = newID
+    }
+
+    public func removeSelectedRegion() throws {
+        guard let selectedRegionID,
+              let selected = regions.first(where: { $0.id == selectedRegionID }) else {
+            throw WorkflowProfileDraft.Error.regionNotFound(selectedRegionID ?? "")
+        }
+        var next = try editableDraft()
+        try next.removeRegion(id: selectedRegionID)
+        draft = next
+        isSaved = false
+        self.selectedRegionID = regions.first(where: { $0.sourcePage == selected.sourcePage })?.id
+    }
+
     public func refreshPreview() throws {
         cancelPreview()
         guard let selectedRegionID else {
@@ -400,6 +422,14 @@ public struct WorkflowEditorView: View {
                 Text("180°").tag(ExtractionRotation.degrees180)
                 Text("270°").tag(ExtractionRotation.degrees270)
             }.pickerStyle(.segmented)
+            HStack {
+                Button("Add Region on This Page") { perform(model.addRegionOnSelectedPage) }
+                    .accessibilityHint("Starts with the selected bounds. Set the new label bounds before printing.")
+                Button("Remove Region") { perform(model.removeSelectedRegion) }
+                    .disabled(model.regions.filter { $0.sourcePage == region.sourcePage }.count <= 1)
+            }
+            Text("Each region produces a label. Added regions start with these bounds; adjust them explicitly. A page's last region requires a separate page-handling policy.")
+                .font(.caption)
             HStack {
                 Button("Move Earlier") { perform { try model.moveSelected(by: -1) } }
                     .keyboardShortcut(.upArrow, modifiers: [.command])

@@ -47,6 +47,36 @@ final class WorkflowEditorTests: XCTestCase {
         return data as Data
     }
 
+    func testAddRemoveEditAndSaveMultipleLabelsFromOriginalSource() async throws {
+        let (model, store) = try makeModel()
+        try model.save()
+        let original = model.profile
+        XCTAssertThrowsError(try model.removeSelectedRegion())
+        XCTAssertTrue(model.isSaved)
+        try model.addRegionOnSelectedPage()
+        let addedID = try XCTUnwrap(model.selectedRegionID)
+        XCTAssertNotEqual(addedID, "selected")
+        XCTAssertEqual(model.regions.map(\.sourcePage), [1, 1])
+        XCTAssertEqual(model.profile.revision, original.revision + 1)
+        let size = model.profile.pageRules[0].expectedInput.uprightPhysicalSize
+        try model.setSelectedRegionMillimeters(left: size.width.value / 2, top: 0,
+            width: size.width.value / 2, height: size.height.value)
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        XCTAssertNil(model.lastError)
+        XCTAssertEqual(model.preview?.bitmap.bytes, Array(repeating: [0x00, 0x00], count: 10).flatMap { $0 })
+        XCTAssertEqual(model.preview?.previewPBM, model.preview?.bitmap.pbmData())
+        try model.moveSelected(by: -1)
+        XCTAssertEqual(model.regions.map(\.id), [addedID, "selected"])
+        try model.save()
+        XCTAssertEqual(try store.load(profileID: model.profile.id, revision: model.profile.revision), model.profile)
+        XCTAssertEqual(try store.load(profileID: original.id, revision: original.revision), original)
+        try model.removeSelectedRegion()
+        XCTAssertEqual(model.selectedRegionID, "selected")
+        XCTAssertEqual(model.regions.count, 1)
+        XCTAssertEqual(model.profile.revision, original.revision + 2)
+        XCTAssertNil(model.preview)
+    }
+
     private func makeModel() throws -> (WorkflowEditorModel, WorkflowProfileStore) {
         let source = try PDFPageBox(originX: 0, originY: 0, width: 20, height: 10)
         let sourceSize = try source.effectivePhysicalSize()

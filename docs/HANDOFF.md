@@ -1,5 +1,12 @@
 # Current implementation handoff — revision 3
 
+Current local slice connects add/remove region controls to the typed draft, with
+global order, original-source child previews and immutable revisions preserved.
+The last region on a page cannot be removed implicitly. Six portable draft and
+eleven native editor focused tests passed; full gate pending. See
+`validation/M4-MULTIPLE-REGION-EDITOR-2026-09-16.md`. Parent PR #54's hosted run
+35083659869 and first independent review are still live at the last readback.
+
 Latest local slice: source-page dragging now commits normalized extraction
 bounds through the existing editor model, with captured region/viewport guards.
 Saved-workflow edits advance an immutable revision without overwriting the old
