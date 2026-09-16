@@ -29,9 +29,12 @@ but has no PR; integrate this correction and run its combined gate before promot
 The new developer-only readback helper reuses native CUPS, with a verified local
 socket, controlled environment, cumulative 20-second/output bounds and immutable
 read-only request literals. It can inspect only absent experimental queue or
-the exact expected held PDF; no mutations exist. All 14 focused Python tests,
+the exact expected held PDF; no mutations exist. All 15 final focused Python tests,
 including the real native Unix-socket HTTP fixture, and the live absent-queue
-query passed. Full/hosted/review gates are pending. Actual held-job mode remains
+query passed. First full `66ab5db` gate passed 81/178/258 debug/release, but a
+subsequent thrown termination fault reproduced an unbounded context-wait fallback.
+Explicit bounded cleanup corrects it, with distinct termination-unconfirmed
+failure and closed pipes. Corrected full/hosted/review gates are pending. Actual held-job mode remains
 NOT RUN. See `validation/M1-READONLY-IPP-READBACK-2026-09-16.md`.
 
 Parent #72 exact `fa6c247` hosted 35112614847 passed with 178 Core/258 Mac

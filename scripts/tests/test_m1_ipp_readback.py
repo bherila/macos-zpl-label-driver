@@ -126,6 +126,42 @@ class M1IPPReadbackTests(unittest.TestCase):
         self.assertEqual(json.loads(result.stdout)["code"], "ARGUMENTS_INVALID")
         self.assertNotIn(b"PRIVATE-TEST-MARKER", result.stdout + result.stderr)
 
+    def test_unconfirmed_termination_never_enters_unbounded_context_wait(self):
+        reader, writer = os.pipe()
+        os.close(writer)
+
+        class UnconfirmedChild:
+            def __init__(self):
+                self.stdout = os.fdopen(reader, "rb", buffering=0)
+                self.context_exit_called = False
+                self.killed = False
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.context_exit_called = True
+
+            def poll(self):
+                return None
+
+            def kill(self):
+                self.killed = True
+
+            def wait(self, timeout=None):
+                raise subprocess.TimeoutExpired("synthetic-owned-child", timeout)
+
+        child = UnconfirmedChild()
+        try:
+            with patch.object(readback.subprocess, "Popen", return_value=child):
+                with self.assertRaisesRegex(readback.Rejected, "READBACK_TERMINATION_UNCONFIRMED"):
+                    readback.bounded_command(["synthetic-owned-child"], time.monotonic() + 1)
+            self.assertTrue(child.killed)
+            self.assertFalse(child.context_exit_called)
+            self.assertTrue(child.stdout.closed)
+        finally:
+            child.stdout.close()
+
     @unittest.skipUnless(sys.platform == "darwin", "native macOS CUPS client route")
     def test_native_ipptool_uses_percent_escaped_unix_socket_host(self):
         # One finite HTTP 503 fixture, not an IPP server/decoder or scheduler.

@@ -26,7 +26,9 @@ Program-literal read-only IPP requests are written into a fresh private scratch
 directory, never loaded from untrusted external instruction files. Commands have
 one cumulative 20-second deadline, five-second native timeout and 65536-byte
 captured-output cap. The parent drains nonblocking output and kills/reaps only
-its owned command on failure/timeout. Child diagnostics/metadata are not forwarded
+its owned command on failure/timeout, with at most three seconds of termination
+confirmation grace. Unconfirmed termination is a distinct failure, never an
+unbounded process-context wait or a successful cleanup claim. Child diagnostics/metadata are not forwarded
 or retained. CLI output contains fixed scope/result/error codes, never actual job
 IDs, hostnames, paths, titles, users, raw unknown options or documents.
 
@@ -44,7 +46,7 @@ Before affected work the accelerator passed exit 0, including 132 independent
 round trips, 15 backend/12 filter ABI cases and one inert pipeline. Existing
 bitmap, encoder, order planner, source PDFs and independent decoder are unchanged.
 
-All 14 focused Python tests passed on the local Mac. Thirteen are portable
+All 15 final focused Python tests passed on the local Mac. Fourteen are portable
 validation/resource/privacy cases. One required native-Mac case uses the real
 ipptool against one owned Unix-socket HTTP 503 fixture; it observes the exact
 POST resource and expected failed client status. This is a finite test-only
@@ -58,6 +60,15 @@ client-error-not-found. No actual/invented job was queried. Observed host:
 macOS 26.6.2 / 25G83 ARM, installed CUPS ipptool v2.3.4, Swift 6.3.3,
 Xcode 26.6 / SDK 26.5. No 26.0-runtime coverage is inferred. Full local gate,
 own hosted CI and correctness review are pending at this source checkpoint.
+
+The first full gate at `66ab5db` passed exit 0: 81 Python/178 Core/258 Mac
+debug/release and all accelerator/inert/signature/packaged checks; it did not
+exercise the subsequently identified termination-confirmation fault. A new thrown
+fault regression then failed with the old process-context cleanup, reproducing
+its fallback behavior without leaving a real process alive. The correction uses
+explicit bounded cleanup and closed parent pipes; all 15 focused tests and the
+live absent-queue query passed again. The corrected full gate remains pending.
+This mocked termination failure is not a kernel/process-kill or power-loss test.
 
 Parent PR #72 exact `fa6c247` hosted 35112614847 passed: logs verify 178 Core,
 258 Mac debug/release, 12 filter cases in both modes, local signatures and
