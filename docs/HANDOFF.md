@@ -1278,6 +1278,15 @@ sequence passes with 64 Python, 165 LabelCore, and 120 LabelMac tests in debug
 and release. This remains host-filesystem barrier evidence, not an
 unconditional device-level power-loss claim.
 
+Second-pass review remediation `c4798ef` completes the pathname publication
+boundary. After syncing the record category and store root, publication reopens
+the root through its containing directory, verifies the inode matches the
+already validated root descriptor, and syncs that containing directory before
+success. Exact visible bytes are now reconciled before fallible temporary-file
+staging, so an ambiguous retry cannot be downgraded by a redundant staging
+failure. Two targeted regressions cover both cases; LabelMac reaches 121 tests
+in debug and release on the PR #34 stack.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
