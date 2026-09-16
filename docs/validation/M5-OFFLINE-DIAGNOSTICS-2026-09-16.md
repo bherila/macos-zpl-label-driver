@@ -32,8 +32,12 @@ PASS: full combined local `bash scripts/ci-swift.sh` at `9691a61`, exit 0:
 67 Python, 173 Core and 247 Mac debug/release, both accelerator modes,
 132 independent round trips, inert ABI/pipeline checks, local-ad-hoc signatures
 and packaged-worker PBM/ZPL equality. The subsequent change only corrects the
-UI privacy notice about system clipboard sharing; focused/app verification of
-that correction and own hosted CI/review remain pending.
+UI privacy notice about system clipboard sharing. Correction `97c8a1c` passed
+all three focused tests and `bash scripts/build-local-app.sh`, exit 0, including
+local-ad-hoc executable/app/nested-worker verification and packaged PBM/ZPL equality.
+Its local artifact is `artifacts/setup-app.8rTnRO/Label Printer Driver Setup.app`.
+The full gate was not repeated for this UI-text-only correction; encoder,
+snapshot and worker implementation are unchanged. Own hosted CI/review pending.
 
 NOT RUN: clicking/copying/pasting through the GUI, keyboard/VoiceOver operation,
 quarantined launch, installed diagnostics, scheduler integration or physical tests.
