@@ -79,6 +79,21 @@ final class OfflineRenderWorkerTests: XCTestCase {
         }
     }
 
+    func testAlreadyCancelledRequestIsRejectedBeforeWorkerAdmission() throws {
+        let cancellation = OfflineRenderWorkerCancellation()
+        cancellation.cancel()
+        // Even an unavailable executable is never inspected/admitted for an
+        // already cancelled, otherwise bounded request.
+        XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(
+            originalPDF: Data("%PDF".utf8),
+            ticketJSON: ticket,
+            workerExecutable: URL(fileURLWithPath: "/nonexistent-label-render-worker"),
+            cancellation: cancellation
+        )) {
+            XCTAssertEqual($0 as? OfflineRenderWorkerProcess.Error, .cancelled)
+        }
+    }
+
     func testMalformedInputProducesControlledWorkerFailure() throws {
         XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(
             originalPDF: Data("not a PDF".utf8),
