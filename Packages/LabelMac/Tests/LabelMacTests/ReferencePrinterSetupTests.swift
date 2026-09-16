@@ -6,7 +6,9 @@ import LabelCore
 final class ReferencePrinterSetupTests: XCTestCase {
     func testReferenceSetupNeverTreatsReportedUSBAsDiscoveredDevice() throws {
         let model = try ReferencePrinterSetupModel.gc420dUSB()
-        XCTAssertFalse(model.canEditOfflineWorkflows)
+        XCTAssertTrue(model.canEditOfflineWorkflows)
+        XCTAssertFalse(model.stockLoadedConfirmed)
+        XCTAssertFalse(model.tearOffConfirmed)
         XCTAssertFalse(model.canInstallQueue)
         model.stockLoadedConfirmed = true
         model.tearOffConfirmed = true
@@ -30,6 +32,27 @@ final class ReferencePrinterSetupTests: XCTestCase {
             XCTAssertEqual($0 as? ReferencePrinterSetupModel.Error, .unsupportedSpeed(5))
         }
         XCTAssertEqual(model.selectedSpeedIps, 4)
+    }
+
+    func testOfflineEditingNeverReplacesPhysicalReadinessRequirements() throws {
+        let reference = try PrinterProfile.gc420dUSBReference()
+        let fixture = try PrinterProfile(schemaVersion: reference.schemaVersion,
+            revision: reference.revision, capabilities: reference.capabilities,
+            installedHardware: reference.installedHardware, media: reference.media,
+            connection: ConnectionConfiguration(transport: .usb,
+                stableIdentity: .observed(StableConnectionIdentity(opaqueValue: "synthetic-device"),
+                    evidence: .reportedInstallation)))
+        let model = ReferencePrinterSetupModel(profile: fixture)
+        for stock in [false, true] {
+            for tearOff in [false, true] {
+                model.stockLoadedConfirmed = stock
+                model.tearOffConfirmed = tearOff
+                XCTAssertTrue(model.canEditOfflineWorkflows)
+                XCTAssertEqual(model.canInstallQueue, stock && tearOff)
+                XCTAssertEqual(model.stockLoadedConfirmed, stock)
+                XCTAssertEqual(model.tearOffConfirmed, tearOff)
+            }
+        }
     }
 
     func testUnsupportedAndUnknownFeaturesAreNotPresentedAsSupported() throws {

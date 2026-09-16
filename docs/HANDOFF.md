@@ -1,5 +1,16 @@
 # Current implementation handoff — revision 3
 
+Latest local slice separates offline editor availability from physical readiness.
+Hardware confirmations remain false; installation independently requires both
+stock/tear-off confirmations plus discovered identity. Five focused setup tests
+passed, including a synthetic identity's four confirmation combinations. Full
+gate pending. See `validation/M5-OFFLINE-EDITOR-READINESS-2026-09-16.md`.
+Important correction: the earlier nonempty AXWindows result had AXApplication
+role and exposed menus, not a verified AXWindow. Both direct and new-instance
+Launch Services probes failed the stronger window check. No GUI pass is claimed;
+the exact test app namespace has no live instances. Parent PR #56 hosted run
+35085759520 passed exact `ef26682`; independent review remains live.
+
 Latest local slice connects saved-revision listing and Reopen with PDF in setup.
 It validates the selected immutable snapshot and all original source pages/layout
 through the real worker/planner before creating an unsaved correction revision.
