@@ -72,8 +72,7 @@ On macOS 26.6.2 with Xcode 26.6:
 - repository preflight — passed;
 - Python suite — 64 passed;
 - LabelCore — 165 passed in debug and release;
-- LabelMac — 137 passed in debug; release validation pending at this remediation
-  commit;
+- LabelMac — 137 passed in debug and release;
 - focused descriptor/pipeline/store suite — 12 passed;
 - independent encoder round trips — 132 passed;
 - backend ABI — 15 passed;
