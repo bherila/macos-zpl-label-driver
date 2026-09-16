@@ -31,7 +31,14 @@ same-ID wrong-dimension tests independently discriminate the setup checks.
 Both unsupported detector kinds fail before an intentionally unavailable worker
 can be admitted. Existing original-source preview, stale/cross-store, canonical,
 resource, FIFO and qualification regressions remain intact.
-Full local gate and corrected exact-head hosted/second review are pending.
+At implementation `4d430c376c35f5990498e50606b3d7f607a52dd3`, the full local
+CI-equivalent sequence reached its final verified-app completion: 67 Python,
+171 LabelCore and 208 LabelMac tests passed in debug/release; both accelerator
+runs passed 132 independent round-trips plus inert checks. Local ad-hoc executable,
+app and nested-worker signature checks and packaged-worker PBM/ZPL equality passed.
+The original process handle expired before its exit status could be read; these
+results are confirmed from the complete fail-fast script log, not a recovered
+exit-code claim. Corrected exact-head hosted CI and second review remain pending.
 
 No queue, job, printer, privilege or physical output used. No new schema or
 transport retry authority added. Complete GUI/VoiceOver, install/scheduler and
