@@ -277,7 +277,7 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
     }
 
     private func read(_ directory: Int32) throws -> AcceptedJobStateRecord {
-        let descriptor = openat(directory, "state.json", O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        let descriptor = NonblockingRegularFileDescriptor.open(at: directory, name: "state.json")
         guard descriptor >= 0 else { throw Error.cannotRead }
         defer { close(descriptor) }
         var before = stat()
@@ -312,8 +312,8 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
     }
 
     private func readPrepared(_ directory: Int32) throws -> Data {
-        let descriptor = openat(
-            directory, "prepared.zpl", O_RDONLY | O_NOFOLLOW | O_CLOEXEC
+        let descriptor = NonblockingRegularFileDescriptor.open(
+            at: directory, name: "prepared.zpl"
         )
         guard descriptor >= 0 else { throw Error.preparedPayloadUnavailable }
         defer { close(descriptor) }
