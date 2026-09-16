@@ -21,8 +21,12 @@ unobserved USB identity, qualified speed validation and unsupported/unknown
 feature distinctions. Pre-merge implementation `753fa5a` passed the full local
 67 Python/171 LabelCore/205 LabelMac debug/release gate, 132 independent round trips,
 inert checks, local signatures and packaged-worker PBM/ZPL equality. The combined
-gate after merging PR #56's historical-revision/stock/detector corrections and
-this slice's own hosted CI/review are pending.
+gate at `079163a` after merging PR #56's historical-revision/stock/detector
+corrections passed with exit 0: 67 Python, 171 LabelCore and 209 LabelMac tests
+in debug/release; both accelerator suites, inert checks, local executable/app/
+nested-worker signatures and packaged-worker PBM/ZPL equality passed. This slice's
+own hosted CI/review are pending. Parent corrected run 35088390875 and second
+review were still live at this checkpoint; no clean result inferred.
 
 ## Native accessibility observations and correction
 

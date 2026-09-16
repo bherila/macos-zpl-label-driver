@@ -5,7 +5,9 @@ Hardware confirmations remain false; installation independently requires both
 stock/tear-off confirmations plus discovered identity. Five focused setup tests
 passed, including a synthetic identity's four confirmation combinations. Full
 pre-merge gate passed at `753fa5a` (67/171/205 debug/release plus independent,
-inert, signature and packaged-worker checks); combined gate pending. See
+inert, signature and packaged-worker checks); combined `079163a` gate passed
+exit 0 with 67/171/209 debug/release and all independent/inert/signature/packaged
+checks. Own hosted/review pending. See
 `validation/M5-OFFLINE-EDITOR-READINESS-2026-09-16.md`.
 Important correction: the earlier nonempty AXWindows result had AXApplication
 role and exposed menus, not a verified AXWindow. Both direct and new-instance
