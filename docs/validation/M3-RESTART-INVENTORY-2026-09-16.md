@@ -46,8 +46,11 @@ Both permitted independent code-review passes completed cleanly at `53c6b99`,
 with no inline findings and a final positive reaction. No third pass is needed.
 Hosted workflow run `35069104708` was manually dispatched at the same exact
 head because stacked PR bases do not match the workflow's `main` trigger.
-Repository preflight passed; the macOS ARM job remains running, so hosted
-success is not yet claimed.
+Repository preflight, macOS ARM, and `ci-required` all passed. The hosted log
+confirms 64 Python tests, 165 LabelCore and 152 LabelMac tests in debug/release,
+132 independent round trips, all ABI/inert-pipeline checks, and ad-hoc command
+and setup-app signatures. This is hosted automated evidence, not installed
+scheduler, retail-host, or physical-printer acceptance.
 
 The inventory is not an atomic snapshot of concurrent publication. Its byte
 budgets cover declared artifacts observed during inventory, not a wall-clock

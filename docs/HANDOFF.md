@@ -1410,9 +1410,10 @@ This is partial automated M3-AC09/12 evidence, not an atomic concurrent snapshot
 installed worker startup, scheduler mapping, retention/deletion, or printer pass.
 
 PR #38 completed both permitted independent code-review passes cleanly at
-`53c6b99`, with no inline findings. Hosted run `35069104708` is validating that
-same exact head by manual dispatch; repository preflight passed and the macOS
-ARM build/test/signature job remains running. Stacked PRs do not automatically
+`53c6b99`, with no inline findings. Hosted run `35069104708` passed that
+same exact head by manual dispatch: repository preflight, macOS ARM, and
+`ci-required` are green. Its log confirms the 64/165/152 suites, independent
+oracle, ABI/inert-pipeline checks, and ad-hoc signatures. Stacked PRs do not automatically
 trigger the workflow because its PR branch filter names only `main`.
 
 The M1 read-only scheduler, filter-signature, and three pinned-PPD checks were
