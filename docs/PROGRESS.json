@@ -78,7 +78,7 @@
         "docs/validation/M3-IMMUTABLE-IMAGING-POLICY-2026-09-15.md (8a7fef8 workflow/ticket/prepared-payload conversion binding and fail-closed schema transition; additional partial M2-AC05/09 evidence only)",
         "docs/validation/M2-NONBLOCKING-REGULAR-FILE-OPEN-2026-09-15.md (88fb87e shared nonblocking no-follow PDF/ticket/private-record opens with hard-deadline FIFO subprocess regressions; additional partial M2-AC09/10 evidence only)",
         "docs/validation/M2-WORKER-CANCELLATION-ADMISSION-2026-09-16.md (cf379e8 pre-cancel worker admission; local and hosted run 35071875026 full 67/165/153 debug/release/signatures passed; independent review clean; no scheduler claim)",
-        "docs/validation/M2-EXTRACTION-WORKER-TICKET-2026-09-16.md (explicit extraction worker ticket and real-child region/rotation/mismatch regressions; local full 67/166/156 debug/release gate passed)",
+        "docs/validation/M2-EXTRACTION-WORKER-TICKET-2026-09-16.md (e8ae1fd extraction contract; local and hosted 35072850127 full 67/166/156 debug/release gate passed; independent review clean)",
         "docs/validation/M3-ISOLATED-EXTRACTION-PREPARATION-2026-09-16.md (intake raster preparation uses bounded child and exact returned bitmap validation; local full 67/166/158 debug/release gate passed; PDF layout analysis still in-process)"
       ],
       "blockers": []
