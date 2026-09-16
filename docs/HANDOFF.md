@@ -3,11 +3,30 @@
 The actual setup app now offers an explicit state-only offline diagnostic copy
 action. A fixed boolean allowlist excludes documents, identifiers, paths and raw
 errors, and explicitly establishes no scheduler/install/hardware acceptance.
-Three focused native tests and the app build passed; full local and own hosted
-CI/review remain pending. GUI clipboard operation is NOT RUN. See
+Implementation `9691a61` passed the full local gate exit 0: 67 Python, 173 Core
+and 247 Mac debug/release, accelerator/independent/inert checks, local signatures
+and packaged-worker equality. The UI-only clipboard-sharing notice correction
+`97c8a1c` passed all three focused tests and rebuilt-app/nested-worker signature
+and PBM/ZPL checks; artifact `artifacts/setup-app.8rTnRO` is local only. Own
+hosted CI/review remain pending. GUI clipboard operation is NOT RUN. See
 `validation/M5-OFFLINE-DIAGNOSTICS-2026-09-16.md`. The earlier maintainer manual
 editor check still uses its separately pinned artifact and does not require this
 new action or another build.
+
+Current parent results: PR #63 corrected exact `2d90797` hosted 35100917390
+passed and second review is clean. PR #64 exact `0697595` hosted 35101596096
+passed and first review is clean. PR #65 exact `be346a8` hosted 35102242434
+passed with 244 native tests debug/release, signatures and packaged equality
+verified in logs. Documentation PR #66 exact `03a8d8f` hosted 35102473931 passed.
+No merges occurred; actual GUI, administrator M1, production identity/access,
+USB delivery and physical acceptance remain unproven.
+
+## Earlier slice checkpoints — historical status
+
+The following entries preserve the sequence of work. Their pending/live claims
+describe those earlier checkpoints, not current blockers; the verified current
+results above supersede them. Unperformed GUI, scheduler and hardware criteria
+remain open and are never superseded by portable or hosted test success.
 
 The finite offline editor check now has Finder-only steps, exact supplied Letter
 crop values, artifact identity and a short result template in
