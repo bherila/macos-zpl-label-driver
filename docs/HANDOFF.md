@@ -1052,6 +1052,23 @@ publication and rollback, held-job capture, UI defaults, restart repair,
 uninstall, system-state preservation, and all administrator/hardware evidence
 remain open.
 
+At `d6c4130`, M3/M5 gained a bounded deterministic accepted-job ticket. The
+ticket binds the exact immutable queue, workflow, printer profile, physical
+device coordination digest, and active-selection generation; records source
+identity and bounded intake provenance; makes final ordering and skipped pages
+explicit; assigns copies, page ranges, extraction, orientation, and scaling to
+exactly one owner; and snapshots fully resolved printer controls including the
+media-geometry request. Full decode requires resolution of every exact immutable
+reference and independently re-derives the output plan, so changed revisions,
+ordering, ownership, unsupported controls, unknown fields, oversized data, and
+overflowing copy expansion fail closed. Eight focused tests and the complete
+CI-equivalent sequence pass with 153 LabelCore and 87 LabelMac tests in both
+configurations. This is partial automated M3-AC02/12 and M5-AC05/07 evidence
+only. The ticket is not yet a persistent accepted-job record or scheduler intake
+boundary; held-job release, restart recovery, retention, system-dialog option
+propagation, cross-process delivery, and all administrator/hardware evidence
+remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
