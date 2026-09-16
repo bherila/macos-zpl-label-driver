@@ -15,8 +15,13 @@ PASS: pre-change offline accelerator suite, exit 0, including 132 independent
 round trips and inert ABI/filter pipeline checks.
 PASS: `swift test --package-path Packages/LabelMac --filter QuartzPDFRendererTests`,
 26 tests, zero failures, exit 0. Native environment: macOS 26.6.2 build 25G83,
-Apple Silicon, Swift 6.3.3. These results concern the working implementation;
-the full combined gate and this slice's hosted CI remain pending.
+Apple Silicon, Swift 6.3.3.
+PASS: full `bash scripts/ci-swift.sh` at `c93e572`, exit 0: 67 Python,
+173 LabelCore and 244 LabelMac tests in debug/release; both accelerator modes,
+132 independent round trips, inert ABI/filter pipeline checks, local-ad-hoc
+ARM/minimum-26 executable/app/nested-worker signatures and packaged-worker
+PBM/ZPL equality. Subsequent evidence-only edits are checked by repository preflight.
+PENDING: this slice's own exact-head hosted CI.
 
 No rendering implementation, shipped fixture, public schema, encoding or transport
 changes. No queues installed, jobs submitted or printer I/O. Exact minimum runtime,

@@ -3,8 +3,17 @@
 An additional actual-size `/UserUnit` discriminator holds raw page geometry and
 vector artwork constant and verifies every dot as units 1 and 2 produce different
 physical extents. All 26 renderer tests and the pre-change accelerator suite passed;
-full combined gate and own hosted publication remain pending. Existing compensated
-fixtures and oracle are unchanged. See `validation/M2-USERUNIT-EXTENT-2026-09-16.md`.
+Full local gate at `c93e572` subsequently passed exit 0: 67 Python, 173 Core
+and 244 Mac debug/release, both accelerator modes, independent/inert checks,
+local signatures and packaged-worker PBM/ZPL equality. Own hosted publication
+remains pending. Existing compensated fixtures and oracle are unchanged. See
+`validation/M2-USERUNIT-EXTENT-2026-09-16.md`.
+
+Parent PR #63 corrected hosted run 35100917390 passed exact `2d90797`, including
+237 native Mac tests debug/release, local signatures and packaged equality.
+Second review is clean at unchanged base/head; its sole evidence finding is
+resolved. PR #64 hosted run 35101596096 and first review remain live. No merge
+or scheduler/GUI/physical acceptance follows.
 
 Native location-only barcode integration reuses the corrected Quartz analysis
 raster and existing deadline-supervised child. Explicit version-2 requests bind
