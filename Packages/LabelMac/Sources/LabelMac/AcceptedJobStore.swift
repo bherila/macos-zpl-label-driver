@@ -5,7 +5,20 @@ import LabelCore
 
 public struct AcceptedJobBundle: Equatable, Sendable {
     public let ticket: ResolvedJobTicket
+    public let acceptedTicketSHA256: String
     public let sourcePDF: Data
+}
+
+private final class AcceptedJobDirectoryCapability: @unchecked Sendable {
+    let descriptor: Int32
+
+    init(descriptor: Int32) {
+        self.descriptor = descriptor
+    }
+
+    deinit {
+        close(descriptor)
+    }
 }
 
 /// Private immutable publication of an accepted ticket and its exact original
@@ -37,6 +50,7 @@ public struct AcceptedJobStore: @unchecked Sendable {
 
     public let root: URL
     private let directoryName = "accepted-jobs"
+    private let directoryCapability: AcceptedJobDirectoryCapability
     private let injectFault: @Sendable (FaultPoint) throws -> Void
 
     public init(root: URL) throws {
@@ -61,8 +75,13 @@ public struct AcceptedJobStore: @unchecked Sendable {
             rootDescriptor, directoryName, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
         )
         guard directory >= 0 else { throw Error.cannotOpenStore }
-        defer { close(directory) }
-        try Self.validateDirectory(directory)
+        do {
+            try Self.validateDirectory(directory)
+        } catch {
+            close(directory)
+            throw error
+        }
+        self.directoryCapability = AcceptedJobDirectoryCapability(descriptor: directory)
     }
 
     public func save(
@@ -73,8 +92,12 @@ public struct AcceptedJobStore: @unchecked Sendable {
         printerStore: PrinterProfileStore
     ) throws {
         let ticketBytes = try ResolvedJobTicketJSON.encode(ticket)
+        let ticketDigest = Self.digest(ticketBytes)
         let stateBytes = try AcceptedJobStateJSON.encode(
-            AcceptedJobStateRecord.accepted(acceptanceID: ticket.acceptanceID)
+            AcceptedJobStateRecord.accepted(
+                acceptanceID: ticket.acceptanceID,
+                acceptedTicketSHA256: ticketDigest
+            )
         )
         try Self.validateSource(sourcePDF, ticket: ticket)
         _ = try validateTicket(
@@ -127,7 +150,8 @@ public struct AcceptedJobStore: @unchecked Sendable {
                     directory: directory, name: finalName
                 )
                 guard existing.ticket == ticketBytes, existing.source == sourcePDF,
-                      existing.state.acceptanceID == ticket.acceptanceID else {
+                      existing.state.acceptanceID == ticket.acceptanceID,
+                      existing.state.acceptedTicketSHA256 == ticketDigest else {
                     throw Error.jobConflict
                 }
                 return
@@ -158,11 +182,47 @@ public struct AcceptedJobStore: @unchecked Sendable {
                 queueStore: queueStore, workflowStore: workflowStore,
                 printerStore: printerStore
             )
-            guard bytes.state.acceptanceID == ticket.acceptanceID else {
+            let ticketDigest = Self.digest(bytes.ticket)
+            guard bytes.state.acceptanceID == ticket.acceptanceID,
+                  bytes.state.acceptedTicketSHA256 == ticketDigest else {
                 throw Error.jobIdentityMismatch
             }
-            return AcceptedJobBundle(ticket: ticket, sourcePDF: bytes.source)
+            return AcceptedJobBundle(
+                ticket: ticket,
+                acceptedTicketSHA256: ticketDigest,
+                sourcePDF: bytes.source
+            )
         }
+    }
+
+    func loadBundle(
+        from bundle: Int32,
+        acceptanceID: String,
+        queueStore: VirtualQueueStore,
+        workflowStore: WorkflowProfileStore,
+        printerStore: PrinterProfileStore
+    ) throws -> AcceptedJobBundle {
+        try Self.validateAcceptanceID(acceptanceID)
+        try Self.validateDirectory(bundle)
+        let ticketBytes = try Self.read(
+            name: "ticket.json", directory: bundle,
+            maximumBytes: ResolvedJobTicketJSON.maximumBytes
+        )
+        let source = try Self.read(
+            name: "source.pdf", directory: bundle,
+            maximumBytes: ResolvedJobTicket.maximumSourceBytes
+        )
+        let ticket = try validateTicket(
+            ticketBytes, sourcePDF: source,
+            expectedAcceptanceID: acceptanceID,
+            queueStore: queueStore, workflowStore: workflowStore,
+            printerStore: printerStore
+        )
+        return AcceptedJobBundle(
+            ticket: ticket,
+            acceptedTicketSHA256: Self.digest(ticketBytes),
+            sourcePDF: source
+        )
     }
 
     static func directoryName(_ acceptanceID: String) -> String {
@@ -234,17 +294,47 @@ public struct AcceptedJobStore: @unchecked Sendable {
     }
 
     private func withStoreDirectory<T>(_ body: (Int32) throws -> T) throws -> T {
-        let rootDescriptor = open(root.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
-        guard rootDescriptor >= 0 else { throw Error.cannotOpenStore }
-        defer { close(rootDescriptor) }
-        try Self.validateDirectory(rootDescriptor)
-        let directory = openat(
-            rootDescriptor, directoryName, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
-        )
+        let directory = fcntl(directoryCapability.descriptor, F_DUPFD_CLOEXEC, 0)
         guard directory >= 0 else { throw Error.cannotOpenStore }
         defer { close(directory) }
         try Self.validateDirectory(directory)
         return try body(directory)
+    }
+
+    func withLockedBundle<T>(
+        acceptanceID: String,
+        body: (Int32) throws -> T
+    ) throws -> T {
+        try Self.validateAcceptanceID(acceptanceID)
+        return try withStoreDirectory { jobs in
+            let bundle = openat(
+                jobs, Self.directoryName(acceptanceID),
+                O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+            )
+            guard bundle >= 0 else { throw Error.cannotOpenStore }
+            defer { close(bundle) }
+            try Self.validateDirectory(bundle)
+            let lock = openat(
+                bundle, ".state.lock",
+                O_RDWR | O_CREAT | O_NOFOLLOW | O_CLOEXEC,
+                mode_t(0o600)
+            )
+            guard lock >= 0 else { throw Error.cannotOpenStore }
+            defer { close(lock) }
+            var info = stat()
+            guard fstat(lock, &info) == 0,
+                  (info.st_mode & S_IFMT) == S_IFREG,
+                  info.st_uid == geteuid(), info.st_nlink == 1,
+                  (info.st_mode & 0o077) == 0 else {
+                throw Error.unsafeStoreDirectory
+            }
+            while flock(lock, LOCK_EX) != 0 {
+                if errno == EINTR { continue }
+                throw Error.cannotOpenStore
+            }
+            defer { _ = flock(lock, LOCK_UN) }
+            return try body(bundle)
+        }
     }
 
     private func readBundleBytes(
