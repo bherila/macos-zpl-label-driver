@@ -55,6 +55,27 @@ native dialog checks remain pending. After integration, 45 focused native tests
 passed: fourteen editor, five transfer, fourteen document-opening and twelve
 bootstrap. The transfer preservation test explicitly acknowledges the displayed
 profile/packed preview before approval; imports preserve that current review state.
+Combined `ac504a7` passed full local gate exit 0 with 67 Python/173 Core/218 Mac
+debug/release, independent/inert checks, local signatures and packaged-worker
+equality. Parent corrected hosted 35091595114 passed exact `a1e1f58` with 212 native
+debug/release tests and package/signature checks. Its second review then found
+4025638071: reverting an unsaved edit can resurrect value-bound acknowledgement.
+Publication remains held until the same-branch mutation-invalidation fix is
+integrated and the combined gate rerun; no third review request is planned.
+
+## Inert native-window diagnostic — not product acceptance
+
+A separate locally signed, minimal SwiftUI fixture with only synthetic text and
+an empty button action was launched once as a new instance. It created one owned
+layer-zero WindowServer window, but the same finite 15-second probe returned
+AXApplication through AXWindows and unavailable main/focused window attributes.
+No control was invoked. Owned-instance closure metadata stayed false during the
+bounded termination wait; follow-up exact-fixture inventory found zero app records
+and zero live matching processes. No unrelated app was adopted or terminated.
+This reproduces the access failure without PDF/profile initialization; it does
+not isolate a cause or establish an OS restriction, nor pass product GUI criteria.
+The fixture/probe remained outside the repository; no source renderer/codec was
+replaced and no private window content was exported.
 
 ## Finite native validation — NOT RUN
 

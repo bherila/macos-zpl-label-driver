@@ -8,8 +8,13 @@ including real-worker preservation of the current editor/preview/local approval.
 At `8067779`, full local 67/173/216 debug/release gate passed exit 0 with independent,
 inert, signature and packaged-worker checks. PR #58's exact-profile/displayed-preview
 review correction is now integrated from `a1e1f58`; 45 combined focused native
-tests passed. Combined full gate pending before
-publication. Its corrected hosted/second review remain live. See
+tests passed. Combined `ac504a7` full local 67/173/218 gate passed exit 0 with
+independent/inert/signature/packaged checks. Publication held again on parent #58
+second-review finding 4025638071 (undo can resurrect value-bound review); fix on
+that branch and integrate before publication. Parent corrected hosted 35091595114
+passed `a1e1f58`; no clean second review or GUI acceptance claimed. The same finite
+AX access failure occurs in an inert minimal SwiftUI fixture, with an owned
+WindowServer window and no remaining live instance; cause remains unresolved. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. No queue,
 privilege or device I/O. Noninteractive administrator authorization remains absent.
 
