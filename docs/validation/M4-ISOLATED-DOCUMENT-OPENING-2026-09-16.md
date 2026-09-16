@@ -48,6 +48,11 @@ No administrator, queue or printer operation occurred.
 
 ## Finite local GUI validation (not yet run)
 
+On 2026-09-16 the UI automation entry point failed to start its runtime
+(`failed to start Node runtime: No such file or directory`) before the setup
+app opened. GUI inspection is NOT RUN. The failure is tooling evidence, not
+an application launch failure; no GUI acceptance is inferred.
+
 Use the locally built ad-hoc setup app and committed synthetic native, Letter,
 A4, mixed-page and changed-layout fixtures only. No queue creation, privileged
 installation, printing, or printer commands are authorized by this procedure.
