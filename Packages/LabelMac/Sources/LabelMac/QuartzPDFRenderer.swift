@@ -198,7 +198,15 @@ public enum QuartzPDFRenderer {
         } catch {
             throw Error.invalidPageGeometry
         }
-        let drawingTransform = try plannedDrawingTransform(page: page, target: fullTarget)
+        let drawingTransform: CGAffineTransform
+        if let region = request.sourceRegion {
+            let selected = pageBox.sourceRect(for: region)
+            drawingTransform = try plannedDrawingTransform(page: page, target: unrotatedTarget,
+                selectedSource: CGRect(x: selected.x, y: selected.y,
+                    width: selected.width, height: selected.height))
+        } else {
+            drawingTransform = try plannedDrawingTransform(page: page, target: fullTarget)
+        }
         let byteCount = pixels
         var storage = Data(repeating: 0, count: byteCount)
         let result: Bool = storage.withUnsafeMutableBytes { rawBuffer in
@@ -308,7 +316,9 @@ public enum QuartzPDFRenderer {
     /// map its resulting rectangle to the planner's independently rounded X/Y
     /// dot extent. The observed native drawing transform is not relied on to
     /// enlarge a page. These affine operations compose before one rasterization.
-    private static func plannedDrawingTransform(page: CGPDFPage, target: CGRect) throws -> CGAffineTransform {
+    private static func plannedDrawingTransform(
+        page: CGPDFPage, target: CGRect, selectedSource: CGRect? = nil
+    ) throws -> CGAffineTransform {
         let effective = page.getBoxRect(.cropBox).intersection(page.getBoxRect(.mediaBox))
         guard !effective.isNull, !effective.isEmpty else { throw Error.invalidPageGeometry }
         let quarterTurn = page.rotationAngle % 180 != 0
@@ -316,7 +326,11 @@ public enum QuartzPDFRenderer {
             width: quarterTurn ? effective.height : effective.width,
             height: quarterTurn ? effective.width : effective.height)
         let base = page.getDrawingTransform(.cropBox, rect: upright, rotate: 0, preserveAspectRatio: true)
-        let mapped = effective.applying(base)
+        // Map the selected original-space rectangle directly. Expanding a
+        // normalized crop into a synthetic full-sheet target and then dividing
+        // it by the full page introduces avoidable rounding in the final scale.
+        // The preceding fullPageTarget check still bounds near-zero regions.
+        let mapped = (selectedSource ?? effective).applying(base)
         guard [mapped.minX, mapped.minY, mapped.width, mapped.height].allSatisfy(\.isFinite),
               mapped.width > 0, mapped.height > 0 else { throw Error.invalidPageGeometry }
         let sx = target.width / mapped.width, sy = target.height / mapped.height

@@ -21,6 +21,145 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         let printer: PrinterProfile
     }
 
+    func testThreeReferenceSheetsPreserveInputGeometryThroughCompleteInertPipeline() throws {
+        let references: [(String, String, Double, Double)] = [
+            ("native-vector", "native-4x6", 288, 432),
+            ("letter-one", "letter-to-4x6", 612, 792),
+            ("a4-one", "a4-to-4x6", 595.2756, 841.8898),
+        ]
+        var bitmaps: [MonochromeBitmap] = []
+        var payloads: [Data] = []
+        var sourceDigests: Set<String> = []
+        for (name, workflowID, widthPoints, heightPoints) in references {
+            let original = try Data(contentsOf: fixtureURL("\(name).pdf"))
+            let fixture = try makeFixture(workflowSource: original,
+                regionOverride: referenceRegion(name), workflowID: workflowID,
+                queueID: "shipping-\(workflowID)")
+            let workflow = try fixture.workflows.load(profileID: workflowID, revision: 1)
+            let input = try XCTUnwrap(workflow.pageRules.first).expectedInput.uprightPhysicalSize
+            XCTAssertEqual(input.width.value, widthPoints * 25.4 / 72, accuracy: 1e-8)
+            XCTAssertEqual(input.height.value, heightPoints * 25.4 / 72, accuracy: 1e-8)
+            XCTAssertEqual(workflow.outputStockID, "nominal-4x6")
+            XCTAssertEqual(workflow.outputStock.width.value, 101.6, accuracy: 1e-8)
+            XCTAssertEqual(workflow.outputStock.height.value, 152.4, accuracy: 1e-8)
+            let path = fixture.root.appending(path: "source.pdf")
+            try original.write(to: path, options: .withoutOverwriting)
+            let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+            guard descriptor >= 0 else { return XCTFail("could not open synthetic source") }
+            defer { close(descriptor) }
+            let result = try fixture.pipeline.run(queueID: fixture.queue.id,
+                sourcePDFDescriptor: descriptor, acceptanceID: "reference-\(name)",
+                cancellationToken: Data("synthetic cancellation capability".utf8),
+                scenario: try InertDeliveryScenario(maximumChunkBytes: 4_096))
+            XCTAssertEqual(result.outputLabelCount, 1)
+            XCTAssertEqual(result.delivery, .transmitted(byteCount: result.preparedByteCount))
+            let bundle = try fixture.jobs.load(acceptanceID: result.acceptanceID,
+                queueStore: fixture.queues, workflowStore: fixture.workflows,
+                printerStore: fixture.printers)
+            XCTAssertEqual(bundle.sourcePDF, original)
+            XCTAssertEqual(bundle.ticket.workflowProfile, fixture.queue.workflowProfile)
+            sourceDigests.insert(bundle.ticket.sourceDocumentSHA256)
+            let stored = try AcceptedJobStateStore(acceptedJobStore: fixture.jobs).loadPrepared(
+                acceptanceID: result.acceptanceID, queueStore: fixture.queues,
+                workflowStore: fixture.workflows, printerStore: fixture.printers)
+            let plan = try ExtractionPlanner.plan(
+                analyzedPages: OfflineLayoutWorker.analyze(originalPDF: bundle.sourcePDF,
+                    structuralPages: [1], workerExecutable: renderWorkerExecutable()),
+                profile: workflow)
+            let label = try XCTUnwrap(plan.outputLabels.first)
+            XCTAssertEqual(label.sourceRect.width, 288, accuracy: 1e-8)
+            XCTAssertEqual(label.sourceRect.height, 432, accuracy: 1e-8)
+            let canvas = try DotCanvas(physicalSize: workflow.outputStock,
+                resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+            XCTAssertEqual(canvas.bitmapLayout.width, 813)
+            XCTAssertEqual(canvas.bitmapLayout.height, 1219)
+            let prepared = try QuartzPlannedExtraction.prepare(originalPDF: bundle.sourcePDF,
+                label: label, canvas: canvas,
+                conversion: bundle.ticket.monochromeConversion)
+            XCTAssertEqual(prepared.previewPBM, prepared.bitmap.pbmData())
+            let encoded = try ZPLPreparedLabelEncoder().prepare(bitmap: prepared.bitmap,
+                profile: fixture.printer, workflowDefaults: PrinterControlDefaults(
+                    thermalMethod: fixture.queue.workflowDefaults.thermalMethod,
+                    finishing: fixture.queue.workflowDefaults.finishing,
+                    printSpeedIps: fixture.queue.workflowDefaults.printSpeedIps))
+            XCTAssertEqual(encoded.resolvedControls, stored.resolvedControls)
+            XCTAssertEqual(stored.bytes, encoded.bytes)
+            bitmaps.append(prepared.bitmap)
+            payloads.append(stored.bytes)
+        }
+        XCTAssertEqual(sourceDigests.count, 3)
+        let letterPixels = bitmaps[1].grayscalePreview().pixels
+        let a4Pixels = bitmaps[2].grayscalePreview().pixels
+        let differences = letterPixels.indices.filter { letterPixels[$0] != a4Pixels[$0] }
+        XCTAssertEqual(differences.count, 0, "Letter/A4 artwork must agree at every dot")
+        XCTAssertEqual(digest(Data(bitmaps[1].bytes)), digest(Data(bitmaps[2].bytes)))
+        XCTAssertEqual(digest(payloads[1]), digest(payloads[2]))
+        // The supplied native PDF alone has sheet-corner markers inside the
+        // label. Exclude only their <=6-point edge extent; all shared artwork
+        // (including both barcode types and the frame) must agree dot for dot.
+        let native = bitmaps[0].grayscalePreview().pixels
+        let letter = bitmaps[1].grayscalePreview().pixels
+        for y in 24..<(1219 - 24) {
+            let row = (y * 813 + 24)..<(y * 813 + 813 - 24)
+            XCTAssertEqual(Array(native[row]), Array(letter[row]), "shared artwork row \(y)")
+        }
+        XCTAssertNotEqual(bitmaps[0], bitmaps[1], "native corner markers must remain visible")
+    }
+
+    func testReferenceLetterWorkflowRejectsChangedWrongSizedAndUnconfiguredIntake() throws {
+        let original = try Data(contentsOf: fixtureURL("letter-one.pdf"))
+        let fixture = try makeFixture(workflowSource: original,
+            regionOverride: referenceRegion("letter-one"), workflowID: "letter-one",
+            queueID: "shipping-letter-one")
+        for (name, queueID, expected) in [
+            ("layout-changed", fixture.queue.id, SyntheticInertJobPipeline.Error.layoutRejected),
+            ("a4-one", fixture.queue.id, .layoutRejected),
+            ("letter-one", "unconfigured-sheet", .configurationUnavailable),
+        ] {
+            let path = fixture.root.appending(path: "\(name)-\(queueID).pdf")
+            try Data(contentsOf: fixtureURL("\(name).pdf")).write(to: path, options: .withoutOverwriting)
+            let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+            guard descriptor >= 0 else { return XCTFail("could not open synthetic source") }
+            defer { close(descriptor) }
+            let acceptanceID = "rejected-\(name)"
+            XCTAssertThrowsError(try fixture.pipeline.run(queueID: queueID,
+                sourcePDFDescriptor: descriptor, acceptanceID: acceptanceID,
+                cancellationToken: Data("synthetic cancellation capability".utf8),
+                scenario: try InertDeliveryScenario())) {
+                XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, expected)
+            }
+            XCTAssertNil(try fixture.jobs.loadIfPresent(acceptanceID: acceptanceID,
+                queueStore: fixture.queues, workflowStore: fixture.workflows,
+                printerStore: fixture.printers))
+        }
+    }
+
+    // Test-source manifest coordinates are explicit fixture evidence, not a
+    // guessed crop or a product profile schema. Never regenerate this oracle.
+    private func referenceRegion(_ id: String) throws -> NormalizedRect {
+        let manifest = try XCTUnwrap(JSONSerialization.jsonObject(with:
+            Data(contentsOf: fixtureURL("manifest.json"))) as? [String: Any])
+        let fixtures = try XCTUnwrap(manifest["fixtures"] as? [[String: Any]])
+        let fixture = try XCTUnwrap(fixtures.first { $0["id"] as? String == id })
+        let pages = try XCTUnwrap(fixture["pages"] as? [[String: Any]])
+        XCTAssertEqual(pages.count, 1)
+        let regions = try XCTUnwrap(pages.first?["regions"] as? [[String: Any]])
+        XCTAssertEqual(regions.count, 1)
+        let rect = try XCTUnwrap(regions.first?["rawRect"] as? [Double])
+        XCTAssertEqual(rect.count, 4)
+        let box = try XCTUnwrap(QuartzPDFRenderer.documentPageBoxes(
+            originalPDF: Data(contentsOf: fixtureURL("\(id).pdf"))).first)
+        XCTAssertEqual(box.originX, 0)
+        XCTAssertEqual(box.originY, 0)
+        XCTAssertEqual(box.rotationDegreesClockwise, 0)
+        // The writer rounds A4 box coordinates in the committed PDF. Bind the
+        // explicit raw fixture region to those actual bytes, not the manifest's
+        // pre-serialization normalized dimensions. No region is inferred.
+        return try NormalizedRect(x: rect[0] / box.width,
+            y: (box.height - rect[1] - rect[3]) / box.height,
+            width: rect[2] / box.width, height: rect[3] / box.height)
+    }
+
     func testDescriptorBoundPDFIsAcceptedPreparedAndInertlyDelivered() throws {
         let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
         let fixture = try makeFixture(workflowSource: original)
@@ -464,7 +603,10 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         maximumPreparedBytes: Int = PreparedJobPayload.maximumBytes,
         useMismatchedOutputStock: Bool = false,
         workerOverride: URL? = nil,
-        anchorOverride: ObservedPageAnchor? = nil
+        anchorOverride: ObservedPageAnchor? = nil,
+        regionOverride: NormalizedRect? = nil,
+        workflowID: String = "native-4x6-local",
+        queueID: String = "shipping-native"
     ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory.appending(
             path: "SyntheticInertJobPipeline-\(UUID().uuidString)"
@@ -501,12 +643,12 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         let regions = try (0..<regionCount).map { index in
             try ExtractionRegion(
                 id: "full-page-\(index)",
-                normalizedRect: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+                normalizedRect: regionOverride ?? NormalizedRect(x: 0, y: 0, width: 1, height: 1),
                 outputOrder: index
             )
         }
         let workflow = try WorkflowProfile(
-            id: "native-4x6-local", revision: 1,
+            id: workflowID, revision: 1,
             outputStockID: "nominal-4x6", outputStock: stock,
             pageRules: [try WorkflowPageRule(
                 sourcePage: 1,
@@ -534,7 +676,7 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
             sha256: String(repeating: "d", count: 64)
         )
         let queue = try VirtualQueueDefinition(
-            id: "shipping-native", revision: 1,
+            id: queueID, revision: 1,
             displayName: "Synthetic native labels",
             physicalDevice: physicalDevice,
             workflowProfile: workflowReference,
