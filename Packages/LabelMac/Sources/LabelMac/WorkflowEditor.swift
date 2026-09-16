@@ -220,6 +220,32 @@ public final class WorkflowEditorModel: ObservableObject {
         lastError = nil
     }
 
+    /// A confirmation captured for an earlier revision cannot discard current crops.
+    public func skipPage(_ sourcePage: Int, reason: NonLabelPageReason,
+                         expectedProfile: WorkflowProfile) throws {
+        guard profile == expectedProfile else { throw WorkflowProfileDraft.Error.invalidPageDisposition }
+        var next = try editableDraft()
+        try next.skipPage(sourcePage, reason: reason)
+        draft = next
+        isSaved = false
+        cancelPreview()
+        cancelSourcePreview()
+        if !regions.contains(where: { $0.id == selectedRegionID }) {
+            selectedRegionID = regions.first?.id
+        }
+    }
+
+    public func restorePage(_ sourcePage: Int) throws {
+        let newID = "region-" + UUID().uuidString.lowercased()
+        var next = try editableDraft()
+        try next.restorePage(sourcePage, newRegionID: newID)
+        draft = next
+        isSaved = false
+        cancelPreview()
+        cancelSourcePreview()
+        selectedRegionID = newID
+    }
+
     public func cancelPreview() {
         previewCancellation?.cancel()
         previewCancellation = nil
@@ -334,6 +360,14 @@ public final class WorkflowEditorModel: ObservableObject {
 public struct WorkflowEditorView: View {
     @ObservedObject private var model: WorkflowEditorModel
     private let workerExecutable: URL?
+    private struct PendingSkip {
+        let page: Int
+        let reason: NonLabelPageReason
+        let profile: WorkflowProfile
+    }
+    @State private var pendingSkip: PendingSkip?
+    @State private var confirmingSkip = false
+    @State private var skipReason: NonLabelPageReason = .instructions
 
     public init(model: WorkflowEditorModel, workerExecutable: URL? = nil) {
         self.model = model
@@ -351,6 +385,7 @@ public struct WorkflowEditorView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 mediaSummary
+                pageHandling
                 if model.isReopenedWorkflow {
                     Text("Saved workflow reopened for correction as a new revision. Review this PDF and the exact label previews before saving. Earlier revisions and their qualifications are unchanged.")
                         .accessibilityLabel("Reopened workflow requires review of its new revision")
@@ -386,6 +421,21 @@ public struct WorkflowEditorView: View {
             .frame(minWidth: 480)
         }
         .onDisappear { model.cancelPreview(); model.cancelSourcePreview() }
+        .confirmationDialog("Mark this source page as non-label?", isPresented: $confirmingSkip,
+                            titleVisibility: .visible) {
+            if let pendingSkip {
+                Button("Confirm Non-Label Page", role: .destructive) {
+                    perform { try model.skipPage(pendingSkip.page, reason: pendingSkip.reason,
+                                                 expectedProfile: pendingSkip.profile) }
+                    self.pendingSkip = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { pendingSkip = nil }
+        } message: {
+            if let pendingSkip {
+                Text("Page \(pendingSkip.page) will produce no labels for reason \(pendingSkip.reason.rawValue). All its crop definitions are removed from this draft. The page remains accounted for and layout-validated. Restoring starts with a new full-page region requiring review; earlier saved revisions are unchanged.")
+            }
+        }
     }
 
     private var selectedRegion: WorkflowEditorRegion? {
@@ -398,6 +448,38 @@ public struct WorkflowEditorView: View {
             Text("Input sheet geometry is configured per source page.")
             Text("Output stock: \(stock.width.value, format: .number.precision(.fractionLength(1))) × \(stock.height.value, format: .number.precision(.fractionLength(1))) mm")
         }.accessibilityElement(children: .combine)
+    }
+
+    private var pageHandling: some View {
+        GroupBox("Source page accounting") {
+            VStack(alignment: .leading) {
+                Picker("Non-label reason", selection: $skipReason) {
+                    Text("Instructions").tag(NonLabelPageReason.instructions)
+                    Text("Customs form").tag(NonLabelPageReason.customsForm)
+                    Text("Explicitly ignored").tag(NonLabelPageReason.explicitlyIgnored)
+                }
+                ForEach(model.profile.pageRules.sorted { $0.sourcePage < $1.sourcePage }, id: \.sourcePage) { rule in
+                    HStack {
+                        switch rule.disposition {
+                        case let .extract(regions):
+                            Text("Page \(rule.sourcePage): \(regions.count) label regions")
+                            Button("Mark Page \(rule.sourcePage) Non-Label…") {
+                                pendingSkip = PendingSkip(page: rule.sourcePage, reason: skipReason,
+                                                          profile: model.profile)
+                                confirmingSkip = true
+                            }.disabled(model.regions.allSatisfy { $0.sourcePage == rule.sourcePage })
+                        case let .skip(reason):
+                            Text("Page \(rule.sourcePage): skipped — \(reason.rawValue)")
+                            Button("Restore Page \(rule.sourcePage) as Full-Page Region") {
+                                perform { try model.restorePage(rule.sourcePage) }
+                            }.accessibilityHint("Appends a new full-page region. Set its bounds and review the exact preview.")
+                        }
+                    }
+                }
+                Text("Every source page remains listed. Unexpected pages still fail validation. At least one page must produce labels; a customs form is not printed separately by this workflow.")
+                    .font(.caption)
+            }
+        }
     }
 
     private func regionControls(_ region: WorkflowEditorRegion) -> some View {

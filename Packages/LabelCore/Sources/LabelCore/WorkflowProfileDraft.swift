@@ -6,6 +6,9 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
         case regionNotFound(String)
         case invalidDestination
         case lastRegionOnPage
+        case pageNotFound(Int)
+        case invalidPageDisposition
+        case lastOutputPage
     }
 
     public private(set) var profile: WorkflowProfile
@@ -129,6 +132,47 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
             if case let .extract(regions) = rule.disposition { return regions }
             return []
         }.sorted { $0.outputOrder < $1.outputOrder }
+    }
+
+    /// Explicit page policy, never a consequence of deleting a last region.
+    /// Geometry and structural expectations continue to validate skipped pages.
+    public mutating func skipPage(_ sourcePage: Int, reason: NonLabelPageReason) throws {
+        guard let rule = profile.pageRules.first(where: { $0.sourcePage == sourcePage }) else {
+            throw Error.pageNotFound(sourcePage)
+        }
+        guard case .extract = rule.disposition else { throw Error.invalidPageDisposition }
+        let remaining = profile.pageRules.filter { $0.sourcePage != sourcePage }.flatMap { rule -> [ExtractionRegion] in
+            if case let .extract(regions) = rule.disposition { return regions }
+            return []
+        }.sorted { $0.outputOrder < $1.outputOrder }
+        guard !remaining.isEmpty else { throw Error.lastOutputPage }
+        let rules = try profile.pageRules.map { rule in
+            rule.sourcePage == sourcePage ? try replacing(rule, disposition: .skip(reason)) : rule
+        }
+        let next = try replacingProfile(pageRules: assigningOrders(rules, ordered: remaining))
+        _ = try WorkflowProfileJSON.encode(next)
+        profile = next
+    }
+
+    /// Restoration intentionally starts with a full-page region at the end of
+    /// output order. Removed crop definitions are not guessed or reconstructed.
+    public mutating func restorePage(_ sourcePage: Int, newRegionID: String) throws {
+        guard let rule = profile.pageRules.first(where: { $0.sourcePage == sourcePage }) else {
+            throw Error.pageNotFound(sourcePage)
+        }
+        guard case .skip = rule.disposition else { throw Error.invalidPageDisposition }
+        guard !orderedRegions.contains(where: { $0.id == newRegionID }) else {
+            throw ExtractionPlanError.invalidProfile
+        }
+        let region = try ExtractionRegion(id: newRegionID,
+            normalizedRect: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+            outputOrder: orderedRegions.count)
+        let rules = try profile.pageRules.map { rule in
+            rule.sourcePage == sourcePage ? try replacing(rule, disposition: .extract([region])) : rule
+        }
+        let next = try replacingProfile(pageRules: assigningOrders(rules, ordered: orderedRegions + [region]))
+        _ = try WorkflowProfileJSON.encode(next)
+        profile = next
     }
 
     private func assigningOrders(_ rules: [WorkflowPageRule], ordered: [ExtractionRegion]) throws -> [WorkflowPageRule] {

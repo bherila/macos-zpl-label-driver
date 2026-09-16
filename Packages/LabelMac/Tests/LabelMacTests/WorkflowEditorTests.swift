@@ -34,15 +34,17 @@ final class WorkflowEditorTests: XCTestCase {
         XCTAssertEqual(try store.load(profileID: second.id, revision: second.revision), second)
     }
 
-    private func pdf() throws -> Data {
+    private func pdf(pages: Int = 1) throws -> Data {
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data as CFMutableData) else { throw TestError.unavailable }
         var box = CGRect(x: 0, y: 0, width: 20, height: 10)
         guard let context = CGContext(consumer: consumer, mediaBox: &box, nil) else { throw TestError.unavailable }
+        for _ in 0..<pages {
         context.beginPDFPage(nil)
         context.setFillColor(gray: 0, alpha: 1)
         context.fill(CGRect(x: 0, y: 0, width: 10, height: 10))
         context.endPDFPage()
+        }
         context.closePDF()
         return data as Data
     }
@@ -75,6 +77,54 @@ final class WorkflowEditorTests: XCTestCase {
         XCTAssertEqual(model.regions.count, 1)
         XCTAssertEqual(model.profile.revision, original.revision + 2)
         XCTAssertNil(model.preview)
+    }
+
+    func testExplicitPagePolicyPreservesSavedRevisionAndRejectsStaleConfirmation() async throws {
+        let (reference, store) = try makeModel()
+        let originalRule = reference.profile.pageRules[0]
+        let region = try ExtractionRegion(id: "second", normalizedRect: NormalizedRect(x: 0, y: 0, width: 0.5, height: 1),
+            outputOrder: 1)
+        let profile = try WorkflowProfile(id: reference.profile.id, revision: reference.profile.revision,
+            outputStockID: reference.profile.outputStockID, outputStock: reference.profile.outputStock,
+            pageRules: [originalRule, WorkflowPageRule(sourcePage: 2, expectedInput: originalRule.expectedInput,
+                disposition: .extract([region]), structuralAnchors: originalRule.structuralAnchors)])
+        let source = try PDFPageBox(originX: 0, originY: 0, width: 20, height: 10)
+        let analyzed = try AnalyzedSourcePage(pageBox: source, anchors: originalRule.structuralAnchors.map {
+            ObservedPageAnchor(kind: $0.kind, normalizedRect: $0.normalizedRect)
+        })
+        let canvas = try DotCanvas(physicalSize: profile.outputStock,
+            resolution: DotResolution(xDotsPerMillimeter: 72 / 25.4, yDotsPerMillimeter: 72 / 25.4))
+        let model = WorkflowEditorModel(draft: WorkflowProfileDraft(profile: profile), originalPDF: try pdf(pages: 2),
+            analyzedPages: [analyzed, analyzed], canvas: canvas, store: store)
+        try model.save()
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        XCTAssertNotNil(model.preview)
+        try model.skipPage(1, reason: .instructions, expectedProfile: profile)
+        XCTAssertFalse(model.isSaved)
+        XCTAssertNil(model.preview)
+        XCTAssertEqual(model.selectedRegionID, "second")
+        XCTAssertEqual(model.profile.revision, profile.revision + 1)
+        XCTAssertEqual(model.profile.pageRules[0].disposition, .skip(.instructions))
+        let skipped = model.profile
+        XCTAssertThrowsError(try model.skipPage(2, reason: .customsForm, expectedProfile: profile))
+        XCTAssertThrowsError(try model.skipPage(2, reason: .customsForm, expectedProfile: skipped)) {
+            XCTAssertEqual($0 as? WorkflowProfileDraft.Error, .lastOutputPage)
+        }
+        XCTAssertEqual(model.profile, skipped)
+        try model.save()
+        try model.restorePage(1)
+        let restoredID = try XCTUnwrap(model.selectedRegionID)
+        XCTAssertNotEqual(restoredID, "selected")
+        XCTAssertEqual(model.regions.map(\.sourcePage), [2, 1])
+        XCTAssertEqual(model.regions.last?.normalizedRect, try NormalizedRect(x: 0, y: 0, width: 1, height: 1))
+        XCTAssertEqual(model.profile.revision, profile.revision + 2)
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        XCTAssertNil(model.lastError)
+        XCTAssertEqual(model.preview?.regionID, restoredID)
+        XCTAssertEqual(model.preview?.previewPBM, model.preview?.bitmap.pbmData())
+        try model.save()
+        XCTAssertEqual(try store.load(profileID: profile.id, revision: profile.revision), profile)
+        XCTAssertEqual(try store.load(profileID: skipped.id, revision: skipped.revision), skipped)
     }
 
     private func makeModel() throws -> (WorkflowEditorModel, WorkflowProfileStore) {
