@@ -4,11 +4,25 @@ The current test-only TCP slice adds explicitly loopback-bound native peers for
 real stopped-reader backpressure, reset after observed prefix, exact prepared
 format reassembly across variable reads, and owned non-listening-port failure.
 The production adapter/state machine are unchanged. Twelve focused tests and the
-final descriptor-hygiene repeat passed; full gate awaits the parent PR #69
-crop/media review correction. This local work is preserved, not published ready.
+final descriptor-hygiene repeat passed. Parent PR #69's reviewed crop/media fix
+is inherited; combined focused/full validation is pending. This local work is
+preserved, not published ready.
 M3-AC05 stays open and no
 network-printer/scheduler/USB support is inferred. See
 `validation/M3-REAL-LOOPBACK-FAULTS-2026-09-16.md`.
+
+PR #69's first review finding 4027048607 is reproduced and corrected: native
+page geometry and direct selected rendering now share the effective CropBox /
+MediaBox intersection. Three every-dot regressions cover expanded crops,
+effective-coordinate selection, non-square partial overlap and disjoint rejection.
+All 49 focused native renderer/extraction/pipeline tests passed exit 0. Corrected
+full local gate at `68264a6` passed exit 0: 67 Python, 178 Core and 253 Mac
+debug/release, accelerator/independent/inert checks, local signatures and packaged
+worker equality. Corrected exact `c0619e4` hosted 35109064959 and second review
+are live; finding 4027048607 is replied to, usefully voted and resolved.
+Original exact `03ea2fc` hosted 35106871876
+passed 178 Core/250 Mac debug/release and signature/packaged checks, but did not
+cover this edge case. See `validation/M4-CROP-INTERSECTION-REVIEW-2026-09-16.md`.
 
 The current automated extraction slice exercises the supplied native, Letter and
 A4 originals through separate immutable workflow bindings and the complete

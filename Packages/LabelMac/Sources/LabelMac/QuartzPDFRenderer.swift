@@ -273,7 +273,8 @@ public enum QuartzPDFRenderer {
     }
 
     private static func geometry(of page: CGPDFPage) throws -> PDFPageBox {
-        let crop = page.getBoxRect(.cropBox)
+        let crop = page.getBoxRect(.cropBox).intersection(page.getBoxRect(.mediaBox))
+        guard !crop.isNull, !crop.isEmpty else { throw Error.invalidPageGeometry }
         var userUnit: CGPDFReal = 1
         if let dictionary = page.dictionary {
             var declared: CGPDFReal = 0
@@ -330,7 +331,9 @@ public enum QuartzPDFRenderer {
         // normalized crop into a synthetic full-sheet target and then dividing
         // it by the full page introduces avoidable rounding in the final scale.
         // The preceding fullPageTarget check still bounds near-zero regions.
-        let mapped = (selectedSource ?? effective).applying(base)
+        let selected = (selectedSource ?? effective).intersection(effective)
+        guard !selected.isNull, !selected.isEmpty else { throw Error.invalidPageGeometry }
+        let mapped = selected.applying(base)
         guard [mapped.minX, mapped.minY, mapped.width, mapped.height].allSatisfy(\.isFinite),
               mapped.width > 0, mapped.height > 0 else { throw Error.invalidPageGeometry }
         let sx = target.width / mapped.width, sy = target.height / mapped.height

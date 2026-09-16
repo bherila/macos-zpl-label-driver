@@ -8,6 +8,12 @@ Use named types for PDF points, physical millimetres/inches and printer dots. Co
 
 For profile editing, use normalized coordinates in the **visually upright effective page box**, origin top-left, x right, y down. Regions have x/y/width/height in [0,1], strictly positive size, and may not exceed bounds. A single tested transform converts these coordinates to original PDF user space, accounting for box origin, `/Rotate`, supported `/UserUnit` and clipping. Do not apply PDF rotation twice. Unsupported geometry fails explicitly.
 
+The native effective page box is the intersection of CropBox and MediaBox before
+upright rotation and UserUnit physical conversion. Analysis, editor/planner input,
+original-space selection validation and final drawing use that same geometry.
+Empty intersections fail; out-of-media declared crop bounds never become a
+larger normalized source or a stretched selected rendering.
+
 Output uses integer dots, origin top-left. Round physical placement once with a documented policy; report error in dots/physical units. Distinguish stock extent from printable extent and nonprintable regions. Scaling is uniform unless the user explicitly selects a separately supported nonuniform mode; version one does not offer that mode.
 
 ## Core records
