@@ -135,6 +135,8 @@ struct SetupDocumentView: View {
                 }
             }
             if let error = documents.error { Text(error).foregroundStyle(.red) }
+            WorkflowProfileTransferView(model: documents,
+                selectedProfile: documents.savedWorkflows.first { $0.id == selectedSavedWorkflow }?.profile)
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
             if case let .success(url) = result {

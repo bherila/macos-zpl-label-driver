@@ -25,6 +25,14 @@ Corrected hosted/second review pending. See
 passed exact `39b2936`; it does not validate the correction. Parent #57 latest
 35089708869 passed exact `626122d`; its source first review was clean at `5d9c2c2`.
 
+Latest local slice connects capped canonical workflow JSON import/export through
+native dialog adapters. Imports get a fresh unqualified identity; exports verify
+the exact own-store saved snapshot. Publication uncertainty retains/reconciles
+the same candidate, not a duplicate import. Nineteen focused native tests passed,
+including real-worker preservation of the current editor/preview/local approval.
+Full gate pending. See `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. No queue,
+privilege or device I/O. Noninteractive administrator authorization remains absent.
+
 Latest local slice connects explicit non-label page confirmation and full-page
 restoration to the editor's existing typed planner. Page geometry/anchors remain
 validated; stale confirmation and last-output-page actions fail without mutation.

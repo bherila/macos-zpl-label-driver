@@ -11,6 +11,9 @@ public final class WorkflowDocumentOpeningModel: ObservableObject {
     @Published public private(set) var savedWorkflows: [WorkflowProfileStore.CatalogEntry] = []
     @Published public private(set) var savedWorkflowError: String?
     @Published public private(set) var isRefreshingSavedWorkflows = false
+    @Published public private(set) var isTransferringProfile = false
+    @Published public private(set) var profileTransferStatus: String?
+    @Published public private(set) var uncertainImportedProfile: WorkflowProfile?
 
     private var catalogRequest: UUID?
 
@@ -45,6 +48,71 @@ public final class WorkflowDocumentOpeningModel: ObservableObject {
     }
 
     public func reportImportFailure() { error = "The PDF could not be opened." }
+
+    public func importProfileDefinition(_ url: URL) async {
+        guard !isTransferringProfile, uncertainImportedProfile == nil else { return }
+        isTransferringProfile = true
+        profileTransferStatus = nil
+        let accessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessing { url.stopAccessingSecurityScopedResource() }
+            isTransferringProfile = false
+        }
+        do {
+            let profile = try await Task.detached { try WorkflowProfileTransfer.readImport(url) }.value
+            try Task.checkCancellation()
+            await publishImportedProfile(profile)
+        } catch is CancellationError {
+            profileTransferStatus = "Import cancelled before publication."
+        } catch {
+            profileTransferStatus = "Workflow import failed. The current editor and earlier workflows were kept."
+        }
+    }
+
+    public func reconcileProfileImport() async {
+        guard !isTransferringProfile, let candidate = uncertainImportedProfile else { return }
+        isTransferringProfile = true
+        defer { isTransferringProfile = false }
+        await publishImportedProfile(candidate)
+    }
+
+    private func publishImportedProfile(_ profile: WorkflowProfile) async {
+        let store = self.store
+        do {
+            // Once publication is admitted, finishing/reporting its outcome is
+            // safer than interpreting task cancellation as evidence of absence.
+            try await Task.detached { try store.save(profile) }.value
+            uncertainImportedProfile = nil
+            profileTransferStatus = "Imported as a new local workflow without unattended approval. Open with an original PDF to review."
+            await refreshSavedWorkflows()
+        } catch WorkflowProfileStore.Error.commitUncertain {
+            uncertainImportedProfile = profile
+            profileTransferStatus = "Import may be visible, but its durability is unconfirmed. Reconcile Import checks this exact candidate and its publication barrier; do not create a new import."
+        } catch {
+            profileTransferStatus = uncertainImportedProfile == nil
+                ? "Workflow import failed. The current editor and earlier workflows were kept."
+                : "Import reconciliation failed. The exact candidate was retained; no new import was created."
+        }
+    }
+
+    public func prepareProfileExport(_ snapshot: WorkflowProfile) async -> WorkflowProfileExportDocument? {
+        guard !isTransferringProfile else { return nil }
+        isTransferringProfile = true
+        profileTransferStatus = nil
+        defer { isTransferringProfile = false }
+        do {
+            let store = self.store
+            let data = try await Task.detached { try WorkflowProfileTransfer.exportSnapshot(snapshot, store: store) }.value
+            try Task.checkCancellation()
+            return WorkflowProfileExportDocument(verifiedCanonicalDefinition: data)
+        } catch {
+            profileTransferStatus = "The selected saved revision could not be verified for export. Nothing was exported."
+            return nil
+        }
+    }
+
+    public func reportProfileTransferFailure() { profileTransferStatus = "Workflow file transfer did not complete." }
+    public func reportProfileExportCompletion() { profileTransferStatus = "Workflow definition exported. Review identifiers and layout settings before sharing." }
 
     public func refreshSavedWorkflows() async {
         let id = UUID()
