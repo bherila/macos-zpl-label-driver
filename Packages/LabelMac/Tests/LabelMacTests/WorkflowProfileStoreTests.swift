@@ -209,6 +209,35 @@ final class WorkflowProfileStoreTests: XCTestCase {
         )
     }
 
+    func testFirstPublicationRequiresCategoryAndRootDirectoryBarriers() throws {
+        let root = try temporaryRoot()
+        let sync = SequencedDirectorySync(results: [0, -1])
+        let storage = try PrivateImmutableDirectory(
+            root: root, syncDirectory: sync.call
+        )
+        let faulted = WorkflowProfileStore(root: root, storage: storage)
+        let value = try profile()
+        let bytes = try WorkflowProfileJSON.encode(value)
+        let identity = ImmutablePublicationIdentity(
+            id: value.id, schemaVersion: value.schemaVersion,
+            revision: value.revision, sha256: Self.digest(bytes)
+        )
+
+        XCTAssertThrowsError(try faulted.save(value)) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .commitUncertain(identity))
+        }
+        XCTAssertEqual(sync.count, 2)
+        XCTAssertEqual(try faulted.load(
+            profileID: value.id, revision: value.revision
+        ), value)
+
+        try faulted.save(value)
+        XCTAssertEqual(sync.count, 4)
+        XCTAssertThrowsError(try faulted.save(profile(x: 0.2))) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .profileConflict)
+        }
+    }
+
     private static func digest(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
@@ -226,5 +255,27 @@ private final class FailingDirectorySync: @unchecked Sendable {
         _ = descriptor
         lock.withLock { calls += 1 }
         return -1
+    }
+}
+
+private final class SequencedDirectorySync: @unchecked Sendable {
+    private let lock = NSLock()
+    private var results: [Int32]
+    private var calls = 0
+
+    init(results: [Int32]) {
+        self.results = results
+    }
+
+    var count: Int {
+        lock.withLock { calls }
+    }
+
+    func call(_ descriptor: Int32) -> Int32 {
+        _ = descriptor
+        return lock.withLock {
+            calls += 1
+            return results.isEmpty ? 0 : results.removeFirst()
+        }
     }
 }
