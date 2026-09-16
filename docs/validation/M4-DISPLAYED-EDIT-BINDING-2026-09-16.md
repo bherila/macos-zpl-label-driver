@@ -1,5 +1,13 @@
 # Displayed-region edit binding
 
+Complete implementation gate at `308f1c9` passed exit 0: 67 Python/173
+LabelCore/233 LabelMac debug/release, both accelerators, 132 independent round
+trips, 15/10/1 inert ABI/pipeline cases, local executable/app/nested-worker
+signatures and packaged-worker PBM/ZPL equality. This supersedes pending local
+gate status below. Own hosted/review and the finite native interaction procedure
+remain pending. Parent #61 run 35096482907 passed exact `9b66565`; first review
+is clean at unchanged base `6234f06`/head `9b66565`, with no inline findings.
+
 Partial M4-AC06/12 source and automated evidence only. No native interaction,
 application/scheduler, printer or physical-label acceptance is added.
 

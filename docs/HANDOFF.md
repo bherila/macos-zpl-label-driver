@@ -26,6 +26,13 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+Displayed-region edit fix `308f1c9` passed the full local gate exit 0 with
+67/173/233 debug/release, accelerator/independent/inert/signature and packaged
+worker equality checks. Its pre-fix wrong-target regression failed as recorded;
+43 focused tests pass after correction. Parent #61 hosted 35096482907 passed
+`9b66565` and first review is clean at unchanged base/head. Own hosted/review
+and native interaction remain pending; no installed/physical result follows.
+
 Local displayed-region binding correction reproduces/fixes stale measurement
 callbacks editing a newly selected region. Native numeric/rotation/reorder/add/
 remove/draw actions now bind region and edit generation; the measurement callback
