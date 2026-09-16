@@ -12,6 +12,15 @@ Corrected hosted CI is pending. Hosted 35091595114 passed the preceding
 `a1e1f58`, not this correction. No third review request or merge is authorized.
 The dependent profile-transfer slice remains held until this fix is integrated.
 
+PR #59 first finding 4025900013 is corrected locally with atomic bounded-category
+capacity admission: public workflow saves hold a validated directory-relative
+nonblocking flock through count/rename and preserve the unchanged 256-record cap.
+Exact retries remain reconcilable at capacity; contention and capacity errors
+are distinct, with no automatic retry or destructive repair. 39 focused native
+tests passed; full corrected local gate/hosted/second review pending. See
+`validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
+but has no PR; integrate this correction and run its combined gate before promotion.
+
 Latest combined transfer checkpoint `f60d11a` integrates parent review correction
 `730d65b` and passed the full local gate exit 0: 67/173/219 debug/release,
 accelerator/independent/inert/signature and packaged-worker equality checks.

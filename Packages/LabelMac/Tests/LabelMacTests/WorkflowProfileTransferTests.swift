@@ -145,4 +145,27 @@ final class WorkflowProfileTransferTests: XCTestCase {
         XCTAssertEqual(model.savedWorkflows.map(\.profile), [candidate])
         XCTAssertNil(try store.qualification(for: candidate))
     }
+
+    func testFullCatalogImportPreservesReadableCatalogAndShowsCapacityFailure() async throws {
+        let root = try directory()
+        let store = try WorkflowProfileStore(root: root.appending(path: "store"))
+        let source = try profile()
+        for index in 0..<256 {
+            try store.save(WorkflowProfile(id: "synthetic-capacity-\(index)", revision: 1,
+                outputStockID: source.outputStockID, outputStock: source.outputStock,
+                monochromeConversion: source.monochromeConversion, pageRules: source.pageRules))
+        }
+        let model = WorkflowDocumentOpeningModel(store: store, workerExecutable: URL(fileURLWithPath: "/nonexistent"))
+        await model.refreshSavedWorkflows()
+        let previous = model.savedWorkflows
+        let file = root.appending(path: "source.json")
+        try WorkflowProfileJSON.encode(source).write(to: file)
+        await model.importProfileDefinition(file)
+        XCTAssertEqual(model.savedWorkflows, previous)
+        XCTAssertEqual(try store.savedWorkflows().count, 256)
+        XCTAssertNil(model.uncertainImportedProfile)
+        XCTAssertNil(model.savedWorkflowError)
+        XCTAssertTrue(model.profileTransferStatus?.contains("catalog is full") == true)
+        XCTAssertFalse(model.isTransferringProfile)
+    }
 }

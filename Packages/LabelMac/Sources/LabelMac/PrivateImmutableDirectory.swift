@@ -27,6 +27,8 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
         case cannotWrite
         case commitUncertain
         case conflict
+        case recordCapacityReached
+        case publicationBusy
     }
 
     enum FaultPoint: Equatable, Sendable {
@@ -62,14 +64,22 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
         _ data: Data,
         directory name: String,
         fileName: String,
-        maximumBytes: Int
+        maximumBytes: Int,
+        maximumRecords: Int? = nil
     ) throws {
         guard data.count <= maximumBytes else { throw Error.cannotWrite }
+        if let maximumRecords, !(1...256).contains(maximumRecords) { throw Error.cannotWrite }
         try withDirectory(name, syncRootAfterBody: true) { directory in
+            let lock = try maximumRecords.map { _ in try acquirePublicationLock(directory) }
+            defer { if let lock { _ = flock(lock, LOCK_UN); close(lock) } }
             if try reconcileExisting(
                 data, directory: directory, fileName: fileName,
                 maximumBytes: maximumBytes
             ) { return }
+            if let maximumRecords, let lock {
+                try validatePublicationLock(lock, directory: directory)
+                try ensureRecordCapacity(directory, maximumRecords: maximumRecords)
+            }
             do {
                 let temporary = ".tmp-\(UUID().uuidString)"
                 let descriptor = openat(
@@ -97,6 +107,7 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
                 guard fsync(descriptor) == 0 else { throw Error.cannotWrite }
                 do { try injectFault(.beforeRename) }
                 catch { throw Error.cannotWrite }
+                if let lock { try validatePublicationLock(lock, directory: directory) }
                 if renameatx_np(
                     directory, temporary, directory, fileName, UInt32(RENAME_EXCL)
                 ) != 0 {
@@ -120,6 +131,62 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
                     maximumBytes: maximumBytes
                 ) { return }
                 throw failure
+            }
+        }
+    }
+
+    /// All bounded-category publishers serialize capacity admission and rename.
+    /// The lock remains named; unlinking it would split the coordination domain.
+    private func acquirePublicationLock(_ directory: Int32) throws -> Int32 {
+        let descriptor = openat(directory, ".publication.lock",
+            O_RDWR | O_CREAT | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC, mode_t(0o600))
+        guard descriptor >= 0 else { throw Error.cannotWrite }
+        do {
+            try validatePublicationLock(descriptor, directory: directory)
+            guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else {
+                if errno == EWOULDBLOCK || errno == EAGAIN || errno == EINTR { throw Error.publicationBusy }
+                throw Error.cannotWrite
+            }
+            try validatePublicationLock(descriptor, directory: directory)
+            return descriptor
+        } catch { close(descriptor); throw error }
+    }
+
+    private func validatePublicationLock(_ descriptor: Int32, directory: Int32) throws {
+        var opened = stat(), named = stat()
+        guard fstat(descriptor, &opened) == 0,
+              fstatat(directory, ".publication.lock", &named, AT_SYMLINK_NOFOLLOW) == 0,
+              (opened.st_mode & S_IFMT) == S_IFREG,
+              opened.st_uid == geteuid(), opened.st_nlink == 1,
+              opened.st_size == 0, (opened.st_mode & 0o077) == 0,
+              opened.st_dev == named.st_dev, opened.st_ino == named.st_ino else {
+            throw Error.cannotWrite
+        }
+    }
+
+    private func ensureRecordCapacity(_ directory: Int32, maximumRecords: Int) throws {
+        let enumeration = openat(directory, ".", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard enumeration >= 0 else { throw Error.cannotRead }
+        guard let stream = fdopendir(enumeration) else { close(enumeration); throw Error.cannotRead }
+        defer { closedir(stream) }
+        var entries = 0, records = 0
+        while true {
+            errno = 0
+            guard let entry = readdir(stream) else {
+                guard errno == 0 else { throw Error.cannotRead }
+                return
+            }
+            entries += 1
+            guard entries <= 4096 else { throw Error.cannotRead }
+            let name = withUnsafePointer(to: &entry.pointee.d_name) {
+                $0.withMemoryRebound(to: CChar.self, capacity: Int(entry.pointee.d_namlen) + 1) {
+                    String(validatingUTF8: $0)
+                }
+            }
+            guard let name else { throw Error.cannotRead }
+            if !name.hasPrefix("."), name.hasSuffix(".json") {
+                records += 1
+                guard records < maximumRecords else { throw Error.recordCapacityReached }
             }
         }
     }

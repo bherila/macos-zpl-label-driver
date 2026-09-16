@@ -88,6 +88,10 @@ public final class WorkflowDocumentOpeningModel: ObservableObject {
         } catch WorkflowProfileStore.Error.commitUncertain {
             uncertainImportedProfile = profile
             profileTransferStatus = "Import may be visible, but its durability is unconfirmed. Reconcile Import checks this exact candidate and its publication barrier; do not create a new import."
+        } catch WorkflowProfileStore.Error.catalogCapacityReached {
+            profileTransferStatus = "The workflow catalog is full. No new revision was published; earlier workflows and the current editor were kept."
+        } catch WorkflowProfileStore.Error.publicationBusy {
+            profileTransferStatus = "Another workflow publication is in progress. No new revision was published by this attempt. Retry explicitly after it finishes."
         } catch {
             profileTransferStatus = uncertainImportedProfile == nil
                 ? "Workflow import failed. The current editor and earlier workflows were kept."
