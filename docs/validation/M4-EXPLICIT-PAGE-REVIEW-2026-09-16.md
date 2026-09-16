@@ -10,6 +10,9 @@ unattended approval. The action requires the current selected region's prepared
 packed preview, matching region/source page/profile identity and revision.
 Preview generation alone is not acknowledgement. The same predicate controls
 the button and throwing model API; saving alone does not grant approval.
+The button captures its displayed full profile and prepared-label value. The API
+compares both against current state before acknowledging; a stale click cannot
+review a newer profile, region selection or unseen bitmap.
 Structural checks and exact own-store qualification binding remain mandatory.
 
 Acknowledgements bind the complete current profile value, not just a region ID
@@ -23,7 +26,7 @@ claim that trusted low-level user-confirmation APIs provide physical validation.
 Existing exact old revision qualifications are not silently revoked or inherited
 by new revisions. Imports remain separate from qualification.
 
-38 focused native tests passed: 13 editor, 13 document-opening and 12 bootstrap.
+39 focused native tests passed: 14 editor, 13 document-opening and 12 bootstrap.
 The two-page restore regression reviews one region, keeps approval unavailable,
 reviews the other, then qualifies; reopening/saving again requires both reviews
 and preserves the earlier qualification. A new real-worker regression rejects
@@ -31,6 +34,13 @@ acknowledgement without preview, requires explicit acknowledgement after preview
 and makes a rotation edit invalidate prior review before requalification.
 Existing manual/no-anchor rejection and immutable-source/preview/history tests
 remain intact. Full local corrected gate and second review/hosted CI pending.
+The displayed-snapshot regression rejects old profile and old-selection previews
+after real-worker completion without acknowledging any region, then accepts the
+current displayed snapshot. Initial correction `5fb351e` passed the full local
+gate exit 0 with 67/173/211 debug/release, independent/inert/signature and packaged
+worker equality checks. The final displayed-snapshot correction's full gate and
+corrected hosted/second review remain pending; the earlier full pass does not
+establish the additional change.
 
 No profile schema, oracle, renderer, transport, queue, privileged or hardware
 setting changed. Native button/VoiceOver operation remains NOT RUN. Extend the
