@@ -25,6 +25,13 @@ scheduler query, verifies the filter hash, then removes the filter, intent file,
 and empty root. A changed URI, failed query, failed deletion, expired
 authorization, changed filter, or mismatched record stops this sequence.
 
+Automatic rollback is narrower than explicit removal. It begins only after the
+current invocation successfully reserves the protected root, requires that
+invocation's random identifier in the intent record, and removes a queue only
+after this invocation received a successful create response and read back the
+exact discard URI. A competing queue or an ambiguous create response retains
+all recovery evidence for explicit inspection.
+
 ## Uncatchable interruption window
 
 The protected intent is installed before the filter or queue. A power loss or
@@ -49,6 +56,8 @@ The unprivileged transaction harness injects lost responses after root
 reservation, intent installation, filter installation, queue creation, disable,
 and reject. It also covers a changed URI, scheduler-query failure, authorization
 expiry, failed queue deletion, uncertain post-delete readback, altered filter,
-partial state, pre-existing queue/root, and TERM. These tests validate control
-flow only; they do not establish administrator-session behavior or scheduler
-acceptance on Tahoe.
+partial state, pre-existing queue/root, and TERM. It also covers a losing root
+reservation against both an empty and completed competing transaction, a queue
+appearing at the late absence check, and an ambiguous queue-create response.
+These tests validate control flow only; they do not establish administrator-
+session behavior or scheduler acceptance on Tahoe.
