@@ -36,6 +36,8 @@ final class AcceptedJobStoreTests: XCTestCase {
     private func fixture(
         acceptanceID: String = "accepted-42",
         regionID: String = "label",
+        configuredPrinterSpeed: Int? = nil,
+        workflowSpeed: Int? = 3,
         cancellationToken: Data = Data("synthetic cancellation capability".utf8)
     ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory.appending(
@@ -75,7 +77,12 @@ final class AcceptedJobStoreTests: XCTestCase {
             sha256: Self.digest(workflowBytes)
         )
 
-        let printer = try PrinterProfile.gc420dUSBReference(revision: 7)
+        let basePrinter = try PrinterProfile.gc420dUSBReference(revision: 7)
+        let printer = try PrinterProfile(schemaVersion: configuredPrinterSpeed == nil ? 1 : 2,
+            revision: basePrinter.revision, capabilities: basePrinter.capabilities,
+            installedHardware: basePrinter.installedHardware, media: basePrinter.media,
+            connection: basePrinter.connection,
+            configuredDefaults: .init(printSpeedIps: configuredPrinterSpeed))
         let printerReference = try printers.save(id: "gc420d-usb", profile: printer)
         let queue = try VirtualQueueDefinition(
             id: "shipping-native", revision: 2, displayName: "Native labels",
@@ -84,7 +91,7 @@ final class AcceptedJobStoreTests: XCTestCase {
             ),
             workflowProfile: workflowReference, printerProfile: printerReference,
             workflowDefaults: PrinterControlRequest(
-                thermalMethod: .directThermal, finishing: .tearOff, printSpeedIps: 3
+                thermalMethod: .directThermal, finishing: .tearOff, printSpeedIps: workflowSpeed
             ),
             validatingAgainst: printer
         )
@@ -181,6 +188,56 @@ final class AcceptedJobStoreTests: XCTestCase {
         XCTAssertEqual(value.ticket.activeSelectionGeneration, 1)
         XCTAssertEqual(laterSelection.generation, 2)
         XCTAssertNotEqual(laterSelection.queue, value.ticket.queue)
+    }
+
+    func testConfiguredPrinterDefaultsFreezeThroughAcceptedPreparedAndActiveRevisionChanges() throws {
+        let value = try fixture(configuredPrinterSpeed: 2, workflowSpeed: nil)
+        XCTAssertEqual(value.ticket.printerProfile.schemaVersion, 2)
+        XCTAssertEqual(value.ticket.controls.printSpeedIps, .value(2))
+        let wrongSchema = try ImmutableProfileReference(id: value.ticket.printerProfile.id,
+            schemaVersion: 1, revision: value.ticket.printerProfile.revision,
+            sha256: value.ticket.printerProfile.sha256)
+        XCTAssertThrowsError(try value.printers.load(reference: wrongSchema)) {
+            XCTAssertEqual($0 as? PrinterProfileStore.Error, .profileIdentityMismatch)
+        }
+        try value.jobs.save(value.ticket, sourcePDF: value.sourcePDF,
+            queueStore: value.queues, workflowStore: value.workflows, printerStore: value.printers)
+        let laterPrinter = try PrinterProfile(schemaVersion: 2, revision: value.printer.revision + 1,
+            capabilities: value.printer.capabilities, installedHardware: value.printer.installedHardware,
+            media: value.printer.media, connection: value.printer.connection,
+            configuredDefaults: .init(printSpeedIps: 4))
+        let laterPrinterReference = try value.printers.save(id: value.queue.printerProfile.id,
+            profile: laterPrinter)
+        XCTAssertNotEqual(laterPrinterReference.sha256, value.ticket.printerProfile.sha256)
+        let laterQueue = try VirtualQueueDefinition(id: value.queue.id, revision: value.queue.revision + 1,
+            displayName: value.queue.displayName, physicalDevice: value.queue.physicalDevice,
+            workflowProfile: value.queue.workflowProfile, printerProfile: laterPrinterReference,
+            workflowDefaults: value.queue.workflowDefaults, validatingAgainst: laterPrinter)
+        let laterQueueReference = try value.queues.save(laterQueue,
+            workflowStore: value.workflows, printerStore: value.printers)
+        _ = try value.active.compareAndSwap(queue: laterQueueReference, expected: value.selection,
+            queueStore: value.queues, workflowStore: value.workflows, printerStore: value.printers)
+        XCTAssertEqual(try laterPrinter.resolveControls(job: .init()).printSpeedIps, .value(4))
+        let loaded = try value.jobs.load(acceptanceID: value.ticket.acceptanceID,
+            queueStore: value.queues, workflowStore: value.workflows, printerStore: value.printers)
+        XCTAssertEqual(loaded.ticket, value.ticket)
+        let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
+        XCTAssertEqual(try value.printers.load(reference: value.ticket.printerProfile).configuredDefaults.printSpeedIps, 2)
+        XCTAssertEqual(try value.printers.load(reference: laterPrinterReference).configuredDefaults.printSpeedIps, 4)
+        let state = try states.load(acceptanceID: value.ticket.acceptanceID,
+            queueStore: value.queues, workflowStore: value.workflows, printerStore: value.printers)
+        let payload = try preparedPayload(value)
+        _ = try states.publishPrepared(acceptanceID: value.ticket.acceptanceID, expected: state,
+            payload: payload, queueStore: value.queues, workflowStore: value.workflows, printerStore: value.printers)
+        let prepared = try states.loadPrepared(acceptanceID: value.ticket.acceptanceID,
+            queueStore: value.queues, workflowStore: value.workflows, printerStore: value.printers)
+        XCTAssertEqual(prepared.resolvedControls.printSpeedIps, .value(2))
+        XCTAssertEqual(prepared.profileSnapshot, payload.profileSnapshot)
+        XCTAssertEqual(prepared.profileSnapshot, JobProfileSnapshot(profile: value.printer))
+        XCTAssertEqual(prepared.bytes, payload.bytes)
+        let text = String(decoding: prepared.bytes, as: UTF8.self)
+        XCTAssertTrue(text.contains("^PR2\n"))
+        XCTAssertFalse(text.contains("^PR4\n"))
     }
 
     func testLoadIfPresentDistinguishesAbsenceFromUnsafePresentBundle() throws {

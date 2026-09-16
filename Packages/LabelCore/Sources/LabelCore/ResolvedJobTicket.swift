@@ -174,7 +174,7 @@ public struct ResolvedJobTicket: Equatable, Sendable {
               VirtualQueueDefinition.isSHA256(cancellationSHA256)
         else { throw ResolvedJobTicketError.invalidIdentity }
         guard activeSelectionGeneration > 0,
-              workflowProfile.schemaVersion == 2, printerProfile.schemaVersion == 1,
+              workflowProfile.schemaVersion == 2, (1...2).contains(printerProfile.schemaVersion),
               controls.profileSchemaVersion == printerProfile.schemaVersion,
               controls.profileRevision == printerProfile.revision else {
             throw ResolvedJobTicketError.invalidReference

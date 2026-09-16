@@ -26,7 +26,7 @@ public enum PrinterProfileJSON {
             throw PrinterProfileJSONError.invalidLimit
         }
         try validateForEncoding(profile)
-        let root: [String: Any] = [
+        var root: [String: Any] = [
             "schemaVersion": profile.schemaVersion,
             "revision": profile.revision,
             "capabilities": encodeCapabilities(profile.capabilities),
@@ -34,6 +34,13 @@ public enum PrinterProfileJSON {
             "media": encodeMedia(profile.media),
             "connection": encodeConnection(profile.connection),
         ]
+        if profile.schemaVersion == 2 {
+            root["configuredDefaults"] = [
+                "thermalMethod": profile.configuredDefaults.thermalMethod.map { $0.rawValue as Any } ?? NSNull(),
+                "finishing": profile.configuredDefaults.finishing.map { $0.rawValue as Any } ?? NSNull(),
+                "printSpeedIps": profile.configuredDefaults.printSpeedIps.map { $0 as Any } ?? NSNull(),
+            ]
+        }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
         guard data.count <= maximumBytes else { throw PrinterProfileJSONError.outputTooLarge }
         return data
@@ -51,20 +58,37 @@ public enum PrinterProfileJSON {
         do { raw = try JSONSerialization.jsonObject(with: data) }
         catch { throw PrinterProfileJSONError.malformedJSON }
         do {
-            let root = try object(raw, allowed: [
+            guard let dictionary = raw as? [String: Any] else {
+                throw PrinterProfileJSONError.invalidType("object")
+            }
+            let version = try integer(dictionary, "schemaVersion")
+            guard (1...2).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
+            var keys: Set<String> = [
                 "schemaVersion", "revision", "capabilities", "installedHardware",
                 "media", "connection",
-            ])
-            guard try integer(root, "schemaVersion") == 1 else {
-                throw PrinterProfileJSONError.unsupportedSchema
+            ]
+            if version == 2 { keys.insert("configuredDefaults") }
+            let root = try object(raw, allowed: keys)
+            var defaults = PrinterControlDefaults()
+            if version == 2 {
+                let value = try object(required(root, "configuredDefaults"),
+                    allowed: ["thermalMethod", "finishing", "printSpeedIps"])
+                if !(try required(value, "thermalMethod") is NSNull) {
+                    defaults.thermalMethod = try enumeration(value, "thermalMethod", ThermalMethod.self)
+                }
+                if !(try required(value, "finishing") is NSNull) {
+                    defaults.finishing = try enumeration(value, "finishing", FinishingMode.self)
+                }
+                defaults.printSpeedIps = try optionalInteger(value, "printSpeedIps")
             }
             return try PrinterProfile(
-                schemaVersion: 1,
+                schemaVersion: version,
                 revision: integer(root, "revision"),
                 capabilities: decodeCapabilities(try required(root, "capabilities")),
                 installedHardware: decodeInstalled(try required(root, "installedHardware")),
                 media: decodeMedia(try required(root, "media")),
-                connection: decodeConnection(try required(root, "connection"))
+                connection: decodeConnection(try required(root, "connection")),
+                configuredDefaults: defaults
             )
         } catch let error as PrinterProfileJSONError { throw error }
         catch { throw PrinterProfileJSONError.invalidValue("profile") }

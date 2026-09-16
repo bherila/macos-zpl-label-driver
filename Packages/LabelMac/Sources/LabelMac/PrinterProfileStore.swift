@@ -95,8 +95,10 @@ public struct PrinterProfileStore: @unchecked Sendable {
         let profile: PrinterProfile
         do { profile = try PrinterProfileJSON.decode(bytes) }
         catch { throw Error.cannotRead }
-        guard profile.schemaVersion == selector.schemaVersion,
-              profile.revision == selector.revision else {
+        // This API selects an immutable name by ID/revision, not an expected
+        // schema. The decoder restricts supported versions; load(reference:)
+        // still compares the full actual schema/revision/digest reference.
+        guard profile.revision == selector.revision else {
             throw Error.profileIdentityMismatch
         }
         let reference = try ImmutableProfileReference(
