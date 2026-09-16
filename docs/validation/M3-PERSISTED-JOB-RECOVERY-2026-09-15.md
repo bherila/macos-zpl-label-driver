@@ -30,7 +30,12 @@ On macOS 26.6.2 with Xcode 26.6:
 - `swift test --package-path Packages/LabelMac --filter AcceptedJobStoreTests`
   — 38 passed;
 - `swift test --package-path Packages/LabelMac` — 143 passed;
-- `swift test -c release --package-path Packages/LabelMac` — 143 passed.
+- `swift test -c release --package-path Packages/LabelMac` — 143 passed;
+- complete `bash scripts/ci-swift.sh` exact-head gate — 64 Python tests,
+  165 LabelCore tests in debug and release, 143 LabelMac tests in debug and
+  release, 132 independent encoder round trips, 15 backend ABI cases, 10
+  filter ABI cases, one inert pipeline case, and local ad-hoc product signature
+  verification passed.
 
 ## Evidence limits and next boundary
 
