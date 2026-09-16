@@ -1575,7 +1575,7 @@ findings are addressed and resolved. Its exact-head hosted run `35080048258`
 remains live, so the opening slice remains unpublished. GUI inspection is
 NOT RUN after the runtime startup failure; no installed acceptance follows.
 
-An explicit manual PDF opening slice is in local implementation. It requests
+At implementation `f9db898`, explicit manual PDF opening requests
 bounded page geometry from the existing child, accounts for every page, and
 creates full-page editable starting regions without guessed crops or structural
 qualification. The default assisted path remains fail-closed. An edited-draft
