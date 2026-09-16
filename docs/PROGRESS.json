@@ -116,7 +116,7 @@
         "docs/validation/M2-NONBLOCKING-REGULAR-FILE-OPEN-2026-09-15.md (88fb87e descriptor-relative private-record opens cannot block on FIFOs before validation; additional partial M3-AC09/12 evidence only)",
         "docs/validation/M3-DESCRIPTOR-BOUND-JOB-LIFECYCLE-2026-09-15.md (5a1d04a + 8a3ef38 same-bundle ticket authorization, lifecycle digest binding, canonical schema-1 migration, cross-store rejection, path-replacement stability, and byte-progress preservation; additional partial M3-AC09/12 evidence only)",
         "docs/validation/M3-IDEMPOTENT-ACCEPTANCE-DURABILITY-2026-09-15.md (1e51a8b identical accepted-bundle retries require a successful parent barrier, preserve advanced state, and retain explicit uncertainty on sync failure; additional partial M3-AC12 evidence only)",
-        "docs/validation/M5-IMMUTABLE-PUBLICATION-UNCERTAINTY-2026-09-15.md (f42226d + f4bb7f8 exact post-rename uncertainty and category/root durability barriers for immutable configuration references; additional partial M3-AC12/13 evidence only)",
+        "docs/validation/M5-IMMUTABLE-PUBLICATION-UNCERTAINTY-2026-09-15.md (f42226d + f4bb7f8 + c4798ef exact post-rename uncertainty, complete category/root/containing-parent barriers, and pre-staging reconciliation for immutable configuration references; additional partial M3-AC12/13 evidence only)",
         "docs/validation/M3-PERSISTED-INERT-DELIVERY-2026-09-15.md (c2e6e53 + 297c6aa + e977b33 validated immutable prepared bundle through ticket-derived shared lease, safe waiting-state recovery, and persisted send-attempt ordering to bounded discard outcomes; additional partial M3-AC05/07/08/09/12 evidence only)"
       ],
       "blockers": []
@@ -142,7 +142,7 @@
         "docs/validation/M4-DRAFT-ORDER-ACCOUNTING-2026-09-15.md (05eb16d canonical revision editing and cross-page reorder plus existing page/copy oracles; M4-AC03/05 automated pass, partial M4-AC06 evidence)",
         "docs/validation/M4-NATIVE-EDITOR-COMPONENTS-2026-09-15.md (7c5e58b reusable SwiftUI editor/model with mm controls, keyboard commands, exact packed preview, separate save/approval, and revisioned correction; partial M4-AC01/06/09/12 evidence)",
         "docs/validation/M3-IMMUTABLE-IMAGING-POLICY-2026-09-15.md (8a7fef8 editor preview and accepted job use one immutable conversion policy; additional partial M4-AC06/09 evidence only)",
-        "docs/validation/M5-IMMUTABLE-PUBLICATION-UNCERTAINTY-2026-09-15.md (f42226d + f4bb7f8 exact workflow and qualification publication uncertainty, category/root barriers, identical recovery, and conflict preservation; additional partial M4-AC08/09/12 evidence only)"
+        "docs/validation/M5-IMMUTABLE-PUBLICATION-UNCERTAINTY-2026-09-15.md (f42226d + f4bb7f8 + c4798ef exact workflow and qualification publication uncertainty, complete directory barriers, identical recovery, and conflict preservation; additional partial M4-AC08/09/12 evidence only)"
       ],
       "blockers": []
     },
@@ -169,7 +169,7 @@
         "docs/validation/M3-JOB-STATE-CONTRACT-2026-09-15.md (ac6a178 bounded canonical lifecycle and prior-state digest chain; additional partial M5-AC07 evidence only)",
         "docs/validation/M3-JOB-STATE-STORE-2026-09-15.md (fc2c8de private cross-process lifecycle CAS and non-persisted capability cancellation; additional partial M5-AC07/09 evidence only)",
         "docs/validation/M3-PREPARED-JOB-PAYLOAD-2026-09-15.md (acf11ab exact-count ordered full-job payload contract for future lifecycle binding; additional partial M5-AC07 evidence only)",
-        "docs/validation/M5-IMMUTABLE-PUBLICATION-UNCERTAINTY-2026-09-15.md (f42226d + f4bb7f8 exact workflow, qualification, printer-profile, and queue commit uncertainty with category/root durability barriers and successful identical reconciliation; additional partial M5-AC05/07/09 evidence only)"
+        "docs/validation/M5-IMMUTABLE-PUBLICATION-UNCERTAINTY-2026-09-15.md (f42226d + f4bb7f8 + c4798ef exact workflow, qualification, printer-profile, and queue commit uncertainty with complete directory barriers and successful pre-staging identical reconciliation; additional partial M5-AC05/07/09 evidence only)"
       ],
       "blockers": []
     },
