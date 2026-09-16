@@ -12,7 +12,14 @@ the push trigger retains its `main` filter.
 Local validation: repository preflight passed, 65 Python tests passed, 165
 LabelCore debug tests passed, and 152 LabelMac debug tests passed. Product code
 is unchanged from the independently reviewed/hosted-validated `53c6b99` head.
-Automatic stacked-PR execution remains to be observed after PR creation.
+Automatic pull-request run [35069832168](https://github.com/bherila/macos-zpl-label-driver/actions/runs/35069832168)
+passed at exact head `aaf8425fea0a4bd5535146591db1ce4e06f63bdb` on PR #39,
+whose target is the preceding implementation branch rather than `main`.
+Repository preflight, macOS ARM, and `ci-required` all passed. Inspection of
+the hosted log confirms 65 Python tests, 165 LabelCore and 152 LabelMac tests
+in debug and release, 132 independent round trips, 15 backend ABI cases,
+10 filter ABI cases, one inert pipeline case, and local ad-hoc command/app
+signature verification. This was an automatic PR event, not manual dispatch.
 
 This is partial M0-AC05/07 evidence only. No fork, deliberate failing-test,
 docs-only aggregate, installed scheduler, or physical acceptance is newly
