@@ -67,7 +67,8 @@
         "01406ca (collection-relative threshold and ordered-dither reads with sliced-Data regressions; additional automated M2-AC05 evidence)",
         "f1e2976 (empty annotation arrays render while nonempty interactive form annotations still reject; additional automated M2-AC03 evidence)",
         "docs/validation/M2-PERFORMANCE-BASELINE-2026-09-15.md (6fcb63e clean-worktree release baseline: 20 warm runs, 123.138 ms p95, 14,106,624 maximum warm resident bytes, 248,814 prepared bytes; M2-AC12 pass for offline scope)",
-        "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md (3ad4bf0 clean-worktree macOS CI-equivalent pass: M2-AC01/02/04/05/06/09/13 automated evidence; no scheduler, transport, or physical-printer claim)"
+        "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md (3ad4bf0 clean-worktree macOS CI-equivalent pass: M2-AC01/02/04/05/06/09/13 automated evidence; no scheduler, transport, or physical-printer claim)",
+        "docs/validation/M3-IMMUTABLE-IMAGING-POLICY-2026-09-15.md (8a7fef8 workflow/ticket/prepared-payload conversion binding and fail-closed schema transition; additional partial M2-AC05/09 evidence only)"
       ],
       "blockers": []
     },
@@ -109,7 +110,8 @@
         "docs/validation/M3-JOB-STATE-CONTRACT-2026-09-15.md (ac6a178 bounded canonical lifecycle, payload binding, monotonic progress, terminal uncertainty, and prior-state digest chain; additional partial M3-AC09/12 evidence only)",
         "docs/validation/M3-JOB-STATE-STORE-2026-09-15.md (fc2c8de atomic initial accepted state, private cross-process CAS persistence, constant-time capability cancellation, and explicit uncertain commit recovery; additional partial M3-AC09/12 evidence only)",
         "docs/validation/M3-PREPARED-JOB-PAYLOAD-2026-09-15.md (acf11ab exact-count ordered full-job bytes, one immutable profile snapshot, aggregate bounds, and typed encoder-only label construction; additional partial M3-AC02/09 evidence only)",
-        "docs/validation/M3-PREPARED-JOB-STORE-2026-09-15.md (9dfe442 exact ordered-output/control/profile binding, artifact-before-state publication, exact orphan recovery, payload revalidation, and uncertain post-state recovery; additional partial M3-AC02/09/12 and M5-AC07/09 evidence only)"
+        "docs/validation/M3-PREPARED-JOB-STORE-2026-09-15.md (9dfe442 exact ordered-output/control/profile binding, artifact-before-state publication, exact orphan recovery, payload revalidation, and uncertain post-state recovery; additional partial M3-AC02/09/12 and M5-AC07/09 evidence only)",
+        "docs/validation/M3-IMMUTABLE-IMAGING-POLICY-2026-09-15.md (8a7fef8 exact workflow/ticket/prepared-payload conversion binding; additional partial M3-AC02/12 and M5-AC07/09 evidence only)"
       ],
       "blockers": []
     },
@@ -132,7 +134,8 @@
         "docs/validation/M4-WORKFLOW-QUALIFICATION-2026-09-15.md (b3b2a32 exact-profile user-confirmation wrapper gates unattended matching; partial M4-AC09/12 automated evidence only)",
         "docs/validation/M4-PROFILE-STORE-2026-09-15.md (df06929 private immutable profile revisions, separate exact-digest qualification, exclusive atomic publication, and concurrent conflict safety; partial M4-AC06/08/09/12 evidence)",
         "docs/validation/M4-DRAFT-ORDER-ACCOUNTING-2026-09-15.md (05eb16d canonical revision editing and cross-page reorder plus existing page/copy oracles; M4-AC03/05 automated pass, partial M4-AC06 evidence)",
-        "docs/validation/M4-NATIVE-EDITOR-COMPONENTS-2026-09-15.md (7c5e58b reusable SwiftUI editor/model with mm controls, keyboard commands, exact packed preview, separate save/approval, and revisioned correction; partial M4-AC01/06/09/12 evidence)"
+        "docs/validation/M4-NATIVE-EDITOR-COMPONENTS-2026-09-15.md (7c5e58b reusable SwiftUI editor/model with mm controls, keyboard commands, exact packed preview, separate save/approval, and revisioned correction; partial M4-AC01/06/09/12 evidence)",
+        "docs/validation/M3-IMMUTABLE-IMAGING-POLICY-2026-09-15.md (8a7fef8 editor preview and accepted job use one immutable conversion policy; additional partial M4-AC06/09 evidence only)"
       ],
       "blockers": []
     },
