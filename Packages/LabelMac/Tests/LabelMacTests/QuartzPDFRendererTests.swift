@@ -86,12 +86,12 @@ final class QuartzPDFRendererTests: XCTestCase {
         return data as Data
     }
 
-    private func emptyAnnotationsPDF() -> Data {
+    private func emptyAnnotationsPDF(userUnit: Int = 1) -> Data {
         let content = "0 0 0 rg 0 0 10 5 re f\n"
         let objects = [
             "<< /Type /Catalog /Pages 2 0 R >>",
             "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /Resources << >> /Annots [] /Contents 4 0 R >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /UserUnit \(userUnit) /Resources << >> /Annots [] /Contents 4 0 R >>",
             "<< /Length \(content.utf8.count) >>\nstream\n\(content)endstream",
         ]
         var result = Data("%PDF-1.4\n".utf8)
@@ -233,6 +233,33 @@ final class QuartzPDFRendererTests: XCTestCase {
         ))
         XCTAssertEqual(try packed(first), try packed(second))
         XCTAssertGreaterThan(first.pixels.filter { $0 < 255 }.count, 0)
+    }
+
+    func testActualSizeChangingOnlyUserUnitDoublesPhysicalExtent() throws {
+        // Same raw box and lower-half vector artwork; only /UserUnit changes.
+        // At one dot per PDF point, actual-size placement must occupy 10 versus
+        // 20 dots, centered on the same 40-dot canvas. Fixed-canvas fit equality
+        // cannot discriminate this physical contract.
+        let canvas = try DotCanvas(
+            physicalSize: PhysicalSize(width: Millimeters(40 * 25.4 / 72),
+                                       height: Millimeters(40 * 25.4 / 72)),
+            resolution: DotResolution(xDotsPerMillimeter: 72 / 25.4,
+                                      yDotsPerMillimeter: 72 / 25.4))
+        for unit in [1, 2] {
+            let rendered = try QuartzPDFRenderer.render(.init(
+                originalPDF: emptyAnnotationsPDF(userUnit: unit), pageNumber: 1,
+                canvas: canvas, placementPolicy: .actualSize))
+            XCTAssertEqual(rendered.width, 40)
+            XCTAssertEqual(rendered.height, 40)
+            let left = 20 - 5 * unit, right = 20 + 5 * unit
+            for y in 0..<40 {
+                for x in 0..<40 {
+                    let black = x >= left && x < right && y >= 20 && y < 20 + 5 * unit
+                    XCTAssertEqual(rendered.pixels[y * rendered.bytesPerRow + x], black ? 0 : 255,
+                                   "UserUnit \(unit), dot (\(x),\(y))")
+                }
+            }
+        }
     }
 
     func testRejectsInvalidInputAndBoundsBeforeRendering() throws {

@@ -1,5 +1,11 @@
 # Current implementation handoff — revision 3
 
+An additional actual-size `/UserUnit` discriminator holds raw page geometry and
+vector artwork constant and verifies every dot as units 1 and 2 produce different
+physical extents. All 26 renderer tests and the pre-change accelerator suite passed;
+full combined gate and own hosted publication remain pending. Existing compensated
+fixtures and oracle are unchanged. See `validation/M2-USERUNIT-EXTENT-2026-09-16.md`.
+
 Native location-only barcode integration reuses the corrected Quartz analysis
 raster and existing deadline-supervised child. Explicit version-2 requests bind
 barcode facts to requested pages; default border-only behavior stays version 1.
