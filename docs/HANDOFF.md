@@ -878,6 +878,17 @@ level. The analyzer currently recognizes borders only; confirmation/qualificatio
 state, candidate discovery UI, installed offline behavior, queues, browsers,
 and physical output remain open.
 
+At `b3b2a32`, M4 added an explicit unattended-workflow qualification boundary.
+Parsing or structurally matching a profile now yields `confirmationRequired`
+unless an explicit user-confirmation operation produced a qualification for the
+exact immutable profile value. Every page must have structural checks before it
+can be qualified; imported JSON cannot carry qualification state; revision or
+geometry changes require confirmation again; and geometry/anchor mismatches
+fail before qualification is considered. Five focused tests and all 126
+LabelCore tests pass. This is partial automated M4-AC09/M4-AC12 evidence only:
+durable local storage, UI confirmation, installed offline operation, queue
+binding, and recovery still require their prescribed integration evidence.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

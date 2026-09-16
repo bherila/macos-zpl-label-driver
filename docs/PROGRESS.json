@@ -118,7 +118,8 @@
         "60c1551 (bounded typed structural anchors distinguish analysis-required/no-match/ambiguous results and never become render input; additional partial M4-AC04/07 evidence)",
         "docs/validation/M4-IMPORT-SAFETY-2026-09-15.md (73a881d bounded exact JSON contract and adversarial imports; M4-AC08 automated pass)",
         "docs/validation/M4-NATIVE-EXTRACTION-2026-09-15.md (69dd2f5 original-PDF planned-region rendering, exact packed preview, right-angle rotation, and stale-plan rejection; M4-AC02/07 automated pass)",
-        "docs/validation/M4-STRUCTURAL-ANALYSIS-2026-09-15.md (5ae58ea bounded local border analysis validates letter-one and rejects layout-changed before planning; M4-AC04 automated pass)"
+        "docs/validation/M4-STRUCTURAL-ANALYSIS-2026-09-15.md (5ae58ea bounded local border analysis validates letter-one and rejects layout-changed before planning; M4-AC04 automated pass)",
+        "docs/validation/M4-WORKFLOW-QUALIFICATION-2026-09-15.md (b3b2a32 exact-profile user-confirmation wrapper gates unattended matching; partial M4-AC09/12 automated evidence only)"
       ],
       "blockers": []
     },
