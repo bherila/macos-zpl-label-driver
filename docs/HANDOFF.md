@@ -1008,6 +1008,21 @@ partial automated M3-AC01/13 and M5-AC05/07 evidence only. The immutable native
 printer-profile store, real discovery/observation, active queue selection,
 scheduler publication, USB delivery, and hardware validation remain open.
 
+At `3fc7e58`, M5 gained a private immutable printer-profile store, and virtual
+queues stopped accepting a free-standing printer digest from their caller. The
+store hashes the canonical profile bytes and returns the exact reference used
+by queue intent. Queue load reads that bounded reference from the same bytes,
+resolves the exact stored profile, completes the full queue decode, and then
+revalidates the qualified workflow. A shared owner-only descriptor-relative
+primitive provides bounded no-follow reads, stable metadata checks, complete
+writes, `fsync`, and exclusive atomic publication for printer profiles and
+queue intents. Nine focused store/queue tests cover wrong digests, malformed
+and tampered files, invalid identities, immutable and concurrent conflicts, and
+exact round trips. The complete CI-equivalent sequence passes 141 LabelCore and
+83 LabelMac tests in both configurations. This remains partial automated
+M3-AC01/13 and M5-AC05/07 evidence: discovery, active revision selection,
+scheduler publication, lifecycle recovery, USB, and hardware remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
