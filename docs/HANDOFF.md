@@ -1270,6 +1270,13 @@ tests. This is partial automated M3-AC05/07/08/09/12 evidence only. No CUPS,
 TCP, USB, daemon, scheduler retry mapping, administrator path, or printer was
 used, so all prescribed integration and hardware rows remain open.
 
+Follow-up `297c6aa` removes the remaining caller-selected lease identity from
+that path. `StoredPreparedJob` now carries the physical-device coordination ID
+from the verified immutable ticket, and delivery derives its lock identity only
+from that value before acquiring the lease. The existing contention regression
+now holds the ticket-bound domain, proving that delivery cannot select an alias
+to bypass the shared boundary.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
