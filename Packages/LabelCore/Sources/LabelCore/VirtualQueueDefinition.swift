@@ -221,6 +221,32 @@ public enum VirtualQueueJSON {
         catch { throw VirtualQueueJSONError.invalidValue("queue") }
     }
 
+    /// Reads only the immutable printer reference needed to resolve the exact
+    /// profile before a full validation pass. The root key set and size are
+    /// still exact; callers must subsequently call `decode` on the same bytes.
+    public static func printerProfileReference(
+        in data: Data,
+        maximumBytes: Int = maximumBytes
+    ) throws -> ImmutableProfileReference {
+        guard (1...Self.maximumBytes).contains(maximumBytes) else {
+            throw VirtualQueueJSONError.invalidLimit
+        }
+        guard data.count <= maximumBytes else { throw VirtualQueueJSONError.inputTooLarge }
+        let raw: Any
+        do { raw = try JSONSerialization.jsonObject(with: data) }
+        catch { throw VirtualQueueJSONError.malformedJSON }
+        let root = try object(raw, allowed: [
+            "schemaVersion", "id", "revision", "displayName", "physicalDeviceSHA256",
+            "workflowProfile", "printerProfile", "defaults",
+        ])
+        guard try integer(root, "schemaVersion") == 1 else {
+            throw VirtualQueueJSONError.unsupportedSchema
+        }
+        do { return try decodeReference(required(root, "printerProfile")) }
+        catch let error as VirtualQueueJSONError { throw error }
+        catch { throw VirtualQueueJSONError.invalidValue("printerProfile") }
+    }
+
     private static func encodeReference(_ reference: ImmutableProfileReference) -> [String: Any] {
         [
             "id": reference.id, "schemaVersion": reference.schemaVersion,
