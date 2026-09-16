@@ -26,6 +26,15 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+PR #69's first review finding 4027048607 is reproduced and corrected: native
+page geometry and direct selected rendering now share the effective CropBox /
+MediaBox intersection. Three every-dot regressions cover expanded crops,
+effective-coordinate selection, non-square partial overlap and disjoint rejection.
+All 49 focused native renderer/extraction/pipeline tests passed exit 0; corrected
+full local/hosted/review remain pending. Original exact `03ea2fc` hosted 35106871876
+passed 178 Core/250 Mac debug/release and signature/packaged checks, but did not
+cover this edge case. See `validation/M4-CROP-INTERSECTION-REVIEW-2026-09-16.md`.
+
 The current automated extraction slice exercises the supplied native, Letter and
 A4 originals through separate immutable workflow bindings and the complete
 accepted/prepared/inert pipeline. It preserves source geometry and original
