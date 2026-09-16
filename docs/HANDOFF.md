@@ -1060,6 +1060,20 @@ boundary; held-job release, restart recovery, retention, system-dialog option
 propagation, cross-process delivery, and all administrator/hardware evidence
 remain open.
 
+At `8bd8c32`, M3/M5 gained private immutable persistence for accepted-job
+semantics. Save and load both re-resolve the exact queue, workflow, and printer
+revisions and rerun complete ticket validation; canonical bytes and the
+requested acceptance identity must match. Acceptance IDs are hashed on disk,
+same-byte saves are idempotent, and different or concurrent bytes conflict
+without replacing the winner. A focused regression advances the active queue
+to a later immutable revision and proves the accepted ticket still reloads its
+earlier queue and generation. Five focused tests and the complete CI-equivalent
+sequence pass with 153 LabelCore and 92 LabelMac tests in both configurations.
+This is partial automated M3-AC12 and M5-AC05/07 evidence only. The store holds
+no source or rendered payload, and scheduler intake, source-spool ownership,
+job-state/cancellation persistence, retention, restart recovery, publication,
+delivery, and administrator/hardware evidence remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
