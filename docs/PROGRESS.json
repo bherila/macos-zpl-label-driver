@@ -104,7 +104,8 @@
         "docs/validation/M5-PRINTER-PROFILE-CODEC-2026-09-15.md (87c7e8c exact bounded canonical profile snapshots with capability evidence, observations, media, transport, and private connection identity; additional partial M3-AC01/13 evidence only)",
         "docs/validation/M5-PRINTER-PROFILE-STORE-2026-09-15.md (3fc7e58 private immutable canonical profile publication and exact queue-reference resolution; additional partial M3-AC01/13 evidence only)",
         "docs/validation/M3-RESOLVED-JOB-TICKET-2026-09-15.md (d6c4130 exact immutable accepted-job references, ownership, ordering, bounds, and resolved controls; additional partial M3-AC02/12 evidence only)",
-        "docs/validation/M3-ACCEPTED-JOB-STORE-2026-09-15.md (8bd8c32 private immutable canonical accepted-job persistence with exact reference re-resolution and conflict/tamper rejection; additional partial M3-AC12 evidence only)"
+        "docs/validation/M3-ACCEPTED-JOB-STORE-2026-09-15.md (8bd8c32 private immutable canonical accepted-job persistence with exact reference re-resolution and conflict/tamper rejection; additional partial M3-AC12 evidence only)",
+        "docs/validation/M3-ACCEPTED-JOB-BUNDLE-2026-09-15.md (e2b6332 atomic private ticket/original-PDF publication with source binding, fault injection, uncertain-commit recovery, and link/tamper rejection; additional partial M3-AC12 evidence only)"
       ],
       "blockers": []
     },
@@ -149,7 +150,8 @@
         "docs/validation/M5-ACTIVE-QUEUE-CONTRACT-2026-09-15.md (087458d exact immutable queue references plus bounded generation/previous-digest selection contract; additional partial M5-AC05/07 only)",
         "docs/validation/M5-ACTIVE-QUEUE-STORE-2026-09-15.md (aa11db9 private cross-process compare-and-swap selection persistence, exact reference resolution, atomic replacement, and explicit uncertain-commit classification; additional partial M5-AC05/07 only)",
         "docs/validation/M3-RESOLVED-JOB-TICKET-2026-09-15.md (d6c4130 exact immutable accepted-job references, ownership, ordering, bounds, and resolved controls; additional partial M5-AC05/07 evidence only)",
-        "docs/validation/M3-ACCEPTED-JOB-STORE-2026-09-15.md (8bd8c32 private immutable canonical accepted-job persistence survives active-revision changes; additional partial M5-AC05/07 evidence only)"
+        "docs/validation/M3-ACCEPTED-JOB-STORE-2026-09-15.md (8bd8c32 private immutable canonical accepted-job persistence survives active-revision changes; additional partial M5-AC05/07 evidence only)",
+        "docs/validation/M3-ACCEPTED-JOB-BUNDLE-2026-09-15.md (e2b6332 atomic private ticket/original-PDF publication retains exact source and immutable revisions across active changes; additional partial M5-AC05/07 evidence only)"
       ],
       "blockers": []
     },
