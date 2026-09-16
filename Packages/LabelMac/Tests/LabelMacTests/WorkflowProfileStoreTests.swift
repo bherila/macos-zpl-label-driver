@@ -6,6 +6,29 @@ import LabelCore
 @testable import LabelMac
 
 final class WorkflowProfileStoreTests: XCTestCase {
+    func testConfigurationStoresRejectReservedDotRoots() throws {
+        let root = try temporaryRoot()
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false,
+                                               attributes: [.posixPermissions: 0o700])
+        let child = root.appending(path: "child")
+        try FileManager.default.createDirectory(at: child, withIntermediateDirectories: false,
+                                               attributes: [.posixPermissions: 0o700])
+        for path in [root.path + "/.", child.path + "/.."] {
+            let alias = URL(fileURLWithPath: path)
+            XCTAssertThrowsError(try WorkflowProfileStore(root: alias)) {
+                XCTAssertEqual($0 as? WorkflowProfileStore.Error, .unsafeStoreDirectory)
+            }
+            XCTAssertThrowsError(try PrinterProfileStore(root: alias)) {
+                XCTAssertEqual($0 as? PrinterProfileStore.Error, .unsafeStoreDirectory)
+            }
+            XCTAssertThrowsError(try VirtualQueueStore(root: alias)) {
+                XCTAssertEqual($0 as? VirtualQueueStore.Error, .unsafeStoreDirectory)
+            }
+        }
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), ["child"])
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: child.path), [])
+    }
+
     private func temporaryRoot() throws -> URL {
         let root = FileManager.default.temporaryDirectory.appending(
             path: "WorkflowProfileStore-\(UUID().uuidString)"
