@@ -1149,6 +1149,20 @@ Scheduler intake, real multi-page preparation orchestration, held-job release,
 delivery/result mapping, restart enumeration, retention/deletion policy, and
 all administrator/hardware evidence remain open.
 
+At `8a7fef8`, the imaging decision became part of the immutable job contract.
+Workflow schema 2 requires the exact monochrome policy and parameter; accepted
+ticket schema 2 copies it and rejects divergence from the referenced workflow.
+Prepared payload publication also requires the ticket policy before it can
+create an artifact, and verified prepared loads return that binding. The native
+editor no longer carries an independent conversion default: exact-bitmap
+preview uses the draft profile's policy. Legacy schema-1 workflow/ticket bytes
+fail closed instead of acquiring a guessed threshold. The complete
+CI-equivalent sequence passes with 164 LabelCore and 105 LabelMac tests in both
+configurations. This is additional partial automated M2-AC05/09, M3-AC02/12,
+M4-AC06/09, and M5-AC07/09 evidence only. Explicit pre-release profile
+recreation, real accepted-job rendering, scheduler intake, installation,
+transport, and all physical evidence remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
