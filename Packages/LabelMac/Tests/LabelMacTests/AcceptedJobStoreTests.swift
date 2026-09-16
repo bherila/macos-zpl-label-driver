@@ -1513,6 +1513,27 @@ extension AcceptedJobStoreTests {
             workflowStore: prepared.value.workflows,
             printerStore: prepared.value.printers
         ), prepared.preparedState)
+
+        guard case let .prepared(hash, count) = prepared.preparedState.phase else {
+            return XCTFail("expected prepared lifecycle state")
+        }
+        let waiting = try prepared.states.compareAndSwap(
+            acceptanceID: prepared.value.ticket.acceptanceID,
+            expected: prepared.preparedState,
+            next: .waiting(payloadSHA256: hash, byteCount: count),
+            queueStore: prepared.value.queues,
+            workflowStore: prepared.value.workflows,
+            printerStore: prepared.value.printers
+        )
+        XCTAssertEqual(try recovery(prepared).reconcile(
+            acceptanceID: prepared.value.ticket.acceptanceID
+        ), .readyForDelivery)
+        XCTAssertEqual(try prepared.states.load(
+            acceptanceID: prepared.value.ticket.acceptanceID,
+            queueStore: prepared.value.queues,
+            workflowStore: prepared.value.workflows,
+            printerStore: prepared.value.printers
+        ), waiting)
     }
 
     func testRecoveryMakesInterruptedTransmissionUncertainWithoutReplay() throws {
@@ -1589,6 +1610,26 @@ extension AcceptedJobStoreTests {
             workflowStore: transmitted.value.workflows,
             printerStore: transmitted.value.printers
         ), transmittedState)
+        guard case let .transmitted(hash, count) = transmittedState.phase else {
+            return XCTFail("expected transmitted lifecycle state")
+        }
+        let confirmed = try transmitted.states.compareAndSwap(
+            acceptanceID: transmitted.value.ticket.acceptanceID,
+            expected: transmittedState,
+            next: .deviceConfirmed(payloadSHA256: hash, byteCount: count),
+            queueStore: transmitted.value.queues,
+            workflowStore: transmitted.value.workflows,
+            printerStore: transmitted.value.printers
+        )
+        XCTAssertEqual(try recovery(transmitted).reconcile(
+            acceptanceID: transmitted.value.ticket.acceptanceID
+        ), .deviceConfirmed(byteCount: transmitted.payload.bytes.count))
+        XCTAssertEqual(try transmitted.states.load(
+            acceptanceID: transmitted.value.ticket.acceptanceID,
+            queueStore: transmitted.value.queues,
+            workflowStore: transmitted.value.workflows,
+            printerStore: transmitted.value.printers
+        ), confirmed)
 
         let uncertain = try preparedInertFixture(acceptanceID: "recovery-uncertain")
         XCTAssertEqual(try inertDelivery(uncertain).deliver(
