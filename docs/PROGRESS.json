@@ -43,7 +43,8 @@
         "c2f0c1a (full-bleed PPD bytes and strict pins integrated; nonblocking deadline-bound filter output and final-MIME regressions; source/process evidence only, no scheduler run)",
         "be6842b (single verified local scheduler endpoint, protected apply intent, queue-first verified recovery, signal/fault harness, and read-only Tahoe namespace preflight; administrative paths not run)",
         "docs/validation/M1-ACQUIRED-TRANSACTION-OWNERSHIP-2026-09-15.md (c9a652e, 92606bb, and 9019eb6 invocation-bound rollback, non-exclusive queue retention, catchable acquisition-signal handling, predecessor-record explicit recovery, and competing-acquisition fault regressions; source-level evidence only, administrative paths not run)",
-        "docs/validation/M1-TRANSACTION-RECOVERY.md (guide reconciled with 9019eb6: automatic rollback never deletes a present queue; explicit validated recovery remains separate; documentation only)"
+        "docs/validation/M1-TRANSACTION-RECOVERY.md (guide reconciled with 9019eb6: automatic rollback never deletes a present queue; explicit validated recovery remains separate; documentation only)",
+        "docs/validation/M1-SINGLE-JOB-ADMISSION.md (finite one-held-synthetic-job procedure with chain/endpoint/ownership checks; prepared only, NOT RUN)"
       ],
       "blockers": []
     },

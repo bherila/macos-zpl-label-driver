@@ -1,0 +1,73 @@
+# M1 first administrator experiment: one held synthetic PDF
+
+**NOT RUN.** This procedure is for the approved discard experiment only, not
+production printing. Budget: one queue transaction, one single-page synthetic
+PDF job, one release, a 60-second observation deadline, and immediate validated
+removal. Zero physical labels or device commands. Do not retry failed jobs or
+expand into a browser matrix during this session.
+
+## Before administrator authorization
+
+Freeze the exact tested commit, script hash, locally ad-hoc-signed ARM filter
+hash/signature/deployment metadata, and approved native PPD hash. Use only
+`Fixtures/generated/native-vector.pdf`; verify its committed manifest hash and
+single-page identity. Run the script's read-only scheduler, filter, and PPD
+validation modes. Stop unless the scheduler is reachable and the experiment
+queue/root are absent. Record OS/build and toolchain.
+
+Keep a private local before/after record of queue inventory and system/user
+defaults. Do not publish printer identities, device URIs, serials, or a full
+system/log dump. Do not inspect unrelated driver assets. All queue/job commands
+must use the same verified local Unix-socket endpoint, explicit `-h`, and a
+controlled client environment with remote overrides absent, including privileged
+operations. A failed query is not absence.
+
+## Stage, submit, observe, remove
+
+1. An interactive OS administrator runs the reviewed script's `--apply` with
+   the frozen filter and native candidate. No password is collected by an
+   agent/filter. Stop on any failure or residual report; retain recovery evidence.
+2. Validate the final staged PPD strictly and inspect its planned chain using
+   `cupsfilter --list-filters`, the final PPD, printer-format destination, and
+   each source type separately: `application/pdf` and `application/vnd.cups-pdf`.
+   This lists filters without executing them. Both must select the exact staged
+   filter with no unexpected executable. Record diagnostics; do not loosen
+   validation or global security. Read back the exact `file:///dev/null` URI,
+   unshared status, disabled/rejecting state, and unchanged defaults.
+3. Confirm no experiment jobs exist. Briefly accept jobs while leaving the
+   queue disabled. Submit exactly one held job with explicit destination,
+   `-H hold`, one copy, PDF document format, `PageSize=4x6.Fullbleed`,
+   `ProbeSpeed=3`, `ProbeDarkness=15`, `ProbeWorkflow=Native`, and
+   `ProbeRotation=90`. These are inert observation tokens, not physical control
+   commands. Never use a raw submission path. Immediately reject new jobs again.
+4. Validate the returned job identifier against scheduler readback: correct
+   destination, held state, one document, and expected attributes. If another
+   job appeared, stop; do not cancel an unrelated job or claim exclusive use.
+   Preserve the experiment and report the conflict for administrator resolution.
+5. Enable processing only after verification, then resume only that held job
+   (`lp -i JOB_ID -H resume`, not restart). Observe for at most 60 seconds.
+   Require scheduler-correlated `LABEL_CAPTURE_FILTER` metadata for this job:
+   expected file/stdin mode, PDF input MIME, nonzero bounded byte count, copies
+   argument, all four selected option values, and final MIME
+   `application/vnd.labelprobe`. Require finite discard completion too. Completion
+   alone, without this invocation evidence, is inconclusive. Do not enable global
+   verbose/payload logging to compensate for missing metadata.
+6. Reject further jobs immediately. If needed, cancel only the recorded own job
+   and verify it drained. Run explicit script `--remove`; queue-first validated
+   recovery must confirm absence before deleting the filter/intent/root.
+   Compare baseline/defaults and unrelated queues. Report residual artifacts,
+   uncertain job status, or query failure explicitly; never broaden cleanup,
+   purge scheduler history/logs, or delete another queue.
+
+The local `lp` and `cupsfilter` manuals were inspected when preparing this
+procedure: hold/resume applies to a specific job; `--list-filters` does not run
+filters. Exact host behavior still requires the administrator-session evidence.
+
+## What this can establish
+
+Only narrow real-scheduler filter admission, selected option propagation,
+discard completion, and observed reversible installation. It does not close
+all of M1-AC01/04/11/13, prove original PDF/vector fidelity, test system-dialog
+visibility, establish held-profile revision binding, select a production worker
+identity/IPC model, qualify restart admission, or validate USB/physical output.
+Record those separately. The PPD remains an experimental candidate.
