@@ -26,6 +26,15 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+Local displayed-region binding correction reproduces/fixes stale measurement
+callbacks editing a newly selected region. Native numeric/rotation/reorder/add/
+remove/draw actions now bind region and edit generation; the measurement callback
+retains displayed page geometry and drawing retains its starting binding.
+43 focused editor/opening/bootstrap tests passed after the pre-fix regression
+failed. Full combined gate and native interaction pending. See
+`validation/M4-DISPLAYED-EDIT-BINDING-2026-09-16.md`. Parent #61 hosted/first
+review remain live; no GUI/scheduler/printer evidence is added.
+
 Integrated read-only discovery `84d397e` passed the full local gate exit 0 with
 67/173/231 debug/release, accelerator/independent/inert/signature and packaged
 worker equality checks. 38 focused native tests and one finite actual-reader
