@@ -1,5 +1,11 @@
 # Current implementation handoff — revision 3
 
+Discovery integration `7ee1212` passes 38 focused native discovery/setup/store/
+transfer tests. A single hard-timeout count-only smoke of the actual native
+reader succeeded with zero matching interfaces/observations; positive-device
+resolution and GUI remain NOT RUN. Full combined gate pending. No USB service
+connection, identity qualification or printer command occurred.
+
 The pushed parent capacity correction `6234f06` is now integrated into discovery
 WIP; run its full combined gate before promotion. Parent corrected hosted run
 35095948906 and second review were confirmed live. This supersedes earlier

@@ -1,5 +1,13 @@
 # User-initiated native read-only USB discovery
 
+Integrated checkpoint `7ee1212`: 38 focused reader/model/setup/store/transfer
+tests passed. The actual product reader was compiled directly with a narrow
+count-only native harness and executed once under a hard ten-second timeout.
+It succeeded with zero scanned interfaces, unreadable classes and printer
+observations. No device connection or command occurred. This exercises the
+native empty-match path, not positive device metadata or GUI operation.
+The complete combined gate is pending.
+
 Parent capacity correction `a1cf439` is now integrated from pushed head
 `6234f06`: public workflow saves serialize bounded capacity admission and rename
 without increasing the 256-record catalog cap. Its full local 67/173/223 gate
