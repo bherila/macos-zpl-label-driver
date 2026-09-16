@@ -131,7 +131,18 @@ public final class WorkflowEditorModel: ObservableObject {
             width: width / size.width.value,
             height: height / size.height.value
         )
-        try draft.updateRegion(id: selectedRegionID, normalizedRect: rect, rotation: region.rotation)
+        try updateSelectedRegion(rect, expectedRegionID: selectedRegionID)
+    }
+
+    /// A stale drawing cannot edit whichever region happens to be selected now.
+    public func updateSelectedRegion(_ rect: NormalizedRect, expectedRegionID: String) throws {
+        guard selectedRegionID == expectedRegionID,
+              let region = regions.first(where: { $0.id == expectedRegionID }) else {
+            throw WorkflowProfileDraft.Error.regionNotFound(expectedRegionID)
+        }
+        var next = try editableDraft()
+        try next.updateRegion(id: expectedRegionID, normalizedRect: rect, rotation: region.rotation)
+        draft = next
         cancelPreview()
         isSaved = false
     }
@@ -141,11 +152,13 @@ public final class WorkflowEditorModel: ObservableObject {
               let region = regions.first(where: { $0.id == selectedRegionID }) else {
             throw WorkflowProfileDraft.Error.regionNotFound(selectedRegionID ?? "")
         }
-        try draft.updateRegion(
+        var next = try editableDraft()
+        try next.updateRegion(
             id: selectedRegionID,
             normalizedRect: region.normalizedRect,
             rotation: rotation
         )
+        draft = next
         cancelPreview()
         isSaved = false
     }
@@ -155,7 +168,11 @@ public final class WorkflowEditorModel: ObservableObject {
               let current = regions.firstIndex(where: { $0.id == selectedRegionID }) else {
             throw WorkflowProfileDraft.Error.regionNotFound(selectedRegionID ?? "")
         }
-        try draft.moveRegion(id: selectedRegionID, to: current + offset)
+        let (destination, overflow) = current.addingReportingOverflow(offset)
+        guard !overflow else { throw WorkflowProfileDraft.Error.invalidDestination }
+        var next = try editableDraft()
+        try next.moveRegion(id: selectedRegionID, to: destination)
+        draft = next
         cancelPreview()
         isSaved = false
     }
@@ -252,6 +269,10 @@ public final class WorkflowEditorModel: ObservableObject {
         try store.save(profile)
         isSaved = true
         lastError = nil
+    }
+
+    private func editableDraft() throws -> WorkflowProfileDraft {
+        isSaved ? try WorkflowProfileDraft(nextRevisionOf: profile) : draft
     }
 
     public func approveForUnattendedUse() throws {
@@ -411,12 +432,11 @@ public struct WorkflowEditorView: View {
                     .overlay {
                         GeometryReader { geometry in
                             if let region = selectedRegion, region.sourcePage == source.sourcePage {
-                                Rectangle().stroke(style: StrokeStyle(lineWidth: 2, dash: [6, 3]))
-                                    .frame(width: geometry.size.width * region.normalizedRect.width,
-                                           height: geometry.size.height * region.normalizedRect.height)
-                                    .position(x: geometry.size.width * (region.normalizedRect.x + region.normalizedRect.width / 2),
-                                              y: geometry.size.height * (region.normalizedRect.y + region.normalizedRect.height / 2))
-                                    .accessibilityLabel("Selected extraction bounds; edit using the millimeter fields")
+                                SourceSelectionOverlay(regionID: region.id, rect: region.normalizedRect,
+                                                       viewport: geometry.size) { owner, rect in
+                                    guard model.sourcePreview?.sourcePage == source.sourcePage else { return }
+                                    perform { try model.updateSelectedRegion(rect, expectedRegionID: owner) }
+                                }
                             }
                         }
                     }
@@ -474,6 +494,55 @@ public struct WorkflowEditorView: View {
             space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: 0),
             provider: provider, decode: nil, shouldInterpolate: false,
             intent: .defaultIntent
+        )
+    }
+}
+
+/// Display coordinates only. Final rendering continues to consume the original PDF.
+private struct SourceSelectionOverlay: View {
+    let regionID: String
+    let rect: NormalizedRect
+    let viewport: CGSize
+    let commit: (String, NormalizedRect) -> Void
+    @State private var owner: String?
+    @State private var startingViewport: CGSize?
+    @State private var pending: NormalizedRect?
+
+    var body: some View {
+        let displayed = pending ?? rect
+        Rectangle().fill(.clear)
+            .contentShape(Rectangle())
+            .overlay {
+                Rectangle().stroke(style: StrokeStyle(lineWidth: 2, dash: [6, 3]))
+                    .frame(width: viewport.width * displayed.width,
+                           height: viewport.height * displayed.height)
+                    .position(x: viewport.width * (displayed.x + displayed.width / 2),
+                              y: viewport.height * (displayed.y + displayed.height / 2))
+                    .allowsHitTesting(false)
+            }
+            .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .local)
+                .onChanged { value in
+                    if owner == nil { owner = regionID; startingViewport = viewport }
+                    guard owner == regionID, startingViewport == viewport else {
+                        pending = nil
+                        return
+                    }
+                    pending = selection(value)
+                }
+                .onEnded { value in
+                    defer { owner = nil; startingViewport = nil; pending = nil }
+                    guard let owner, owner == regionID, startingViewport == viewport,
+                          let selection = selection(value) else { return }
+                    commit(owner, selection)
+                })
+            .accessibilityLabel("Draw extraction bounds on the source page, or use the millimeter fields")
+    }
+
+    private func selection(_ value: DragGesture.Value) -> NormalizedRect? {
+        try? SourceRegionSelection.rectangle(
+            viewportWidth: viewport.width, viewportHeight: viewport.height,
+            startX: value.startLocation.x, startY: value.startLocation.y,
+            endX: value.location.x, endY: value.location.y
         )
     }
 }
