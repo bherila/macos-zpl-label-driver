@@ -18,8 +18,13 @@ struct DiagnosticMain {
             boundedRead(path: args[1], maximumBytes: args[2])
             return
         }
+        if args.count == 2, args[0] == "--workflow-catalog" {
+            do { _ = try WorkflowProfileStore(root: URL(fileURLWithPath: args[1])).savedWorkflows() }
+            catch { exit(65) }
+            return
+        }
         guard args.isEmpty else {
-            FileHandle.standardError.write(Data("Usage: label-driver-diagnostics [--version]\n       label-driver-diagnostics --hold-device-lease DIRECTORY IDENTIFIER MILLISECONDS\n       label-driver-diagnostics --bounded-read PATH MAXIMUM_BYTES\nNo printer operations are implemented.\n".utf8))
+            FileHandle.standardError.write(Data("Usage: label-driver-diagnostics [--version]\n       label-driver-diagnostics --hold-device-lease DIRECTORY IDENTIFIER MILLISECONDS\n       label-driver-diagnostics --bounded-read PATH MAXIMUM_BYTES\n       label-driver-diagnostics --workflow-catalog DIRECTORY\nNo printer operations are implemented.\n".utf8))
             exit(2)
         }
         do {

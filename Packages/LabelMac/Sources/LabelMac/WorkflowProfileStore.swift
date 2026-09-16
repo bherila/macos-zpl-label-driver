@@ -6,6 +6,10 @@ import LabelCore
 /// confirmed unattended-use qualifications. Imported JSON is never itself a
 /// qualification record.
 public struct WorkflowProfileStore: @unchecked Sendable {
+    public struct CatalogEntry: Identifiable, Equatable, Sendable {
+        public let profile: WorkflowProfile
+        public var id: String { WorkflowProfileStore.profileFileName(profile.id, profile.revision) }
+    }
     public enum Error: Swift.Error, Equatable, Sendable {
         case cannotCreateStore
         case cannotOpenStore
@@ -67,6 +71,28 @@ public struct WorkflowProfileStore: @unchecked Sendable {
             throw Error.profileIdentityMismatch
         }
         return profile
+    }
+
+    /// No document payload or qualification authority is included. Malformed,
+    /// misnamed, unsafe or over-budget candidates fail the entire catalog.
+    public func savedWorkflows(maximumProfiles: Int = 256) throws -> [CatalogEntry] {
+        let records: [(name: String, data: Data)]
+        do {
+            records = try storage.catalog(directory: "profiles", maximumRecords: maximumProfiles,
+                maximumRecordBytes: WorkflowProfileJSON.maximumBytes,
+                maximumTotalBytes: 64 * 1024 * 1024)
+        } catch { throw Self.mapStorage(error) }
+        return try records.map { record in
+            let profile = try WorkflowProfileJSON.decode(record.data)
+            guard record.name == Self.profileFileName(profile.id, profile.revision),
+                  try WorkflowProfileJSON.encode(profile) == record.data else {
+                throw Error.profileIdentityMismatch
+            }
+            return CatalogEntry(profile: profile)
+        }.sorted {
+            if $0.profile.id != $1.profile.id { return $0.profile.id < $1.profile.id }
+            return $0.profile.revision > $1.profile.revision
+        }
     }
 
     /// Persists local confirmation only after the exact immutable profile

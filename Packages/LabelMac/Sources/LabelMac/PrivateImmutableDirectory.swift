@@ -134,6 +134,54 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
         }
     }
 
+    /// A bounded catalog, not an atomic snapshot of the entire namespace.
+    /// Every candidate is opened relative to the same validated directory.
+    func catalog(directory name: String, maximumRecords: Int,
+        maximumRecordBytes: Int, maximumTotalBytes: Int
+    ) throws -> [(name: String, data: Data)] {
+        guard (1...256).contains(maximumRecords), maximumRecordBytes > 0,
+              maximumRecordBytes <= 256 * 1024,
+              maximumTotalBytes > 0, maximumTotalBytes <= 64 * 1024 * 1024 else {
+            throw Error.cannotRead
+        }
+        return try withDirectory(name) { directory in
+            // Reopen '.', not dup: enumeration must not share directory offsets.
+            let enumeration = openat(directory, ".", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+            guard enumeration >= 0 else { throw Error.cannotRead }
+            guard let stream = fdopendir(enumeration) else {
+                close(enumeration)
+                throw Error.cannotRead
+            }
+            defer { closedir(stream) }
+            var result: [(name: String, data: Data)] = []
+            var entries = 0
+            var totalBytes = 0
+            while true {
+                errno = 0
+                guard let entry = readdir(stream) else {
+                    guard errno == 0 else { throw Error.cannotRead }
+                    break
+                }
+                entries += 1
+                guard entries <= 4096 else { throw Error.cannotRead }
+                let fileName = withUnsafePointer(to: &entry.pointee.d_name) {
+                    $0.withMemoryRebound(to: CChar.self, capacity: Int(entry.pointee.d_namlen) + 1) {
+                        String(validatingUTF8: $0)
+                    }
+                }
+                // Unpublished hidden staging records are never catalog entries.
+                guard let fileName else { throw Error.cannotRead }
+                guard !fileName.hasPrefix("."), fileName.hasSuffix(".json") else { continue }
+                guard result.count < maximumRecords else { throw Error.cannotRead }
+                let data = try read(directoryDescriptor: directory, fileName: fileName,
+                    maximumBytes: min(maximumRecordBytes, maximumTotalBytes - totalBytes))
+                totalBytes += data.count
+                result.append((fileName, data))
+            }
+            return result
+        }
+    }
+
     private func withDirectory<T>(
         _ name: String,
         syncRootAfterBody: Bool = false,

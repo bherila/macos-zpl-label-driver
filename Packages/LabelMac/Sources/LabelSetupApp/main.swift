@@ -93,6 +93,8 @@ struct SetupDocumentView: View {
     let canOpen: Bool
     @State private var importing = false
     @State private var openingMode: WorkflowOpeningMode = .assisted
+    @State private var selectedSavedWorkflow: String?
+    @State private var reopeningProfile: WorkflowProfileStore.CatalogEntry?
 
     var body: some View {
         VStack {
@@ -104,18 +106,44 @@ struct SetupDocumentView: View {
             } else {
                 Text("Open a local PDF to create an offline label workflow.")
             }
-            Button("Open PDF…") { openingMode = .assisted; importing = true }
+            Button("Open PDF…") { reopeningProfile = nil; openingMode = .assisted; importing = true }
                 .keyboardShortcut("o", modifiers: [.command])
                 .disabled(!canOpen || documents.isOpening)
-            Button("Open PDF for Manual Extraction…") { openingMode = .manual; importing = true }
+            Button("Open PDF for Manual Extraction…") { reopeningProfile = nil; openingMode = .manual; importing = true }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
                 .disabled(!canOpen || documents.isOpening)
+            GroupBox("Saved workflow revisions") {
+                VStack(alignment: .leading) {
+                    Picker("Saved workflow", selection: $selectedSavedWorkflow) {
+                        Text("Choose a saved revision").tag(nil as String?)
+                        ForEach(documents.savedWorkflows) { entry in
+                            Text("\(entry.profile.id) — revision \(entry.profile.revision)")
+                                .tag(Optional(entry.id))
+                        }
+                    }
+                    Button("Reopen Saved Workflow with PDF…") {
+                        reopeningProfile = documents.savedWorkflows.first { $0.id == selectedSavedWorkflow }
+                        if reopeningProfile != nil { importing = true }
+                    }.disabled(!canOpen || documents.isOpening ||
+                        !documents.savedWorkflows.contains { $0.id == selectedSavedWorkflow })
+                    Button("Refresh Saved Workflows") { Task { await documents.refreshSavedWorkflows() } }
+                        .disabled(documents.isRefreshingSavedWorkflows)
+                    if documents.isRefreshingSavedWorkflows { ProgressView("Reading saved workflows…") }
+                    if let error = documents.savedWorkflowError { Text(error).foregroundStyle(.red) }
+                    Text("Choose a local source PDF. Reopening verifies its pages and layout and creates a new unsaved revision; it does not print or replay a job.")
+                        .font(.caption)
+                }
+            }
             if let error = documents.error { Text(error).foregroundStyle(.red) }
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
-            if case let .success(url) = result { documents.open(url, mode: openingMode) }
+            if case let .success(url) = result {
+                if let reopeningProfile { documents.openSavedWorkflow(url, profile: reopeningProfile.profile) }
+                else { documents.open(url, mode: openingMode) }
+            }
             if case .failure = result { documents.reportImportFailure() }
         }
+        .task { await documents.refreshSavedWorkflows() }
         .onDisappear { documents.cancelOpening() }
     }
 }
