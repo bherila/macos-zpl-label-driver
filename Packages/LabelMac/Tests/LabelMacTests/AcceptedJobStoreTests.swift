@@ -1284,6 +1284,47 @@ private extension AcceptedJobStoreTests {
             printerStore: fixture.value.printers
         )
     }
+
+    private func racedRecovery(
+        _ fixture: PreparedInertFixture,
+        transition: () throws -> Void
+    ) throws -> PersistedJobRecoveryOutcome {
+        let gate = RecoveryRaceGate()
+        let result = RecoveryResultBox()
+        let completed = DispatchSemaphore(value: 0)
+        let recovery = PersistedJobRecovery(
+            acceptedJobStore: fixture.value.jobs,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers,
+            leaseDirectory: fixture.leaseDirectory,
+            observe: gate.observe
+        )
+        DispatchQueue.global().async {
+            result.set(Result {
+                try recovery.reconcile(
+                    acceptanceID: fixture.value.ticket.acceptanceID
+                )
+            })
+            completed.signal()
+        }
+        guard gate.initialStateLoaded.wait(timeout: .now() + 2) == .success else {
+            throw PersistedJobRecovery.Error.stateUnavailable
+        }
+        do {
+            try transition()
+        } catch {
+            gate.allowSecondRead.signal()
+            _ = completed.wait(timeout: .now() + 2)
+            throw error
+        }
+        gate.allowSecondRead.signal()
+        guard completed.wait(timeout: .now() + 2) == .success,
+              let stored = result.result else {
+            throw PersistedJobRecovery.Error.stateUnavailable
+        }
+        return try stored.get()
+    }
 }
 
 extension AcceptedJobStoreTests {
@@ -1615,30 +1656,9 @@ extension AcceptedJobStoreTests {
 
     func testRecoveryReconcilesReadyToTransmittingRaceUnderDeviceLease() throws {
         let fixture = try preparedInertFixture(acceptanceID: "recovery-raced-send")
-        let gate = RecoveryRaceGate()
-        let result = RecoveryResultBox()
-        let completed = DispatchSemaphore(value: 0)
-        let recovery = PersistedJobRecovery(
-            acceptedJobStore: fixture.value.jobs,
-            queueStore: fixture.value.queues,
-            workflowStore: fixture.value.workflows,
-            printerStore: fixture.value.printers,
-            leaseDirectory: fixture.leaseDirectory,
-            observe: gate.observe
-        )
-        DispatchQueue.global().async {
-            result.set(Result {
-                try recovery.reconcile(
-                    acceptanceID: fixture.value.ticket.acceptanceID
-                )
-            })
-            completed.signal()
-        }
-        XCTAssertEqual(gate.initialStateLoaded.wait(timeout: .now() + 2), .success)
-        _ = try transmitting(fixture, bytesAccepted: 2)
-        gate.allowSecondRead.signal()
-        XCTAssertEqual(completed.wait(timeout: .now() + 2), .success)
-        XCTAssertEqual(try result.result?.get(), .uncertain(bytesAccepted: 2))
+        XCTAssertEqual(try racedRecovery(fixture) {
+            _ = try transmitting(fixture, bytesAccepted: 2)
+        }, .uncertain(bytesAccepted: 2))
 
         let final = try fixture.states.load(
             acceptanceID: fixture.value.ticket.acceptanceID,
@@ -1650,6 +1670,34 @@ extension AcceptedJobStoreTests {
             return XCTFail("expected uncertain lifecycle state")
         }
         XCTAssertEqual(accepted, 2)
+    }
+
+    func testRecoveryObservesCancellationRacedAfterInitialRead() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "recovery-raced-cancel")
+        XCTAssertEqual(try racedRecovery(fixture) {
+            _ = try fixture.states.cancel(
+                acceptanceID: fixture.value.ticket.acceptanceID,
+                expected: fixture.preparedState,
+                cancellationToken: fixture.value.cancellationToken,
+                queueStore: fixture.value.queues,
+                workflowStore: fixture.value.workflows,
+                printerStore: fixture.value.printers
+            )
+        }, .cancelledBeforeTransmission)
+    }
+
+    func testRecoveryObservesPreSendFailureRacedAfterInitialRead() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "recovery-raced-failure")
+        XCTAssertEqual(try racedRecovery(fixture) {
+            _ = try fixture.states.compareAndSwap(
+                acceptanceID: fixture.value.ticket.acceptanceID,
+                expected: fixture.preparedState,
+                next: .failedBeforeTransmission,
+                queueStore: fixture.value.queues,
+                workflowStore: fixture.value.workflows,
+                printerStore: fixture.value.printers
+            )
+        }, .failedBeforeTransmission)
     }
 
     func testRecoveryReadsTerminalEvidenceWithoutStateMutation() throws {

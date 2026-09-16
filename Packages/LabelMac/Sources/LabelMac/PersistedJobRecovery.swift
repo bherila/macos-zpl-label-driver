@@ -74,6 +74,18 @@ public struct PersistedJobRecovery: @unchecked Sendable {
     ) throws -> PersistedJobRecoveryOutcome {
         let state = try loadState(acceptanceID: acceptanceID)
         observe(.initialStateLoaded)
+        return try reconcile(
+            acceptanceID: acceptanceID,
+            observed: state,
+            remainingStateReads: 8
+        )
+    }
+
+    private func reconcile(
+        acceptanceID: String,
+        observed state: AcceptedJobStateRecord,
+        remainingStateReads: Int
+    ) throws -> PersistedJobRecoveryOutcome {
         switch state.phase {
         case .accepted:
             return .acceptedNeedsPreparation
@@ -82,7 +94,20 @@ public struct PersistedJobRecovery: @unchecked Sendable {
         case .cancelledBeforeTransmission:
             return .cancelledBeforeTransmission
         case .prepared, .waiting, .transmitted, .deviceConfirmed, .uncertain:
-            let prepared = try loadPrepared(acceptanceID: acceptanceID)
+            let prepared: StoredPreparedJob
+            do {
+                prepared = try loadPrepared(acceptanceID: acceptanceID)
+            } catch Error.invalidState {
+                // A cooperative writer may have removed deliverability by
+                // publishing cancellation or pre-send failure after our first
+                // read. Reclassify a bounded number of monotonic transitions.
+                guard remainingStateReads > 0 else { throw Error.stateUnavailable }
+                return try reconcile(
+                    acceptanceID: acceptanceID,
+                    observed: loadState(acceptanceID: acceptanceID),
+                    remainingStateReads: remainingStateReads - 1
+                )
+            }
             if case .transmitting = prepared.state.phase {
                 return try reconcileTransmission(
                     acceptanceID: acceptanceID, initial: prepared
