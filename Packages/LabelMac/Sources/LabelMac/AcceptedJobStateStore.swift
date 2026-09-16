@@ -11,6 +11,7 @@ public struct StoredPreparedJob: Equatable, Sendable {
     public let monochromeConversion: MonochromeConversion
     public let profileSnapshot: JobProfileSnapshot
     public let resolvedControls: ResolvedPrinterControls
+    public let physicalDevice: PhysicalDeviceCoordinationID
     public let state: AcceptedJobStateRecord
 }
 
@@ -146,6 +147,7 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
                 monochromeConversion: bundle.ticket.monochromeConversion,
                 profileSnapshot: JobProfileSnapshot(profile: profile),
                 resolvedControls: bundle.ticket.controls,
+                physicalDevice: bundle.ticket.physicalDevice,
                 state: state
             )
         }

@@ -106,7 +106,6 @@ public struct InertPersistedDelivery: @unchecked Sendable {
 
     public func deliver(
         acceptanceID: String,
-        device: PhysicalDeviceIdentity,
         scenario: InertDeliveryScenario
     ) throws -> InertPersistedDeliveryOutcome {
         let prepared = try loadPrepared(acceptanceID: acceptanceID)
@@ -114,10 +113,18 @@ public struct InertPersistedDelivery: @unchecked Sendable {
            fault > prepared.bytes.count {
             throw Error.invalidScenario
         }
+        var state = prepared.state
+        guard case let .prepared(payloadSHA256, byteCount) = state.phase,
+              byteCount == prepared.bytes.count else {
+            throw Error.invalidState
+        }
         let lease: PhysicalDeviceLease
         do {
             lease = try PhysicalDeviceLease(
-                acquiring: device, inExistingDirectory: leaseDirectory
+                acquiring: PhysicalDeviceIdentity(
+                    coordinationID: prepared.physicalDevice
+                ),
+                inExistingDirectory: leaseDirectory
             )
         } catch PhysicalDeviceLeaseError.alreadyHeld {
             return .deviceBusy
@@ -126,11 +133,6 @@ public struct InertPersistedDelivery: @unchecked Sendable {
         }
         defer { lease.release() }
 
-        var state = prepared.state
-        guard case let .prepared(payloadSHA256, byteCount) = state.phase,
-              byteCount == prepared.bytes.count else {
-            throw Error.invalidState
-        }
         state = try transition(
             acceptanceID: acceptanceID, expected: state,
             next: .waiting(payloadSHA256: payloadSHA256, byteCount: byteCount)
