@@ -1244,6 +1244,17 @@ The complete local sequence now passes with 64 Python, 165 LabelCore, and 111
 LabelMac tests. R12 and R13 remain open; no scheduler, transport,
 administrator, or hardware path was exercised.
 
+At `1e51a8b`, review finding R12 is closed at the accepted-bundle publication
+boundary. An identical save retry now repeats the accepted-jobs parent-directory
+sync before acknowledging success; sync failure remains `commitUncertain` even
+when exact bytes are visible. Regressions inject that actual barrier, cover
+persistent failure and later recovery, pause one writer between rename and sync
+while a duplicate writer confirms durability, and prove that retries never
+reset an already-prepared lifecycle record. Local validation passes with 64
+Python, 164 LabelCore, and 112 LabelMac tests, including 23 focused store tests.
+This does not claim universal power-loss persistence, scheduler acceptance, or
+hardware evidence. R13 remains open for the other immutable reference stores.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
