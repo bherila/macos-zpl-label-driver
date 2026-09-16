@@ -1,6 +1,7 @@
 # M3 persisted-job restart recovery — 2026-09-15
 
-**Scope:** native automated evidence at `65dce21`. This slice adds a bounded
+**Scope:** native automated evidence at `65dce21` with first-review remediation
+at `75fca07`. This slice adds a bounded
 reconciliation primitive for one known accepted-job ID. It does not enumerate
 jobs, install a worker, connect scheduler intake, or contact a printer.
 
@@ -20,6 +21,10 @@ jobs, install a worker, connect scheduler intake, or contact a printer.
   sink or authorizes automatic replay.
 - Transmitted, device-confirmed, and uncertain outcomes are read back from the
   validated prepared artifact without lifecycle mutation.
+- If a concurrent owner advances a ready job to transmitting between recovery's
+  first state read and its prepared-artifact read, recovery routes that observed
+  state through the same lease-backed reconciliation path rather than failing
+  outside the ownership boundary.
 - State publication uncertainty remains explicit instead of being reported as
   successful reconciliation.
 
@@ -28,14 +33,15 @@ jobs, install a worker, connect scheduler intake, or contact a printer.
 On macOS 26.6.2 with Xcode 26.6:
 
 - `swift test --package-path Packages/LabelMac --filter AcceptedJobStoreTests`
-  — 38 passed;
-- `swift test --package-path Packages/LabelMac` — 143 passed;
-- `swift test -c release --package-path Packages/LabelMac` — 143 passed;
+  — 39 passed;
+- `swift test --package-path Packages/LabelMac` — 144 passed;
+- `swift test -c release --package-path Packages/LabelMac` — 144 passed;
 - complete `bash scripts/ci-swift.sh` exact-head gate — 64 Python tests,
   165 LabelCore tests in debug and release, 143 LabelMac tests in debug and
   release, 132 independent encoder round trips, 15 backend ABI cases, 10
   filter ABI cases, one inert pipeline case, and local ad-hoc product signature
-  verification passed.
+  verification passed before the review remediation. The exact-head complete
+  gate remains to run with the new deterministic race regression.
 
 ## Evidence limits and next boundary
 
