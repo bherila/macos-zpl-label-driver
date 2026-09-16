@@ -1634,6 +1634,14 @@ pending. Source-reference work is checkpointed locally
 at `f1adeeb`; its full gate passed 67/167/191 debug/release with all independent
 and signing checks, but publication waits for this dependency correction.
 
+The source-page-reference slice is connected locally to the editor. It reuses the
+bounded original-PDF child and strict packed-output validator, labels display
+pixels separately from exact print output, and overlays normalized bounds for
+numerical/keyboard editing. Independent UUID/cancellation protects stale source
+results and replacement opening. Four real-worker tests pass; full validation
+is pending. `M4-SOURCE-PAGE-REFERENCE-2026-09-16.md` records remaining GUI,
+zoom and direct-selection gates. No installed or physical acceptance follows.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
