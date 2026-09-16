@@ -77,7 +77,7 @@
         "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md (3ad4bf0 clean-worktree macOS CI-equivalent pass: M2-AC01/02/04/05/06/09/13 automated evidence; no scheduler, transport, or physical-printer claim)",
         "docs/validation/M3-IMMUTABLE-IMAGING-POLICY-2026-09-15.md (8a7fef8 workflow/ticket/prepared-payload conversion binding and fail-closed schema transition; additional partial M2-AC05/09 evidence only)",
         "docs/validation/M2-NONBLOCKING-REGULAR-FILE-OPEN-2026-09-15.md (88fb87e shared nonblocking no-follow PDF/ticket/private-record opens with hard-deadline FIFO subprocess regressions; additional partial M2-AC09/10 evidence only)",
-        "docs/validation/M2-WORKER-CANCELLATION-ADMISSION-2026-09-16.md (pre-cancel worker admission regression; local full 67/165/153 debug/release gate and ad-hoc signatures passed; no scheduler claim)"
+        "docs/validation/M2-WORKER-CANCELLATION-ADMISSION-2026-09-16.md (cf379e8 pre-cancel worker admission; local and hosted run 35071875026 full 67/165/153 debug/release/signatures passed; independent review clean; no scheduler claim)"
       ],
       "blockers": []
     },
