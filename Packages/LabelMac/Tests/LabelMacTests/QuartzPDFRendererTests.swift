@@ -155,6 +155,68 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertTrue(bitmap.pixels[row..<(row + 5)].allSatisfy { $0 == 255 })
         XCTAssertTrue(bitmap.pixels[(row + 6)..<(row + 14)].allSatisfy { $0 == 0 })
         XCTAssertTrue(bitmap.pixels[(row + 15)..<(row + 20)].allSatisfy { $0 == 255 })
+        for y in 0..<bitmap.height {
+            let start = y * bitmap.bytesPerRow
+            XCTAssertTrue(bitmap.pixels[start..<(start + 5)].allSatisfy { $0 == 255 })
+            XCTAssertTrue(bitmap.pixels[(start + 5)..<(start + 15)].allSatisfy { $0 == 0 })
+            XCTAssertTrue(bitmap.pixels[(start + 15)..<(start + 20)].allSatisfy { $0 == 255 })
+        }
+    }
+
+    func testEnlargementUsesPlannedDotRectangleForFitAndActualSize() throws {
+        let source = try solidBlackSquarePDF()
+        let physical = try QuartzPDFRenderer.pageBox(originalPDF: source, pageNumber: 1).effectivePhysicalSize()
+        let canvas = try DotCanvas(physicalSize: physical,
+            resolution: DotResolution(xDotsPerMillimeter: 40 / physical.width.value,
+                                      yDotsPerMillimeter: 60 / physical.height.value))
+        XCTAssertEqual(canvas.width, 40)
+        XCTAssertEqual(canvas.height, 60)
+        for policy in [PagePlacementPolicy.fit, .actualSize] {
+            let bitmap = try QuartzPDFRenderer.render(.init(originalPDF: source,
+                pageNumber: 1, canvas: canvas, placementPolicy: policy))
+            XCTAssertTrue(bitmap.pixels.allSatisfy { $0 == 0 },
+                "the original 10x10-point black page must fill the planned 40x60-dot rectangle")
+        }
+    }
+
+    func testSuppliedNativeFrameIsPlacedAtDocumentedEightDotPitch() throws {
+        let source = try fixture(named: "native-vector")
+        let physical = try QuartzPDFRenderer.pageBox(originalPDF: source, pageNumber: 1).effectivePhysicalSize()
+        let canvas = try DotCanvas(physicalSize: physical,
+            resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        let bitmap = try QuartzPDFRenderer.render(.init(originalPDF: source, pageNumber: 1, canvas: canvas))
+        // Supplied original artwork: frame from x=10 to x=278 on a 288x432-point page.
+        // These two whitespace rows cross the frame, not text, QR or Code128 artwork.
+        let expectedLeft = 10.0 / 288 * Double(canvas.width)
+        let expectedRight = 278.0 / 288 * Double(canvas.width)
+        for pdfY in [100.0, 280.0] {
+            let y = Int(((432 - pdfY) / 432 * Double(canvas.height)).rounded())
+            let black = (0..<bitmap.width).filter { bitmap.pixels[y * bitmap.bytesPerRow + $0] < 128 }
+            XCTAssertTrue(black.contains { abs(Double($0) - expectedLeft) <= 2 })
+            XCTAssertTrue(black.contains { abs(Double($0) - expectedRight) <= 2 })
+            XCTAssertTrue(black.allSatisfy {
+                abs(Double($0) - expectedLeft) <= 2 || abs(Double($0) - expectedRight) <= 2
+            }, "frame position must not be a centered raw-point-size drawing")
+        }
+    }
+
+    func testOddTrailingMarginMatchesCanonicalTopDownPlacement() throws {
+        let source = try solidBlackSquarePDF()
+        let physical = try QuartzPDFRenderer.pageBox(originalPDF: source, pageNumber: 1).effectivePhysicalSize()
+        let canvas = try DotCanvas(physicalSize: PhysicalSize(
+            width: Millimeters(physical.width.value * 1.3), height: Millimeters(physical.height.value * 1.5)),
+            resolution: DotResolution(xDotsPerMillimeter: 10 / physical.width.value,
+                                      yDotsPerMillimeter: 10 / physical.height.value))
+        XCTAssertEqual(canvas.width, 13)
+        XCTAssertEqual(canvas.height, 15)
+        let bitmap = try QuartzPDFRenderer.render(.init(originalPDF: source,
+            pageNumber: 1, canvas: canvas, placementPolicy: .actualSize))
+        let expected = (0..<canvas.height).flatMap { y in
+            (0..<canvas.width).map { x -> UInt8 in
+                (1..<11).contains(x) && (2..<12).contains(y) ? 0 : 255
+            }
+        }
+        XCTAssertEqual(bitmap.pixels, Data(expected), "odd spare dots belong to trailing right/bottom edges")
     }
 
     func testActualSizePreservesCompensatedUserUnitGeometry() throws {

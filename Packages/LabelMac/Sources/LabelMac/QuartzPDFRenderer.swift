@@ -186,7 +186,8 @@ public enum QuartzPDFRenderer {
         }
         let target = CGRect(
             x: placement.target.x,
-            y: placement.target.y,
+            // The planner owns top-down dot coordinates; Quartz draws bottom-up.
+            y: request.canvas.height - placement.target.y - placement.target.height,
             width: placement.target.width,
             height: placement.target.height
         )
@@ -197,6 +198,7 @@ public enum QuartzPDFRenderer {
         } catch {
             throw Error.invalidPageGeometry
         }
+        let drawingTransform = try plannedDrawingTransform(page: page, target: fullTarget)
         let byteCount = pixels
         var storage = Data(repeating: 0, count: byteCount)
         let result: Bool = storage.withUnsafeMutableBytes { rawBuffer in
@@ -217,7 +219,7 @@ public enum QuartzPDFRenderer {
             context.setShouldAntialias(true)
             context.clip(to: target)
             rotateContext(context, around: CGPoint(x: target.midX, y: target.midY), rotation: request.regionRotation)
-            context.concatenate(page.getDrawingTransform(.cropBox, rect: fullTarget, rotate: 0, preserveAspectRatio: false))
+            context.concatenate(drawingTransform)
             context.drawPDFPage(page)
             return true
         }
@@ -299,6 +301,31 @@ public enum QuartzPDFRenderer {
         guard values.allSatisfy({ $0.isFinite && abs($0) <= 1_000_000_000 }) else {
             throw Error.invalidPageGeometry
         }
+        return result
+    }
+
+    /// Keep Quartz's crop/media intersection and page rotation, but explicitly
+    /// map its resulting rectangle to the planner's independently rounded X/Y
+    /// dot extent. The observed native drawing transform is not relied on to
+    /// enlarge a page. These affine operations compose before one rasterization.
+    private static func plannedDrawingTransform(page: CGPDFPage, target: CGRect) throws -> CGAffineTransform {
+        let effective = page.getBoxRect(.cropBox).intersection(page.getBoxRect(.mediaBox))
+        guard !effective.isNull, !effective.isEmpty else { throw Error.invalidPageGeometry }
+        let quarterTurn = page.rotationAngle % 180 != 0
+        let upright = CGRect(x: 0, y: 0,
+            width: quarterTurn ? effective.height : effective.width,
+            height: quarterTurn ? effective.width : effective.height)
+        let base = page.getDrawingTransform(.cropBox, rect: upright, rotate: 0, preserveAspectRatio: true)
+        let mapped = effective.applying(base)
+        guard [mapped.minX, mapped.minY, mapped.width, mapped.height].allSatisfy(\.isFinite),
+              mapped.width > 0, mapped.height > 0 else { throw Error.invalidPageGeometry }
+        let sx = target.width / mapped.width, sy = target.height / mapped.height
+        let correction = CGAffineTransform(a: sx, b: 0, c: 0, d: sy,
+            tx: target.minX - mapped.minX * sx, ty: target.minY - mapped.minY * sy)
+        let result = base.concatenating(correction)
+        guard [result.a, result.b, result.c, result.d, result.tx, result.ty].allSatisfy(\.isFinite),
+              (result.a * result.d - result.b * result.c).isFinite,
+              result.a * result.d - result.b * result.c != 0 else { throw Error.invalidPageGeometry }
         return result
     }
 
