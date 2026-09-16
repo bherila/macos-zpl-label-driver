@@ -1337,8 +1337,10 @@ validates the immutable prepared artifact and returns the recorded accepted-byte
 count without invoking delivery; persisted `transmitted` state is likewise
 returned without a second sink pass. Re-entry also requires the ticket's queue
 ID. Two regressions bring the focused/debug LabelMac suite to 139 tests; the
-complete release gate for this final remediation remains to run. Per the
-two-pass policy, no third review will be requested.
+complete exact-head gate also passes 64 Python tests, 165 LabelCore tests in
+debug and release, all 139 LabelMac tests in debug and release, 132 independent
+round trips, all ABI/inert-pipeline checks, and local ad-hoc product signature
+verification. Per the two-pass policy, no third review will be requested.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
