@@ -42,6 +42,13 @@ On macOS 26.6.2 with Xcode 26.6:
 
 ## Limits and next boundary
 
+Both permitted independent code-review passes completed cleanly at `53c6b99`,
+with no inline findings and a final positive reaction. No third pass is needed.
+Hosted workflow run `35069104708` was manually dispatched at the same exact
+head because stacked PR bases do not match the workflow's `main` trigger.
+Repository preflight passed; the macOS ARM job remains running, so hosted
+success is not yet claimed.
+
 The inventory is not an atomic snapshot of concurrent publication. Its byte
 budgets cover declared artifacts observed during inventory, not a wall-clock
 deadline or an exact total of subsequent repeated recovery reads. Per-job
