@@ -1543,7 +1543,11 @@ all-page analysis, and unchanged bootstrap builds unsaved profiles from checked
 facts. Eighteen focused tests and the full local 67/166/178 debug/release gate
 passed. Publication is deferred pending PR #50's genuine parent-death worker
 supervision finding; its hosted CI is green but review is not clean. Evidence is in
-`M4-ISOLATED-DOCUMENT-OPENING-2026-09-16.md`. GUI, security-scope policy and all
+`M4-ISOLATED-DOCUMENT-OPENING-2026-09-16.md`. Lifetime fix `6ff328a` is now
+integrated locally at `26ee086`; the combined full gate passes 67/166/183 in
+debug/release with independent checks, signatures and packaged-worker equality.
+Publication remains held on PR #50's live second review/hosted CI. A finite
+synthetic GUI checklist is prepared but unrun. GUI, security-scope policy and all
 scheduler/privilege/device acceptance remain unverified.
 
 PR #50's first independent review found that parent-only deadlines could leave
