@@ -1,8 +1,8 @@
 # M3 persisted inert delivery — 2026-09-15
 
 **Scope:** automated native evidence at `c2e6e53` with review remediation at
-`297c6aa` and `e977b33`, restacked with immutable-publication remediation
-`c4798ef`, connecting a validated
+`297c6aa`, `e977b33`, and `7929944`, restacked with
+immutable-publication remediation `c4798ef`, connecting a validated
 immutable prepared-job bundle to its persisted lifecycle and shared
 physical-device lease. The sink discards bytes in memory. This is not scheduler,
 network, USB, or physical-printer acceptance.
@@ -23,7 +23,9 @@ sink side effect it commits `transmitting(..., bytesAccepted: 0)`. Bounded
 discard chunks advance only monotonically. Completion records `transmitted`,
 which is explicitly not device confirmation. Injected zero-byte or partial
 ambiguity records terminal `uncertain` state and never authorizes automatic
-replay. A failure classified before send records `failedBeforeTransmission`.
+replay. A failure classified before send reports `failedBeforeTransmission`
+while retaining the durable `waiting` state, so retry authorization and the
+persisted lifecycle agree.
 
 Invalid states, oversized ambiguity offsets, contradictory fault scenarios,
 and lease contention produce no sink action. Any lifecycle publication error
@@ -45,8 +47,8 @@ Eight new native cases establish:
   persisted `transmitted` state;
 - zero-byte and three-byte ambiguity persist exact progress and are not
   automatically retryable;
-- a pre-transmission failure has no sink event and retains its distinct
-  retryable classification;
+- a pre-transmission failure has no sink event, remains durably `waiting`, and
+  the same accepted job can then be retried through successful transmission;
 - a competing lease in the ticket-bound device domain leaves the prepared
   lifecycle unchanged and is safely retryable;
 - a job stranded after the durable `waiting` transition resumes under the same

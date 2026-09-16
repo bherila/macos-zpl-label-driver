@@ -1296,6 +1296,14 @@ After merging PR #34 remediation `c4798ef`, exact combined head `9401b39`
 passes 64 Python, 165 LabelCore, and 129 LabelMac tests in debug and release,
 plus all independent oracle, ABI, inert-pipeline, and local-signature checks.
 
+Second-pass review remediation `7929944` aligns pre-send retry classification
+with durable lifecycle state. A fault before transmitting intent now reports
+the retryable `failedBeforeTransmission` outcome while leaving the job in
+`waiting`; it no longer writes a terminal state that rejects the advertised
+retry. The regression retries the same acceptance ID and reaches
+`transmitted`, with no first-attempt sink action. The focused accepted-job
+suite passes all 33 tests.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
