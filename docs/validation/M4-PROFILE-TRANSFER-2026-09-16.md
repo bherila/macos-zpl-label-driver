@@ -41,7 +41,14 @@ reconciliation. A connected synthetic PDF/real-worker test preserves the active
 editor, original packed preview and saved approval through successful and failed
 transfers. Existing hard-timeout FIFO tests exercise the reused reader.
 The initial compile-only probe selected zero tests and is not counted as a pass.
-Full local gate, own hosted CI/review and native dialog checks are pending.
+At implementation `8067779`, full local gate passed exit 0: 67 Python/173 Core/
+216 Mac tests debug/release; both accelerator suites, independent/inert checks,
+local executable/app/nested-worker signatures and packaged-worker PBM/ZPL equality.
+Publication is held on PR #58's genuine first-review finding `4025449342`: native
+UI approval must require explicit current-profile bounds/preview review, including
+restored regions and reopening. This checkpoint does not fix that dependency.
+After its same-branch correction, integrate it and rerun the combined gate before
+publishing. Own hosted CI/review and native dialog checks remain pending.
 
 ## Finite native validation — NOT RUN
 
