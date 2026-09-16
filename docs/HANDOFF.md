@@ -12,6 +12,24 @@ Corrected hosted CI is pending. Hosted 35091595114 passed the preceding
 `a1e1f58`, not this correction. No third review request or merge is authorized.
 The dependent profile-transfer slice remains held until this fix is integrated.
 
+Latest local slice connects capped canonical workflow JSON import/export through
+native dialog adapters. Imports get a fresh unqualified identity; exports verify
+the exact own-store saved snapshot. Publication uncertainty retains/reconciles
+the same candidate, not a duplicate import. Nineteen focused native tests passed,
+including real-worker preservation of the current editor/preview/local approval.
+At `8067779`, full local 67/173/216 debug/release gate passed exit 0 with independent,
+inert, signature and packaged-worker checks. PR #58's exact-profile/displayed-preview
+review correction is now integrated from `a1e1f58`; 45 combined focused native
+tests passed. Combined `ac504a7` full local 67/173/218 gate passed exit 0 with
+independent/inert/signature/packaged checks. Publication held again on parent #58
+second-review finding 4025638071 (undo can resurrect value-bound review); fix on
+that branch and integrate before publication. Parent corrected hosted 35091595114
+passed `a1e1f58`; no clean second review or GUI acceptance claimed. The same finite
+AX access failure occurs in an inert minimal SwiftUI fixture, with an owned
+WindowServer window and no remaining live instance; cause remains unresolved. See
+`validation/M4-PROFILE-TRANSFER-2026-09-16.md`. No queue,
+privilege or device I/O. Noninteractive administrator authorization remains absent.
+
 PR #58 first review found restored full-page regions could be approved without
 explicit bounds/preview review. Same-branch correction requires acknowledgement
 of every region's current packed preview, bound to the complete current profile;
