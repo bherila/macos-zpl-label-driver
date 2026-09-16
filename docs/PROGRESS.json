@@ -115,7 +115,7 @@
         "docs/validation/M3-PREPARED-JOB-STORE-2026-09-15.md (9dfe442 exact ordered-output/control/profile binding, artifact-before-state publication, exact orphan recovery, payload revalidation, and uncertain post-state recovery; additional partial M3-AC02/09/12 and M5-AC07/09 evidence only)",
         "docs/validation/M3-IMMUTABLE-IMAGING-POLICY-2026-09-15.md (8a7fef8 exact workflow/ticket/prepared-payload conversion binding; additional partial M3-AC02/12 and M5-AC07/09 evidence only)",
         "docs/validation/M2-NONBLOCKING-REGULAR-FILE-OPEN-2026-09-15.md (88fb87e descriptor-relative private-record opens cannot block on FIFOs before validation; additional partial M3-AC09/12 evidence only)",
-        "docs/validation/M3-DESCRIPTOR-BOUND-JOB-LIFECYCLE-2026-09-15.md (5a1d04a same-bundle ticket authorization, lifecycle digest binding, cross-store rejection, and path-replacement stability; additional partial M3-AC09/12 evidence only)"
+        "docs/validation/M3-DESCRIPTOR-BOUND-JOB-LIFECYCLE-2026-09-15.md (5a1d04a + 8a3ef38 same-bundle ticket authorization, lifecycle digest binding, canonical schema-1 migration, cross-store rejection, path-replacement stability, and byte-progress preservation; additional partial M3-AC09/12 evidence only)"
       ],
       "blockers": []
     },
