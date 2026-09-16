@@ -57,10 +57,13 @@ Full local gate at `5ff59b1f678179ec2d69841f4e16603bfab24e11` passed exit 0:
 82 Python/178 Core/262 Mac debug/release, both independent accelerator runs,
 15 backend/12 filter ABI cases and one inert pipeline per mode, local ad-hoc
 ARM/minimum-26 signatures and packaged-worker exact PBM/ZPL equality. Own
-hosted CI and correctness review are pending. Parent PR #73
+hosted run 35118943004 passed at exact publication `a3952ba`; fetched logs
+verify the same native counts, both independent/inert runs, signatures and
+packaged equality. First review is clean at base `b4d78e8` / head `a3952ba`,
+with reviewer thumbs-up and no findings/threads. No merge. Parent PR #73
 latest `b4d78e8` hosted 35116981496 passed with inspected native/inert/signature/
 packaged logs; its source review is clean at base `fa6c247` / head `03992fd`.
 No administrator session, queue/job action or physical printer access occurred.
 
-Next: own hosted gate and focused review, then continue the separate finite M1
+Next: continue the separate finite M1
 administrator proof when its interactive OS authorization is available.
