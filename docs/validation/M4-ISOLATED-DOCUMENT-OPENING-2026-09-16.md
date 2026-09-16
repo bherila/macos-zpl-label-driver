@@ -40,6 +40,13 @@ commit `26ee086`, the full local gate passed again: 67 Python, 166 Core and
 ad-hoc signatures and packaged-worker equality. Publication remains held on
 PR #50's live hosted CI and second review, not on missing local tests.
 
+Final local combined commit `bf9d21c` includes second-pass correction `5830f5b`.
+Its complete `bash scripts/ci-swift.sh` run exited 0: 67 Python, 166 Core and
+184 Mac tests in debug/release, independent 132 round trips, all 15/10/1 ABI/inert
+cases, ad-hoc signatures and packaged-worker equality. Both PR #50 review
+findings are addressed; no third review is requested. Publication is held on
+live exact-head hosted run `35080048258`, not on missing local validation.
+
 This advances automated resource/source fidelity evidence and implementation
 toward M4-AC06/09; those integration criteria remain open. GUI/keyboard/VoiceOver,
 window/process termination, actual sandbox/security-scope policy, quarantine,
