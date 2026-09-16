@@ -160,7 +160,8 @@
         "docs/validation/M4-ISOLATED-EDITOR-PREVIEW-2026-09-16.md (real worker off main actor; obsolete-result/cancellation tests; nine focused and full local 67/166/172 debug/release gate passed; nested signatures/packaged-worker equality; GUI still unverified)",
         "docs/validation/M4-ISOLATED-DOCUMENT-OPENING-2026-09-16.md (18 focused tests; final combined bf9d21c includes both PR50 corrections and passes full local 67/166/184 debug/release gate, independent checks and packaged signatures/equality; publication held on live PR50 exact-head CI; GUI NOT RUN after runtime failure)",
         "docs/validation/M4-WORKER-LIFETIME-2026-09-16.md (PR #50 review remediation; child-owned finite deadline/parent-loss supervision and conservative nonce/inode/lock-bound scratch recovery; five focused tests and full local 67/166/177 debug/release gate passed; hosted CI and second review pending)",
-        "docs/validation/M4-MANUAL-DOCUMENT-INTAKE-2026-09-16.md (explicit manual path with original-source geometry, full page accounting, unqualified drafts and no guessed fallback; fractional codec round-trip regression fixed; six codec/15 opening tests and full local 67/167/187 debug/release gate pass; hosted CI/review pending)"
+        "docs/validation/M4-MANUAL-DOCUMENT-INTAKE-2026-09-16.md (explicit manual path with original-source geometry, full page accounting, unqualified drafts and no guessed fallback; fractional codec round-trip regression fixed; six codec/15 opening tests and full local 67/167/187 debug/release gate pass; hosted CI/review pending)",
+        "docs/validation/M4-SOURCE-PAGE-REFERENCE-2026-09-16.md (connected reference-only original-page child render, normalized overlay, distinct exact label output and stale/cancel protection; four focused native tests pass; full validation pending; GUI unverified)"
       ],
       "blockers": []
     },
