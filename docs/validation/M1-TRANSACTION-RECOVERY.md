@@ -2,8 +2,10 @@
 
 This is a finite recovery guide for the one-off inert M1 experiment. It is not
 a product uninstall contract and must not be used for unrelated queues or
-files. The administrative `--apply` path remains **NOT RUN** until its current
-head is reviewed and exact-head CI passes.
+files. The administrative `--apply` path remains **NOT RUN**. Reviewed source
+and passing CI are prerequisites, not administrator-session or scheduler
+acceptance; the finite experiment also requires interactive OS administrator
+authorization and fresh read-only namespace/artifact checks.
 
 ## Normal preparation and removal
 
@@ -27,10 +29,15 @@ authorization, changed filter, or mismatched record stops this sequence.
 
 Automatic rollback is narrower than explicit removal. It begins only after the
 current invocation successfully reserves the protected root, requires that
-invocation's random identifier in the intent record, and removes a queue only
-after this invocation received a successful create response and read back the
-exact discard URI. A competing queue or an ambiguous create response retains
-all recovery evidence for explicit inspection.
+invocation's random identifier in the intent record, and never removes a
+present queue. The scheduler's queue operation is create-or-modify, not an
+exclusive namespace acquisition: even a successful response and exact discard
+URI readback cannot prove that no competing queue was modified. Any present
+queue therefore retains the filter, intent, and root for explicit inspection
+and separately requested record-validated recovery. Scheduler-query failure
+also retains those artifacts. Automatic cleanup may proceed only when the
+queue is confirmed absent and the remaining protected artifacts match the
+current invocation's ownership evidence.
 
 ## Uncatchable interruption window
 
@@ -59,5 +66,8 @@ expiry, failed queue deletion, uncertain post-delete readback, altered filter,
 partial state, pre-existing queue/root, and TERM. It also covers a losing root
 reservation against both an empty and completed competing transaction, a queue
 appearing at the late absence check, and an ambiguous queue-create response.
+The later `9019eb6` regressions also cover a successful create-or-modify race
+and termination during queue readback; automatic rollback performs no queue
+deletion in either case.
 These tests validate control flow only; they do not establish administrator-
 session behavior or scheduler acceptance on Tahoe.
