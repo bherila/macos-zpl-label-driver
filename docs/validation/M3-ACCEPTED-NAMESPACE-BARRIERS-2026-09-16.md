@@ -80,5 +80,8 @@ created. An early named-entry guard fixes that boundary without changing an
 existing directory or normalizing ambiguous caller intent. All 53 focused native
 store tests passed after correction. This additional source guard is not covered
 by the earlier 5ff59b1/a3952ba full/hosted/review checkpoints; its corrected full
+gate at `d2b8085926e1af59690601e4b65ee8052021339c` passed exit 0:
+82 Python/178 Core/263 Mac debug/release, both independent/inert runs, local
+signatures and packaged-worker exact PBM/ZPL equality. Own corrected hosted
 gate and second review pass remain pending. Prior documentation head 6fe7508
 hosted 35119811256 passed separately and is not alias-regression evidence.

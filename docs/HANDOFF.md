@@ -29,8 +29,10 @@ but has no PR; integrate this correction and run its combined gate before promot
 PR #74 follow-up: final dot-root aliases are rejected before namespace creation.
 The new regression reproduced three failures, then all 53 focused native store
 tests passed. This source guard is newer than the historical 5ff59b1/a3952ba
-full/hosted/first-review checkpoints below; corrected full gate and second review
-are pending. Prior evidence-only 6fe7508 hosted 35119811256 passed, but did not
+full/hosted/first-review checkpoints below. Corrected full `d2b8085` passed exit 0:
+82 Python/178 Core/263 Mac debug/release, both independent/inert runs, signatures
+and packaged equality. Own corrected hosted/second-review gates are pending.
+Prior evidence-only 6fe7508 hosted 35119811256 passed, but did not
 contain the guard. No installer, queue/job or physical-printer action occurred.
 
 The accepted-job namespace slice now requires accepted-jobs/root/containing
