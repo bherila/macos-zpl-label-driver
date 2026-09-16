@@ -119,7 +119,7 @@ public struct PrinterProfileStore: @unchecked Sendable {
         case .cannotCreate: .cannotCreateStore
         case .cannotOpen: .cannotOpenStore
         case .unsafeDirectory: .unsafeStoreDirectory
-        case .cannotWrite, .commitUncertain, .conflict: .cannotWrite
+        case .cannotWrite, .commitUncertain, .conflict, .recordCapacityReached, .publicationBusy: .cannotWrite
         case .cannotRead, .notFound, .none: .cannotRead
         }
     }
