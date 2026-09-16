@@ -1,8 +1,10 @@
 import CryptoKit
+import CoreGraphics
 import Darwin
 import Foundation
 import XCTest
 import LabelCore
+import Vision
 @testable import LabelMac
 
 final class SyntheticInertJobPipelineTests: XCTestCase {
@@ -84,6 +86,7 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
                     printSpeedIps: fixture.queue.workflowDefaults.printSpeedIps))
             XCTAssertEqual(encoded.resolvedControls, stored.resolvedControls)
             XCTAssertEqual(stored.bytes, encoded.bytes)
+            try assertSyntheticBarcodesDecodeFromFinalBitmap(prepared.bitmap, fixtureName: name)
             bitmaps.append(prepared.bitmap)
             payloads.append(stored.bytes)
         }
@@ -104,6 +107,42 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
             XCTAssertEqual(Array(native[row]), Array(letter[row]), "shared artwork row \(y)")
         }
         XCTAssertNotEqual(bitmaps[0], bitmaps[1], "native corner markers must remain visible")
+    }
+
+    /// Test-only synthetic payload decoding. The image expands the encoder's
+    /// exact packed bits at one pixel per printer dot; no PDF rerender, analysis
+    /// thumbnail, crop, interpolation or upsampling enters this oracle.
+    private func assertSyntheticBarcodesDecodeFromFinalBitmap(
+        _ bitmap: MonochromeBitmap, fixtureName: String
+    ) throws {
+        let observations = try decodeFinalBitmap(bitmap)
+        XCTAssertEqual(observations.count, 2, fixtureName)
+        for symbology in [VNBarcodeSymbology.code128, .qr] {
+            let matches = observations.filter { $0.symbology == symbology }
+            XCTAssertEqual(matches.count, 1, "\(fixtureName): \(symbology)")
+            XCTAssertEqual(matches.first?.payloadStringValue, "LPD-TEST-A-001",
+                "\(fixtureName): \(symbology)")
+        }
+    }
+
+    func testFinalBitmapBarcodeOracleDoesNotInventSymbolsOnBlankStock() throws {
+        let blank = try MonochromeBitmap(width: 813, height: 1219,
+            bytes: Array(repeating: 0, count: 124_338))
+        XCTAssertTrue(try decodeFinalBitmap(blank).isEmpty)
+    }
+
+    private func decodeFinalBitmap(_ bitmap: MonochromeBitmap) throws -> [VNBarcodeObservation] {
+        let raster = bitmap.grayscalePreview()
+        let provider = try XCTUnwrap(CGDataProvider(data: Data(raster.pixels) as CFData))
+        let image = try XCTUnwrap(CGImage(width: raster.width, height: raster.height,
+            bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: raster.bytesPerRow,
+            space: CGColorSpaceCreateDeviceGray(), bitmapInfo: .init(rawValue: 0),
+            provider: provider, decode: nil, shouldInterpolate: false, intent: .defaultIntent))
+        let request = VNDetectBarcodesRequest()
+        request.revision = VNDetectBarcodesRequestRevision3
+        request.symbologies = [.code128, .qr]
+        try VNImageRequestHandler(cgImage: image, orientation: .up).perform([request])
+        return try XCTUnwrap(request.results)
     }
 
     func testReferenceLetterWorkflowRejectsChangedWrongSizedAndUnconfiguredIntake() throws {
@@ -136,7 +175,7 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
 
     // Test-source manifest coordinates are explicit fixture evidence, not a
     // guessed crop or a product profile schema. Never regenerate this oracle.
-    private func referenceRegion(_ id: String) throws -> NormalizedRect {
+    private func referenceRegion(_ id: String) throws -> LabelCore.NormalizedRect {
         let manifest = try XCTUnwrap(JSONSerialization.jsonObject(with:
             Data(contentsOf: fixtureURL("manifest.json"))) as? [String: Any])
         let fixtures = try XCTUnwrap(manifest["fixtures"] as? [[String: Any]])
@@ -604,7 +643,7 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         useMismatchedOutputStock: Bool = false,
         workerOverride: URL? = nil,
         anchorOverride: ObservedPageAnchor? = nil,
-        regionOverride: NormalizedRect? = nil,
+        regionOverride: LabelCore.NormalizedRect? = nil,
         workflowID: String = "native-4x6-local",
         queueID: String = "shipping-native"
     ) throws -> Fixture {
