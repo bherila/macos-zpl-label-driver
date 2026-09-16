@@ -1219,6 +1219,47 @@ private extension AcceptedJobStoreTests {
             observe: recorder.append
         )
     }
+
+    private func recovery(
+        _ fixture: PreparedInertFixture
+    ) -> PersistedJobRecovery {
+        PersistedJobRecovery(
+            acceptedJobStore: fixture.value.jobs,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers,
+            leaseDirectory: fixture.leaseDirectory
+        )
+    }
+
+    private func transmitting(
+        _ fixture: PreparedInertFixture,
+        bytesAccepted: Int
+    ) throws -> AcceptedJobStateRecord {
+        guard case let .prepared(hash, count) = fixture.preparedState.phase else {
+            throw PersistedJobRecovery.Error.invalidState
+        }
+        let waiting = try fixture.states.compareAndSwap(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            expected: fixture.preparedState,
+            next: .waiting(payloadSHA256: hash, byteCount: count),
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        return try fixture.states.compareAndSwap(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            expected: waiting,
+            next: .transmitting(
+                payloadSHA256: hash,
+                byteCount: count,
+                bytesAccepted: bytesAccepted
+            ),
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+    }
 }
 
 extension AcceptedJobStoreTests {
@@ -1435,5 +1476,127 @@ extension AcceptedJobStoreTests {
         )) { XCTAssertEqual(
             $0 as? InertDeliveryScenario.ValidationError, .conflictingFaults
         ) }
+    }
+
+    func testRecoveryClassifiesPreSendStatesWithoutMutation() throws {
+        let accepted = try fixture(acceptanceID: "recovery-accepted")
+        try accepted.jobs.save(
+            accepted.ticket, sourcePDF: accepted.sourcePDF,
+            queueStore: accepted.queues, workflowStore: accepted.workflows,
+            printerStore: accepted.printers
+        )
+        let acceptedLeases = accepted.root.appending(path: "device-leases")
+        try FileManager.default.createDirectory(
+            at: acceptedLeases, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700]
+        )
+        let acceptedRecovery = PersistedJobRecovery(
+            acceptedJobStore: accepted.jobs, queueStore: accepted.queues,
+            workflowStore: accepted.workflows, printerStore: accepted.printers,
+            leaseDirectory: acceptedLeases
+        )
+        XCTAssertEqual(
+            try acceptedRecovery.reconcile(acceptanceID: accepted.ticket.acceptanceID),
+            .acceptedNeedsPreparation
+        )
+
+        let prepared = try preparedInertFixture(acceptanceID: "recovery-prepared")
+        XCTAssertEqual(
+            try recovery(prepared).reconcile(
+                acceptanceID: prepared.value.ticket.acceptanceID
+            ),
+            .readyForDelivery
+        )
+        XCTAssertEqual(try prepared.states.load(
+            acceptanceID: prepared.value.ticket.acceptanceID,
+            queueStore: prepared.value.queues,
+            workflowStore: prepared.value.workflows,
+            printerStore: prepared.value.printers
+        ), prepared.preparedState)
+    }
+
+    func testRecoveryMakesInterruptedTransmissionUncertainWithoutReplay() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "recovery-interrupted")
+        let interrupted = try transmitting(fixture, bytesAccepted: 3)
+
+        let first = try recovery(fixture).reconcile(
+            acceptanceID: fixture.value.ticket.acceptanceID
+        )
+        XCTAssertEqual(first, .uncertain(bytesAccepted: 3))
+        let reconciled = try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        XCTAssertEqual(reconciled.generation, interrupted.generation + 1)
+        guard case let .uncertain(_, _, accepted) = reconciled.phase else {
+            return XCTFail("expected uncertain lifecycle state")
+        }
+        XCTAssertEqual(accepted, 3)
+
+        XCTAssertEqual(try recovery(fixture).reconcile(
+            acceptanceID: fixture.value.ticket.acceptanceID
+        ), .uncertain(bytesAccepted: 3))
+        XCTAssertEqual(try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        ), reconciled)
+    }
+
+    func testRecoveryDoesNotReconcileTransmissionOwnedByLiveProcess() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "recovery-owned")
+        let interrupted = try transmitting(fixture, bytesAccepted: 0)
+        let held = try PhysicalDeviceLease(
+            acquiring: PhysicalDeviceIdentity(
+                coordinationID: fixture.value.ticket.physicalDevice
+            ),
+            inExistingDirectory: fixture.leaseDirectory
+        )
+        defer { held.release() }
+
+        XCTAssertEqual(try recovery(fixture).reconcile(
+            acceptanceID: fixture.value.ticket.acceptanceID
+        ), .physicalDeviceBusy)
+        XCTAssertEqual(try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        ), interrupted)
+    }
+
+    func testRecoveryReadsTerminalEvidenceWithoutStateMutation() throws {
+        let transmitted = try preparedInertFixture(acceptanceID: "recovery-transmitted")
+        XCTAssertEqual(try inertDelivery(transmitted).deliver(
+            acceptanceID: transmitted.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario()
+        ), .transmitted(byteCount: transmitted.payload.bytes.count))
+        let transmittedState = try transmitted.states.load(
+            acceptanceID: transmitted.value.ticket.acceptanceID,
+            queueStore: transmitted.value.queues,
+            workflowStore: transmitted.value.workflows,
+            printerStore: transmitted.value.printers
+        )
+        XCTAssertEqual(try recovery(transmitted).reconcile(
+            acceptanceID: transmitted.value.ticket.acceptanceID
+        ), .transmitted(byteCount: transmitted.payload.bytes.count))
+        XCTAssertEqual(try transmitted.states.load(
+            acceptanceID: transmitted.value.ticket.acceptanceID,
+            queueStore: transmitted.value.queues,
+            workflowStore: transmitted.value.workflows,
+            printerStore: transmitted.value.printers
+        ), transmittedState)
+
+        let uncertain = try preparedInertFixture(acceptanceID: "recovery-uncertain")
+        XCTAssertEqual(try inertDelivery(uncertain).deliver(
+            acceptanceID: uncertain.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario(becomeAmbiguousAfterBytes: 2)
+        ), .uncertain(bytesAccepted: 2))
+        XCTAssertEqual(try recovery(uncertain).reconcile(
+            acceptanceID: uncertain.value.ticket.acceptanceID
+        ), .uncertain(bytesAccepted: 2))
     }
 }
