@@ -7,7 +7,11 @@ validated; stale confirmation and last-output-page actions fail without mutation
 Skipped pages remain listed with reasons, and restoration appends a new region
 requiring bounds/preview review. Eight portable draft and twelve native editor
 tests passed, including real-worker restored preview and immutable saved history.
-Full gate pending. See `validation/M4-EXPLICIT-PAGE-HANDLING-2026-09-16.md`.
+At `207bdb6`, full local gate passed exit 0 with 67/173/210 debug/release,
+independent/inert/signature and packaged-worker equality checks. Own hosted/review
+pending. Parent PR #57 hosted 35088846529 passed `5d9c2c2` and first review is clean;
+subsequent `626122d` changes evidence only. See
+`validation/M4-EXPLICIT-PAGE-HANDLING-2026-09-16.md`.
 
 Latest local slice separates offline editor availability from physical readiness.
 Hardware confirmations remain false; installation independently requires both
@@ -37,11 +41,12 @@ reload and saved edits; validate stock identity plus dimensions; reject non-bord
 detectors before worker admission. 52 focused native tests passed; at `4d430c3`,
 the complete fail-fast local gate log confirms 67/171/208 debug/release,
 independent/inert/signature and packaged-worker checks. Corrected hosted CI and
-second review remain pending. See `validation/M4-SAVED-REOPENING-REVIEW-2026-09-16.md`. Original
+second review were pending at that initial checkpoint. See
+`validation/M4-SAVED-REOPENING-REVIEW-2026-09-16.md`.
 Corrected hosted run 35088390875 subsequently passed exact `e00a630`, with
 208 native tests debug/release, signatures and packaged-worker equality verified;
 second review is clean. No installation or physical result follows from that.
-hosted run 35085759520 passed exact `ef26682`; it does not validate these fixes.
+Original hosted run 35085759520 passed exact `ef26682`; it does not validate these fixes.
 
 Latest local slice separates offline editor availability from physical readiness.
 Hardware confirmations remain false; installation independently requires both
