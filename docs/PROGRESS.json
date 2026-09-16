@@ -79,7 +79,8 @@
         "docs/validation/M2-WORKER-CANCELLATION-ADMISSION-2026-09-16.md (cf379e8 pre-cancel worker admission; local and hosted run 35071875026 full 67/165/153 debug/release/signatures passed; independent review clean; no scheduler claim)",
         "docs/validation/M2-EXTRACTION-WORKER-TICKET-2026-09-16.md (e8ae1fd extraction contract; local and hosted 35072850127 full 67/166/156 debug/release gate passed; independent review clean)",
         "docs/validation/M3-ISOLATED-EXTRACTION-PREPARATION-2026-09-16.md (local full 67/166/158 gate and hosted 35073499862 passed exact 2e592f9; independent review clean at 38cef69; intake raster preparation uses bounded child)",
-        "docs/validation/M3-ISOLATED-LAYOUT-ANALYSIS-2026-09-16.md (intake page-box/structural analysis uses bounded child and checked source-bound facts; full local 67/166/163 debug/release gate passed; hosted/review pending; per-child not whole-job deadline)"
+        "docs/validation/M3-ISOLATED-LAYOUT-ANALYSIS-2026-09-16.md (full local and hosted 35074656870 gate passed exact 67347e6; independent review clean; bounded child analysis and source-bound facts)",
+        "docs/validation/M3-SHARED-PREPARATION-BUDGET-2026-09-16.md (one monotonic preparation deadline and distinct processing cancellation; 29 focused and full local 67/166/167 debug/release gate passed; hosted/review pending)"
       ],
       "blockers": []
     },

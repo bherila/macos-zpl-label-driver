@@ -351,6 +351,54 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         XCTAssertNil(bundle)
     }
 
+    func testProcessingCancellationIsCheckedBeforeInputAdmission() throws {
+        let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
+        let fixture = try makeFixture(workflowSource: original)
+        let cancellation = OfflineRenderWorkerCancellation()
+        cancellation.cancel()
+        XCTAssertThrowsError(try fixture.pipeline.run(queueID: "shipping-native",
+            sourcePDFDescriptor: -1, acceptanceID: "synthetic-pre-cancelled",
+            cancellationToken: Data("synthetic capability".utf8), scenario: InertDeliveryScenario(),
+            processingCancellation: cancellation)) {
+            XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, .processingCancelled)
+        }
+        XCTAssertNil(try fixture.jobs.loadIfPresent(acceptanceID: "synthetic-pre-cancelled",
+            queueStore: fixture.queues, workflowStore: fixture.workflows, printerStore: fixture.printers))
+    }
+
+    func testAnalysisTimeoutAndLiveCancellationDoNotPublishAcceptance() throws {
+        let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
+        let fixture = try makeFixture(workflowSource: original,
+            workerOverride: URL(fileURLWithPath: "/usr/bin/yes"))
+        let path = fixture.root.appending(path: "scheduler-input.pdf")
+        try original.write(to: path, options: .withoutOverwriting)
+        let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+        let start = ContinuousClock.now
+        XCTAssertThrowsError(try fixture.pipeline.run(queueID: "shipping-native",
+            sourcePDFDescriptor: descriptor, acceptanceID: "synthetic-preparation-timeout",
+            cancellationToken: Data("synthetic capability".utf8), scenario: InertDeliveryScenario(),
+            preparationDeadlineSeconds: 0.1)) {
+            XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, .preparationDeadlineExceeded)
+        }
+        XCTAssertLessThan(start.duration(to: .now), .seconds(2))
+        let cancellation = OfflineRenderWorkerCancellation()
+        DispatchQueue.global().asyncAfter(deadline: .now() + .milliseconds(50)) {
+            cancellation.cancel()
+        }
+        XCTAssertThrowsError(try fixture.pipeline.run(queueID: "shipping-native",
+            sourcePDFDescriptor: descriptor, acceptanceID: "synthetic-live-cancelled",
+            cancellationToken: Data("synthetic capability".utf8), scenario: InertDeliveryScenario(),
+            preparationDeadlineSeconds: 5, processingCancellation: cancellation)) {
+            XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, .processingCancelled)
+        }
+        for id in ["synthetic-preparation-timeout", "synthetic-live-cancelled"] {
+            XCTAssertNil(try fixture.jobs.loadIfPresent(acceptanceID: id,
+                queueStore: fixture.queues, workflowStore: fixture.workflows, printerStore: fixture.printers))
+        }
+    }
+
     private func renderWorkerExecutable() throws -> URL {
         let root = fixtureURL("native-vector.pdf").deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
         #if DEBUG

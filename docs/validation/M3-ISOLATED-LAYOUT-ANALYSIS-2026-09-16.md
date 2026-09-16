@@ -27,7 +27,12 @@ Focused validation passed 25 worker/layout/intake tests. Full local
 `bash scripts/ci-swift.sh` completed with exit 0: 67 Python, 166 Core and 163 Mac
 tests in debug/release, 132 independent round trips, 15 backend and 10 filter
 ABI cases, one inert pipeline case, and local ad-hoc command/app signatures.
-Hosted exact-head CI and independent review remain pending.
+Hosted run `35074656870` passed exact code head
+`67347e67e95974dc977565f297a1fd2b1b2cfdca`: repository preflight, native macOS
+ARM and `ci-required` green. Inspected logs confirm the full 67/166/163
+debug/release suites, independent checks and ad-hoc signatures. Independent
+review completed cleanly at the same head: completed summary, thumbs-up and
+no inline findings. No repeat review or merge follows.
 
 This advances automated M2-AC09/M3-AC12 evidence. Each child has a 60-second
 deadline, not a whole-job deadline. Source staging repeats per operation.
