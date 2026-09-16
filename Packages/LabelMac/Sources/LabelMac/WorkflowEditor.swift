@@ -19,6 +19,7 @@ public final class WorkflowEditorModel: ObservableObject {
         case savedRevisionRequired
         case regionReviewRequired
         case reviewSnapshotChanged
+        case editSequenceExhausted
     }
     @Published public private(set) var draft: WorkflowProfileDraft
     @Published public var selectedRegionID: String? {
@@ -33,6 +34,7 @@ public final class WorkflowEditorModel: ObservableObject {
     @Published public private(set) var isPreparingSourcePreview = false
     @Published private var reviewedProfile: WorkflowProfile?
     @Published private var reviewedRegionIDs: Set<String> = []
+    @Published public private(set) var editGeneration: UInt64 = 0
 
     private var sourceRequest: UUID?
     private var sourceCancellation: OfflineRenderWorkerCancellation?
@@ -88,8 +90,10 @@ public final class WorkflowEditorModel: ObservableObject {
     }
 
     public func confirmSelectedBoundsAndPreviewReviewed(expectedProfile: WorkflowProfile,
-                                                        expectedPreview: PreparedExtractionLabel?) throws {
-        guard profile == expectedProfile, preview == expectedPreview else { throw Error.reviewSnapshotChanged }
+                                                        expectedPreview: PreparedExtractionLabel?,
+                                                        expectedEditGeneration: UInt64) throws {
+        guard profile == expectedProfile, preview == expectedPreview,
+              editGeneration == expectedEditGeneration else { throw Error.reviewSnapshotChanged }
         guard canConfirmSelectedBoundsAndPreview, let selectedRegionID else { throw Error.previewRequired }
         if reviewedProfile != profile { reviewedRegionIDs = []; reviewedProfile = profile }
         reviewedRegionIDs.insert(selectedRegionID)
@@ -179,7 +183,7 @@ public final class WorkflowEditorModel: ObservableObject {
         }
         var next = try editableDraft()
         try next.updateRegion(id: expectedRegionID, normalizedRect: rect, rotation: region.rotation)
-        draft = next
+        try replaceDraft(next)
         cancelPreview()
         isSaved = false
     }
@@ -195,7 +199,7 @@ public final class WorkflowEditorModel: ObservableObject {
             normalizedRect: region.normalizedRect,
             rotation: rotation
         )
-        draft = next
+        try replaceDraft(next)
         cancelPreview()
         isSaved = false
     }
@@ -209,7 +213,7 @@ public final class WorkflowEditorModel: ObservableObject {
         guard !overflow else { throw WorkflowProfileDraft.Error.invalidDestination }
         var next = try editableDraft()
         try next.moveRegion(id: selectedRegionID, to: destination)
-        draft = next
+        try replaceDraft(next)
         cancelPreview()
         isSaved = false
     }
@@ -219,7 +223,7 @@ public final class WorkflowEditorModel: ObservableObject {
         let newID = "region-" + UUID().uuidString.lowercased()
         var next = try editableDraft()
         try next.duplicateRegion(id: selectedRegionID, newID: newID)
-        draft = next
+        try replaceDraft(next)
         isSaved = false
         self.selectedRegionID = newID
     }
@@ -231,7 +235,7 @@ public final class WorkflowEditorModel: ObservableObject {
         }
         var next = try editableDraft()
         try next.removeRegion(id: selectedRegionID)
-        draft = next
+        try replaceDraft(next)
         isSaved = false
         self.selectedRegionID = regions.first(where: { $0.sourcePage == selected.sourcePage })?.id
     }
@@ -260,7 +264,7 @@ public final class WorkflowEditorModel: ObservableObject {
         guard profile == expectedProfile else { throw WorkflowProfileDraft.Error.invalidPageDisposition }
         var next = try editableDraft()
         try next.skipPage(sourcePage, reason: reason)
-        draft = next
+        try replaceDraft(next)
         isSaved = false
         cancelPreview()
         cancelSourcePreview()
@@ -273,7 +277,7 @@ public final class WorkflowEditorModel: ObservableObject {
         let newID = "region-" + UUID().uuidString.lowercased()
         var next = try editableDraft()
         try next.restorePage(sourcePage, newRegionID: newID)
-        draft = next
+        try replaceDraft(next)
         isSaved = false
         cancelPreview()
         cancelSourcePreview()
@@ -360,6 +364,16 @@ public final class WorkflowEditorModel: ObservableObject {
         isSaved ? try store.correctionDraft(for: profile) : draft
     }
 
+    /// Successful mutations invalidate review even when values are later undone.
+    private func replaceDraft(_ next: WorkflowProfileDraft) throws {
+        let (following, overflow) = editGeneration.addingReportingOverflow(1)
+        guard !overflow else { throw Error.editSequenceExhausted }
+        reviewedProfile = nil
+        reviewedRegionIDs = []
+        editGeneration = following
+        draft = next
+    }
+
     public func approveForUnattendedUse() throws {
         _ = try UnattendedWorkflowQualification(userConfirmed: profile)
         guard isSaved else { throw Error.savedRevisionRequired }
@@ -370,7 +384,7 @@ public final class WorkflowEditorModel: ObservableObject {
 
     public func reloadForCorrection(profileID: String, revision: Int) throws {
         let stored = try store.load(profileID: profileID, revision: revision)
-        draft = try store.correctionDraft(for: stored)
+        try replaceDraft(store.correctionDraft(for: stored))
         cancelPreview()
         selectedRegionID = Self.regions(in: draft.profile).first?.id
         preview = nil
@@ -483,10 +497,12 @@ public struct WorkflowEditorView: View {
     private var previewReviewControls: some View {
         let displayedProfile = model.profile
         let displayedPreview = model.preview
+        let displayedGeneration = model.editGeneration
         return HStack {
             Button("Confirm Bounds and Exact Preview Reviewed") {
                 perform { try model.confirmSelectedBoundsAndPreviewReviewed(
-                    expectedProfile: displayedProfile, expectedPreview: displayedPreview) }
+                    expectedProfile: displayedProfile, expectedPreview: displayedPreview,
+                    expectedEditGeneration: displayedGeneration) }
             }.disabled(!model.canConfirmSelectedBoundsAndPreview)
             Text("\(model.unreviewedRegionCount) regions require review before unattended approval.")
                 .font(.caption)
