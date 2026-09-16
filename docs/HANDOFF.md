@@ -1499,6 +1499,11 @@ signatures. Ten focused tests passed. Page/structural PDF analysis remains
 in-process, and deadlines are per child rather than whole-job. Hosted CI/review
 and all scheduler/USB/installation evidence remain separate gates.
 
+PR #46's extraction worker contract passed independent review and automatic
+hosted run `35072850127` at exact `e8ae1fd`; inspected logs confirm the
+67/166/156 debug/release suites, independent checks, and ad-hoc signatures.
+PR #47's connected intake review and hosted run remain pending.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
