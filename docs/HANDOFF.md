@@ -1179,6 +1179,19 @@ M1 transaction safety evidence only. No administrator authorization, queue,
 protected path, scheduler job, system setting, or printer was changed; all M1
 integration acceptance remains open.
 
+At `88fb87e`, bounded ingestion closes review finding R14. All prospective
+regular-file reads use one shared nonblocking, no-follow descriptor-open rule
+before validating type, owner, link count, permissions, size, and stable
+metadata. This covers path-based CLI PDF/ticket input and descriptor-relative
+state, prepared-payload, workflow, printer-profile, queue, and active-selection
+records. Native subprocess regressions impose a two-second hard deadline on
+FIFOs with and without a writer; separate real CLI cases verify FIFO PDF and
+ticket rejection before worker startup. Local validation passes with 60 Python,
+164 LabelCore, and 107 LabelMac tests, plus the complete offline accelerator
+suite. This is partial automated M2-AC09/10 and M3-AC09/12 evidence only. It is
+not scheduler intake, installed-spooler, transport, or physical-printer
+evidence, and no system or printer state changed.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
