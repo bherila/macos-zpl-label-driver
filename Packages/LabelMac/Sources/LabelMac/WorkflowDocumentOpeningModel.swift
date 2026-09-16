@@ -40,7 +40,7 @@ public final class WorkflowDocumentOpeningModel: ObservableObject {
 
     public func reportImportFailure() { error = "The PDF could not be opened." }
 
-    public func open(_ url: URL) {
+    public func open(_ url: URL, mode: WorkflowOpeningMode = .assisted) {
         cancelOpening()
         editor?.cancelPreview()
         error = nil
@@ -78,7 +78,7 @@ public final class WorkflowDocumentOpeningModel: ObservableObject {
                 guard remaining > 0 else { throw OfflineRenderWorkerProcess.Error.timedOut }
                 let model = try await WorkflowEditorBootstrap.makeModelUsingWorker(
                     originalPDF: data, store: self.store, workerExecutable: self.workerExecutable,
-                    deadlineSeconds: min(remaining, 60), cancellation: cancellation)
+                    deadlineSeconds: min(remaining, 60), cancellation: cancellation, mode: mode)
                 await self.afterAnalysis()
                 guard self.request == id, !Task.isCancelled, !cancellation.isCancelled else { return }
                 guard clock.now < start.advanced(by: .seconds(60)) else {

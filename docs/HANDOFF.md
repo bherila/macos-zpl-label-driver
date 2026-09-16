@@ -1575,6 +1575,24 @@ findings are addressed and resolved. Its exact-head hosted run `35080048258`
 remains live, so the opening slice remains unpublished. GUI inspection is
 NOT RUN after the runtime startup failure; no installed acceptance follows.
 
+An explicit manual PDF opening slice is in local implementation. It requests
+bounded page geometry from the existing child, accounts for every page, and
+creates full-page editable starting regions without guessed crops or structural
+qualification. The default assisted path remains fail-closed. An edited-draft
+regression exposed and corrected retained-decimal conversion in the shared
+workflow codec, preserving exact identity instead of relaxing equality. Six
+codec and 15 opening/bootstrap tests pass; full local validation passes
+67/167/187 debug/release, all independent/ABI/inert checks, ad-hoc signatures
+and packaged-worker equality. Hosted/review for this slice remain pending.
+Details and unverified UI/source-selection gates are in
+`M4-MANUAL-DOCUMENT-INTAKE-2026-09-16.md`.
+
+Dependencies are verified: PR #50 run `35080048258` passed exact correction
+`5830f5b` with 67/166/178 debug/release and signatures/equality confirmed in logs.
+PR #51 first review completed cleanly at exact `ee36a34`; run `35080396474`
+passed that head with 67/166/184 debug/release and all independent/signing checks.
+No repeat review or merge follows. GUI and installed acceptance remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

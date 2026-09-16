@@ -30,19 +30,22 @@ public final class WorkflowEditorModel: ObservableObject {
     private let analyzedPages: [AnalyzedSourcePage]
     private let canvas: DotCanvas
     private let store: WorkflowProfileStore
+    public let isManualDraft: Bool
 
     public init(
         draft: WorkflowProfileDraft,
         originalPDF: Data,
         analyzedPages: [AnalyzedSourcePage],
         canvas: DotCanvas,
-        store: WorkflowProfileStore
+        store: WorkflowProfileStore,
+        isManualDraft: Bool = false
     ) {
         self.draft = draft
         self.originalPDF = originalPDF
         self.analyzedPages = analyzedPages
         self.canvas = canvas
         self.store = store
+        self.isManualDraft = isManualDraft
         self.selectedRegionID = Self.regions(in: draft.profile).first?.id
     }
 
@@ -240,6 +243,10 @@ public struct WorkflowEditorView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 mediaSummary
+                if model.isManualDraft {
+                    Text("Manual extraction: no label crop was chosen automatically. Each starting region covers its full source page. Set the label bounds and review the exact preview; this draft has no unattended qualification.")
+                        .accessibilityLabel("Manual extraction requires region and preview review")
+                }
                 if let region = selectedRegion { regionControls(region) }
                 previewView
                 if let error = model.lastError {
@@ -260,7 +267,7 @@ public struct WorkflowEditorView: View {
                     Button("Save Revision") { perform(model.save) }
                         .keyboardShortcut("s", modifiers: [.command])
                     Button("Approve for Unattended Use") { perform(model.approveForUnattendedUse) }
-                        .disabled(!model.isSaved)
+                        .disabled(!model.isSaved || model.profile.pageRules.contains { $0.structuralAnchors.isEmpty })
                 }
             }
             .padding()
