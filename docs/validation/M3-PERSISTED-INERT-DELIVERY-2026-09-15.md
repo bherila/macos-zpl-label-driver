@@ -1,6 +1,7 @@
 # M3 persisted inert delivery — 2026-09-15
 
-**Scope:** automated native evidence at `c2e6e53` connecting a validated
+**Scope:** automated native evidence at `c2e6e53` plus coordination binding at
+`297c6aa`, connecting a validated
 immutable prepared-job bundle to its persisted lifecycle and shared
 physical-device lease. The sink discards bytes in memory. This is not scheduler,
 network, USB, or physical-printer acceptance.
@@ -13,8 +14,10 @@ changing lifecycle state it reloads and verifies the canonical accepted ticket,
 immutable configuration references, prepared payload, payload digest, byte
 count, output order, resolved controls, and printer-profile snapshot.
 
-Delivery then acquires the common opaque `PhysicalDeviceLease` and advances the
-persisted lifecycle from `prepared` through `waiting`. Before the first possible
+Delivery derives the opaque lease identity only from the verified ticket's
+immutable physical-device coordination domain; no caller-supplied alias can
+select a different lock. It then acquires the common `PhysicalDeviceLease` and
+advances the persisted lifecycle from `prepared` through `waiting`. Before the first possible
 sink side effect it commits `transmitting(..., bytesAccepted: 0)`. Bounded
 discard chunks advance only monotonically. Completion records `transmitted`,
 which is explicitly not device confirmation. Injected zero-byte or partial
@@ -38,7 +41,8 @@ Seven new native cases establish:
   automatically retryable;
 - a pre-transmission failure has no sink event and retains its distinct
   retryable classification;
-- a competing device lease leaves the prepared lifecycle unchanged;
+- a competing lease in the ticket-bound device domain leaves the prepared
+  lifecycle unchanged;
 - an out-of-range fault plan is rejected before lifecycle mutation, and a
   completed job cannot be delivered a second time; and
 - contradictory fault controls are rejected during scenario construction.
