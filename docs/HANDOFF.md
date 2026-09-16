@@ -1423,6 +1423,15 @@ Local repository preflight and 65 Python, 165 LabelCore debug, and 152 LabelMac
 debug tests passed on the existing Tahoe host. Release tests are unchanged from
 the preceding hosted run; they were not rerun for this documentation-only diff.
 
+PR #40 automatic run `35070491708` revealed that the mandatory manifest update
+caused native compilation even for a documentation-only diff. The scope
+classifier now permits `MANIFEST.sha256` alongside only recognized documentation,
+while manifest-only, code, workflow, unknown, and empty diffs still compile.
+Repository preflight and 67 Python tests pass, including both new classification
+regressions. This advances M0-AC06 implementation only; the hosted docs-only
+skip/aggregate result remains to be proven after this classifier is available
+in a PR base. No product code or scheduler behavior changed.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
