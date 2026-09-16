@@ -1155,6 +1155,30 @@ final class AcceptedJobStoreTests: XCTestCase {
 }
 
 private extension AcceptedJobStoreTests {
+    private final class RecoveryRaceGate: @unchecked Sendable {
+        let initialStateLoaded = DispatchSemaphore(value: 0)
+        let allowSecondRead = DispatchSemaphore(value: 0)
+
+        func observe(_ event: PersistedJobRecovery.Event) {
+            guard event == .initialStateLoaded else { return }
+            initialStateLoaded.signal()
+            allowSecondRead.wait()
+        }
+    }
+
+    private final class RecoveryResultBox: @unchecked Sendable {
+        private let lock = NSLock()
+        private var stored: Result<PersistedJobRecoveryOutcome, Swift.Error>?
+
+        func set(_ result: Result<PersistedJobRecoveryOutcome, Swift.Error>) {
+            lock.withLock { stored = result }
+        }
+
+        var result: Result<PersistedJobRecoveryOutcome, Swift.Error>? {
+            lock.withLock { stored }
+        }
+    }
+
     private final class InertEventRecorder: @unchecked Sendable {
         private let lock = NSLock()
         private var storage: [InertPersistedDelivery.Event] = []
@@ -1587,6 +1611,45 @@ extension AcceptedJobStoreTests {
             workflowStore: fixture.value.workflows,
             printerStore: fixture.value.printers
         ), interrupted)
+    }
+
+    func testRecoveryReconcilesReadyToTransmittingRaceUnderDeviceLease() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "recovery-raced-send")
+        let gate = RecoveryRaceGate()
+        let result = RecoveryResultBox()
+        let completed = DispatchSemaphore(value: 0)
+        let recovery = PersistedJobRecovery(
+            acceptedJobStore: fixture.value.jobs,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers,
+            leaseDirectory: fixture.leaseDirectory,
+            observe: gate.observe
+        )
+        DispatchQueue.global().async {
+            result.set(Result {
+                try recovery.reconcile(
+                    acceptanceID: fixture.value.ticket.acceptanceID
+                )
+            })
+            completed.signal()
+        }
+        XCTAssertEqual(gate.initialStateLoaded.wait(timeout: .now() + 2), .success)
+        _ = try transmitting(fixture, bytesAccepted: 2)
+        gate.allowSecondRead.signal()
+        XCTAssertEqual(completed.wait(timeout: .now() + 2), .success)
+        XCTAssertEqual(try result.result?.get(), .uncertain(bytesAccepted: 2))
+
+        let final = try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        guard case let .uncertain(_, _, accepted) = final.phase else {
+            return XCTFail("expected uncertain lifecycle state")
+        }
+        XCTAssertEqual(accepted, 2)
     }
 
     func testRecoveryReadsTerminalEvidenceWithoutStateMutation() throws {
