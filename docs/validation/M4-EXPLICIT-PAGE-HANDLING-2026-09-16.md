@@ -30,7 +30,14 @@ synthetic document and the real worker to preview before skipping and after
 restoration; saved original and skipped revisions remain unchanged. Stale
 confirmation and last-output-page actions fail without mutation.
 
-Full local gate and own hosted/review pending. No oracle, renderer, schema,
+At implementation `207bdb6`, the full local gate passed with exit 0: 67 Python,
+173 LabelCore and 210 LabelMac tests in debug/release; both accelerator suites,
+independent round-trips and inert checks; local executable/app/nested-worker
+signatures and packaged-worker PBM/ZPL equality. Own hosted/review pending.
+Parent PR #57 hosted run 35088846529 passed exact `5d9c2c2` with 209 native
+tests debug/release, signatures and packaged equality; its first review is clean.
+The parent's subsequent `626122d` changes evidence only, not source; its own
+docs-only CI remains pending. No oracle, renderer, schema,
 transport, queue, privileged path or hardware setting changed.
 
 ## Finite manual validation — NOT RUN
