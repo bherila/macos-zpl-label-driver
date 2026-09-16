@@ -88,6 +88,9 @@ final class WorkflowProfileStoreTests: XCTestCase {
         noncanonical.append(0x20)
         try noncanonical.write(to: actual)
         XCTAssertThrowsError(try store.savedWorkflows())
+        XCTAssertThrowsError(try store.load(profileID: value.id, revision: value.revision)) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .profileIdentityMismatch)
+        }
         try Data(repeating: 0, count: WorkflowProfileJSON.maximumBytes + 1).write(to: actual)
         XCTAssertThrowsError(try store.savedWorkflows())
     }

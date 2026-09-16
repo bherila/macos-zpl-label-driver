@@ -67,7 +67,8 @@ public struct WorkflowProfileStore: @unchecked Sendable {
             throw Self.mapStorage(error)
         }
         let profile = try WorkflowProfileJSON.decode(bytes)
-        guard profile.id == profileID, profile.revision == revision else {
+        guard profile.id == profileID, profile.revision == revision,
+              try WorkflowProfileJSON.encode(profile) == bytes else {
             throw Error.profileIdentityMismatch
         }
         return profile
