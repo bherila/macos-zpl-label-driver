@@ -1370,9 +1370,11 @@ as delivery before converting an abandoned `transmitting` record to terminal
 state unchanged; prepared/waiting jobs remain merely ready, and terminal
 transmitted/device-confirmed/uncertain evidence is read without replay or
 mutation. Four regressions bring LabelMac to 143 tests in debug and release.
-This is partial automated M3-AC09 evidence only: installed restart discovery,
-worker IPC, scheduler retry mapping, transport, USB, and physical output remain
-unverified.
+The complete exact-head gate also passes 64 Python tests, 165 LabelCore tests in
+debug and release, 132 independent round trips, all ABI/inert-pipeline checks,
+and local ad-hoc product signature verification. This is partial automated
+M3-AC09 evidence only: installed restart discovery, worker IPC, scheduler retry
+mapping, transport, USB, and physical output remain unverified.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
