@@ -1,5 +1,13 @@
 # Current implementation handoff — revision 3
 
+Latest local slice connects explicit non-label page confirmation and full-page
+restoration to the editor's existing typed planner. Page geometry/anchors remain
+validated; stale confirmation and last-output-page actions fail without mutation.
+Skipped pages remain listed with reasons, and restoration appends a new region
+requiring bounds/preview review. Eight portable draft and twelve native editor
+tests passed, including real-worker restored preview and immutable saved history.
+Full gate pending. See `validation/M4-EXPLICIT-PAGE-HANDLING-2026-09-16.md`.
+
 Latest local slice separates offline editor availability from physical readiness.
 Hardware confirmations remain false; installation independently requires both
 stock/tear-off confirmations plus discovered identity. Five focused setup tests
@@ -29,6 +37,9 @@ detectors before worker admission. 52 focused native tests passed; at `4d430c3`,
 the complete fail-fast local gate log confirms 67/171/208 debug/release,
 independent/inert/signature and packaged-worker checks. Corrected hosted CI and
 second review remain pending. See `validation/M4-SAVED-REOPENING-REVIEW-2026-09-16.md`. Original
+Corrected hosted run 35088390875 subsequently passed exact `e00a630`, with
+208 native tests debug/release, signatures and packaged-worker equality verified;
+second review is clean. No installation or physical result follows from that.
 hosted run 35085759520 passed exact `ef26682`; it does not validate these fixes.
 
 Latest local slice connects saved-revision listing and Reopen with PDF in setup.
