@@ -22,6 +22,9 @@ public struct SyntheticInertJobResult: Equatable, Sendable {
 public struct SyntheticInertJobPipeline: @unchecked Sendable {
     public enum Error: Swift.Error, Equatable, Sendable {
         case invalidRequest
+        case invalidPreparationDeadline
+        case processingCancelled
+        case preparationDeadlineExceeded
         case inputUnavailable
         case configurationUnavailable
         case layoutRejected
@@ -91,13 +94,22 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
         self.workerExecutable = workerExecutable
     }
 
+    /// One cooperative preparation deadline covers analysis and all labels.
+    /// Processing cancellation interrupts workers, not the persisted lifecycle;
+    /// use the separately authorized state-store API for job cancellation.
+    /// This is not transport admission arbitration or a filesystem timeout.
     public func run(
         queueID: String,
         sourcePDFDescriptor: Int32,
         acceptanceID: String,
         cancellationToken: Data,
-        scenario: InertDeliveryScenario
+        scenario: InertDeliveryScenario,
+        preparationDeadlineSeconds: Double = OfflineRenderWorkerProcess.defaultDeadlineSeconds,
+        processingCancellation: OfflineRenderWorkerCancellation = .init()
     ) throws -> SyntheticInertJobResult {
+        let budget = try PreparationBudget(seconds: preparationDeadlineSeconds,
+                                           cancellation: processingCancellation)
+        try budget.check()
         guard !cancellationToken.isEmpty, cancellationToken.count <= 256 else {
             throw Error.invalidRequest
         }
@@ -110,6 +122,7 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
         } catch {
             throw Error.inputUnavailable
         }
+        try budget.check()
 
         do {
             if let existing = try acceptedJobs.loadIfPresent(
@@ -119,7 +132,8 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
                 return try resume(
                     existing: existing, suppliedSourcePDF: sourcePDF,
                     requestedQueueID: queueID,
-                    cancellationToken: cancellationToken, scenario: scenario
+                    cancellationToken: cancellationToken, scenario: scenario,
+                    budget: budget
                 )
             }
         } catch let error as Error {
@@ -159,12 +173,15 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
 
         let plan: ExtractionPlan
         do {
-            plan = try extractionPlan(sourcePDF: sourcePDF, workflow: workflow)
+            plan = try extractionPlan(sourcePDF: sourcePDF, workflow: workflow, budget: budget)
+        } catch let error as Error {
+            throw error
         } catch {
             throw Error.layoutRejected
         }
 
         let ticket: ResolvedJobTicket
+        try budget.check()
         do {
             ticket = try ResolvedJobTicket.accept(
                 acceptanceID: acceptanceID,
@@ -206,8 +223,9 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
         case .accepted:
             let payload = try prepare(
                 sourcePDF: sourcePDF, plan: plan, ticket: ticket,
-                workflow: workflow, queue: queue, printer: printer
+                workflow: workflow, queue: queue, printer: printer, budget: budget
             )
+            try budget.check()
             do {
                 _ = try states.publishPrepared(
                     acceptanceID: acceptanceID, expected: state, payload: payload,
@@ -233,6 +251,7 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
             throw Error.deliveryFailed
         }
 
+        try budget.check()
         return try deliverResult(
             ticket: ticket,
             preparedByteCount: preparedByteCount,
@@ -245,7 +264,8 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
         suppliedSourcePDF: Data,
         requestedQueueID: String,
         cancellationToken: Data,
-        scenario: InertDeliveryScenario
+        scenario: InertDeliveryScenario,
+        budget: PreparationBudget
     ) throws -> SyntheticInertJobResult {
         guard existing.ticket.queue.id == requestedQueueID,
               existing.sourcePDF == suppliedSourcePDF,
@@ -300,8 +320,10 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
             let plan: ExtractionPlan
             do {
                 plan = try extractionPlan(
-                    sourcePDF: suppliedSourcePDF, workflow: workflow
+                    sourcePDF: suppliedSourcePDF, workflow: workflow, budget: budget
                 )
+            } catch let error as Error {
+                throw error
             } catch {
                 throw Error.layoutRejected
             }
@@ -314,8 +336,9 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
             let payload = try prepare(
                 sourcePDF: suppliedSourcePDF, plan: plan,
                 ticket: existing.ticket, workflow: workflow,
-                queue: queue, printer: printer
+                queue: queue, printer: printer, budget: budget
             )
+            try budget.check()
             do {
                 _ = try states.publishPrepared(
                     acceptanceID: existing.ticket.acceptanceID,
@@ -364,6 +387,7 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
         default:
             throw Error.deliveryFailed
         }
+        try budget.check()
         return try deliverResult(
             ticket: existing.ticket,
             preparedByteCount: preparedByteCount,
@@ -391,13 +415,22 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
     }
 
     private func extractionPlan(
-        sourcePDF: Data, workflow: WorkflowProfile
+        sourcePDF: Data, workflow: WorkflowProfile, budget: PreparationBudget
     ) throws -> ExtractionPlan {
-        let analyzed = try OfflineLayoutWorker.analyze(
-            originalPDF: sourcePDF,
-            structuralPages: workflow.pageRules.filter { !$0.structuralAnchors.isEmpty }.map(\.sourcePage),
-            workerExecutable: workerExecutable
-        )
+        let analyzed: [AnalyzedSourcePage]
+        do {
+            analyzed = try OfflineLayoutWorker.analyze(
+                originalPDF: sourcePDF,
+                structuralPages: workflow.pageRules.filter { !$0.structuralAnchors.isEmpty }.map(\.sourcePage),
+                workerExecutable: workerExecutable,
+                deadlineSeconds: budget.remainingSeconds(), cancellation: budget.cancellation
+            )
+        } catch OfflineRenderWorkerProcess.Error.cancelled {
+            throw Error.processingCancelled
+        } catch OfflineRenderWorkerProcess.Error.timedOut {
+            throw Error.preparationDeadlineExceeded
+        }
+        try budget.check()
         return try ExtractionPlanner.plan(
             analyzedPages: analyzed,
             profile: workflow,
@@ -446,7 +479,8 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
         ticket: ResolvedJobTicket,
         workflow: WorkflowProfile,
         queue: VirtualQueueDefinition,
-        printer: PrinterProfile
+        printer: PrinterProfile,
+        budget: PreparationBudget
     ) throws -> PreparedJobPayload {
         do {
             let canvas = try DotCanvas(
@@ -478,8 +512,10 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
                     label: planned,
                     canvas: canvas,
                     conversion: ticket.monochromeConversion,
-                    workerExecutable: workerExecutable
+                    workerExecutable: workerExecutable,
+                    deadlineSeconds: budget.remainingSeconds(), cancellation: budget.cancellation
                 )
+                try budget.check()
                 let prepared = try ZPLPreparedLabelEncoder(
                     maxOutputBytes: remaining
                 ).prepare(
@@ -502,6 +538,10 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
                 monochromeConversion: ticket.monochromeConversion,
                 maximumBytes: maximumPreparedBytes
             )
+        } catch OfflineRenderWorkerProcess.Error.cancelled {
+            throw Error.processingCancelled
+        } catch OfflineRenderWorkerProcess.Error.timedOut {
+            throw Error.preparationDeadlineExceeded
         } catch let error as Error {
             throw error
         } catch {

@@ -1531,9 +1531,19 @@ existing bounded child, with checked source-bound layout facts and explicit
 output/anchor ceilings. Original bytes still feed final rendering. Focused
 worker/layout/intake tests pass; the full local gate passed 67 Python, 166 Core
 and 163 Mac tests in debug/release with all oracle/ABI/inert and signature checks.
-Hosted/review evidence remains pending
+Hosted run `35074656870` passed exact code head `67347e6`, with suite/signature
+counts confirmed in logs; independent review completed cleanly at the same
+head. Evidence is recorded
 in `M3-ISOLATED-LAYOUT-ANALYSIS-2026-09-16.md`. Per-child deadlines are not a
 whole-job bound, and installed scheduler/identity evidence remains open.
+
+The shared preparation-budget slice uses one monotonic deadline for initial/retry
+analysis and all label workers, with distinct processing interruption errors.
+It does not renew time per label, manufacture persisted cancellation, or promise
+to interrupt filesystem calls. Twenty-nine focused tests passed; the full local
+gate passed 67/166/167 debug/release with all independent and signing checks;
+hosted/review evidence is pending in
+`M3-SHARED-PREPARATION-BUDGET-2026-09-16.md`.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
