@@ -1,6 +1,7 @@
 # Three reference sheets through the complete inert pipeline
 
-Date: 2026-09-16. Evidence level A, additional M4-AC01/13 coverage.
+Date: 2026-09-16. Evidence level A, M4-AC13 PASS and partial M4-AC01 coverage.
+Implementation/full-gate SHA: `4ebfd8591ad789bba06ae602d8c69c7e5049dad6`.
 No installed scheduler, application-dialog, browser or physical acceptance.
 
 The supplied original MIT fixtures and their committed source manifest are
@@ -63,8 +64,23 @@ PASS: 33 focused native renderer/extraction/matrix tests after direct mapping,
 exit 0. PASS: final broader 46-test renderer/extraction/pipeline repeat, exit 0,
 including all three no-acceptance negatives. Earlier compile/harness failures
 and the 35-dot pre-fix mismatch are retained in local diagnostic logs, not
-treated as passes. Native full gate remains in progress;
-acceptance checkboxes stay open until those observed results are recorded.
+treated as passes.
+
+PASS: full local `bash scripts/ci-swift.sh` at the implementation SHA, exit 0,
+bounded to 1200 seconds. 67 Python, 178 Core and 250 Mac tests debug/release,
+both accelerator modes, 132 independent round trips per mode, 15 backend ABI,
+10 filter ABI and one inert pipeline case per mode, local-ad-hoc ARM/minimum-26
+executable/app/nested-worker signature checks and packaged-worker PBM/ZPL equality.
+Native host: macOS 26.6.2 build 25G83, Apple Silicon, Swift 6.3.3.
+Local artifact: `artifacts/setup-app.7rY2LE/Label Printer Driver Setup.app`.
+The separately pinned maintainer manual-check artifact is retained unchanged;
+this build does not require repeating or upgrading that finite GUI procedure.
+Own hosted CI/review await publication; later evidence edits are source unchanged.
+
+M4-AC13 PASS combines the real three-plan/render/persistence matrix and
+preacceptance failures here with the existing four portable reference-workflow
+tests, including both unconfigured Letter/A4 definitions refusing guessed crops.
+It is strictly an automated reference-workflow result, not installed queues.
 
 Parent PR #68 hosted run 35104542457 passed exact
 `4a857a4f8a70768a3d54cad754402eb6f3d9db59`; its first review is clean at base
