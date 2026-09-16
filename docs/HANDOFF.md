@@ -4,12 +4,24 @@ Latest local slice separates offline editor availability from physical readiness
 Hardware confirmations remain false; installation independently requires both
 stock/tear-off confirmations plus discovered identity. Five focused setup tests
 passed, including a synthetic identity's four confirmation combinations. Full
-gate pending. See `validation/M5-OFFLINE-EDITOR-READINESS-2026-09-16.md`.
+pre-merge gate passed at `753fa5a` (67/171/205 debug/release plus independent,
+inert, signature and packaged-worker checks); combined gate pending. See
+`validation/M5-OFFLINE-EDITOR-READINESS-2026-09-16.md`.
 Important correction: the earlier nonempty AXWindows result had AXApplication
 role and exposed menus, not a verified AXWindow. Both direct and new-instance
 Launch Services probes failed the stronger window check. No GUI pass is claimed;
 the exact test app namespace has no live instances. Parent PR #56 hosted run
-35085759520 passed exact `ef26682`; independent review remains live.
+35085759520 passed exact `ef26682`; corrected hosted/second review remain live.
+
+PR #56 first review found historical-revision collision, equal-dimension foreign
+stock acceptance and unavailable detectors mislabeled as layout changes. Local
+same-branch fixes use trusted latest-observed revision allocation for opening,
+reload and saved edits; validate stock identity plus dimensions; reject non-border
+detectors before worker admission. 52 focused native tests passed; at `4d430c3`,
+the complete fail-fast local gate log confirms 67/171/208 debug/release,
+independent/inert/signature and packaged-worker checks. Corrected hosted CI and
+second review remain pending. See `validation/M4-SAVED-REOPENING-REVIEW-2026-09-16.md`. Original
+hosted run 35085759520 passed exact `ef26682`; it does not validate these fixes.
 
 Latest local slice connects saved-revision listing and Reopen with PDF in setup.
 It validates the selected immutable snapshot and all original source pages/layout
@@ -23,8 +35,9 @@ signature and packaged-worker checks. Own hosted/review pending. See
 `validation/M4-SAVED-WORKFLOW-REOPENING-2026-09-16.md` for limits and finite unrun
 GUI procedure. Parent PR #55 run 35084288575 passed exact `55dd7d2`, and its first
 independent review is clean. No scheduler, installation or physical result added.
-Native AX trust is available. A finite direct-executable GUI probe observed our
-own test app window, but expected-control lookup failed; all owned instances were
+Native AX trust is available. A finite direct-executable GUI probe observed
+an AXApplication/menu element, not a verified AXWindow; expected-control lookup
+failed. All owned instances were
 closed/reaped, with no button actions or hardware assertions. GUI acceptance is
 unproven. Next: separate offline editing from actual stock/tear-off confirmation
 and resolve the bounded accessibility traversal rather than fake hardware facts.

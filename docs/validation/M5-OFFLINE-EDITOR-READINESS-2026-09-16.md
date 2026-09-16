@@ -18,7 +18,11 @@ synthetic typed identity to verify the four stock/tear-off combinations: offline
 editing is available in all; installation readiness requires both. This is a
 predicate test, not real discovery or permission to install. Existing tests retain
 unobserved USB identity, qualified speed validation and unsupported/unknown
-feature distinctions. Full local gate and own hosted/review are pending.
+feature distinctions. Pre-merge implementation `753fa5a` passed the full local
+67 Python/171 LabelCore/205 LabelMac debug/release gate, 132 independent round trips,
+inert checks, local signatures and packaged-worker PBM/ZPL equality. The combined
+gate after merging PR #56's historical-revision/stock/detector corrections and
+this slice's own hosted CI/review are pending.
 
 ## Native accessibility observations and correction
 
