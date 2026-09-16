@@ -89,6 +89,10 @@ public struct AcceptedJobStore: @unchecked Sendable {
         syncParentDirectory: @escaping @Sendable (Int32) -> Int32,
         injectFault: @escaping @Sendable (FaultPoint) throws -> Void = { _ in }
     ) throws {
+        // A root must name a directory entry: dot aliases can make the
+        // computed containing-directory barrier synchronize the root itself.
+        let rootName = root.lastPathComponent
+        guard rootName != ".", rootName != ".." else { throw Error.unsafeStoreDirectory }
         self.root = root
         self.syncParentDirectory = syncParentDirectory
         self.injectFault = injectFault

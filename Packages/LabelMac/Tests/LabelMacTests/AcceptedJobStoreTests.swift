@@ -533,6 +533,23 @@ final class AcceptedJobStoreTests: XCTestCase {
         XCTAssertEqual(recorder.recorded, expected + expected)
     }
 
+    func testRootDotAliasesAreRejectedBeforeCreatingAcceptedNamespace() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "AcceptedRootAlias-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700])
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let child = root.appending(path: "child")
+        try FileManager.default.createDirectory(at: child, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700])
+        for alias in [root.path + "/.", child.path + "/.."] {
+            XCTAssertThrowsError(try AcceptedJobStore(root: URL(fileURLWithPath: alias))) {
+                XCTAssertEqual($0 as? AcceptedJobStore.Error, .unsafeStoreDirectory)
+            }
+        }
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), ["child"])
+    }
+
     func testRootAndContainingSyncFailureRemainUncertainOnIdenticalRetries() throws {
         for failRoot in [true, false] {
             let value = try fixture(acceptanceID: "namespace-sync-\(failRoot)")
