@@ -91,7 +91,9 @@ func run() throws {
     }
     guard count > 0 else { throw FilterFailure.empty }
     let report: [String: Any] = [
-        "schemaVersion": 1,
+        "schemaVersion": 2,
+        "jobID": job,
+        "auditReason": "discard-only-experiment-not-physical-printing",
         "mode": "pass-through-to-inert-next-stage",
         "bytesObserved": count,
         "input": args.count == 7 ? "file" : "stdin",
@@ -103,7 +105,11 @@ func run() throws {
         "physicalOutput": false,
     ]
     let data = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
-    FileHandle.standardError.write(Data("INFO: LABEL_CAPTURE_FILTER ".utf8) + data + Data([10]))
+    // This experimental queue deliberately discards physical output. Report
+    // that genuine warning once, with safe metadata only. CUPS logs INFO only
+    // at debug2; WARNING works at the host's normal warn level without changing
+    // global logging. Exit success still describes inert pass-through only.
+    FileHandle.standardError.write(Data("WARNING: LABEL_CAPTURE_FILTER ".utf8) + data + Data([10]))
 }
 
 signal(SIGPIPE, SIG_IGN)

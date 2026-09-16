@@ -25,10 +25,12 @@ def verify(filter_binary: Path, probe_binary: Path) -> int:
     assert capture.returncode == 0 and probe.wait(timeout=15) == 0
     assert probe_stdout == b""
     assert marker.encode() not in filter_stderr + probe_stderr
-    filter_prefix = b"INFO: LABEL_CAPTURE_FILTER "
+    filter_prefix = b"WARNING: LABEL_CAPTURE_FILTER "
     probe_prefix = b"INFO: LABEL_PROBE "
     assert filter_stderr.startswith(filter_prefix) and probe_stderr.startswith(probe_prefix)
     filter_record = json.loads(filter_stderr[len(filter_prefix):])
+    assert filter_record["schemaVersion"] == 2 and filter_record["jobID"] == 1
+    assert filter_record["auditReason"] == "discard-only-experiment-not-physical-printing"
     probe_record = json.loads(probe_stderr[len(probe_prefix):])
     expected_options = {"ProbeSpeed": "3", "ProbeDarkness": "15", "ProbeWorkflow": "Letter", "ProbeRotation": "90"}
     assert filter_record["bytesObserved"] == len(data)

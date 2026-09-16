@@ -309,3 +309,18 @@ observe real adapter timeout/reset behavior. They use public system APIs without
 bundling a third-party implementation. Current host observations and automated
 stream/race tests do not establish printer, scheduler, physical-output or general
 network-permission acceptance.
+
+<a id="r39"></a>
+## R39 — CUPS filter-to-scheduler diagnostic reporting
+
+[Communicating with the scheduler](https://www.cups.org/doc/api-filter.html)
+documents severity-prefixed stderr reporting: INFO updates state but appears in
+the error log only at debug2; WARNING updates state and logs at warning severity.
+[cupsd.conf logging levels](https://www.cups.org/doc/man-cupsd.conf.html) documents
+warn as the default. The inert capture filter deliberately warns once that its
+successful pass-through is a discard experiment, not physical printing.
+Safe schema-2 metadata excludes payload, title, username, private paths and raw
+unknown options. A positive local numeric job ID is for private scheduler
+correlation, not public job-identity disclosure. Actual Tahoe log routing and
+correlated invocation still require the finite administrator experiment; API
+documentation and direct ABI success are not installed acceptance.
