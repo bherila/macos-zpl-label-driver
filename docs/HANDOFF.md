@@ -6,7 +6,9 @@ job > workflow > printer, never read-only observations. The real immutable
 accepted/prepared store path retains speed 2 after a later default-4 revision and
 active-queue change; wrongly relabeled schema references fail. Thirty-five core
 and 63 native focused tests passed, including read-only observation isolation;
-full combined gate and own hosted/review remain pending. No new unqualified
+Full local gate at `00180d3` passed exit 0: 67 Python, 178 Core and 248 Mac
+debug/release, both accelerator modes, independent/inert checks, signatures and
+packaged-worker PBM/ZPL equality. Own hosted/review remain pending. No new unqualified
 controls, migration, queue install or physical acceptance. See
 `validation/M3-CONFIGURED-PRINTER-DEFAULTS-2026-09-16.md`.
 

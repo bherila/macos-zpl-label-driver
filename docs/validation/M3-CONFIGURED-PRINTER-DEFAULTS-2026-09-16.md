@@ -30,7 +30,11 @@ artifact. Its frozen controls and exact ZPL bytes retain speed 2. A falsely
 relabeled schema reference fails. This uses the existing synthetic accepted-source
 and bitmap fixtures to isolate policy/persistence, not to prove PDF imaging.
 
-The full combined gate remains pending.
+PASS: full local `bash scripts/ci-swift.sh` at `00180d3`, exit 0: 67 Python,
+178 LabelCore and 248 LabelMac tests in debug/release, both accelerator modes,
+132 independent round trips, inert ABI/filter pipeline checks, local-ad-hoc
+ARM/minimum-26 executable/app/nested-worker signatures and packaged-worker
+PBM/ZPL equality. Subsequent evidence-only edits undergo repository preflight.
 Native environment: macOS 26.6.2 build 25G83, Apple Silicon, Swift 6.3.3.
 Own hosted CI/review NOT RUN before publication. Actual system-default propagation,
 installed scheduler, GUI editing of printer defaults and physical speed/settings
