@@ -1,0 +1,131 @@
+import Darwin
+import Foundation
+import XCTest
+import LabelCore
+@testable import LabelMac
+
+final class WorkflowProfileStoreTests: XCTestCase {
+    private func temporaryRoot() throws -> URL {
+        let root = FileManager.default.temporaryDirectory.appending(
+            path: "WorkflowProfileStore-\(UUID().uuidString)"
+        )
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        return root
+    }
+
+    private func profile(revision: Int = 1, x: Double = 0.1) throws -> WorkflowProfile {
+        let page = try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792)
+        let region = try NormalizedRect(x: x, y: 0.2, width: 0.4, height: 0.5)
+        return try WorkflowProfile(
+            id: "letter/profile", revision: revision,
+            outputStockID: "nominal-4x6",
+            outputStock: PhysicalSize(
+                width: try Millimeters.inches(4), height: try Millimeters.inches(6)
+            ),
+            pageRules: [try WorkflowPageRule(
+                sourcePage: 1,
+                expectedInput: ExpectedInputPage(
+                    uprightPhysicalSize: try page.effectivePhysicalSize()
+                ),
+                disposition: .extract([try ExtractionRegion(
+                    id: "label", normalizedRect: region, outputOrder: 0
+                )]),
+                structuralAnchors: [try StructuralAnchorExpectation(
+                    id: "border", kind: .border, normalizedRect: region
+                )]
+            )]
+        )
+    }
+
+    func testImmutableProfileRoundTripAndIdempotentSave() throws {
+        let store = try WorkflowProfileStore(root: temporaryRoot())
+        let value = try profile()
+        try store.save(value)
+        try store.save(value)
+        XCTAssertEqual(try store.load(profileID: value.id, revision: value.revision), value)
+        XCTAssertFalse(WorkflowProfileStore.profileFileName(value.id, value.revision).contains("/"))
+    }
+
+    func testSameIdentityWithDifferentBytesIsAConflict() throws {
+        let store = try WorkflowProfileStore(root: temporaryRoot())
+        try store.save(profile())
+        XCTAssertThrowsError(try store.save(profile(x: 0.2))) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .profileConflict)
+        }
+        XCTAssertEqual(try store.load(profileID: "letter/profile", revision: 1), try profile())
+    }
+
+    func testQualificationIsSeparateExactAndNotImported() throws {
+        let store = try WorkflowProfileStore(root: temporaryRoot())
+        let value = try profile()
+        let imported = try WorkflowProfileJSON.decode(WorkflowProfileJSON.encode(value))
+        try store.save(imported)
+        XCTAssertNil(try store.qualification(for: imported))
+
+        try store.confirmForUnattendedUse(imported)
+        XCTAssertNotNil(try store.qualification(for: imported))
+        XCTAssertThrowsError(try store.qualification(for: profile(revision: 2))) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .cannotRead)
+        }
+        XCTAssertThrowsError(try store.qualification(for: profile(x: 0.2))) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .profileConflict)
+        }
+    }
+
+    func testTamperedQualificationFailsClosed() throws {
+        let root = try temporaryRoot()
+        let store = try WorkflowProfileStore(root: root)
+        let value = try profile()
+        try store.save(value)
+        try store.confirmForUnattendedUse(value)
+        let qualification = root.appending(path: "qualifications").appending(
+            path: WorkflowProfileStore.qualificationFileName(value.id, value.revision)
+        )
+        let tampered = try JSONSerialization.data(withJSONObject: [
+            "schemaVersion": 1,
+            "profileID": value.id,
+            "profileRevision": value.revision,
+            "profileSHA256": String(repeating: "0", count: 64),
+        ], options: [.sortedKeys])
+        try tampered.write(to: qualification)
+        XCTAssertThrowsError(try store.qualification(for: value)) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .qualificationMismatch)
+        }
+    }
+
+    func testRejectsSymlinkAndInsecureStoreRoots() throws {
+        let parent = try temporaryRoot()
+        try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: false)
+        let target = parent.appending(path: "target")
+        try FileManager.default.createDirectory(at: target, withIntermediateDirectories: false)
+        chmod(target.path, 0o700)
+        let link = parent.appending(path: "link")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: target)
+        XCTAssertThrowsError(try WorkflowProfileStore(root: link)) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .cannotOpenStore)
+        }
+
+        let insecure = parent.appending(path: "insecure")
+        try FileManager.default.createDirectory(at: insecure, withIntermediateDirectories: false)
+        chmod(insecure.path, 0o755)
+        XCTAssertThrowsError(try WorkflowProfileStore(root: insecure)) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .unsafeStoreDirectory)
+        }
+    }
+
+    func testConcurrentConflictingWritersNeverReplaceWinner() async throws {
+        let store = try WorkflowProfileStore(root: temporaryRoot())
+        let first = try profile(x: 0.1)
+        let second = try profile(x: 0.2)
+        let results = await withTaskGroup(of: Bool.self, returning: [Bool].self) { group in
+            group.addTask { (try? store.save(first)) != nil }
+            group.addTask { (try? store.save(second)) != nil }
+            var values: [Bool] = []
+            for await value in group { values.append(value) }
+            return values
+        }
+        XCTAssertEqual(results.filter { $0 }.count, 1)
+        let stored = try store.load(profileID: first.id, revision: first.revision)
+        XCTAssertTrue(stored == first || stored == second)
+    }
+}
