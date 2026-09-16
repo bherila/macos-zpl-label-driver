@@ -53,10 +53,14 @@ The existing concurrent duplicate-writer gate now pauses only its first barrier
 and has a finite five-second release bound, preserving the original admission
 interleaving without blocking all three new calls indefinitely.
 
-Full local gate, own hosted CI and correctness review are pending. Parent PR #73
+Full local gate at `5ff59b1f678179ec2d69841f4e16603bfab24e11` passed exit 0:
+82 Python/178 Core/262 Mac debug/release, both independent accelerator runs,
+15 backend/12 filter ABI cases and one inert pipeline per mode, local ad-hoc
+ARM/minimum-26 signatures and packaged-worker exact PBM/ZPL equality. Own
+hosted CI and correctness review are pending. Parent PR #73
 latest `b4d78e8` hosted 35116981496 passed with inspected native/inert/signature/
 packaged logs; its source review is clean at base `fa6c247` / head `03992fd`.
 No administrator session, queue/job action or physical printer access occurred.
 
-Next: full gate and focused review, then continue the separate finite M1
+Next: own hosted gate and focused review, then continue the separate finite M1
 administrator proof when its interactive OS authorization is available.

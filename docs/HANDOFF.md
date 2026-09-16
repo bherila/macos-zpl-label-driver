@@ -32,7 +32,9 @@ bindings before and after synchronization. Three old-code regressions reproduced
 nine assertion failures; corrected 51 tests passed, then the added during-barrier
 replacement test brought the passing focused set to 52. All failures retain
 explicit commit uncertainty, exact source bytes and advanced lifecycle state.
-Full/hosted/review gates are pending; no scheduler/USB/physical acceptance is
+Full local gate at `5ff59b1` passed exit 0: 82 Python/178 Core/262 Mac
+debug/release, both independent accelerator/inert runs, signatures and packaged
+PBM/ZPL equality. Own hosted/review gates are pending; no scheduler/USB/physical acceptance is
 inferred. See `validation/M3-ACCEPTED-NAMESPACE-BARRIERS-2026-09-16.md`.
 
 Parent #73 latest `b4d78e8` hosted 35116981496 passed with inspected 82 Python/
