@@ -19,7 +19,11 @@ and ordering edit paths after save.
 Focused validation: two portable selection tests and ten native editor tests
 passed, including stale ownership, invalid edits, saved numerical/drawn edits,
 old revision preservation and existing real-worker exact-output comparisons.
-The full local gate is pending. PR #53 at `64a22f3` has passing hosted run
+At implementation `3c5b7d6`, the full local `bash scripts/ci-swift.sh` gate passed:
+67 Python, 169 Core and 193 Mac tests in debug/release, 132 independent
+ZPL/PBM/analytic round trips, 15 backend/10 filter/one inert pipeline cases,
+ad-hoc executable/app/nested-worker signatures and packaged-worker equality.
+Own hosted CI and independent review remain pending. PR #53 at `64a22f3` has passing hosted run
 35082704430 and a clean independent review; these do not validate this new slice.
 
 Finite manual procedure (NOT RUN): open one synthetic Letter PDF in manual mode,

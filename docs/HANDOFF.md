@@ -3,8 +3,10 @@
 Latest local slice: source-page dragging now commits normalized extraction
 bounds through the existing editor model, with captured region/viewport guards.
 Saved-workflow edits advance an immutable revision without overwriting the old
-record. Two portable selection and ten native editor tests passed; full gate
-pending. See `validation/M4-DRAWN-REGION-SELECTION-2026-09-16.md` for limitations
+record. Implementation `3c5b7d6` passed two portable selection and ten native
+editor focused tests plus the full local 67/169/193 debug/release gate,
+independent/inert/signature and packaged-worker checks. Own hosted/review pending.
+See `validation/M4-DRAWN-REGION-SELECTION-2026-09-16.md` for limitations
 and the finite, unrun GUI procedure. Parent PR #53 at `64a22f3` has passing
 hosted run 35082704430 and a clean independent review. No queues or hardware used.
 
