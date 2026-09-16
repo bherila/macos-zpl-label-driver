@@ -17,11 +17,8 @@ final class SetupAppController: ObservableObject {
         .appending(path: "label-render-worker")
 
     init() {
+        scratchWarning = OfflineRenderWorkerProcess.scratchRecoveryWarning()
         do {
-            let recovery = try OfflineRenderWorkerProcess.recoverAbandonedScratch()
-            if recovery.requiresReview > 0 || recovery.truncated {
-                scratchWarning = "Some temporary worker data require manual review; they were not removed."
-            }
             let setup = try ReferencePrinterSetupModel.gc420dUSB()
             let support = try FileManager.default.url(
                 for: .applicationSupportDirectory,

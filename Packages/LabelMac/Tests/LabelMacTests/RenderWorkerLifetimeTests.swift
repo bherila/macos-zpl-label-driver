@@ -4,6 +4,24 @@ import XCTest
 @testable import LabelMac
 
 final class RenderWorkerLifetimeTests: XCTestCase {
+    func testAncillaryRecoveryFailureIsSanitizedAndDoesNotThrow() throws {
+        enum Failure: Swift.Error { case privatePath }
+        let failed = OfflineRenderWorkerProcess.scratchRecoveryWarning { throw Failure.privatePath }
+        XCTAssertEqual(failed, "Temporary worker recovery is unavailable. Retained data may require manual review.")
+        XCTAssertNil(OfflineRenderWorkerProcess.scratchRecoveryWarning { RenderWorkerScratchRecoveryReport() })
+        let root = try base()
+        XCTAssertEqual(chmod(root.path, 0o755), 0)
+        let unavailable = OfflineRenderWorkerProcess.scratchRecoveryWarning {
+            try RenderWorkerScratch.recover(in: root)
+        }
+        XCTAssertEqual(unavailable, failed)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.path))
+        var retained = RenderWorkerScratchRecoveryReport()
+        retained.requiresReview = 1
+        XCTAssertEqual(OfflineRenderWorkerProcess.scratchRecoveryWarning { retained },
+            "Some temporary worker data require manual review; they were not removed.")
+    }
+
     private func base() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appending(path: "WorkerRecoveryTests-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false,
