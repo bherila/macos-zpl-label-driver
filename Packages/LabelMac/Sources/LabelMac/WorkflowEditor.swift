@@ -297,7 +297,7 @@ public final class WorkflowEditorModel: ObservableObject {
     }
 
     private func editableDraft() throws -> WorkflowProfileDraft {
-        isSaved ? try WorkflowProfileDraft(nextRevisionOf: profile) : draft
+        isSaved ? try store.correctionDraft(for: profile) : draft
     }
 
     public func approveForUnattendedUse() throws {
@@ -307,7 +307,7 @@ public final class WorkflowEditorModel: ObservableObject {
 
     public func reloadForCorrection(profileID: String, revision: Int) throws {
         let stored = try store.load(profileID: profileID, revision: revision)
-        draft = try WorkflowProfileDraft(nextRevisionOf: stored)
+        draft = try store.correctionDraft(for: stored)
         cancelPreview()
         selectedRegionID = Self.regions(in: draft.profile).first?.id
         preview = nil
