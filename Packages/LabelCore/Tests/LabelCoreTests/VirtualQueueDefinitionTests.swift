@@ -31,6 +31,10 @@ final class VirtualQueueDefinitionTests: XCTestCase {
         let profile = try PrinterProfile.gc420dUSBReference(revision: 7)
         let original = try queue()
         let encoded = try VirtualQueueJSON.encode(original)
+        XCTAssertEqual(
+            try VirtualQueueJSON.printerProfileReference(in: encoded),
+            original.printerProfile
+        )
         XCTAssertEqual(try VirtualQueueJSON.decode(encoded, validatingAgainst: profile), original)
         XCTAssertEqual(original.schedulerQueueName, "label-driver-shipping-native")
         let object = try XCTUnwrap(try JSONSerialization.jsonObject(with: encoded) as? [String: Any])
