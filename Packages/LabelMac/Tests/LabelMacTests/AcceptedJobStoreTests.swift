@@ -526,6 +526,7 @@ final class AcceptedJobStoreTests: XCTestCase {
         XCTAssertEqual(stored.outputLabels, value.ticket.outputLabels)
         XCTAssertEqual(stored.profileSnapshot, payload.profileSnapshot)
         XCTAssertEqual(stored.resolvedControls, value.ticket.controls)
+        XCTAssertEqual(stored.physicalDevice, value.ticket.physicalDevice)
         XCTAssertEqual(stored.state, state)
     }
 
@@ -1150,7 +1151,6 @@ private extension AcceptedJobStoreTests {
         let payload: PreparedJobPayload
         let preparedState: AcceptedJobStateRecord
         let leaseDirectory: URL
-        let device: PhysicalDeviceIdentity
     }
 
     private func preparedInertFixture(
@@ -1179,8 +1179,7 @@ private extension AcceptedJobStoreTests {
         )
         return PreparedInertFixture(
             value: value, states: states, payload: payload,
-            preparedState: preparedState, leaseDirectory: leaseDirectory,
-            device: try PhysicalDeviceIdentity(stableIdentifier: "synthetic-device")
+            preparedState: preparedState, leaseDirectory: leaseDirectory
         )
     }
 
@@ -1207,7 +1206,6 @@ extension AcceptedJobStoreTests {
 
         let outcome = try delivery.deliver(
             acceptanceID: fixture.value.ticket.acceptanceID,
-            device: fixture.device,
             scenario: try InertDeliveryScenario(maximumChunkBytes: 3)
         )
 
@@ -1239,7 +1237,6 @@ extension AcceptedJobStoreTests {
         let recorder = InertEventRecorder()
         let outcome = try inertDelivery(fixture, recorder: recorder).deliver(
             acceptanceID: fixture.value.ticket.acceptanceID,
-            device: fixture.device,
             scenario: try InertDeliveryScenario(becomeAmbiguousAfterBytes: 0)
         )
 
@@ -1263,7 +1260,6 @@ extension AcceptedJobStoreTests {
         let recorder = InertEventRecorder()
         let outcome = try inertDelivery(fixture, recorder: recorder).deliver(
             acceptanceID: fixture.value.ticket.acceptanceID,
-            device: fixture.device,
             scenario: try InertDeliveryScenario(
                 maximumChunkBytes: 2, becomeAmbiguousAfterBytes: 3
             )
@@ -1296,7 +1292,6 @@ extension AcceptedJobStoreTests {
         let recorder = InertEventRecorder()
         let outcome = try inertDelivery(fixture, recorder: recorder).deliver(
             acceptanceID: fixture.value.ticket.acceptanceID,
-            device: fixture.device,
             scenario: try InertDeliveryScenario(failBeforeTransmission: true)
         )
 
@@ -1315,14 +1310,16 @@ extension AcceptedJobStoreTests {
     func testInertPersistedDeliveryBusyLeaseLeavesPreparedStateUntouched() throws {
         let fixture = try preparedInertFixture(acceptanceID: "inert-device-busy")
         let held = try PhysicalDeviceLease(
-            acquiring: fixture.device, inExistingDirectory: fixture.leaseDirectory
+            acquiring: PhysicalDeviceIdentity(
+                coordinationID: fixture.value.ticket.physicalDevice
+            ),
+            inExistingDirectory: fixture.leaseDirectory
         )
         defer { held.release() }
         let recorder = InertEventRecorder()
 
         let outcome = try inertDelivery(fixture, recorder: recorder).deliver(
             acceptanceID: fixture.value.ticket.acceptanceID,
-            device: fixture.device,
             scenario: try InertDeliveryScenario()
         )
 
@@ -1343,7 +1340,6 @@ extension AcceptedJobStoreTests {
         let delivery = inertDelivery(fixture, recorder: recorder)
         XCTAssertThrowsError(try delivery.deliver(
             acceptanceID: fixture.value.ticket.acceptanceID,
-            device: fixture.device,
             scenario: try InertDeliveryScenario(
                 becomeAmbiguousAfterBytes: fixture.payload.bytes.count + 1
             )
@@ -1358,13 +1354,11 @@ extension AcceptedJobStoreTests {
 
         _ = try delivery.deliver(
             acceptanceID: fixture.value.ticket.acceptanceID,
-            device: fixture.device,
             scenario: try InertDeliveryScenario()
         )
         let priorEvents = recorder.events
         XCTAssertThrowsError(try delivery.deliver(
             acceptanceID: fixture.value.ticket.acceptanceID,
-            device: fixture.device,
             scenario: try InertDeliveryScenario()
         )) { XCTAssertEqual($0 as? InertPersistedDelivery.Error, .invalidState) }
         XCTAssertEqual(recorder.events, priorEvents)
