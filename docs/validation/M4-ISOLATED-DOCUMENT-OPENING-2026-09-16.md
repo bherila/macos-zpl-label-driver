@@ -34,10 +34,45 @@ completed with exit 0: 67 Python, 166 Core and 178 Mac tests in debug/release,
 132 independent round trips, all 15/10/1 ABI/inert cases, nested signatures and
 packaged-worker equality. Publication is deferred: PR #50's parent-death worker
 supervision finding must be addressed first. Hosted CI/review for this slice
-have not run.
+have not run. After integrating lifetime fix `6ff328a` at local combined
+commit `26ee086`, the full local gate passed again: 67 Python, 166 Core and
+183 Mac tests in both configurations, all independent/ABI/inert checks,
+ad-hoc signatures and packaged-worker equality. Publication remains held on
+PR #50's live hosted CI and second review, not on missing local tests.
 
 This advances automated resource/source fidelity evidence and implementation
 toward M4-AC06/09; those integration criteria remain open. GUI/keyboard/VoiceOver,
 window/process termination, actual sandbox/security-scope policy, quarantine,
 installation, scheduler identity/intake, USB and physical labels are unverified.
 No administrator, queue or printer operation occurred.
+
+## Finite local GUI validation (not yet run)
+
+Use the locally built ad-hoc setup app and committed synthetic native, Letter,
+A4, mixed-page and changed-layout fixtures only. No queue creation, privileged
+installation, printing, or printer commands are authorized by this procedure.
+
+1. Launch the app; confirm that media/tear-off acknowledgement gates editing,
+   without claiming observation of the physical unit or changing its settings.
+2. Open one native fixture using the Open PDF button, then one Letter/A4
+   fixture using Command-O. Verify progress, responsive window movement, and
+   an unsaved draft derived from the selected original document.
+3. Start a replacement and cancel it. Verify that the previous draft survives.
+   Open the mixed-page and changed-layout fixtures once each; verify a clear
+   failure/manual-workflow message rather than a silently accepted wrong crop.
+4. Request one preview, then change the selection or open a different fixture.
+   Verify that an obsolete result cannot replace the new document's preview.
+   Compare the displayed packed output with the emitted PBM, not a source
+   thumbnail or a separate antialiased rendering.
+5. With VoiceOver enabled, reach Open PDF, Cancel Opening and any failure
+   message by keyboard. Verify accessible names, focus order, and non-color
+   feedback. Record failures rather than changing acceptance criteria.
+6. Close the app during one synthetic preparation. Confirm finite worker exit;
+   relaunch once to inspect conservative scratch recovery. Do not recursively
+   purge the temporary directory, scheduler metadata, or unrelated files.
+
+Record exact commit, OS/build, app/worker signature identity, fixture hashes,
+each observed result, and any retained scratch warning. Stop after this finite
+sequence. These observations would support user-session GUI evidence only;
+ordinary-application printing, scheduler admission, sandbox policy, installation
+and physical label quality require their own prescribed validation.
