@@ -9,8 +9,8 @@ public struct AcceptedJobBundle: Equatable, Sendable {
 }
 
 /// Private immutable publication of an accepted ticket and its exact original
-/// PDF as one directory transaction. No rendered or printer-language payload is
-/// stored here.
+/// PDF as one directory transaction. A prepared artifact may be appended later
+/// only through `AcceptedJobStateStore` under the bundle's lifecycle lock.
 public struct AcceptedJobStore: @unchecked Sendable {
     public enum Error: Swift.Error, Equatable, Sendable {
         case cannotCreateStore

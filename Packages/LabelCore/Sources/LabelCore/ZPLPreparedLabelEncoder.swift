@@ -6,22 +6,44 @@ import Foundation
 public struct PreparedLabel: Equatable, Sendable {
     public let bytes: Data
     public let profileSnapshot: JobProfileSnapshot
+    public let resolvedControls: ResolvedPrinterControls
 
-    init(bytes: Data, profileSnapshot: JobProfileSnapshot) {
+    init(
+        bytes: Data,
+        profileSnapshot: JobProfileSnapshot,
+        resolvedControls: ResolvedPrinterControls
+    ) {
         self.bytes = bytes
         self.profileSnapshot = profileSnapshot
+        self.resolvedControls = resolvedControls
+    }
+}
+
+/// A typed encoder result paired with the exact resolved output identity that
+/// produced it. The job payload constructor checks the complete ordered list,
+/// not only its count.
+public struct PreparedOutputLabel: Equatable, Sendable {
+    public let output: ResolvedOutputLabel
+    public let prepared: PreparedLabel
+
+    public init(output: ResolvedOutputLabel, prepared: PreparedLabel) {
+        self.output = output
+        self.prepared = prepared
     }
 }
 
 /// Complete ordered printer-language bytes for one accepted job. Construction
-/// requires exactly one typed encoder result per resolved output label, keeps
-/// every label on the same immutable profile snapshot, and preflights the total
-/// byte budget before concatenation.
+/// requires exactly one typed encoder result per resolved output identity in
+/// that exact order, keeps every label on the same immutable profile snapshot
+/// and resolved controls, and preflights the total byte budget before
+/// concatenation.
 public struct PreparedJobPayload: Equatable, Sendable {
     public enum Error: Swift.Error, Equatable, Sendable {
         case invalidLabelCount
         case emptyLabel
+        case outputOrderMismatch
         case profileMismatch
+        case controlsMismatch
         case outputLimit
     }
 
@@ -30,35 +52,48 @@ public struct PreparedJobPayload: Equatable, Sendable {
 
     public let bytes: Data
     public let labelCount: Int
+    public let outputLabels: [ResolvedOutputLabel]
     public let profileSnapshot: JobProfileSnapshot
+    public let resolvedControls: ResolvedPrinterControls
 
     public init(
-        labels: [PreparedLabel],
-        expectedLabelCount: Int,
+        labels: [PreparedOutputLabel],
+        expectedOutputLabels: [ResolvedOutputLabel],
         maximumBytes: Int = maximumBytes
     ) throws {
-        guard (1...Self.maximumLabels).contains(expectedLabelCount),
-              labels.count == expectedLabelCount else {
+        guard (1...Self.maximumLabels).contains(expectedOutputLabels.count),
+              labels.count == expectedOutputLabels.count else {
             throw Error.invalidLabelCount
         }
+        guard labels.map(\.output) == expectedOutputLabels else {
+            throw Error.outputOrderMismatch
+        }
         guard (1...Self.maximumBytes).contains(maximumBytes),
-              let profile = labels.first?.profileSnapshot else {
+              let first = labels.first?.prepared else {
             throw Error.outputLimit
         }
         var total = 0
-        for label in labels {
+        for item in labels {
+            let label = item.prepared
             guard !label.bytes.isEmpty else { throw Error.emptyLabel }
-            guard label.profileSnapshot == profile else { throw Error.profileMismatch }
+            guard label.profileSnapshot == first.profileSnapshot else {
+                throw Error.profileMismatch
+            }
+            guard label.resolvedControls == first.resolvedControls else {
+                throw Error.controlsMismatch
+            }
             let (next, overflow) = total.addingReportingOverflow(label.bytes.count)
             guard !overflow, next <= maximumBytes else { throw Error.outputLimit }
             total = next
         }
         var bytes = Data()
         bytes.reserveCapacity(total)
-        for label in labels { bytes.append(label.bytes) }
+        for label in labels { bytes.append(label.prepared.bytes) }
         self.bytes = bytes
         labelCount = labels.count
-        profileSnapshot = profile
+        outputLabels = expectedOutputLabels
+        profileSnapshot = first.profileSnapshot
+        resolvedControls = first.resolvedControls
     }
 }
 
@@ -105,7 +140,8 @@ public struct ZPLPreparedLabelEncoder: Sendable {
         let resolved = try profile.resolveControls(job: job, workflowDefaults: workflowDefaults)
         return try PreparedLabel(
             bytes: encode(bitmap: bitmap, controls: resolved),
-            profileSnapshot: JobProfileSnapshot(profile: profile)
+            profileSnapshot: JobProfileSnapshot(profile: profile),
+            resolvedControls: resolved
         )
     }
 }
