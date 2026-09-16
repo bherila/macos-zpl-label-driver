@@ -31,8 +31,11 @@ based on PR #74 `3852e21`. The new native direct-stdout regression fails on the
 old frozen filter; public upstream CUPS uses this output route for the null URI.
 The exception is restricted to matching root-owned kernel-null identity, not
 generic character devices or POLLNVAL. Original pipe deadlines remain required.
-See `validation/M1-NULL-OUTPUT-DESCRIPTOR-2026-09-16.md`. Full gates and a new
-signature/hash freeze are pending; do not apply the previous frozen candidate.
+See `validation/M1-NULL-OUTPUT-DESCRIPTOR-2026-09-16.md`. All 14 focused filter
+cases and full `ead620c` local gate passed exit 0: 82 Python/178 Core/263 Mac
+debug/release, both independent/inert runs, signatures and packaged equality.
+Draft PR #75 is pushed; own hosted/review and fresh signature/hash freeze remain
+pending. Do not apply the previous frozen candidate.
 No scheduler job, queue installation, device access or physical print occurred.
 
 PR #74 follow-up: final dot-root aliases are rejected before namespace creation.
@@ -40,7 +43,10 @@ The new regression reproduced three failures, then all 53 focused native store
 tests passed. This source guard is newer than the historical 5ff59b1/a3952ba
 full/hosted/first-review checkpoints below. Corrected full `d2b8085` passed exit 0:
 82 Python/178 Core/263 Mac debug/release, both independent/inert runs, signatures
-and packaged equality. Own corrected hosted/second-review gates are pending.
+and packaged equality. Corrected exact `3852e21` hosted 35122588722 passed;
+fetched logs verify both native configurations, signatures and packaged equality.
+Second review is clean at base `b4d78e8` / head `3852e21`, with reviewer thumbs-up
+and no inline findings/threads. No third review or merge.
 Prior evidence-only 6fe7508 hosted 35119811256 passed, but did not
 contain the guard. No installer, queue/job or physical-printer action occurred.
 
