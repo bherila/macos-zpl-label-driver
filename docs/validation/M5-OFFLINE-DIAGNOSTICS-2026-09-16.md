@@ -15,8 +15,10 @@ scheduler or hardware acceptance. This is a human-readable offline snapshot,
 not a production status query or support matrix.
 
 The action replaces the clipboard contents and reports the AppKit write result.
-Its description warns that other apps may read copied text. No clipboard data
-is read, no upload occurs, and no automatic diagnostic export/background service
+Its description warns that other apps and system clipboard services may share
+copied text. The app itself does not upload the report; this is not a guarantee
+against OS Universal Clipboard or third-party clipboard handling. No clipboard
+data is read and no automatic diagnostic export/background service
 is added. Public API provenance is [R37](../REFERENCES.md#r37).
 
 PASS: three focused native tests, exit 0: unavailable models and fixed bounded
@@ -25,7 +27,13 @@ export; real original-PDF manual opening, worker preview and saved revision
 reflected accurately without exporting the workflow identity. No shared clipboard
 is touched by tests. PASS: `swift build --package-path Packages/LabelMac --product
 label-printer-setup`, exit 0. Native environment: macOS 26.6.2 build 25G83,
-Apple Silicon, Swift 6.3.3. Full combined local and own hosted CI/review pending.
+Apple Silicon, Swift 6.3.3.
+PASS: full combined local `bash scripts/ci-swift.sh` at `9691a61`, exit 0:
+67 Python, 173 Core and 247 Mac debug/release, both accelerator modes,
+132 independent round trips, inert ABI/pipeline checks, local-ad-hoc signatures
+and packaged-worker PBM/ZPL equality. The subsequent change only corrects the
+UI privacy notice about system clipboard sharing; focused/app verification of
+that correction and own hosted CI/review remain pending.
 
 NOT RUN: clicking/copying/pasting through the GUI, keyboard/VoiceOver operation,
 quarantined launch, installed diagnostics, scheduler integration or physical tests.

@@ -72,7 +72,7 @@ struct SetupRootView: View {
                 GroupBox("Offline diagnostics") {
                     VStack(alignment: .leading) {
                         Button("Copy Offline Diagnostics") { controller.copyOfflineDiagnostics() }
-                        Text("Copies only offline state flags, without PDFs, paths, profile or printer identifiers, or error details. This replaces the clipboard contents; other apps may read copied text. Nothing is uploaded.")
+                        Text("Copies only offline state flags, without PDFs, paths, profile or printer identifiers, or error details. This replaces the clipboard contents; other apps and system clipboard services may share copied text. The app does not upload the report.")
                             .font(.caption)
                         if let status = controller.diagnosticCopyStatus {
                             Text(status).accessibilityLabel(status)

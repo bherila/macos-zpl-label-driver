@@ -276,6 +276,10 @@ does not establish network-disabled runtime or physical scanning acceptance.
 <a id="r37"></a>
 ## R37 — Apple user-initiated clipboard writing
 
+[Universal Clipboard](https://support.apple.com/en-gb/102430) describes automatic
+sharing with nearby configured devices. App-local behavior does not guarantee
+that OS services or clipboard managers keep copied text on one machine.
+
 [NSPasteboard](https://developer.apple.com/documentation/appkit/nspasteboard/)
 and [setString(_:forType:)](https://developer.apple.com/documentation/appkit/nspasteboard/setstring(_:fortype:)).
 
