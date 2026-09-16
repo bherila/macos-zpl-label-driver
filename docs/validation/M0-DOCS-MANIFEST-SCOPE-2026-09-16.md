@@ -29,3 +29,12 @@ tests with one platform-specific skip; this is not a native test result.
 This establishes the docs-only half only.
 The deliberate-failure half and contributor-fork evidence remain separate.
 No installation, scheduler job, printer I/O, or release occurred.
+
+The classifier's full automatic PR #41 run
+[35070667206](https://github.com/bherila/macos-zpl-label-driver/actions/runs/35070667206)
+also passed exact `431f0d6b096f0beb3251539dd46e8440061115f2`. Its log confirms
+67 Python tests, 165 LabelCore and 152 LabelMac tests in debug/release,
+132 independent round trips, 15 backend and 10 filter ABI cases, one inert
+pipeline case, and local ad-hoc command/app signatures. All three required
+jobs passed. Thus both the classifier implementation and the docs-only path
+have distinct exact-head hosted evidence; neither proves installed acceptance.
