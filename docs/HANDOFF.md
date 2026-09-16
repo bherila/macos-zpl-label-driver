@@ -1401,6 +1401,14 @@ refreshed at `53c6b99`: all passed, with the experiment namespace absent and no
 system state changed. Administrative apply/remove and held-job submission remain
 NOT RUN; no scheduler or physical acceptance follows from these prerequisites.
 
+At `79411af`, the CI pull-request trigger now covers stacked target branches,
+while push builds remain restricted to `main`. The standard hosted runners,
+read-only tokens, pinned actions, finite timeouts, cancellation, and fail-closed
+aggregate remain unchanged. Repository preflight, 65 Python tests, 165 LabelCore
+debug tests, and 152 LabelMac debug tests pass; automatic execution on the new
+stacked PR remains to be observed. This configuration-only slice does not need
+a separate correctness review or change printing behavior.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
