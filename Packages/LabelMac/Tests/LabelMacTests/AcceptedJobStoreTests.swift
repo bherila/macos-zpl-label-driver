@@ -1,11 +1,23 @@
 import CryptoKit
 import Darwin
+import Dispatch
 import Foundation
 import XCTest
 import LabelCore
 @testable import LabelMac
 
 final class AcceptedJobStoreTests: XCTestCase {
+    private final class ParentSyncGate: @unchecked Sendable {
+        let entered = DispatchSemaphore(value: 0)
+        let release = DispatchSemaphore(value: 0)
+
+        func sync(_ descriptor: Int32) -> Int32 {
+            entered.signal()
+            release.wait()
+            return fsync(descriptor)
+        }
+    }
+
     private struct Fixture {
         let root: URL
         let workflows: WorkflowProfileStore
@@ -339,6 +351,96 @@ final class AcceptedJobStoreTests: XCTestCase {
             atPath: value.root.appending(path: "accepted-jobs").path
         )
         XCTAssertEqual(entries, [AcceptedJobStore.directoryName(value.ticket.acceptanceID)])
+    }
+
+    func testIdempotentRetryRequiresParentSyncAndPreservesAdvancedState() throws {
+        let value = try fixture(acceptanceID: "idempotent-parent-sync")
+        try value.jobs.save(
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
+        let accepted = try states.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let prepared = try states.publishPrepared(
+            acceptanceID: value.ticket.acceptanceID, expected: accepted,
+            payload: preparedPayload(value), queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let failing = try AcceptedJobStore(
+            root: value.root, syncParentDirectory: { _ in -1 }
+        )
+        for _ in 0..<2 {
+            XCTAssertThrowsError(try failing.save(
+                value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+                workflowStore: value.workflows, printerStore: value.printers
+            )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .commitUncertain) }
+            XCTAssertEqual(try states.load(
+                acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+                workflowStore: value.workflows, printerStore: value.printers
+            ), prepared)
+        }
+        try value.jobs.save(
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        XCTAssertEqual(try states.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        ), prepared)
+    }
+
+    func testParentSyncFailureIsUncertainUntilAnIdenticalRetryConfirmsIt() throws {
+        let value = try fixture(acceptanceID: "recover-parent-sync")
+        let failing = try AcceptedJobStore(
+            root: value.root, syncParentDirectory: { _ in -1 }
+        )
+        for _ in 0..<2 {
+            XCTAssertThrowsError(try failing.save(
+                value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+                workflowStore: value.workflows, printerStore: value.printers
+            )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .commitUncertain) }
+        }
+        try value.jobs.save(
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let loaded = try value.jobs.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        XCTAssertEqual(loaded.ticket, value.ticket)
+        XCTAssertEqual(loaded.sourcePDF, value.sourcePDF)
+    }
+
+    func testDuplicateWriterCanCompleteBarrierWhilePublisherIsPaused() async throws {
+        let value = try fixture(acceptanceID: "concurrent-parent-sync")
+        let gate = ParentSyncGate()
+        let paused = try AcceptedJobStore(
+            root: value.root, syncParentDirectory: { gate.sync($0) }
+        )
+        let first = Task.detached {
+            try paused.save(
+                value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+                workflowStore: value.workflows, printerStore: value.printers
+            )
+        }
+        XCTAssertEqual(gate.entered.wait(timeout: .now() + 2), .success)
+        try value.jobs.save(
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        gate.release.signal()
+        try await first.value
+
+        let loaded = try value.jobs.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        XCTAssertEqual(loaded.ticket, value.ticket)
+        XCTAssertEqual(loaded.sourcePDF, value.sourcePDF)
     }
 
     func testMismatchedSourceIsRejectedBeforePublication() throws {
