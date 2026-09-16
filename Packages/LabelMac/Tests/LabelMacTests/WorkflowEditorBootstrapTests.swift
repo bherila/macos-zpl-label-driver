@@ -8,6 +8,59 @@ import LabelCore
 final class WorkflowEditorBootstrapTests: XCTestCase {
     private enum TestError: Error { case unavailable }
 
+    private func worker() throws -> URL {
+        var root = URL(fileURLWithPath: #filePath)
+        for _ in 0..<5 { root.deleteLastPathComponent() }
+        #if DEBUG
+        let configuration = "debug"
+        #else
+        let configuration = "release"
+        #endif
+        let url = root.appending(path: "Packages/LabelMac/.build/\(configuration)/label-render-worker")
+        return try XCTUnwrap(FileManager.default.isExecutableFile(atPath: url.path) ? url : nil)
+    }
+
+    func testRealWorkerBootstrapMatchesAllThreeReferenceProfiles() async throws {
+        for name in ["native-vector", "letter-one", "a4-one"] {
+            let source = try fixture(name)
+            let profileStore = try store()
+            let expected = try WorkflowEditorBootstrap.makeModel(originalPDF: source, store: profileStore)
+            let actual = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+                store: profileStore, workerExecutable: worker(), deadlineSeconds: 5)
+            XCTAssertEqual(actual.profile, expected.profile)
+            XCTAssertFalse(actual.isSaved)
+        }
+    }
+
+    func testWorkerBootstrapRetainsPageLimitAndCancellation() async throws {
+        let source = try fixture("native-vector")
+        let profileStore = try store()
+        let cancellation = OfflineRenderWorkerCancellation()
+        do {
+            _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(
+                originalPDF: fixture("mixed-pages"), store: profileStore,
+                workerExecutable: worker(), maximumPages: 1, deadlineSeconds: 5)
+            XCTFail("oversized page count succeeded")
+        } catch {
+            XCTAssertEqual(error as? OfflineRenderWorkerProcess.Error, .jobRejected(code: .limitExceeded))
+        }
+        cancellation.cancel()
+        do {
+            _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+                store: profileStore, workerExecutable: worker(), cancellation: cancellation)
+            XCTFail("pre-cancelled bootstrap succeeded")
+        } catch {
+            XCTAssertEqual(error as? OfflineRenderWorkerProcess.Error, .cancelled)
+        }
+        do {
+            _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+                store: profileStore, workerExecutable: worker(), maximumPages: 33)
+            XCTFail("raised editor page cap succeeded")
+        } catch {
+            XCTAssertEqual(error as? QuartzStructuralAnalyzer.Error, .invalidLimits)
+        }
+    }
+
     private func fixture(_ name: String) throws -> Data {
         var root = URL(fileURLWithPath: #filePath)
         for _ in 0..<5 { root.deleteLastPathComponent() }

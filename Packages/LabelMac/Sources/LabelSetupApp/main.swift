@@ -6,10 +6,9 @@ import LabelMac
 
 @MainActor
 final class SetupAppController: ObservableObject {
-    @Published var editor: WorkflowEditorModel?
     @Published var error: String?
 
-    private let store: WorkflowProfileStore?
+    let documents: WorkflowDocumentOpeningModel?
     let printerSetup: ReferencePrinterSetupModel?
     let previewWorkerExecutable = (Bundle.main.executableURL?.deletingLastPathComponent()
         ?? Bundle.main.bundleURL.appending(path: "Contents/MacOS"))
@@ -31,32 +30,19 @@ final class SetupAppController: ObservableObject {
             )
             let profileStore = try WorkflowProfileStore(root: support.appending(path: "profiles-v1"))
             printerSetup = setup
-            store = profileStore
+            documents = WorkflowDocumentOpeningModel(store: profileStore,
+                workerExecutable: previewWorkerExecutable)
         } catch {
-            store = nil
+            documents = nil
             printerSetup = nil
             self.error = String(describing: error)
         }
     }
 
-    func open(_ url: URL) {
-        guard let store else { return }
-        let accessing = url.startAccessingSecurityScopedResource()
-        defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-        do {
-            let data = try BoundedRegularFile.read(url, maximumBytes: 100 * 1024 * 1024)
-            editor = try WorkflowEditorBootstrap.makeModel(originalPDF: data, store: store)
-            error = nil
-        } catch {
-            editor = nil
-            self.error = String(describing: error)
-        }
-    }
 }
 
 struct SetupRootView: View {
     @ObservedObject var controller: SetupAppController
-    @State private var importing = false
 
     var body: some View {
         ScrollView {
@@ -65,17 +51,15 @@ struct SetupRootView: View {
                     ReferencePrinterSetupView(model: printerSetup)
                 }
                 Group {
-                    if let editor = controller.editor {
-                        WorkflowEditorView(model: editor, workerExecutable: controller.previewWorkerExecutable)
+                    if let documents = controller.documents {
+                        SetupDocumentView(documents: documents,
+                            workerExecutable: controller.previewWorkerExecutable,
+                            canOpen: controller.printerSetup?.canEditOfflineWorkflows ?? false)
                     } else {
                         ContentUnavailableView {
                             Label("Create a label workflow", systemImage: "printer")
                         } description: {
                             Text("Confirm the stock and tear-off setup above, then open a local PDF. Nothing is uploaded or printed.")
-                        } actions: {
-                            Button("Open PDF…") { importing = true }
-                                .keyboardShortcut("o", modifiers: [.command])
-                                .disabled(!(controller.printerSetup?.canEditOfflineWorkflows ?? false))
                         }
                     }
                 }
@@ -94,10 +78,35 @@ struct SetupRootView: View {
                     .padding()
             }
         }
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
-            if case let .success(url) = result { controller.open(url) }
-            if case let .failure(error) = result { controller.error = String(describing: error) }
+    }
+}
+
+struct SetupDocumentView: View {
+    @ObservedObject var documents: WorkflowDocumentOpeningModel
+    let workerExecutable: URL
+    let canOpen: Bool
+    @State private var importing = false
+
+    var body: some View {
+        VStack {
+            if documents.isOpening {
+                ProgressView("Preparing local PDF…")
+                Button("Cancel Opening") { documents.cancelOpening() }
+            } else if let editor = documents.editor {
+                WorkflowEditorView(model: editor, workerExecutable: workerExecutable)
+            } else {
+                Text("Open a local PDF to create an offline label workflow.")
+            }
+            Button("Open PDF…") { importing = true }
+                .keyboardShortcut("o", modifiers: [.command])
+                .disabled(!canOpen || documents.isOpening)
+            if let error = documents.error { Text(error).foregroundStyle(.red) }
         }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
+            if case let .success(url) = result { documents.open(url) }
+            if case .failure = result { documents.reportImportFailure() }
+        }
+        .onDisappear { documents.cancelOpening() }
     }
 }
 

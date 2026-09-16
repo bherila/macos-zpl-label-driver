@@ -1536,6 +1536,16 @@ Hosted/review and all GUI evidence remain pending in
 `M4-ISOLATED-EDITOR-PREVIEW-2026-09-16.md`. PDF opening/bootstrap remains
 in-process; no scheduler or physical acceptance follows.
 
+Setup document opening now moves bounded reading and original-PDF analysis off
+the main actor, preserving failed/cancelled replacement drafts and rejecting
+obsolete editor installation. The existing layout worker adds explicit capped
+all-page analysis, and unchanged bootstrap builds unsaved profiles from checked
+facts. Eighteen focused tests and the full local 67/166/178 debug/release gate
+passed. Publication is deferred pending PR #50's genuine parent-death worker
+supervision finding; its hosted CI is green but review is not clean. Evidence is in
+`M4-ISOLATED-DOCUMENT-OPENING-2026-09-16.md`. GUI, security-scope policy and all
+scheduler/privilege/device acceptance remain unverified.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

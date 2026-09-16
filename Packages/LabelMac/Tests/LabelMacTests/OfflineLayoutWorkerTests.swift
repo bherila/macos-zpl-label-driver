@@ -145,4 +145,23 @@ final class OfflineLayoutWorkerTests: XCTestCase {
             XCTAssertEqual($0 as? OfflineRenderWorkerProcess.Error, .outputLimitExceeded)
         }
     }
+
+    func testAllPagesRequestsRetainLimitsAndRequireObservedFacts() throws {
+        let source = try fixture("native-vector")
+        for (limit, pages) in [(0, []), (1_001, []), (32, [1])] {
+            XCTAssertThrowsError(try OfflineLayoutWorker.analyze(originalPDF: source,
+                structuralPages: pages, workerExecutable: worker(), maximumSourcePages: limit,
+                analyzeAllPages: true)) {
+                XCTAssertEqual($0 as? OfflineConversionTicket.TicketError, .malformedJSON)
+            }
+        }
+        let box = try PDFPageBox(originX: 0, originY: 0, width: 288, height: 432)
+        let page = OfflineLayoutWorker.Page(try AnalyzedSourcePage(pageBox: box, anchors: nil))
+        let data = try JSONEncoder().encode(OfflineLayoutWorker.Result(schemaVersion: 1,
+            sourceSHA256: OfflineLayoutWorker.digest(source), pages: [page]))
+        XCTAssertThrowsError(try OfflineLayoutWorker.validate(data, originalPDF: source,
+            request: .init(schemaVersion: 1, structuralPages: [], maximumPages: 32, analyzeAllPages: true))) {
+            XCTAssertEqual($0 as? OfflineRenderWorkerProcess.Error, .invalidResult)
+        }
+    }
 }
