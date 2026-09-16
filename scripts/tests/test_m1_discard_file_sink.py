@@ -352,9 +352,9 @@ printf '%s\n' "$events"
         expected = {
             "intent-installed": "AIor|0000",
             "filter-installed": "AIFfor|0000",
-            "queue-created": "AIFQqfor|0000",
-            "queue-disabled": "AIFQDqfor|0000",
-            "queue-rejected": "AIFQDJqfor|0000",
+            "queue-created": "AIFQX|1111",
+            "queue-disabled": "AIFQDX|1111",
+            "queue-rejected": "AIFQDJX|1111",
         }
         for fault, state in expected.items():
             with self.subTest(fault=fault):
@@ -399,6 +399,28 @@ printf '%s\n' "$events"
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "AIFQX|1111")
 
+    def test_successful_create_or_modify_never_authorizes_automatic_queue_deletion(self) -> None:
+        result = self.run_contention_harness(
+            "create_queue() { queue_present=1; record Q; return 0; }; disable_queue() { return 1; }",
+            "install_transaction snapshot generated intent || true; cleanup_owned_artifacts automatic || true",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "AIFQX|1111")
+
+    def test_term_during_queue_readback_retains_queue_and_recovery_evidence(self) -> None:
+        result = self.run_contention_harness(
+            """
+create_queue() { queue_present=1; printf Q; }
+queue_uri_matches() { kill -TERM $$; return 0; }
+report_residual_state() { printf X; }
+trap finish_process EXIT
+trap 'interrupt_process TERM' TERM
+""",
+            "install_transaction snapshot generated intent",
+        )
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stdout, "QX")
+
     def test_term_after_successful_root_creation_enters_owned_cleanup(self) -> None:
         harness = f"""
 set -euo pipefail
@@ -440,7 +462,7 @@ ensure_not_existing
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("refusing to replace an existing experiment root", result.stderr)
 
-    def test_term_enters_the_same_queue_first_recovery_path(self) -> None:
+    def test_term_retains_ambiguously_acquired_queue_and_recovery_evidence(self) -> None:
         harness = f"""
 set -euo pipefail
 export M1_TRANSACTION_SOURCE_ONLY=1
@@ -449,7 +471,6 @@ scheduler=/private/var/run/cupsd
 temporary=''
 transaction_active=1
 root_reserved=1
-queue_created_by_transaction=1
 transaction_id='11111111-1111-1111-1111-111111111111'
 calls=0
 protected_root_state() {{ return 0; }}
@@ -468,8 +489,9 @@ trap 'interrupt_process TERM' TERM
 kill -TERM $$
 """
         result = subprocess.run(["bash", "-c", harness], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 143, result.stderr)
-        self.assertEqual(result.stdout, "QFOR")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("retained an ambiguously owned queue", result.stderr)
 
 
 if __name__ == "__main__":

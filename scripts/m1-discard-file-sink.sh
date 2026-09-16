@@ -16,7 +16,6 @@ temporary=''
 scheduler=''
 transaction_active=0
 root_reserved=0
-queue_created_by_transaction=0
 transaction_id=''
 approved_sha=''
 approved_ppd_sha=''
@@ -179,7 +178,12 @@ cleanup_owned_artifacts() {
   state=$?
   case "$state" in
     0)
-      if [[ "$mode" == automatic && "$queue_created_by_transaction" != 1 ]]; then
+      # lpadmin -p is create-or-modify, not create-exclusive. Even after an
+      # absence check and exact URI readback, automatic rollback cannot prove
+      # that this invocation acquired the queue namespace rather than racing
+      # with and modifying another administrator's queue. Only explicit
+      # recovery may remove a queue after validating the durable record.
+      if [[ "$mode" == automatic ]]; then
         echo 'WARNING: retained an ambiguously owned queue and all recovery artifacts' >&2
         report_residual_state
         return 1
@@ -293,7 +297,6 @@ install_transaction() {
   ensure_queue_absent || return 1
   create_queue "$generated" || return 1
   queue_uri_matches || return 1
-  queue_created_by_transaction=1
   transaction_checkpoint queue-created || return 1
   disable_queue || return 1
   transaction_checkpoint queue-disabled || return 1
