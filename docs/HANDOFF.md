@@ -1183,6 +1183,16 @@ M1 transaction safety evidence only. No administrator authorization, queue,
 protected path, scheduler job, system setting, or printer was changed; all M1
 integration acceptance remains open.
 
+At `9019eb6`, the final PR #30 review findings were addressed conservatively.
+Because the scheduler create operation can also modify an existing destination,
+neither command success nor matching URI readback is treated as exclusive queue
+acquisition. Automatic rollback now retains any present queue and its protected
+recovery evidence; only explicit record-validated recovery may remove it. New
+regressions cover a successful create-or-modify race and TERM during queue
+readback, with zero destructive action against the ambiguous queue. The Python
+suite now has 64 passing tests. No administrator authorization, queue, protected
+path, scheduler job, system setting, or printer was changed.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
