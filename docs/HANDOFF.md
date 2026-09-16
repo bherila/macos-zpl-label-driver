@@ -1090,6 +1090,19 @@ job-state/cancellation persistence, retention and deletion policy, held-job
 release, restart recovery, cross-process delivery, and all administrator and
 hardware evidence remain open.
 
+At `ac6a178`, M3 gained a bounded canonical accepted-job state contract.
+Accepted, prepared, waiting, transmitting, transmitted, device-confirmed,
+uncertain, failed-before-transmission, and cancelled-before-transmission remain
+distinct. Prepared and later states bind one payload digest and length; byte
+progress cannot move backward, a transmitted job is not device-confirmed, and
+uncertainty is terminal. Each update increments a generation and names the
+prior canonical record digest so a future compare-and-swap store can reject
+stale writers and broken histories. Six focused tests and the complete
+CI-equivalent sequence pass with 159 LabelCore and 96 LabelMac tests in both
+configurations. This is partial automated M3-AC09/12 and M5-AC07 evidence only.
+Persistence, cancellation-token authorization, scheduler result mapping,
+restart recovery, and all installed/hardware evidence remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
