@@ -1163,16 +1163,20 @@ M4-AC06/09, and M5-AC07/09 evidence only. Explicit pre-release profile
 recreation, real accepted-job rendering, scheduler intake, installation,
 transport, and all physical evidence remain open.
 
-At `c9a652e`, the M1 discard transaction closes the remaining competing-
+At `c9a652e` plus review remediation `92606bb`, the M1 discard transaction
+closes the remaining competing-
 invocation rollback defect identified as R10. Automatic rollback is enabled
 only after this invocation successfully reserves the protected root and then
 requires the exact random transaction identifier from its protected intent.
-It cannot adopt a generic matching record. A queue found by the late absence
+It cannot adopt a generic matching record. Catchable signals are deferred
+across effective root creation until rollback eligibility is recorded, and
+explicit recovery accepts only the exact current or immediately preceding
+record shape. A queue found by the late absence
 check, or one left after an ambiguous queue-create result, is retained with
 the filter and intent instead of being deleted. Explicit `--remove` remains a
 separate record-validated recovery operation. Four contention regressions join
 the existing mutation-boundary and signal harness. The complete local
-CI-equivalent sequence passes with 60 Python, 164 LabelCore, and 105 LabelMac
+CI-equivalent sequence passes with 62 Python, 164 LabelCore, and 105 LabelMac
 tests in both configurations, plus 132 independent round trips, 15 backend ABI
 cases, 10 filter ABI cases, and one inert pipeline case. This is source-level
 M1 transaction safety evidence only. No administrator authorization, queue,
