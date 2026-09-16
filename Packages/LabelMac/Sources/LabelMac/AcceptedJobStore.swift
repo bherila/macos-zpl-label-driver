@@ -214,6 +214,34 @@ public struct AcceptedJobStore: @unchecked Sendable {
         }
     }
 
+    /// Returns nil only when the immutable bundle name is absent. A present
+    /// but unreadable, unsafe, or invalid bundle remains an error and must not
+    /// be treated as permission to create a replacement job.
+    public func loadIfPresent(
+        acceptanceID: String,
+        queueStore: VirtualQueueStore,
+        workflowStore: WorkflowProfileStore,
+        printerStore: PrinterProfileStore
+    ) throws -> AcceptedJobBundle? {
+        try Self.validateAcceptanceID(acceptanceID)
+        let exists = try withStoreDirectory { directory in
+            var information = stat()
+            if fstatat(
+                directory, Self.directoryName(acceptanceID),
+                &information, AT_SYMLINK_NOFOLLOW
+            ) == 0 {
+                return true
+            }
+            guard errno == ENOENT else { throw Error.cannotRead }
+            return false
+        }
+        guard exists else { return nil }
+        return try load(
+            acceptanceID: acceptanceID, queueStore: queueStore,
+            workflowStore: workflowStore, printerStore: printerStore
+        )
+    }
+
     func loadBundle(
         from bundle: Int32,
         acceptanceID: String,
