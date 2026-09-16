@@ -995,6 +995,19 @@ partial automated M5-AC05/07 evidence only. Active-revision selection,
 scheduler publication, install/update/restart recovery, unrelated printer and
 default preservation, and cross-queue delivery remain unverified.
 
+At `87c7e8c`, the typed printer profile gained an exact bounded private JSON
+contract. It preserves capability evidence, installed observations, media and
+calibration, transport, and private stable connection identity while public
+identity descriptions remain redacted. Deterministic ordering and exact keys
+make the bytes suitable for immutable digest binding; malformed observations,
+invalid evidence, unknown fields, duplicate speeds, bad types, and size-limit
+violations fail closed. Five focused tests round-trip both the GC420d reference
+and a fully observed synthetic profile. The complete CI-equivalent sequence
+passes 141 LabelCore and 79 LabelMac tests in both configurations. This is
+partial automated M3-AC01/13 and M5-AC05/07 evidence only. The immutable native
+printer-profile store, real discovery/observation, active queue selection,
+scheduler publication, USB delivery, and hardware validation remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
