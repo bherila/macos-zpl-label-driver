@@ -980,6 +980,21 @@ and scheduler defaults, unrelated printers, restart recovery, system-dialog
 propagation, installed serialization, USB delivery, and physical output remain
 unverified.
 
+At `ff0f2dc`, M5 gained private immutable storage for virtual-queue intent.
+Saving or loading a queue reopens the exact workflow schema/revision/digest and
+requires the separate user qualification for that exact value. It also checks
+the printer schema/revision and a caller-supplied exact printer digest; a future
+trusted printer-profile store still needs to own that digest. Owner-only
+no-follow directories, bounded regular-file reads, complete writes, file and
+directory `fsync`, and exclusive atomic rename make same-byte publication
+idempotent and different-byte publication a conflict. Five focused tests cover
+reference mismatch, missing qualification, tampering, unsafe roots, and
+concurrent conflicting writers. The complete CI-equivalent sequence passes 136
+LabelCore and 79 LabelMac tests in both configurations. This is additional
+partial automated M5-AC05/07 evidence only. Active-revision selection,
+scheduler publication, install/update/restart recovery, unrelated printer and
+default preservation, and cross-queue delivery remain unverified.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
