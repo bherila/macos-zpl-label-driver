@@ -34,8 +34,14 @@ generic character devices or POLLNVAL. Original pipe deadlines remain required.
 See `validation/M1-NULL-OUTPUT-DESCRIPTOR-2026-09-16.md`. All 14 focused filter
 cases and full `ead620c` local gate passed exit 0: 82 Python/178 Core/263 Mac
 debug/release, both independent/inert runs, signatures and packaged equality.
-Draft PR #75 is pushed; own hosted/review and fresh signature/hash freeze remain
-pending. Do not apply the previous frozen candidate.
+Draft PR #75 exact `f691d24` hosted 35123623789 passed; inspected logs verify
+both native configurations, both 14-case filter runs, signatures and packaged
+equality. First review is clean at base `3852e21` / head `f691d24`, no findings
+or threads. A separate private corrected copy has matching hashes and passes
+signature/PPD checks, read-only preflight/absent-queue query and direct-null
+committed-fixture file/stdin ABI. It remains NOT APPROVED FOR INSTALLATION,
+pending OS administrator session and finite baseline; snapshot ownership is not
+privileged provenance. The previous frozen candidate is superseded for execution.
 No scheduler job, queue installation, device access or physical print occurred.
 
 PR #74 follow-up: final dot-root aliases are rejected before namespace creation.

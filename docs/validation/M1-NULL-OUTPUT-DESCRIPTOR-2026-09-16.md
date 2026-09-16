@@ -33,12 +33,30 @@ null input modes and the retained pipe/cancellation cases. Full local gate at
 1200-second limit: 82 Python/178 Core/263 Mac debug/release tests, both accelerator
 configurations, 132 independent round trips, 15 backend/14 filter/one inert
 pipeline cases per mode, local-ad-hoc ARM/minimum-26 signatures and packaged
-worker exact PBM/ZPL equality. The local app artifact is
+worker exact PBM/ZPL equality. Own hosted run 35123623789 passed at exact
+`f691d241839ffcf860d00f8c5be296054645098a`; fetched logs verify both test
+configurations, both 14-case filter runs, signatures and packaged-byte equality.
+First review is clean at base `3852e21` / head `f691d24`, with reviewer thumbs-up
+and no inline findings or threads. No merge or duplicate review request.
+The local app artifact is
 `artifacts/setup-app.U09TYi/Label Printer Driver Setup.app`; it does not replace
-the maintainer's pinned manual GUI artifact. Own hosted/review gates remain
-pending; publication edits are evidence/manifest only. The previous private frozen binary is not approved
+the maintainer's pinned manual GUI artifact. Publication edits are evidence/manifest
+only. The previous private frozen binary is not approved
 for applying the experiment: it lacks this correction. After successful gates
 and review, freeze and validate the changed executable's new signature/hash.
 Do not silently substitute bytes into an older approved snapshot. The finite
 one-held-PDF/one-copy/one-release/60-second observation and immediate owned-removal
 procedure remains unchanged, with zero physical labels or printer commands.
+
+A new private provisional snapshot retains separate bytes. Copied assets match
+their originals; copied-filter signature/platform and exact PPD checks pass.
+Read-only scheduler preflight and independent native absent-queue readback pass;
+these observations are not namespace reservation. The copied filter handles the
+committed 3340-byte synthetic PDF in both named-file and stdin modes with direct
+null stdout, one copy and exact four option values. No actual scheduler job ID
+was invented or queried: direct ABI numeric arguments are only synthetic tests.
+The new filter SHA-256 is
+`bd349ace5c1fd1e58a3e0e2987ffc2056d1a75790247db4a31b3a369b39f09ff`.
+Script/PPD/fixture hashes remain unchanged. User-owned snapshots/checksums are
+not privileged provenance or permission. Installation is still NOT RUN, pending
+the actual interactive OS administrator session and complete finite baseline.
