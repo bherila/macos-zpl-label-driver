@@ -1,5 +1,21 @@
 # Current implementation handoff — revision 3
 
+
+Latest local slice separates offline editor availability from physical readiness.
+Hardware confirmations remain false; installation independently requires both
+stock/tear-off confirmations plus discovered identity. Five focused setup tests
+passed, including a synthetic identity's four confirmation combinations. Full
+pre-merge gate passed at `753fa5a` (67/171/205 debug/release plus independent,
+inert, signature and packaged-worker checks); combined `079163a` gate passed
+exit 0 with 67/171/209 debug/release and all independent/inert/signature/packaged
+checks. Own hosted/review pending. See
+`validation/M5-OFFLINE-EDITOR-READINESS-2026-09-16.md`.
+Important correction: the earlier nonempty AXWindows result had AXApplication
+role and exposed menus, not a verified AXWindow. Both direct and new-instance
+Launch Services probes failed the stronger window check. No GUI pass is claimed;
+the exact test app namespace has no live instances. Parent PR #56 hosted run
+35085759520 passed exact `ef26682`; corrected hosted/second review remain live.
+
 PR #56 first review found historical-revision collision, equal-dimension foreign
 stock acceptance and unavailable detectors mislabeled as layout changes. Local
 same-branch fixes use trusted latest-observed revision allocation for opening,
