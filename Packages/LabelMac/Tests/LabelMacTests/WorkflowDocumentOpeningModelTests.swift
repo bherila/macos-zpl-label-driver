@@ -110,6 +110,30 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
         XCTAssertEqual(try store.load(profileID: other.id, revision: other.revision), other)
     }
 
+    func testMissingMalformedOrNoncanonicalSavedSnapshotKeepsCurrentEditor() async throws {
+        let store = try store()
+        let model = WorkflowDocumentOpeningModel(store: store, workerExecutable: try worker())
+        model.open(fixture("letter-one"), mode: .manual)
+        await model.currentOpeningTask?.value
+        let current = try XCTUnwrap(model.editor)
+        try current.save()
+        let saved = current.profile
+        let path = store.root.appending(path: "profiles")
+            .appending(path: WorkflowProfileStore.profileFileName(saved.id, saved.revision))
+        var spaced = try WorkflowProfileJSON.encode(saved)
+        spaced.append(0x20)
+        for replacement in [spaced, Data("malformed".utf8), nil] as [Data?] {
+            if let replacement { try replacement.write(to: path) }
+            else { try FileManager.default.removeItem(at: path) }
+            model.openSavedWorkflow(fixture("letter-one"), profile: saved)
+            await model.currentOpeningTask?.value
+            XCTAssertTrue(model.editor === current)
+            XCTAssertTrue(current.isSaved)
+            XCTAssertEqual(model.error,
+                "The saved workflow changed or could not be verified. Refresh the saved workflow list.")
+        }
+    }
+
     func testManualOpeningIsAnExplicitChoiceNotFailureFallback() async throws {
         let model = WorkflowDocumentOpeningModel(store: try store(), workerExecutable: try worker())
         model.open(fixture("ambiguous-region"))

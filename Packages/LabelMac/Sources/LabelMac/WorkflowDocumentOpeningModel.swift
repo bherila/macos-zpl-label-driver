@@ -131,7 +131,7 @@ public final class WorkflowDocumentOpeningModel: ObservableObject {
                     switch error {
                     case is ExtractionPlanError:
                         self.error = "This PDF does not match the saved workflow's pages or layout. The current draft was kept."
-                    case WorkflowProfileStore.Error.profileConflict, WorkflowProfileStore.Error.profileIdentityMismatch:
+                    case is WorkflowProfileStore.Error, is WorkflowProfileJSONError:
                         self.error = "The saved workflow changed or could not be verified. Refresh the saved workflow list."
                     case WorkflowEditorBootstrap.Error.unsupportedPageGeometry:
                         self.error = "Unsupported page size. Use native 4×6, Letter or A4 input."

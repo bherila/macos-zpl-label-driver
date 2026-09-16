@@ -130,7 +130,7 @@ struct SetupDocumentView: View {
                         .disabled(documents.isRefreshingSavedWorkflows)
                     if documents.isRefreshingSavedWorkflows { ProgressView("Reading saved workflows…") }
                     if let error = documents.savedWorkflowError { Text(error).foregroundStyle(.red) }
-                    Text("Choose a local source PDF. Reopening verifies its pages and layout and creates a new unsaved revision; it does not print or replay a job.")
+                    Text("Choose a local source PDF. Reopening verifies page geometry and configured layout anchors and creates a new unsaved revision. Manual regions require visual review; nothing is printed or replayed.")
                         .font(.caption)
                 }
             }

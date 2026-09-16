@@ -20,6 +20,11 @@ assisted detection or fallback crop substitutes for the saved definition.
 Changed layouts, extra pages and mismatched source geometry keep the existing
 editor. The current setup only accepts its confirmed 4x6 output stock; a different
 saved stock fails without clamping or modifying its immutable record.
+Reload also rejects noncanonical records, including semantically equivalent
+trailing whitespace. Missing, malformed and changed snapshots produce a saved
+workflow verification error rather than misidentifying the PDF as the failure.
+Manual workflows without anchors still require visual review; page geometry
+alone does not establish layout identity.
 
 Correction preserves profile identity and all rules, advances the revision once,
 starts unsaved, and does not inherit old unattended qualification. Preview still
@@ -29,15 +34,19 @@ The existing 60-second cooperative opening budget includes profile/PDF reading;
 it is checked after filesystem operations, not a guarantee of interruptible disk
 I/O. Worker-owned deadlines remain separate and active during native parsing.
 
-Focused native validation: 47 tests passed (9 document-opening, 15 profile-store,
+Focused native validation: 48 tests passed (10 document-opening, 15 profile-store,
 12 bootstrap and 11 editor). New regressions cover canonical revision catalogs,
 unpublished staging, listing/byte bounds, misnamed/noncanonical/oversized records,
 symlink/hard-link/directory rejection, FIFO catalog candidates with/without a
 writer in two-second subprocess tests, exact original-source saved-crop reopening,
 prior qualification preservation without inheritance, layout/geometry/extra-page
 mismatch, cross-store snapshot rejection, output-stock mismatch and completed
-stale saved-opening results. No placeholder renderer or validator was added.
-Full local gate, own hosted CI and independent review are pending.
+stale saved-opening results and missing/malformed/noncanonical cached snapshots.
+No placeholder renderer or validator was added. The first implementation
+`3118dbb` passed the full local 67 Python/171 Core/203 Mac debug-release gate,
+132 independent round trips, 15/10/one inert checks, ad-hoc app/worker signatures
+and packaged-worker equality. The final canonical reload/error/copy correction
+passes 48 focused tests; its full local gate and own hosted/review are pending.
 
 Parent PR #55 at `55dd7d2` has passing hosted run 35084288575 and a clean first
 review. These do not establish this slice's hosted or GUI acceptance.
