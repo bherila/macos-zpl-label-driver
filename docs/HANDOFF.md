@@ -1395,6 +1395,20 @@ independent round trips, every ABI/inert-pipeline check, and local ad-hoc
 signature verification. Both permitted review passes are now reconciled; no
 third review will be requested.
 
+At `b45f93b`, restart discovery connects the pinned accepted-jobs directory to
+the per-job recovery primitive. The bounded inventory verifies final hash names,
+canonical ticket/source/state and immutable references, distinguishes owned
+UUID staging directories from invalid artifacts, reserves cumulative source
+read budget before ingestion, and checks declared prepared totals. The sweep
+revalidates jobs independently in stable ID order and can reconcile a discovered
+abandoned send without deletion or replay. Prepared reads now reject sizes
+larger than their exact lifecycle binding before allocation. Six regressions
+bring LabelMac to 152 tests in debug and release; the complete gate also passes
+64 Python tests, 165 LabelCore tests in debug and release, 132 independent round
+trips, all ABI/inert-pipeline checks, and local ad-hoc signature verification.
+This is partial automated M3-AC09/12 evidence, not an atomic concurrent snapshot,
+installed worker startup, scheduler mapping, retention/deletion, or printer pass.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
