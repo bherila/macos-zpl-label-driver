@@ -1522,8 +1522,19 @@ analysis and all label workers, with distinct processing interruption errors.
 It does not renew time per label, manufacture persisted cancellation, or promise
 to interrupt filesystem calls. Twenty-nine focused tests passed; the full local
 gate passed 67/166/167 debug/release with all independent and signing checks;
-hosted/review evidence is pending in
+hosted run `35075349804` and independent review passed exact code head `769f0c6`.
+Counts/signatures were confirmed in logs. Evidence is recorded in
 `M3-SHARED-PREPARATION-BUDGET-2026-09-16.md`.
+
+The setup Preview button now runs original-PDF extraction in the bounded child
+off the main actor, with cancellation and request/profile/selection-bound stale
+result protection. Nine focused tests passed, including a completed-real-result
+race. The app includes/signs the worker and requires a synthetic packaged-worker
+equality smoke. Full local validation passed 67/166/172 debug/release, all
+independent/inert checks, nested signatures and packaged-worker equality.
+Hosted/review and all GUI evidence remain pending in
+`M4-ISOLATED-EDITOR-PREVIEW-2026-09-16.md`. PDF opening/bootstrap remains
+in-process; no scheduler or physical acceptance follows.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository

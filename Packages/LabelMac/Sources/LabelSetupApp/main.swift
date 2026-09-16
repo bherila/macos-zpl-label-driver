@@ -11,6 +11,9 @@ final class SetupAppController: ObservableObject {
 
     private let store: WorkflowProfileStore?
     let printerSetup: ReferencePrinterSetupModel?
+    let previewWorkerExecutable = (Bundle.main.executableURL?.deletingLastPathComponent()
+        ?? Bundle.main.bundleURL.appending(path: "Contents/MacOS"))
+        .appending(path: "label-render-worker")
 
     init() {
         do {
@@ -63,7 +66,7 @@ struct SetupRootView: View {
                 }
                 Group {
                     if let editor = controller.editor {
-                        WorkflowEditorView(model: editor)
+                        WorkflowEditorView(model: editor, workerExecutable: controller.previewWorkerExecutable)
                     } else {
                         ContentUnavailableView {
                             Label("Create a label workflow", systemImage: "printer")
