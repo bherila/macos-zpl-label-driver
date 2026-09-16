@@ -51,17 +51,33 @@ public struct AcceptedJobStore: @unchecked Sendable {
     public let root: URL
     private let directoryName = "accepted-jobs"
     private let directoryCapability: AcceptedJobDirectoryCapability
+    private let syncParentDirectory: @Sendable (Int32) -> Int32
     private let injectFault: @Sendable (FaultPoint) throws -> Void
 
     public init(root: URL) throws {
-        try self.init(root: root, injectFault: { _ in })
+        try self.init(
+            root: root, syncParentDirectory: { fsync($0) },
+            injectFault: { _ in }
+        )
     }
 
     init(
         root: URL,
         injectFault: @escaping @Sendable (FaultPoint) throws -> Void
     ) throws {
+        try self.init(
+            root: root, syncParentDirectory: { fsync($0) },
+            injectFault: injectFault
+        )
+    }
+
+    init(
+        root: URL,
+        syncParentDirectory: @escaping @Sendable (Int32) -> Int32,
+        injectFault: @escaping @Sendable (FaultPoint) throws -> Void = { _ in }
+    ) throws {
         self.root = root
+        self.syncParentDirectory = syncParentDirectory
         self.injectFault = injectFault
         if mkdir(root.path, 0o700) != 0, errno != EEXIST { throw Error.cannotCreateStore }
         let rootDescriptor = open(root.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
@@ -154,6 +170,9 @@ public struct AcceptedJobStore: @unchecked Sendable {
                       existing.state.acceptedTicketSHA256 == ticketDigest else {
                     throw Error.jobConflict
                 }
+                guard syncParentDirectory(directory) == 0 else {
+                    throw Error.commitUncertain
+                }
                 return
             }
             removeTemporary = false
@@ -161,7 +180,7 @@ public struct AcceptedJobStore: @unchecked Sendable {
             catch { throw Error.commitUncertain }
             // The rename is visible. Failure to confirm parent durability is
             // not safely distinguishable from a committed publication.
-            guard fsync(directory) == 0 else { throw Error.commitUncertain }
+            guard syncParentDirectory(directory) == 0 else { throw Error.commitUncertain }
         }
     }
 
