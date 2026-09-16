@@ -569,6 +569,56 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertTrue(try workerScratchNames(in: temporaryRoot).subtracting(existingScratch).isEmpty)
     }
 
+    func testOfflineCLIRejectsFIFOInputAndTicketBeforeWorkerWithinHardDeadline() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(
+            path: "LabelDriverCLIFIFO-\(UUID().uuidString)"
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let validPDF = repositoryRoot().appending(path: "Fixtures/generated/native-vector.pdf")
+        let validTicket = directory.appending(path: "ticket.json")
+        try Data("""
+        { "schemaVersion": 1, "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 101.6, "heightMillimeters": 152.4 },
+          "resolution": { "xDotsPerMillimeter": 8, "yDotsPerMillimeter": 8 },
+          "conversion": { "mode": "textAndBarcodeThreshold", "threshold": 128 } }
+        """.utf8).write(to: validTicket)
+
+        let inputFIFO = directory.appending(path: "input.pdf")
+        XCTAssertEqual(mkfifo(inputFIFO.path, 0o600), 0)
+        XCTAssertEqual(
+            try runCLIWithHardDeadline([
+                "validate", inputFIFO.path, "--job-ticket", validTicket.path, "--json",
+            ]),
+            65
+        )
+
+        let ticketFIFO = directory.appending(path: "fifo-ticket.json")
+        XCTAssertEqual(mkfifo(ticketFIFO.path, 0o600), 0)
+        XCTAssertEqual(
+            try runCLIWithHardDeadline([
+                "validate", validPDF.path, "--job-ticket", ticketFIFO.path, "--json",
+            ]),
+            65
+        )
+    }
+
+    private func runCLIWithHardDeadline(_ arguments: [String]) throws -> Int32 {
+        let process = Process()
+        process.executableURL = try cliExecutable()
+        process.arguments = arguments
+        process.standardOutput = FileHandle.nullDevice
+        process.standardError = FileHandle.nullDevice
+        let exited = XCTestExpectation(description: "CLI rejects special file")
+        process.terminationHandler = { _ in exited.fulfill() }
+        try process.run()
+        let result = XCTWaiter.wait(for: [exited], timeout: 2)
+        if result != .completed, process.isRunning { process.terminate() }
+        XCTAssertEqual(result, .completed, "CLI blocked before special-file validation")
+        process.waitUntilExit()
+        return process.terminationStatus
+    }
+
     private func workerScratchNames(in directory: URL) throws -> Set<String> {
         Set(try FileManager.default.contentsOfDirectory(atPath: directory.path).filter {
             $0.hasPrefix("label-driver-worker.")
