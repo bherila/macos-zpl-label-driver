@@ -1,4 +1,18 @@
-# PR #58 first-review remediation: explicit exact-preview review
+# PR #58 review remediation: explicit exact-preview review
+
+Second-pass finding 4025638071 exposed an unsaved edit/undo gap: returning to
+the same profile value could resurrect an earlier acknowledgement. Every
+successful draft mutation and reload now clears review state and advances a
+checked edit generation. The displayed acknowledgement captures that generation
+as well as the profile and packed preview. An old callback is rejected even if
+later edits restore identical values. Invalid edits preserve valid review state.
+The real-worker undo regression and 40 focused native tests passed. At
+`501cdf1`, the full local gate passed exit 0: 67 Python, 173 LabelCore and
+213 LabelMac tests in debug/release; both accelerator suites, 132 independent
+round trips, 15/10/1 inert ABI/pipeline cases, local executable/app/nested-worker
+signatures and packaged-worker PBM/ZPL equality. Corrected hosted CI remains
+pending. No third review request
+will be made; the second-pass correctness finding is being fixed on this branch.
 
 Native editor source/automated evidence for finding 4025449342, not GUI,
 physical-print or barcode acceptance. Fixed on PR #58's branch, not deferred.
@@ -42,7 +56,8 @@ worker equality checks. Final displayed-snapshot implementation `a51780f` then
 passed the full local gate exit 0 with 67 Python/173 LabelCore/212 LabelMac tests
 in debug/release, both accelerator suites and independent/inert checks, local
 executable/app/nested-worker signatures and packaged-worker PBM/ZPL equality.
-Corrected hosted CI/second review remain pending. This is not native
+Hosted run 35091595114 passed exact `a1e1f58`; it precedes the second-pass undo
+correction above. The second review found 4025638071, not a clean pass. This is not native
 dialog/VoiceOver or physical acceptance.
 
 No profile schema, oracle, renderer, transport, queue, privileged or hardware

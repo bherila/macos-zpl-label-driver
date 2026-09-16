@@ -18,6 +18,18 @@ WindowServer window and no remaining live instance; cause remains unresolved. Se
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. No queue,
 privilege or device I/O. Noninteractive administrator authorization remains absent.
 
+PR #58 second-pass finding 4025638071 exposed review resurrection after an
+unsaved edit/undo. The current correction clears acknowledgements on every
+successful draft mutation/reload and binds displayed review to a checked edit
+generation, rejecting old callbacks even when profile/bitmap values match again.
+40 focused native tests passed, including the real-worker undo regression.
+At `501cdf1`, full local validation passed exit 0 with 67/173/213 debug/release,
+accelerator/independent/inert/signature and packaged-worker equality checks.
+Corrected hosted CI is pending. Hosted 35091595114 passed the preceding
+`a1e1f58`, not this correction. No third review request or merge is authorized.
+The fix is now integrated into the profile-transfer branch. Its combined gate
+must pass before publication; the earlier 218-test gate predates this fix.
+
 PR #58 first review found restored full-page regions could be approved without
 explicit bounds/preview review. Same-branch correction requires acknowledgement
 of every region's current packed preview, bound to the complete current profile;
