@@ -7,8 +7,11 @@ bytes while binding the same 4x6 stock; changed-size/layout and absent bindings
 fail before acceptance. Direct selected-rectangle mapping removes avoidable
 full-sheet expansion rounding: Letter/A4 now agree at every dot and complete
 ZPL byte. All 46 focused native renderer/extraction/pipeline tests passed exit 0.
-Full validation is in progress; no new
-acceptance rows are checked. See
+Full local gate at `4ebfd859` passed exit 0: 67 Python, 178 Core and 250 Mac
+debug/release, both accelerator modes, independent/inert checks, local
+ARM/minimum-26 signatures and packaged-worker PBM/ZPL equality. M4-AC13 is now
+automatically evidenced; M4-AC01's full editor/option path and every I/H gate
+remain open. Own hosted CI/review await publication. See
 `validation/M4-THREE-REFERENCE-PIPELINE-2026-09-16.md`.
 
 PR #68 exact `4a857a4` hosted run 35104542457 passed: logs verify 178 Core/248

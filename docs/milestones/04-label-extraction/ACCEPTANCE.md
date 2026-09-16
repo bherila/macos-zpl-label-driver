@@ -21,7 +21,7 @@ Evidence levels: **A** automated; **C** repository/CI/configuration inspection; 
 | [ ] | M4-AC10 | Queue workflow | I | Selecting native/Letter/A4 virtual workflows in required applications yields intended full-page capture and extraction. |
 | [ ] | M4-AC11 | Physical workflow | H | Declared browser/template workflows produce correctly sized readable labels on qualified stock/device configurations. |
 | [ ] | M4-AC12 | Recovery/snapshots | I | Mismatch correction, held jobs and profile edits preserve revision semantics and do not auto-replay uncertain output. |
-| [ ] | M4-AC13 | Three reference workflows | A | Native 4×6, Letter-to-4×6 and A4-to-4×6 plans bind the same reference stock while preserving distinct input geometry; unconfigured or mismatched extraction never silently prints a guessed crop. |
+| [x] | M4-AC13 | Three reference workflows | A | Native 4×6, Letter-to-4×6 and A4-to-4×6 plans bind the same reference stock while preserving distinct input geometry; unconfigured or mismatched extraction never silently prints a guessed crop. Evidence: [2026-09-16 complete three-reference inert pipeline](../../validation/M4-THREE-REFERENCE-PIPELINE-2026-09-16.md). |
 
 ## Completion rules
 
