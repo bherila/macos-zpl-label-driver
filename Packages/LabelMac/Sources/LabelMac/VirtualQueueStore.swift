@@ -28,11 +28,12 @@ public struct VirtualQueueStore: @unchecked Sendable {
         catch { throw Self.mapStorage(error) }
     }
 
+    @discardableResult
     public func save(
         _ queue: VirtualQueueDefinition,
         workflowStore: WorkflowProfileStore,
         printerStore: PrinterProfileStore
-    ) throws {
+    ) throws -> ImmutableProfileReference {
         try validateReferences(
             queue, workflowStore: workflowStore, printerStore: printerStore
         )
@@ -48,6 +49,27 @@ public struct VirtualQueueStore: @unchecked Sendable {
         } catch {
             throw Self.mapStorage(error)
         }
+        return try ImmutableProfileReference(
+            id: queue.id, schemaVersion: queue.schemaVersion,
+            revision: queue.revision, sha256: Self.digest(bytes)
+        )
+    }
+
+    public func load(
+        reference: ImmutableProfileReference,
+        workflowStore: WorkflowProfileStore,
+        printerStore: PrinterProfileStore
+    ) throws -> VirtualQueueDefinition {
+        let queue = try load(
+            queueID: reference.id, revision: reference.revision,
+            workflowStore: workflowStore, printerStore: printerStore
+        )
+        let bytes = try VirtualQueueJSON.encode(queue)
+        guard reference.schemaVersion == queue.schemaVersion,
+              reference.sha256 == Self.digest(bytes) else {
+            throw Error.queueIdentityMismatch
+        }
+        return queue
     }
 
     public func load(
