@@ -1346,8 +1346,10 @@ an unsafe present record; prepared/waiting retries validate the source and
 cancellation capability, repeat the durability barrier, reuse the stored
 payload, and remain bound to the accepted queue even after active selection
 changes. The workflow stock must also match the profile's observed loaded face
-before acceptance. Five new regressions bring LabelMac to 137 debug tests; the
-exact remediation release/full gate remains to run.
+before acceptance. Five new regressions bring LabelMac to 137 tests in debug
+and release. The complete exact-head gate also passes 64 Python, 165 LabelCore
+debug/release, 132 independent round trips, all ABI/inert-pipeline checks, and
+local ad-hoc product signature verification.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
