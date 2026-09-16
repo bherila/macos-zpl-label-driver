@@ -1,5 +1,15 @@
 # Current implementation handoff — revision 3
 
+Latest local slice connects saved-revision listing and Reopen with PDF in setup.
+It validates the selected immutable snapshot and all original source pages/layout
+through the real worker/planner before creating an unsaved correction revision.
+Old qualification is retained, never inherited. The bounded descriptor-relative
+catalog ignores unpublished staging and rejects unsafe/malformed candidates.
+47 focused native tests passed; full gate pending. See
+`validation/M4-SAVED-WORKFLOW-REOPENING-2026-09-16.md` for limits and finite unrun
+GUI procedure. Parent PR #55 run 35084288575 passed exact `55dd7d2`, and its first
+independent review is clean. No scheduler, installation or physical result added.
+
 Current local slice connects add/remove region controls to the typed draft, with
 global order, original-source child previews and immutable revisions preserved.
 The last region on a page cannot be removed implicitly. At `fafd7a1`, six portable
