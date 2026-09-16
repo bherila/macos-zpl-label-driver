@@ -58,8 +58,7 @@ The live read-only `--queue-absent` mode passed against the observed local
 scheduler's absent experimental queue. It requests only printer-name and requires
 client-error-not-found. No actual/invented job was queried. Observed host:
 macOS 26.6.2 / 25G83 ARM, installed CUPS ipptool v2.3.4, Swift 6.3.3,
-Xcode 26.6 / SDK 26.5. No 26.0-runtime coverage is inferred. Own hosted CI and
-correctness review are pending at this source checkpoint.
+Xcode 26.6 / SDK 26.5. No 26.0-runtime coverage is inferred.
 
 The first full gate at `66ab5db` passed exit 0: 81 Python/178 Core/258 Mac
 debug/release and all accelerator/inert/signature/packaged checks; it did not
@@ -74,6 +73,13 @@ per mode, local ad-hoc ARM/minimum-26 signatures and packaged-worker exact
 PBM/ZPL equality. The new regression is included in both Python runs.
 This mocked termination failure is not a kernel/process-kill or power-loss test.
 
+PR #73 hosted run 35115902706 passed at exact published `03992fd`; fetched
+logs verify 82 Python/178 Core/258 Mac debug/release, both independent accelerator
+runs, inert ABI/pipeline checks, local signatures and packaged-worker PBM/ZPL
+equality. First correctness review completed clean at base `fa6c247` /
+head `03992fd`: reviewer thumbs-up, no inline findings or threads. No merge.
+Publication relative to corrected tested source changed evidence/manifest only.
+
 Parent PR #72 exact `fa6c247` hosted 35112614847 passed: logs verify 178 Core,
 258 Mac debug/release, 12 filter cases in both modes, local signatures and
 packaged-worker PBM/ZPL equality. First review is clean at unchanged base
@@ -81,7 +87,7 @@ packaged-worker PBM/ZPL equality. First review is clean at unchanged base
 warning-filter candidate passes copied-byte checks but OS administrator
 authorization is unavailable noninteractively. No --apply or queue/job followed.
 
-Next: own hosted/review gates, then actual finite held-job readback only inside
+Next: actual finite held-job readback only inside
 the approved one-job administrator session. Do not infer document fidelity,
 profile snapshot ownership, production worker access, USB, scan or release
 acceptance from this read-only helper. See R40 and the finite admission procedure.

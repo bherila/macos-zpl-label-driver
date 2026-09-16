@@ -37,7 +37,10 @@ Explicit bounded cleanup corrects it, with distinct termination-unconfirmed
 failure and closed pipes. Corrected full gate at `eb46f13` passed exit 0:
 82 Python/178 Core/258 Mac debug/release, both accelerator runs, inert ABI and
 pipeline checks, local signatures and packaged-worker PBM/ZPL equality. Own
-hosted/review gates are pending. Actual held-job mode remains
+hosted run 35115902706 passed at published `03992fd`: fetched logs verify the
+same native counts, accelerator/inert checks, signatures and packaged equality.
+First review is clean at base `fa6c247` / head `03992fd`, with reviewer thumbs-up
+and no findings/threads. No merge. Actual held-job mode remains
 NOT RUN. See `validation/M1-READONLY-IPP-READBACK-2026-09-16.md`.
 
 Parent #72 exact `fa6c247` hosted 35112614847 passed with 178 Core/258 Mac
