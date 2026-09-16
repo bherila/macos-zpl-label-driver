@@ -1028,6 +1028,21 @@ evidence only. Native compare-and-swap persistence, crash recovery, scheduler
 publication/rollback, held-job integration, restart behavior, and system state
 preservation remain open.
 
+At `aa11db9`, M5 gained private compare-and-swap persistence for that active
+queue pointer. Each update resolves the exact immutable queue, printer, and
+qualified workflow references, takes a per-queue descriptor-relative `flock`,
+compares the complete expected selection, advances its generation/history, and
+atomically replaces bounded canonical bytes with file and directory `fsync`.
+Stale writers, fabricated digests, malformed or tampered bytes, unsafe storage,
+and repeated revisions fail closed; a post-rename directory-sync failure is
+explicitly uncertain rather than advertised as safe to retry. Four new focused
+tests bring the queue/store group to nine tests and the complete CI-equivalent
+sequence passes 145 LabelCore and 87 LabelMac tests in both configurations.
+This is additional partial automated M5-AC05/07 evidence only. Scheduler
+publication and rollback, held-job capture, UI defaults, restart repair,
+uninstall, system-state preservation, and all administrator/hardware evidence
+remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
