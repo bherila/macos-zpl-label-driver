@@ -15,6 +15,13 @@ single-page identity. Run the script's read-only scheduler, filter, and PPD
 validation modes. Stop unless the scheduler is reachable and the experiment
 queue/root are absent. Record OS/build and toolchain.
 
+Also record the configured logging level without changing it. The discard-only
+filter's schema-2 `WARNING: LABEL_CAPTURE_FILTER` report explains that no physical
+printing occurred. CUPS documents that WARNING is logged at warning level, whereas
+INFO is error-log-visible only at debug2 (R39). An older INFO-only frozen filter
+cannot establish this logging prerequisite. Re-freeze the reviewed new binary;
+do not silently replace bytes under an older approval/checkpoint.
+
 Keep a private local before/after record of queue inventory and system/user
 defaults. Do not publish printer identities, device URIs, serials, or a full
 system/log dump. Do not inspect unrelated driver assets. All queue/job commands
@@ -46,12 +53,25 @@ operations. A failed query is not absence.
    Preserve the experiment and report the conflict for administrator resolution.
 5. Enable processing only after verification, then resume only that held job
    (`lp -i JOB_ID -H resume`, not restart). Observe for at most 60 seconds.
-   Require scheduler-correlated `LABEL_CAPTURE_FILTER` metadata for this job:
+   Require scheduler-correlated `WARNING: LABEL_CAPTURE_FILTER` schema-2 metadata
+   for this job, with matching positive numeric `jobID` and the fixed discard-only
+   `auditReason`. The scheduler's own job context must independently agree;
+   caller-provided JSON or a direct executable run is not scheduler evidence.
+   Require:
    expected file/stdin mode, PDF input MIME, nonzero bounded byte count, copies
    argument, all four selected option values, and final MIME
    `application/vnd.labelprobe`. Require finite discard completion too. Completion
    alone, without this invocation evidence, is inconclusive. Do not enable global
    verbose/payload logging to compensate for missing metadata.
+   Read only a finite window containing the exact marker for the owned job from
+   the observed error-log destination. Do not assume a filesystem log exists or
+   infer absence from a failed query. On the recorded host no traditional
+   `/var/log/cups/error_log` existed and a 15-second-limited macOS unified-log
+   query restricted to process `cupsd` and marker `LABEL_CAPTURE_FILTER` completed
+   with no events before any job. That proves query availability only, not the
+   runtime warning route. If neither the actual error-log sink nor the bounded
+   marker-only unified-log query exposes the correlated report, record the
+   admission result as inconclusive and stop; do not loosen settings or retry.
 6. Reject further jobs immediately. If needed, cancel only the recorded own job
    and verify it drained. Run explicit script `--remove`; queue-first validated
    recovery must confirm absence before deleting the filter/intent/root.

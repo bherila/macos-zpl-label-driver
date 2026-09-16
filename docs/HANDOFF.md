@@ -1,5 +1,16 @@
 # Current implementation handoff — revision 3
 
+The current M1 preparation slice corrects a real observability mismatch: the
+host uses LogLevel warn, but the previous INFO filter marker is documented as
+error-log-visible only at debug2. The discard-only filter now warns once that
+the experiment produced no physical printing, with exact safe schema-2 metadata
+and an ABI-validated numeric job ID for private scheduler correlation. All 12
+focused filter ABI cases and one inert pipeline passed; full gate is pending.
+No global logging is changed and no installation/job
+is run. The earlier private frozen snapshot is marked superseded, not replaced;
+new review/validation/freeze is required before execution. See
+`validation/M1-DISCARD-OBSERVABILITY-2026-09-16.md` and updated finite procedure.
+
 The new test-only quality slice decodes the supplied synthetic Code128 and QR
 symbols from all three final 813 x 1219 bitmaps at one pixel per printer dot.
 All 15 focused pipeline tests passed, including six exact payload checks and
