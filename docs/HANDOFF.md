@@ -1381,7 +1381,9 @@ deterministic barrier advances the job after recovery's first read; the second
 read now routes the observed transmitting state through the same physical-device
 lease rather than returning an ownership-blind error. The focused recovery set
 and all 144 LabelMac tests pass in debug and release. The exact-head complete
-repository gate remains to run before the second/final review.
+gate also passes 64 Python tests, 165 LabelCore tests in debug and release, 132
+independent round trips, all ABI/inert-pipeline checks, and local ad-hoc product
+signature verification. The second/final review is next.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository

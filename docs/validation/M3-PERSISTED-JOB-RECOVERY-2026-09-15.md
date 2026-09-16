@@ -37,11 +37,10 @@ On macOS 26.6.2 with Xcode 26.6:
 - `swift test --package-path Packages/LabelMac` — 144 passed;
 - `swift test -c release --package-path Packages/LabelMac` — 144 passed;
 - complete `bash scripts/ci-swift.sh` exact-head gate — 64 Python tests,
-  165 LabelCore tests in debug and release, 143 LabelMac tests in debug and
+  165 LabelCore tests in debug and release, 144 LabelMac tests in debug and
   release, 132 independent encoder round trips, 15 backend ABI cases, 10
   filter ABI cases, one inert pipeline case, and local ad-hoc product signature
-  verification passed before the review remediation. The exact-head complete
-  gate remains to run with the new deterministic race regression.
+  verification passed at the remediated exact head.
 
 ## Evidence limits and next boundary
 
