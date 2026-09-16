@@ -1414,6 +1414,15 @@ execution against a stacked target, not fork or deliberate-failure acceptance.
 This configuration-only slice does not need
 a separate correctness review or change printing behavior.
 
+The M1 recovery guide now matches the reviewed `9019eb6` script boundary:
+automatic rollback never removes a present queue, including after successful
+create/readback, because queue creation is not exclusive. It retains all
+recovery artifacts for explicit record-validated removal. This documentation
+correction changes no script behavior and provides no new M1 integration pass.
+Local repository preflight and 65 Python, 165 LabelCore debug, and 152 LabelMac
+debug tests passed on the existing Tahoe host. Release tests are unchanged from
+the preceding hosted run; they were not rerun for this documentation-only diff.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
