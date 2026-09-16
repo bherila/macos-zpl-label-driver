@@ -13,7 +13,8 @@
         "d4dad6d32c0da501e48df45404a8e19b3377d5a9 (public bootstrap commit and repository setup)",
         "2026-09-15 local Tahoe ARM: accelerator debug/release, LabelCore 47 tests, LabelMac Core Graphics smoke debug/release, and inert local-ad-hoc signing smoke passed",
         "docs/validation/M0-STACKED-PR-CI-2026-09-16.md (79411af unrestricted PR-target CI trigger; automatic stacked PR run 35069832168 passed exact aaf8425 with full native tests and signatures)",
-        "scripts/ci_scope.py (docs plus mandatory manifest classification corrected with 67 Python tests; hosted docs-only aggregate acceptance remains unproven)"
+        "scripts/ci_scope.py (docs plus mandatory manifest classification corrected with 67 Python tests; hosted docs-only aggregate acceptance remains unproven)",
+        "docs/validation/M0-DOCS-MANIFEST-SCOPE-2026-09-16.md (431f0d6 classifier regression and local 67/165/152 passes; docs-only hosted skip/aggregate probe pending)"
       ],
       "blockers": []
     },
