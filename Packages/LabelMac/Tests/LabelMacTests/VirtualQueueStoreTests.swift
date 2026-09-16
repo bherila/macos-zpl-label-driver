@@ -51,13 +51,14 @@ final class VirtualQueueStoreTests: XCTestCase {
     private func queue(
         workflow: WorkflowProfile,
         printerReference: ImmutableProfileReference,
+        revision: Int = 2,
         displayName: String = "Native labels",
         workflowDigest: String? = nil
     ) throws -> VirtualQueueDefinition {
         let printer = try PrinterProfile.gc420dUSBReference(revision: 7)
         let reference = try workflowReference(workflow)
         return try VirtualQueueDefinition(
-            id: "shipping-native", revision: 2, displayName: displayName,
+            id: "shipping-native", revision: revision, displayName: displayName,
             physicalDevice: PhysicalDeviceCoordinationID(sha256: deviceDigest),
             workflowProfile: ImmutableProfileReference(
                 id: reference.id, revision: reference.revision,
@@ -230,5 +231,137 @@ final class VirtualQueueStoreTests: XCTestCase {
             workflowStore: workflows, printerStore: printers
         )
         XCTAssertTrue(stored == first || stored == second)
+    }
+
+    func testActiveSelectionRoundTripAndMonotonicReplacement() throws {
+        let root = try temporaryRoot()
+        let (workflows, printers, queues, value, printerReference) = try qualifiedStores(root: root)
+        let active = try ActiveVirtualQueueStore(root: root)
+        let firstReference = try queues.save(
+            queue(workflow: value, printerReference: printerReference, revision: 2),
+            workflowStore: workflows, printerStore: printers
+        )
+        let first = try active.compareAndSwap(
+            queue: firstReference, expected: nil, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        )
+        XCTAssertEqual(first.generation, 1)
+        XCTAssertNil(first.previousQueueSHA256)
+        XCTAssertEqual(try active.load(
+            queueID: firstReference.id, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        ), first)
+
+        let secondReference = try queues.save(
+            queue(workflow: value, printerReference: printerReference, revision: 3),
+            workflowStore: workflows, printerStore: printers
+        )
+        let second = try active.compareAndSwap(
+            queue: secondReference, expected: first, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        )
+        XCTAssertEqual(second.generation, 2)
+        XCTAssertEqual(second.previousQueueSHA256, firstReference.sha256)
+        XCTAssertEqual(try active.load(
+            queueID: firstReference.id, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        ), second)
+    }
+
+    func testActiveSelectionRejectsStaleOrRepeatedPublication() throws {
+        let root = try temporaryRoot()
+        let (workflows, printers, queues, value, printerReference) = try qualifiedStores(root: root)
+        let active = try ActiveVirtualQueueStore(root: root)
+        let reference = try queues.save(
+            queue(workflow: value, printerReference: printerReference),
+            workflowStore: workflows, printerStore: printers
+        )
+        let first = try active.compareAndSwap(
+            queue: reference, expected: nil, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        )
+        XCTAssertThrowsError(try active.compareAndSwap(
+            queue: reference, expected: nil, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        )) { XCTAssertEqual($0 as? ActiveVirtualQueueStore.Error, .selectionConflict) }
+        XCTAssertThrowsError(try active.compareAndSwap(
+            queue: reference, expected: first, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        )) { XCTAssertEqual($0 as? ActiveVirtualQueueStore.Error, .invalidTransition) }
+        XCTAssertEqual(try active.load(
+            queueID: reference.id, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        ), first)
+    }
+
+    func testConcurrentActiveSelectionCASHasOneWinner() async throws {
+        let root = try temporaryRoot()
+        let (workflows, printers, queues, value, printerReference) = try qualifiedStores(root: root)
+        let active = try ActiveVirtualQueueStore(root: root)
+        let initialReference = try queues.save(
+            queue(workflow: value, printerReference: printerReference, revision: 2),
+            workflowStore: workflows, printerStore: printers
+        )
+        let initial = try active.compareAndSwap(
+            queue: initialReference, expected: nil, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        )
+        let candidates = try [3, 4].map { revision in
+            try queues.save(
+                queue(workflow: value, printerReference: printerReference, revision: revision),
+                workflowStore: workflows, printerStore: printers
+            )
+        }
+        let results = await withTaskGroup(of: ActiveVirtualQueueSelection?.self) { group in
+            for candidate in candidates {
+                group.addTask {
+                    try? active.compareAndSwap(
+                        queue: candidate, expected: initial, queueStore: queues,
+                        workflowStore: workflows, printerStore: printers
+                    )
+                }
+            }
+            var values: [ActiveVirtualQueueSelection] = []
+            for await value in group { if let value { values.append(value) } }
+            return values
+        }
+        XCTAssertEqual(results.count, 1)
+        let stored = try XCTUnwrap(active.load(
+            queueID: initialReference.id, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        ))
+        XCTAssertEqual(stored, results[0])
+        XCTAssertEqual(stored.generation, 2)
+    }
+
+    func testActiveSelectionRejectsFabricatedReferenceAndTamperedBytes() throws {
+        let root = try temporaryRoot()
+        let (workflows, printers, queues, value, printerReference) = try qualifiedStores(root: root)
+        let active = try ActiveVirtualQueueStore(root: root)
+        let reference = try queues.save(
+            queue(workflow: value, printerReference: printerReference),
+            workflowStore: workflows, printerStore: printers
+        )
+        let fabricated = try ImmutableProfileReference(
+            id: reference.id, revision: reference.revision,
+            sha256: String(repeating: "f", count: 64)
+        )
+        XCTAssertThrowsError(try active.compareAndSwap(
+            queue: fabricated, expected: nil, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        )) { XCTAssertEqual($0 as? ActiveVirtualQueueStore.Error, .queueReferenceMismatch) }
+
+        _ = try active.compareAndSwap(
+            queue: reference, expected: nil, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        )
+        let target = root.appending(path: "active-queues").appending(
+            path: "\(ActiveVirtualQueueStore.fileStem(reference.id)).json"
+        )
+        try Data("{}".utf8).write(to: target)
+        XCTAssertThrowsError(try active.load(
+            queueID: reference.id, queueStore: queues,
+            workflowStore: workflows, printerStore: printers
+        )) { XCTAssertEqual($0 as? ActiveVirtualQueueStore.Error, .cannotRead) }
     }
 }
