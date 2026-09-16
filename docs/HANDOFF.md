@@ -1,5 +1,12 @@
 # Current implementation handoff — revision 3
 
+Placement implementation `38fcee1` passed the full local gate exit 0:
+67/173/237 debug/release, both accelerator modes, independent/inert checks,
+local-ad-hoc signatures and packaged-worker PBM/ZPL equality. This clears the
+local combined-gate hold below; own hosted/review and all GUI, scheduler,
+physical/scanner acceptance remain pending. Existing prepared bytes are not
+replayed, and former analysis anchors are not silently migrated/requalified.
+
 Shared Quartz placement correction reproduces/fixes centered raw-point-sized
 rendering instead of planned dot enlargement, incomplete unequal-pitch extent,
 and reversed odd top/bottom spare-dot placement. Thirty-four focused native tests

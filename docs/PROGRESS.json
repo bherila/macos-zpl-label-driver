@@ -81,7 +81,7 @@
         "docs/validation/M3-ISOLATED-EXTRACTION-PREPARATION-2026-09-16.md (local full 67/166/158 gate and hosted 35073499862 passed exact 2e592f9; independent review clean at 38cef69; intake raster preparation uses bounded child)",
         "docs/validation/M3-ISOLATED-LAYOUT-ANALYSIS-2026-09-16.md (full local and hosted 35074656870 gate passed exact 67347e6; independent review clean; bounded child analysis and source-bound facts)",
         "docs/validation/M3-SHARED-PREPARATION-BUDGET-2026-09-16.md (one monotonic preparation deadline and distinct processing cancellation; 29 focused and full local/hosted 35075349804 gate passed exact 769f0c6; independent review clean)",
-        "docs/validation/M2-EXPLICIT-QUARTZ-PLACEMENT-2026-09-16.md (reproduced raw-point-size enlargement/unequal-pitch extent and odd vertical-margin defects; corrected explicit composed affine placement and top-down-to-Quartz Y mapping; 34 focused native tests and supplied-fixture frame pitch discriminator passed; full local/hosted/review pending; no physical evidence)"
+        "docs/validation/M2-EXPLICIT-QUARTZ-PLACEMENT-2026-09-16.md (38fcee1 reproduces/fixes raw-point-size enlargement/unequal-pitch extent and odd vertical-margin defects; explicit composed affine placement and top-down-to-Quartz Y mapping; 34 focused and full local 67/173/237 debug/release gate passed exit 0 with independent/inert/signature/packaged checks and supplied-fixture frame pitch discriminator; own hosted/review pending; no physical evidence)"
       ],
       "blockers": []
     },
