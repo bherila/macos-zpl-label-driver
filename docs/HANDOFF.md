@@ -29,7 +29,10 @@ but has no PR; integrate this correction and run its combined gate before promot
 The new test-only quality slice decodes the supplied synthetic Code128 and QR
 symbols from all three final 813 x 1219 bitmaps at one pixel per printer dot.
 All 15 focused pipeline tests passed, including six exact payload checks and
-a same-size blank negative control. The full gate is pending.
+a same-size blank negative control. Full local gate at `c9f58fb` passed exit 0:
+67 Python/178 Core/258 Mac debug/release, both accelerators, independent/inert
+checks, local signatures and packaged-worker PBM/ZPL equality. Own hosted CI
+awaits publication; no extra review for this test/documentation-only slice.
 Product rendering/encoding/detection code, fixtures and the independent decoder
 are unchanged. See `validation/M2-FINAL-BITMAP-BARCODES-2026-09-16.md`.
 No physical image-quality acceptance is added.
