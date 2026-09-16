@@ -27,8 +27,9 @@ At `501cdf1`, full local validation passed exit 0 with 67/173/213 debug/release,
 accelerator/independent/inert/signature and packaged-worker equality checks.
 Corrected hosted CI is pending. Hosted 35091595114 passed the preceding
 `a1e1f58`, not this correction. No third review request or merge is authorized.
-The fix is now integrated into the profile-transfer branch. Its combined gate
-must pass before publication; the earlier 218-test gate predates this fix.
+The fix is now integrated at `7cbbd56`; 46 combined focused native tests passed.
+Its full gate must pass before publication; the earlier 218-test gate predates
+this fix.
 
 PR #58 first review found restored full-page regions could be approved without
 explicit bounds/preview review. Same-branch correction requires acknowledgement
