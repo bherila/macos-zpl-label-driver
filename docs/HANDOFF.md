@@ -26,6 +26,15 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+The actual setup app now offers an explicit state-only offline diagnostic copy
+action. A fixed boolean allowlist excludes documents, identifiers, paths and raw
+errors, and explicitly establishes no scheduler/install/hardware acceptance.
+Three focused native tests and the app build passed; full local and own hosted
+CI/review remain pending. GUI clipboard operation is NOT RUN. See
+`validation/M5-OFFLINE-DIAGNOSTICS-2026-09-16.md`. The earlier maintainer manual
+editor check still uses its separately pinned artifact and does not require this
+new action or another build.
+
 The finite offline editor check now has Finder-only steps, exact supplied Letter
 crop values, artifact identity and a short result template in
 `validation/M5-OFFLINE-EDITOR-READINESS-2026-09-16.md`. The maintainer has offered
