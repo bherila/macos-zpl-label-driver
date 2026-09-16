@@ -1,7 +1,7 @@
 # M3 persisted-job restart recovery — 2026-09-15
 
-**Scope:** native automated evidence at `65dce21` with first-review remediation
-at `75fca07`. This slice adds a bounded
+**Scope:** native automated evidence at `65dce21` with review remediations at
+`75fca07` and `616a5d8`. This slice adds a bounded
 reconciliation primitive for one known accepted-job ID. It does not enumerate
 jobs, install a worker, connect scheduler intake, or contact a printer.
 
@@ -25,6 +25,9 @@ jobs, install a worker, connect scheduler intake, or contact a printer.
   first state read and its prepared-artifact read, recovery routes that observed
   state through the same lease-backed reconciliation path rather than failing
   outside the ownership boundary.
+- If cancellation or pre-send failure becomes visible in that same interval,
+  recovery boundedly reloads and returns the newer terminal outcome instead of
+  treating loss of the prepared binding as corruption.
 - State publication uncertainty remains explicit instead of being reported as
   successful reconciliation.
 
@@ -33,11 +36,11 @@ jobs, install a worker, connect scheduler intake, or contact a printer.
 On macOS 26.6.2 with Xcode 26.6:
 
 - `swift test --package-path Packages/LabelMac --filter AcceptedJobStoreTests`
-  — 39 passed;
-- `swift test --package-path Packages/LabelMac` — 144 passed;
-- `swift test -c release --package-path Packages/LabelMac` — 144 passed;
+  — 41 passed;
+- `swift test --package-path Packages/LabelMac` — 146 passed;
+- `swift test -c release --package-path Packages/LabelMac` — 146 passed;
 - complete `bash scripts/ci-swift.sh` exact-head gate — 64 Python tests,
-  165 LabelCore tests in debug and release, 144 LabelMac tests in debug and
+  165 LabelCore tests in debug and release, 146 LabelMac tests in debug and
   release, 132 independent encoder round trips, 15 backend ABI cases, 10
   filter ABI cases, one inert pipeline case, and local ad-hoc product signature
   verification passed at the remediated exact head.

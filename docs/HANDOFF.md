@@ -1365,6 +1365,16 @@ gate also passes 64 Python tests, 165 LabelCore tests in debug and release, 132
 independent round trips, all ABI/inert-pipeline checks, and local ad-hoc product
 signature verification. The second/final review is next.
 
+Second/final review remediation `616a5d8` handles cancellation and pre-send
+failure published between the same two reads. Recovery boundedly reloads the
+monotonic lifecycle and returns the newer payload-free terminal outcome rather
+than surfacing an avoidable invalid-state error. Two deterministic regressions
+bring LabelMac to 146 tests in debug and release; the complete exact-head gate
+again passes 64 Python tests, 165 LabelCore tests in debug and release, 132
+independent round trips, every ABI/inert-pipeline check, and local ad-hoc
+signature verification. Both permitted review passes are now reconciled; no
+third review will be requested.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
