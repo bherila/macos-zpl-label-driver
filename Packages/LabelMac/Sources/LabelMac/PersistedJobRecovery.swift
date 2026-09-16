@@ -15,6 +15,22 @@ public enum PersistedJobRecoveryOutcome: Equatable, Sendable {
     case cancelledBeforeTransmission
 }
 
+public enum PersistedJobRecoveryRecordResult: Equatable, Sendable {
+    case recovered(PersistedJobRecoveryOutcome)
+    case failed(PersistedJobRecovery.Error)
+}
+
+public struct PersistedJobRecoveryRecord: Equatable, Sendable {
+    public let acceptanceID: String
+    public let result: PersistedJobRecoveryRecordResult
+}
+
+public struct PersistedJobRecoverySweep: Equatable, Sendable {
+    public let records: [PersistedJobRecoveryRecord]
+    public let stagedArtifactCount: Int
+    public let invalidArtifactCount: Int
+}
+
 /// Reconciles one known accepted job after process restart. A persisted
 /// `transmitting` record is made terminally uncertain only after acquiring the
 /// same ticket-derived physical-device lease used by delivery. If another
@@ -25,12 +41,18 @@ public struct PersistedJobRecovery: @unchecked Sendable {
         case stateCommitUncertain
         case leaseUnavailable
         case invalidState
+        case invalidInventoryLimit
+        case inventoryUnavailable
+        case inventoryLimitExceeded
+        case inventorySourceLimitExceeded
+        case inventoryPreparedLimitExceeded
     }
 
     enum Event: Equatable, Sendable {
         case initialStateLoaded
     }
 
+    private let acceptedJobs: AcceptedJobStore
     private let states: AcceptedJobStateStore
     private let queues: VirtualQueueStore
     private let workflows: WorkflowProfileStore
@@ -45,6 +67,7 @@ public struct PersistedJobRecovery: @unchecked Sendable {
         printerStore: PrinterProfileStore,
         leaseDirectory: URL
     ) {
+        acceptedJobs = acceptedJobStore
         states = AcceptedJobStateStore(acceptedJobStore: acceptedJobStore)
         queues = queueStore
         workflows = workflowStore
@@ -61,12 +84,66 @@ public struct PersistedJobRecovery: @unchecked Sendable {
         leaseDirectory: URL,
         observe: @escaping @Sendable (Event) -> Void
     ) {
+        acceptedJobs = acceptedJobStore
         states = AcceptedJobStateStore(acceptedJobStore: acceptedJobStore)
         queues = queueStore
         workflows = workflowStore
         printers = printerStore
         self.leaseDirectory = leaseDirectory
         self.observe = observe
+    }
+
+    /// Discovers and reconciles a bounded snapshot of valid accepted jobs.
+    /// One invalid or concurrently unavailable job does not hide the outcomes
+    /// of other jobs. The sweep never deletes staging/invalid artifacts.
+    /// Byte budgets apply to the inventory's declared artifacts. Reconciliation
+    /// revalidates each job with its own bounded reads; this API is not a worker
+    /// deadline or an atomic snapshot of concurrent lifecycle changes.
+    public func reconcileAll(
+        maximumEntries: Int = 4_096,
+        maximumSourceBytes: Int = 512 * 1024 * 1024,
+        maximumPreparedBytes: Int = 512 * 1024 * 1024
+    ) throws -> PersistedJobRecoverySweep {
+        let inventory: AcceptedJobInventorySnapshot
+        do {
+            inventory = try acceptedJobs.inventory(
+                maximumEntries: maximumEntries,
+                maximumSourceBytes: maximumSourceBytes,
+                maximumPreparedBytes: maximumPreparedBytes,
+                queueStore: queues,
+                workflowStore: workflows,
+                printerStore: printers
+            )
+        } catch AcceptedJobStore.Error.invalidInventoryLimit {
+            throw Error.invalidInventoryLimit
+        } catch AcceptedJobStore.Error.inventoryLimitExceeded {
+            throw Error.inventoryLimitExceeded
+        } catch AcceptedJobStore.Error.inventorySourceLimitExceeded {
+            throw Error.inventorySourceLimitExceeded
+        } catch AcceptedJobStore.Error.inventoryPreparedLimitExceeded {
+            throw Error.inventoryPreparedLimitExceeded
+        } catch {
+            throw Error.inventoryUnavailable
+        }
+        let records = inventory.acceptanceIDs.map { acceptanceID in
+            let result: PersistedJobRecoveryRecordResult
+            do {
+                result = .recovered(try reconcile(acceptanceID: acceptanceID))
+            } catch let error as Error {
+                result = .failed(error)
+            } catch {
+                result = .failed(.stateUnavailable)
+            }
+            return PersistedJobRecoveryRecord(
+                acceptanceID: acceptanceID,
+                result: result
+            )
+        }
+        return PersistedJobRecoverySweep(
+            records: records,
+            stagedArtifactCount: inventory.stagedArtifactCount,
+            invalidArtifactCount: inventory.invalidArtifactCount
+        )
     }
 
     public func reconcile(

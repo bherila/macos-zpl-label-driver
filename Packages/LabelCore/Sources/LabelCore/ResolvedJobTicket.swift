@@ -305,6 +305,26 @@ public enum ResolvedJobTicketJSON {
         try decodeStructure(data, maximumBytes: maximumBytes).queue
     }
 
+    /// Reads the acceptance identity from a structurally complete bounded
+    /// ticket. The caller must still resolve and validate every immutable
+    /// reference before treating the ticket as an accepted job.
+    public static func acceptanceID(
+        _ data: Data,
+        maximumBytes: Int = maximumBytes
+    ) throws -> String {
+        try decodeStructure(data, maximumBytes: maximumBytes).acceptanceID
+    }
+
+    /// Reads the declared source size from the same complete bounded structure
+    /// used by `acceptanceID`. This permits a store to enforce a cumulative
+    /// scan budget before opening a potentially large source artifact.
+    public static func sourceByteCount(
+        _ data: Data,
+        maximumBytes: Int = maximumBytes
+    ) throws -> Int {
+        try decodeStructure(data, maximumBytes: maximumBytes).sourceByteCount
+    }
+
     public static func decode(
         _ data: Data,
         queueReference: ImmutableProfileReference,
