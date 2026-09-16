@@ -1376,6 +1376,13 @@ and local ad-hoc product signature verification. This is partial automated
 M3-AC09 evidence only: installed restart discovery, worker IPC, scheduler retry
 mapping, transport, USB, and physical output remain unverified.
 
+First-review remediation `75fca07` closes the ready-to-transmitting race. A
+deterministic barrier advances the job after recovery's first read; the second
+read now routes the observed transmitting state through the same physical-device
+lease rather than returning an ownership-blind error. The focused recovery set
+and all 144 LabelMac tests pass in debug and release. The exact-head complete
+repository gate remains to run before the second/final review.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
