@@ -108,6 +108,27 @@ final class WorkflowProfileStoreTests: XCTestCase {
             maximumRecordBytes: WorkflowProfileJSON.maximumBytes, maximumTotalBytes: count).count, 1)
     }
 
+    func testHistoricalCorrectionCopiesSelectedDefinitionBeyondLatestSameIdentity() throws {
+        let store = try WorkflowProfileStore(root: temporaryRoot())
+        let selected = try profile(revision: 1)
+        let latest = try profile(revision: 7, x: 0.2)
+        let unrelated = try WorkflowProfile(id: "other-workflow", revision: 99,
+            outputStockID: selected.outputStockID, outputStock: selected.outputStock,
+            pageRules: selected.pageRules)
+        try store.save(selected)
+        try store.save(latest)
+        try store.save(unrelated)
+        let correction = try store.correctionDraft(for: selected)
+        XCTAssertEqual(correction.profile.id, selected.id)
+        XCTAssertEqual(correction.profile.revision, 8)
+        XCTAssertEqual(correction.profile.pageRules, selected.pageRules)
+        XCTAssertNotEqual(correction.profile.pageRules, latest.pageRules)
+        try store.save(correction.profile)
+        XCTAssertEqual(try store.load(profileID: selected.id, revision: 1), selected)
+        XCTAssertEqual(try store.load(profileID: latest.id, revision: 7), latest)
+        XCTAssertThrowsError(try store.correctionDraft(for: profile(revision: 1, x: 0.3)))
+    }
+
     func testCatalogFIFORejectionWithAndWithoutWriterHasHardSubprocessDeadline() throws {
         let root = try temporaryRoot()
         let store = try WorkflowProfileStore(root: root)

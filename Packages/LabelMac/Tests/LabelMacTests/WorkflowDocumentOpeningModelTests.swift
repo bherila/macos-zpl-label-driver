@@ -97,7 +97,7 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
             store: store, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
         let profile = manual.profile
         let other = try WorkflowProfile(id: profile.id, revision: profile.revision,
-            outputStockID: "other-stock",
+            outputStockID: profile.outputStockID,
             outputStock: PhysicalSize(width: Millimeters(50), height: Millimeters(50)),
             pageRules: profile.pageRules)
         try store.save(other)
@@ -131,6 +131,84 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
             XCTAssertTrue(current.isSaved)
             XCTAssertEqual(model.error,
                 "The saved workflow changed or could not be verified. Refresh the saved workflow list.")
+        }
+    }
+
+    func testHistoricalReopeningReloadAndSavedEditsAdvanceBeyondStoredHistory() async throws {
+        let store = try store()
+        let model = WorkflowDocumentOpeningModel(store: store, workerExecutable: try worker())
+        model.open(fixture("letter-one"), mode: .manual)
+        await model.currentOpeningTask?.value
+        let oldEditor = try XCTUnwrap(model.editor)
+        try oldEditor.save()
+        let first = oldEditor.profile
+        try oldEditor.setSelectedRegionMillimeters(left: 20, top: 20, width: 101.6, height: 152.4)
+        try oldEditor.save()
+        let second = oldEditor.profile
+        XCTAssertEqual(second.revision, 2)
+        model.openSavedWorkflow(fixture("letter-one"), profile: first)
+        await model.currentOpeningTask?.value
+        let correction = try XCTUnwrap(model.editor)
+        XCTAssertNil(model.error)
+        XCTAssertEqual(correction.profile.revision, 3)
+        XCTAssertEqual(correction.profile.pageRules, first.pageRules)
+        try correction.setSelectedRegionMillimeters(left: 30, top: 30, width: 101.6, height: 152.4)
+        try correction.save()
+        XCTAssertEqual(try store.load(profileID: first.id, revision: 1), first)
+        XCTAssertEqual(try store.load(profileID: first.id, revision: 2), second)
+        try oldEditor.setSelectedRotation(.degrees90)
+        XCTAssertEqual(oldEditor.profile.revision, 4)
+        XCTAssertEqual(oldEditor.profile.pageRules[0].expectedInput, second.pageRules[0].expectedInput)
+        try oldEditor.save()
+        try correction.reloadForCorrection(profileID: first.id, revision: 1)
+        XCTAssertEqual(correction.profile.revision, 5)
+        XCTAssertEqual(correction.profile.pageRules, first.pageRules)
+        try correction.save()
+        XCTAssertEqual(try store.load(profileID: first.id, revision: 5), correction.profile)
+    }
+
+    func testEqualDimensionsNeverAuthorizeForeignStockIdentity() async throws {
+        let store = try store()
+        let manual = try await WorkflowEditorBootstrap.makeModelUsingWorker(
+            originalPDF: Data(contentsOf: fixture("letter-one")),
+            store: store, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let profile = manual.profile
+        let foreign = try WorkflowProfile(id: profile.id, revision: profile.revision,
+            outputStockID: "synthetic-continuous-stock", outputStock: profile.outputStock,
+            pageRules: profile.pageRules)
+        try store.save(foreign)
+        let model = WorkflowDocumentOpeningModel(store: store, workerExecutable: try worker())
+        model.openSavedWorkflow(fixture("letter-one"), profile: foreign)
+        await model.currentOpeningTask?.value
+        XCTAssertNil(model.editor)
+        XCTAssertEqual(model.error,
+            "This saved workflow uses different output stock. The current setup is 4×6 tear-off.")
+        XCTAssertEqual(try store.load(profileID: foreign.id, revision: foreign.revision), foreign)
+    }
+
+    func testUnavailableDetectorKindsAreRejectedBeforeWorkerRatherThanAsLayoutChanges() async throws {
+        for kind in [StructuralAnchorKind.barcodeLike, .darkBlock] {
+            let store = try store()
+            let manual = try await WorkflowEditorBootstrap.makeModelUsingWorker(
+                originalPDF: Data(contentsOf: fixture("letter-one")),
+                store: store, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+            let profile = manual.profile
+            let rule = profile.pageRules[0]
+            let unsupported = try WorkflowProfile(id: profile.id, revision: profile.revision,
+                outputStockID: profile.outputStockID, outputStock: profile.outputStock,
+                pageRules: [WorkflowPageRule(sourcePage: rule.sourcePage,
+                    expectedInput: rule.expectedInput, disposition: rule.disposition,
+                    structuralAnchors: [StructuralAnchorExpectation(id: "synthetic-anchor", kind: kind,
+                        normalizedRect: NormalizedRect(x: 0.1, y: 0.1, width: 0.1, height: 0.1))])])
+            try store.save(unsupported)
+            let model = WorkflowDocumentOpeningModel(store: store,
+                workerExecutable: URL(fileURLWithPath: "/nonexistent-layout-worker"))
+            model.openSavedWorkflow(fixture("letter-one"), profile: unsupported)
+            await model.currentOpeningTask?.value
+            XCTAssertNil(model.editor)
+            XCTAssertEqual(model.error,
+                "This saved workflow requires a layout detector unavailable in this build. The current draft was kept.")
+            XCTAssertEqual(try store.load(profileID: unsupported.id, revision: unsupported.revision), unsupported)
         }
     }
 

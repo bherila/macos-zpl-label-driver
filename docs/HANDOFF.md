@@ -1,5 +1,13 @@
 # Current implementation handoff — revision 3
 
+PR #56 first review found historical-revision collision, equal-dimension foreign
+stock acceptance and unavailable detectors mislabeled as layout changes. Local
+same-branch fixes use trusted latest-observed revision allocation for opening,
+reload and saved edits; validate stock identity plus dimensions; reject non-border
+detectors before worker admission. 52 focused native tests passed; full gate
+pending. See `validation/M4-SAVED-REOPENING-REVIEW-2026-09-16.md`. Original
+hosted run 35085759520 passed exact `ef26682`; it does not validate these fixes.
+
 Latest local slice connects saved-revision listing and Reopen with PDF in setup.
 It validates the selected immutable snapshot and all original source pages/layout
 through the real worker/planner before creating an unsaved correction revision.

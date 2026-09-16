@@ -137,6 +137,8 @@ public final class WorkflowDocumentOpeningModel: ObservableObject {
                         self.error = "Unsupported page size. Use native 4×6, Letter or A4 input."
                     case WorkflowEditorBootstrap.Error.unsupportedOutputStock:
                         self.error = "This saved workflow uses different output stock. The current setup is 4×6 tear-off."
+                    case WorkflowEditorBootstrap.Error.unsupportedLayoutDetector:
+                        self.error = "This saved workflow requires a layout detector unavailable in this build. The current draft was kept."
                     case WorkflowEditorBootstrap.Error.ambiguousBorderCandidates:
                         self.error = "Competing label regions require a manual extraction workflow."
                     case WorkflowEditorBootstrap.Error.noBorderCandidate:

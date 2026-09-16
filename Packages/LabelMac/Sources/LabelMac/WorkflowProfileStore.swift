@@ -96,6 +96,23 @@ public struct WorkflowProfileStore: @unchecked Sendable {
         }
     }
 
+    /// Preserve the selected historical definition, but advance beyond all
+    /// currently observed revisions. This is not a reservation: concurrent
+    /// editors can still conflict safely at immutable publication.
+    public func correctionDraft(for snapshot: WorkflowProfile) throws -> WorkflowProfileDraft {
+        guard try load(profileID: snapshot.id, revision: snapshot.revision) == snapshot else {
+            throw Error.profileConflict
+        }
+        let latest = try savedWorkflows().filter { $0.profile.id == snapshot.id }
+            .map { $0.profile.revision }.max()
+        guard let latest, latest >= snapshot.revision else { throw Error.profileIdentityMismatch }
+        guard latest < Int.max else { throw WorkflowProfileDraft.Error.revisionOverflow }
+        return WorkflowProfileDraft(profile: try WorkflowProfile(
+            id: snapshot.id, revision: latest + 1,
+            outputStockID: snapshot.outputStockID, outputStock: snapshot.outputStock,
+            monochromeConversion: snapshot.monochromeConversion, pageRules: snapshot.pageRules))
+    }
+
     /// Persists local confirmation only after the exact immutable profile
     /// revision is present. The definition is never copied into this record.
     public func confirmForUnattendedUse(_ profile: WorkflowProfile) throws {
