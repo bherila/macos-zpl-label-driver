@@ -213,6 +213,22 @@ public struct RenderWorkerScratchRecoveryReport: Equatable, Sendable {
 }
 
 extension OfflineRenderWorkerProcess {
+    /// Recovery is ancillary: an unavailable scan must not disable setup.
+    /// Errors are sanitized and never authorize broader cleanup.
+    public static func scratchRecoveryWarning(
+        scan: () throws -> RenderWorkerScratchRecoveryReport = { try recoverAbandonedScratch() }
+    ) -> String? {
+        do {
+            let report = try scan()
+            if report.requiresReview > 0 || report.truncated {
+                return "Some temporary worker data require manual review; they were not removed."
+            }
+            return nil
+        } catch {
+            return "Temporary worker recovery is unavailable. Retained data may require manual review."
+        }
+    }
+
     /// Removes only proven-owned, dead-parent, unlocked scratch directories.
     /// Legacy/unmarked/ambiguous material is reported, never adopted or purged.
     public static func recoverAbandonedScratch() throws -> RenderWorkerScratchRecoveryReport {
