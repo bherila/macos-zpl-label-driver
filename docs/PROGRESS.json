@@ -14,7 +14,8 @@
         "2026-09-15 local Tahoe ARM: accelerator debug/release, LabelCore 47 tests, LabelMac Core Graphics smoke debug/release, and inert local-ad-hoc signing smoke passed",
         "docs/validation/M0-STACKED-PR-CI-2026-09-16.md (79411af unrestricted PR-target CI trigger; automatic stacked PR run 35069832168 passed exact aaf8425 with full native tests and signatures)",
         "scripts/ci_scope.py (docs plus mandatory manifest classification corrected with 67 Python tests; hosted docs-only aggregate acceptance remains unproven)",
-        "docs/validation/M0-DOCS-MANIFEST-SCOPE-2026-09-16.md (full native run 35070667206 passed exact 431f0d6; docs-only run 35070738539 passed exact 83aec67 with native skipped and aggregate green; deliberate failure/fork remain open)"
+        "docs/validation/M0-DOCS-MANIFEST-SCOPE-2026-09-16.md (full native run 35070667206 passed exact 431f0d6; docs-only run 35070738539 passed exact 83aec67 with native skipped and aggregate green; deliberate failure/fork remain open)",
+        "codex/m0-fail-closed-validation temporary intentional Python failure (local focused exit 1 confirmed; never merge failing head; hosted negative/recovery probe pending)"
       ],
       "blockers": []
     },

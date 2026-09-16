@@ -1449,6 +1449,14 @@ round trips, every ABI/inert check, and ad-hoc signatures. PR #40 run
 `84ac6da` additionally passed run `35070883055` with native skipped and the
 aggregate green. No installation or physical acceptance follows.
 
+The isolated `codex/m0-fail-closed-validation` branch contains a temporary,
+deliberately failing Python test for M0-AC06. Its focused local invocation
+failed with the intended marker and exit 1. Never merge this failing head.
+The finite next step is to observe automatic repository/aggregate failure,
+remove only that injected test, rerun the normal suites, and verify a green
+recovery head. Hosted negative evidence is pending; no product, installation,
+scheduler, or printer behavior changed.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
