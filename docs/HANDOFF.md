@@ -3,7 +3,9 @@
 Placement implementation `38fcee1` passed the full local gate exit 0:
 67/173/237 debug/release, both accelerator modes, independent/inert checks,
 local-ad-hoc signatures and packaged-worker PBM/ZPL equality. This clears the
-local combined-gate hold below; own hosted/review and all GUI, scheduler,
+local combined-gate hold below. Hosted run 35100066256 passed exact f1912b3
+with 237 Mac tests debug/release and signatures/packaged equality; first review
+found a stale local-gate clause corrected here. Second review, GUI, scheduler,
 physical/scanner acceptance remain pending. Existing prepared bytes are not
 replayed, and former analysis anchors are not silently migrated/requalified.
 
@@ -12,8 +14,9 @@ rendering instead of planned dot enlargement, incomplete unequal-pitch extent,
 and reversed odd top/bottom spare-dot placement. Thirty-four focused native tests
 pass, including independent supplied-fixture frame coordinates at 8 dots/mm.
 The original fixture and corrected actual Quartz image were visually inspected;
-no physical/scanner result follows. Full combined local gate and own hosted/review
-are pending. See `validation/M2-EXPLICIT-QUARTZ-PLACEMENT-2026-09-16.md`.
+no physical/scanner result follows. Full combined local gate and preceding
+exact-head hosted CI passed as recorded above; correction review remains pending.
+See `validation/M2-EXPLICIT-QUARTZ-PLACEMENT-2026-09-16.md`.
 Barcode worker WIP is preserved in an owned local stash and paused until this
 shared fidelity fix is validated. Parent #62 exact 4a39317 hosted 35098760337
 passed; second review is clean at unchanged base/head and both findings resolved.
