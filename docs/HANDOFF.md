@@ -1119,6 +1119,18 @@ partial automated M3-AC09/12 and M5-AC07/09 evidence only. Scheduler intake,
 prepared-artifact integration, scheduler retry mapping, restart recovery,
 retention/deletion policy, and all installed/hardware evidence remain open.
 
+At `acf11ab`, M3 gained a complete ordered prepared-job payload contract. The
+contract requires exactly one typed production-encoder result per resolved
+output label, preserves that order, requires one immutable printer-profile
+snapshot across every label, rejects empty labels, and preflights the aggregate
+64 MiB bound before concatenation. Direct public construction of individual
+prepared labels is removed, narrowing public creation to the typed encoder.
+Seven focused tests and the complete CI-equivalent sequence pass with 163
+LabelCore and 101 LabelMac tests in both configurations. This is partial
+automated M3-AC02/09 and M5-AC07 evidence only. Persistent artifact publication,
+the accepted-to-prepared atomic boundary, real multi-page rendering, scheduler
+intake, delivery, and all installed/hardware evidence remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
