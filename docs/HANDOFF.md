@@ -26,6 +26,13 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+Local native read-only discovery implementation now connects a user-initiated
+scan/session interface picker to setup without qualifying identity or enabling
+installation. Native build and 13 focused reader/model/setup tests passed; full
+combined gate is pending. Hold the discovery PR while parent #59 first finding
+4025900013 is fixed: publication must enforce workflow catalog capacity under
+concurrent writers. See `validation/M5-READ-ONLY-USB-DISCOVERY-2026-09-16.md`.
+
 Finite native read-only USB registry matching returned success with empty/null
 iterators for host device and interface classes in this execution context. No
 device connection/serial/property-table access or printer command occurred.

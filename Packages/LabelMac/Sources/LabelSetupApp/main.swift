@@ -11,6 +11,7 @@ final class SetupAppController: ObservableObject {
 
     let documents: WorkflowDocumentOpeningModel?
     let printerSetup: ReferencePrinterSetupModel?
+    let usbDiscovery = USBRegistryDiscoveryModel()
     let previewWorkerExecutable = (Bundle.main.executableURL?.deletingLastPathComponent()
         ?? Bundle.main.bundleURL.appending(path: "Contents/MacOS"))
         .appending(path: "label-render-worker")
@@ -56,6 +57,7 @@ struct SetupRootView: View {
                 if let printerSetup = controller.printerSetup {
                     ReferencePrinterSetupView(model: printerSetup)
                 }
+                USBRegistryDiscoveryView(model: controller.usbDiscovery)
                 Group {
                     if let documents = controller.documents {
                         SetupDocumentView(documents: documents,
