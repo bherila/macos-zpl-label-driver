@@ -34,6 +34,7 @@ public struct ZPLControlProtocol: Equatable, Sendable {
 }
 
 public enum ZPLControlEncodingError: Error, Equatable, Sendable {
+    case unsupportedPrintSpeed(Int)
     case unqualifiedDarkness
     case unqualifiedTracking
     case unsupportedThermalMethod
@@ -67,6 +68,11 @@ public struct ZPLControlEncoder: Sendable {
         }
         guard controls.darkness == .leaveUnchanged else { throw ZPLControlEncodingError.unqualifiedDarkness }
         guard controls.tracking == .leaveUnchanged else { throw ZPLControlEncodingError.unqualifiedTracking }
+        // This encoder implements only the documented GC420d subset. A caller's
+        // capability declaration cannot widen the documented command subset.
+        if case let .value(speed) = controls.printSpeedIps, ![2, 3, 4].contains(speed) {
+            throw ZPLControlEncodingError.unsupportedPrintSpeed(speed)
+        }
 
         var output = Data()
         if controls.finishing == .value(.tearOff) { output.append(contentsOf: "^MMT\n".utf8) }
