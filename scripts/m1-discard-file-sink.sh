@@ -259,11 +259,29 @@ create_queue() { controlled_lpadmin -p "$queue" -v "$uri" -i "$1" -o printer-is-
 disable_queue() { controlled_cupsdisable; }
 reject_queue() { controlled_cupsreject; }
 
+reserve_root() {
+  local reservation_signal='' status
+  trap 'reservation_signal=INT' INT
+  trap 'reservation_signal=TERM' TERM
+  trap 'reservation_signal=HUP' HUP
+  create_root
+  status=$?
+  if [[ "$status" == 0 ]]; then
+    root_reserved=1
+    transaction_active=1
+  fi
+  trap 'interrupt_process INT' INT
+  trap 'interrupt_process TERM' TERM
+  trap 'interrupt_process HUP' HUP
+  if [[ -n "$reservation_signal" ]]; then
+    interrupt_process "$reservation_signal"
+  fi
+  return "$status"
+}
+
 install_transaction() {
   local snapshot="$1" generated="$2" intent="$3"
-  create_root || return 1
-  root_reserved=1
-  transaction_active=1
+  reserve_root || return 1
   transaction_checkpoint root-created || return 1
   install_intent "$intent" || return 1
   transaction_checkpoint intent-installed || return 1
@@ -385,15 +403,16 @@ ensure_not_existing() {
 }
 
 ownership_record_matches() {
-  local source_ppd_sha recorded_scheduler root_metadata
+  local source_ppd_sha recorded_scheduler root_metadata line_count schema_version
   /usr/bin/sudo -n /usr/bin/test -f "$ownership" &&
     ! /usr/bin/sudo -n /usr/bin/test -L "$ownership" &&
     /usr/bin/sudo -n /usr/bin/test -d "$root" &&
     ! /usr/bin/sudo -n /usr/bin/test -L "$root" || return 1
   root_metadata="$(/usr/bin/sudo -n /usr/bin/stat -f '%u:%g:%Lp' "$root")" || return 1
   [[ "$root_metadata" == '0:0:755' ]] || return 1
-  [[ "$(/usr/bin/sudo -n /usr/bin/awk 'END { print NR }' "$ownership")" == 9 ]] || return 1
-  /usr/bin/sudo -n /usr/bin/grep -Fqx 'schemaVersion=3' "$ownership" || return 1
+  line_count="$(/usr/bin/sudo -n /usr/bin/awk 'END { print NR }' "$ownership")" || return 1
+  schema_version="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "schemaVersion" { print $2 }' "$ownership")" || return 1
+  ownership_schema_is_supported "$line_count" "$schema_version" || return 1
   /usr/bin/sudo -n /usr/bin/grep -Fqx 'state=apply-intent' "$ownership" || return 1
   /usr/bin/sudo -n /usr/bin/grep -Fqx "queue=$queue" "$ownership" || return 1
   /usr/bin/sudo -n /usr/bin/grep -Fqx "uri=$uri" "$ownership" || return 1
@@ -401,11 +420,23 @@ ownership_record_matches() {
   approved_sha="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "filterSHA256" { print $2 }' "$ownership")" || return 1
   source_ppd_sha="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "sourcePPDSHA256" { print $2 }' "$ownership")" || return 1
   recorded_scheduler="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "scheduler" { print $2 }' "$ownership")" || return 1
-  approved_transaction_id="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "transactionID" { print $2 }' "$ownership")" || return 1
+  approved_transaction_id=''
+  if [[ "$schema_version" == 3 ]]; then
+    approved_transaction_id="$(/usr/bin/sudo -n /usr/bin/awk -F= '$1 == "transactionID" { print $2 }' "$ownership")" || return 1
+  fi
   [[ "$approved_sha" =~ ^[0-9a-f]{64}$ && "$source_ppd_sha" =~ ^[0-9a-f]{64}$ ]] || return 1
-  [[ "$approved_transaction_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || return 1
+  if [[ "$schema_version" == 3 ]]; then
+    [[ "$approved_transaction_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || return 1
+  fi
   is_supplied_ppd_sha "$source_ppd_sha" || return 1
   [[ "$recorded_scheduler" == "$scheduler" ]] || return 1
+}
+
+ownership_schema_is_supported() {
+  case "$1:$2" in
+    8:2|9:3) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 ownership_record_matches_current() {

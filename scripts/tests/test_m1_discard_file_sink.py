@@ -268,6 +268,20 @@ printf '%s|%s%s%s%s\n' "$events" "$root_present" "$intent_present" "$filter_pres
         self.assertNotIn("launchctl", text)
         self.assertNotIn("lpadmin -d", text)
 
+    def test_explicit_recovery_accepts_only_exact_schema_two_or_three_shapes(self) -> None:
+        harness = f"""
+set -euo pipefail
+export M1_TRANSACTION_SOURCE_ONLY=1
+source {str(SCRIPT)!r}
+ownership_schema_is_supported 8 2
+ownership_schema_is_supported 9 3
+! ownership_schema_is_supported 8 3
+! ownership_schema_is_supported 9 2
+! ownership_schema_is_supported 10 3
+"""
+        result = subprocess.run(["bash", "-c", harness], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_recovery_removes_queue_before_filter_and_record(self) -> None:
         result = self.run_recovery_harness("""
 calls=0
@@ -384,6 +398,30 @@ printf '%s\n' "$events"
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout.strip(), "AIFQX|1111")
+
+    def test_term_after_successful_root_creation_enters_owned_cleanup(self) -> None:
+        harness = f"""
+set -euo pipefail
+export M1_TRANSACTION_SOURCE_ONLY=1
+source {str(SCRIPT)!r}
+scheduler=/private/var/run/cupsd
+temporary=''
+root_present=0
+create_root() {{ root_present=1; printf A; kill -TERM $$; return 0; }}
+protected_root_state() {{ [[ $root_present == 1 ]] && return 0; return 1; }}
+ownership_record_matches_current() {{ return 1; }}
+empty_reserved_root_matches() {{ [[ $root_present == 1 ]]; }}
+remove_root() {{ root_present=0; printf r; }}
+report_residual_state() {{ printf X; }}
+trap finish_process EXIT
+trap 'interrupt_process INT' INT
+trap 'interrupt_process TERM' TERM
+trap 'interrupt_process HUP' HUP
+install_transaction snapshot generated intent
+"""
+        result = subprocess.run(["bash", "-c", harness], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 143, result.stderr)
+        self.assertEqual(result.stdout, "Ar")
 
     def test_preflight_distinguishes_existing_queue_query_failure_and_existing_root(self) -> None:
         for state, expected in [(0, "refusing to replace an existing"), (2, "could not prove")]:
