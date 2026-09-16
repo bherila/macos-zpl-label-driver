@@ -38,6 +38,7 @@ public struct OfflineRenderWorkerFailure: Codable, Equatable, Sendable {
         case geometryInvalid = "GEOMETRY_INVALID"
         case renderFailed = "RENDER_FAILED"
         case preparationFailed = "PREPARATION_FAILED"
+        case layoutDetectorUnavailable = "LAYOUT_DETECTOR_UNAVAILABLE"
     }
 
     public let schemaVersion: Int
@@ -276,6 +277,10 @@ public enum OfflineRenderWorkerProcess {
     static func classifyFailure(_ error: Swift.Error) -> OfflineRenderWorkerFailure {
         let code: OfflineRenderWorkerFailure.Code
         switch error {
+        case QuartzBarcodeAnalyzer.Error.detectorUnavailable:
+            code = .layoutDetectorUnavailable
+        case QuartzBarcodeAnalyzer.Error.observationLimitExceeded:
+            code = .limitExceeded
         case is OfflineConversionTicket.TicketError:
             code = .jobTicketInvalid
         case QuartzPDFRenderer.Error.malformedOrUnsupportedPDF:

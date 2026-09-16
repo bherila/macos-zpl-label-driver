@@ -62,7 +62,7 @@ public enum WorkflowEditorBootstrap {
                 throw Error.unsupportedOutputStock
             }
             guard savedProfile.pageRules.allSatisfy({ rule in
-                rule.structuralAnchors.allSatisfy { $0.kind == .border }
+                rule.structuralAnchors.allSatisfy { $0.kind == .border || $0.kind == .barcodeLike }
             }) else { throw Error.unsupportedLayoutDetector }
         }
         let deadline = ContinuousClock.now.advanced(by: .nanoseconds(Int64(deadlineSeconds * 1e9)))
@@ -77,6 +77,9 @@ public enum WorkflowEditorBootstrap {
                 let analyzed = try OfflineLayoutWorker.analyze(originalPDF: originalPDF, structuralPages: structuralPages,
                     workerExecutable: workerExecutable, maximumSourcePages: maximumPages,
                     analyzeAllPages: savedProfile == nil && mode == .assisted,
+                    barcodePages: savedProfile?.pageRules.filter { rule in
+                        rule.structuralAnchors.contains { $0.kind == .barcodeLike }
+                    }.map(\.sourcePage) ?? [],
                     deadlineSeconds: min(remaining, 60), cancellation: cancellation)
                 return (analyzed, correction)
             }.value

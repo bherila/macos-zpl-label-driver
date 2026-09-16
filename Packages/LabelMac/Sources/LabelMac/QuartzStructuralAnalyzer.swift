@@ -16,6 +16,22 @@ public enum QuartzStructuralAnalyzer {
         maximumInputBytes: Int = 100 * 1024 * 1024,
         maximumSourcePages: Int = 1_000
     ) throws -> AnalyzedSourcePage {
+        let (pageBox, grayscale) = try analysisRaster(originalPDF: originalPDF,
+            pageNumber: pageNumber, maximumDimension: maximumDimension,
+            maximumInputBytes: maximumInputBytes, maximumSourcePages: maximumSourcePages)
+        let anchors = try StructuralAnchorAnalyzer.analyzeBorders(.init(
+            width: grayscale.width,
+            height: grayscale.height,
+            bytesPerRow: grayscale.bytesPerRow,
+            pixels: grayscale.pixels
+        ))
+        return try AnalyzedSourcePage(pageBox: pageBox, anchors: anchors)
+    }
+
+    /// Shared original-document raster boundary for analysis adapters, never final output.
+    static func analysisRaster(originalPDF: Data, pageNumber: Int, maximumDimension: Int,
+        maximumInputBytes: Int, maximumSourcePages: Int
+    ) throws -> (PDFPageBox, QuartzPDFRenderer.GrayscaleBitmap) {
         // These are hard ceilings, not caller-raisable defaults.
         guard (32...1_024).contains(maximumDimension),
               (1...(100 * 1024 * 1024)).contains(maximumInputBytes),
@@ -49,12 +65,6 @@ public enum QuartzStructuralAnalyzer {
             maximumSourcePages: maximumSourcePages,
             maximumPixels: 1_048_576
         ))
-        let anchors = try StructuralAnchorAnalyzer.analyzeBorders(.init(
-            width: grayscale.width,
-            height: grayscale.height,
-            bytesPerRow: grayscale.bytesPerRow,
-            pixels: grayscale.pixels
-        ))
-        return try AnalyzedSourcePage(pageBox: pageBox, anchors: anchors)
+        return (pageBox, grayscale)
     }
 }

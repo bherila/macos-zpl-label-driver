@@ -68,6 +68,44 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
         XCTAssertThrowsError(try corrected.approveForUnattendedUse())
     }
 
+    func testSavedBarcodeProfileReopensWithRealWorkerAndRequiresFreshBoundsReview() async throws {
+        let store = try store()
+        let source = try Data(contentsOf: fixture("native-vector"))
+        let executable = try worker()
+        let analyzed = try OfflineLayoutWorker.analyze(originalPDF: source,
+            structuralPages: [1], workerExecutable: executable, barcodePages: [1], deadlineSeconds: 5)
+        let barcode = try XCTUnwrap(analyzed[0].anchors?.first { $0.kind == .barcodeLike })
+        let manual = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: store, workerExecutable: executable, deadlineSeconds: 5, mode: .manual)
+        let definition = manual.profile
+        let rule = definition.pageRules[0]
+        let saved = try WorkflowProfile(id: definition.id, revision: definition.revision,
+            outputStockID: definition.outputStockID, outputStock: definition.outputStock,
+            pageRules: [WorkflowPageRule(sourcePage: 1, expectedInput: rule.expectedInput,
+                disposition: rule.disposition, structuralAnchors: [StructuralAnchorExpectation(
+                    id: "synthetic-barcode-location", kind: .barcodeLike, normalizedRect: barcode.normalizedRect)])])
+        try store.save(saved)
+        let model = WorkflowDocumentOpeningModel(store: store, workerExecutable: executable)
+        model.openSavedWorkflow(fixture("native-vector"), profile: saved)
+        await model.currentOpeningTask?.value
+        let reopened = try XCTUnwrap(model.editor)
+        XCTAssertNil(model.error)
+        XCTAssertTrue(reopened.isReopenedWorkflow)
+        XCTAssertFalse(reopened.isSaved)
+        XCTAssertEqual(reopened.profile.revision, saved.revision + 1)
+        XCTAssertEqual(reopened.profile.pageRules, saved.pageRules)
+        XCTAssertFalse(reopened.canApproveForUnattendedUse)
+        XCTAssertThrowsError(try store.qualification(for: reopened.profile)) // Not published yet.
+        await manual.refreshPreviewInWorker(workerExecutable: executable, deadlineSeconds: 5)
+        await reopened.refreshPreviewInWorker(workerExecutable: executable, deadlineSeconds: 5)
+        XCTAssertNotNil(reopened.preview)
+        XCTAssertEqual(reopened.preview?.bitmap, manual.preview?.bitmap)
+        try reopened.save()
+        XCTAssertNil(try store.qualification(for: reopened.profile))
+        XCTAssertFalse(reopened.canApproveForUnattendedUse)
+        XCTAssertEqual(try store.load(profileID: saved.id, revision: saved.revision), saved)
+    }
+
     func testSavedWorkflowMismatchPreservesEditorAndPriorQualification() async throws {
         let store = try store()
         let model = WorkflowDocumentOpeningModel(store: store, workerExecutable: try worker())
@@ -220,7 +258,7 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
     }
 
     func testUnavailableDetectorKindsAreRejectedBeforeWorkerRatherThanAsLayoutChanges() async throws {
-        for kind in [StructuralAnchorKind.barcodeLike, .darkBlock] {
+        for kind in [StructuralAnchorKind.darkBlock] {
             let store = try store()
             let manual = try await WorkflowEditorBootstrap.makeModelUsingWorker(
                 originalPDF: Data(contentsOf: fixture("letter-one")),

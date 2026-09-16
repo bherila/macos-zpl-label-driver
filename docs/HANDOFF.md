@@ -1,5 +1,19 @@
 # Current implementation handoff — revision 3
 
+Native location-only barcode integration reuses the corrected Quartz analysis
+raster and existing deadline-supervised child. Explicit version-2 requests bind
+barcode facts to requested pages; default border-only behavior stays version 1.
+Saved-profile reopening and synthetic accepted/prepared/inert delivery now request
+the detector where immutable barcode checks require it. Thirty-seven focused
+native tests pass, including independent supplied QR placement, observed-empty
+instructions, unchanged original-source prepared bytes and pre-acceptance mismatch
+rejection. Full combined gate and own hosted/review are pending; network-disabled,
+minimum-runtime, GUI and physical acceptance remain open. No payload fields are
+read and no barcode bounds become a guessed crop. See
+`validation/M4-NATIVE-BARCODE-LOCATIONS-2026-09-16.md`.
+The earlier owned barcode stash has been restored after the placement local gate
+passed; it is not an outstanding recovery item.
+
 Placement implementation `38fcee1` passed the full local gate exit 0:
 67/173/237 debug/release, both accelerator modes, independent/inert checks,
 local-ad-hoc signatures and packaged-worker PBM/ZPL equality. This clears the

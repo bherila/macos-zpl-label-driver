@@ -39,6 +39,74 @@ final class OfflineLayoutWorkerTests: XCTestCase {
         }
     }
 
+    func testRealBarcodeChildUsesOriginalQuartzRasterAndCanonicalFixturePlacement() throws {
+        let source = try fixture("native-vector")
+        let analyzed = try OfflineLayoutWorker.analyze(originalPDF: source,
+            structuralPages: [1], workerExecutable: worker(), barcodePages: [1], deadlineSeconds: 5)
+        let page = try XCTUnwrap(analyzed.first)
+        XCTAssertEqual(page.pageBox, try QuartzPDFRenderer.pageBox(originalPDF: source, pageNumber: 1))
+        let locations = try XCTUnwrap(page.anchors).filter { $0.kind == .barcodeLike }
+        XCTAssertFalse(locations.isEmpty, "the supplied synthetic QR must be observed, not skipped")
+        XCTAssertLessThanOrEqual(locations.count, QuartzBarcodeAnalyzer.maximumObservations)
+        // Independent source artwork: QR quiet-zone square at (182,151), size 84,
+        // on a 288x432 point page. Vision observes barcode pixels inside that square.
+        let quietZone = try NormalizedRect(x: 182.0 / 288, y: (432.0 - 151 - 84) / 432,
+            width: 84.0 / 288, height: 84.0 / 432)
+        XCTAssertTrue(locations.contains { anchor in
+            let r = anchor.normalizedRect
+            return r.x >= quietZone.x - 0.01 && r.y >= quietZone.y - 0.01 &&
+                r.x + r.width <= quietZone.x + quietZone.width + 0.01 &&
+                r.y + r.height <= quietZone.y + quietZone.height + 0.01 &&
+                r.width > quietZone.width * 0.5 && r.height > quietZone.height * 0.5
+        }, "canonical bounds must discriminate top/bottom and lie inside the original QR artwork: \(locations.map(\.normalizedRect))")
+        let borders = try QuartzStructuralAnalyzer.analyzeBorders(originalPDF: source, pageNumber: 1)
+        XCTAssertEqual(page.anchors?.filter { $0.kind == .border }, borders.anchors)
+        let repeated = try OfflineLayoutWorker.analyze(originalPDF: source,
+            structuralPages: [1], workerExecutable: worker(), barcodePages: [1], deadlineSeconds: 5)
+        XCTAssertEqual(repeated, analyzed)
+    }
+
+    func testBarcodeRequestsAndUntrustedKindsAreExplicitlyBounded() throws {
+        for request in [
+            OfflineLayoutWorker.Request(schemaVersion: 1, structuralPages: [], barcodePages: [1]),
+            .init(schemaVersion: 1, structuralPages: [1], barcodePages: [1]),
+            .init(schemaVersion: 2, structuralPages: [], barcodePages: [1]),
+            .init(schemaVersion: 2, structuralPages: [1], barcodePages: [1, 1]),
+            .init(schemaVersion: 2, structuralPages: [1], maximumPages: 1, barcodePages: [2])
+        ] { XCTAssertThrowsError(try request.validate()) }
+        let source = Data("synthetic source".utf8)
+        let box = try PDFPageBox(originX: 0, originY: 0, width: 288, height: 432)
+        let barcode = ObservedPageAnchor(kind: .barcodeLike,
+            normalizedRect: try NormalizedRect(x: 0.1, y: 0.2, width: 0.3, height: 0.4))
+        func result(_ anchors: [ObservedPageAnchor], version: Int = 2) throws -> Data {
+            try JSONEncoder().encode(OfflineLayoutWorker.Result(schemaVersion: version,
+                sourceSHA256: OfflineLayoutWorker.digest(source), pages: [
+                    OfflineLayoutWorker.Page(try AnalyzedSourcePage(pageBox: box, anchors: anchors))]))
+        }
+        let explicit = OfflineLayoutWorker.Request(schemaVersion: 2, structuralPages: [1], barcodePages: [1])
+        XCTAssertEqual(try OfflineLayoutWorker.validate(result([barcode]), originalPDF: source,
+            request: explicit)[0].anchors, [barcode])
+        XCTAssertThrowsError(try OfflineLayoutWorker.validate(result([barcode], version: 1), originalPDF: source,
+            request: .init(schemaVersion: 1, structuralPages: [1])))
+        XCTAssertThrowsError(try OfflineLayoutWorker.validate(result([], version: 1), originalPDF: source,
+            request: explicit), "an older border-only result cannot acknowledge barcode analysis")
+        let unsupported = ObservedPageAnchor(kind: .darkBlock, normalizedRect: barcode.normalizedRect)
+        XCTAssertThrowsError(try OfflineLayoutWorker.validate(result([unsupported]), originalPDF: source,
+            request: explicit))
+        XCTAssertThrowsError(try OfflineLayoutWorker.validate(
+            result(Array(repeating: barcode, count: QuartzBarcodeAnalyzer.maximumObservations + 1)),
+            originalPDF: source, request: explicit))
+    }
+
+    func testRealNonLabelPageReturnsObservedEmptyBarcodeLocationsWithoutAnalyzingOtherPage() throws {
+        let analyzed = try OfflineLayoutWorker.analyze(originalPDF: fixture("non-label-pages"),
+            structuralPages: [2], workerExecutable: worker(), barcodePages: [2], deadlineSeconds: 5)
+        XCTAssertEqual(analyzed.count, 2)
+        XCTAssertNil(analyzed[0].anchors)
+        let observed = try XCTUnwrap(analyzed[1].anchors)
+        XCTAssertTrue(observed.filter { $0.kind == .barcodeLike }.isEmpty)
+    }
+
     func testAnalysisDeadlineAndCancellationUseOwnedChildLifecycle() throws {
         let start = ContinuousClock.now
         XCTAssertThrowsError(try OfflineLayoutWorker.analyze(originalPDF: Data("%PDF".utf8),
