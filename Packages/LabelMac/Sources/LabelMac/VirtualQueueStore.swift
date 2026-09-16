@@ -12,6 +12,7 @@ public struct VirtualQueueStore: @unchecked Sendable {
         case unsafeStoreDirectory
         case cannotRead
         case cannotWrite
+        case commitUncertain(ImmutablePublicationIdentity)
         case queueConflict
         case queueIdentityMismatch
         case workflowReferenceMismatch
@@ -28,6 +29,11 @@ public struct VirtualQueueStore: @unchecked Sendable {
         catch { throw Self.mapStorage(error) }
     }
 
+    init(root: URL, storage: PrivateImmutableDirectory) {
+        self.root = root
+        self.storage = storage
+    }
+
     @discardableResult
     public func save(
         _ queue: VirtualQueueDefinition,
@@ -38,6 +44,10 @@ public struct VirtualQueueStore: @unchecked Sendable {
             queue, workflowStore: workflowStore, printerStore: printerStore
         )
         let bytes = try VirtualQueueJSON.encode(queue)
+        let reference = try ImmutableProfileReference(
+            id: queue.id, schemaVersion: queue.schemaVersion,
+            revision: queue.revision, sha256: Self.digest(bytes)
+        )
         do {
             try storage.publish(
                 bytes, directory: "queues",
@@ -46,13 +56,15 @@ public struct VirtualQueueStore: @unchecked Sendable {
             )
         } catch PrivateImmutableDirectory.Error.conflict {
             throw Error.queueConflict
+        } catch PrivateImmutableDirectory.Error.commitUncertain {
+            throw Error.commitUncertain(ImmutablePublicationIdentity(
+                id: reference.id, schemaVersion: reference.schemaVersion,
+                revision: reference.revision, sha256: reference.sha256
+            ))
         } catch {
             throw Self.mapStorage(error)
         }
-        return try ImmutableProfileReference(
-            id: queue.id, schemaVersion: queue.schemaVersion,
-            revision: queue.revision, sha256: Self.digest(bytes)
-        )
+        return reference
     }
 
     public func load(
@@ -156,7 +168,7 @@ public struct VirtualQueueStore: @unchecked Sendable {
         case .cannotCreate: .cannotCreateStore
         case .cannotOpen: .cannotOpenStore
         case .unsafeDirectory: .unsafeStoreDirectory
-        case .cannotWrite, .conflict: .cannotWrite
+        case .cannotWrite, .commitUncertain, .conflict: .cannotWrite
         case .cannotRead, .notFound, .none: .cannotRead
         }
     }

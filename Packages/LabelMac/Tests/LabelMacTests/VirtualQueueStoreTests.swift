@@ -234,6 +234,42 @@ final class VirtualQueueStoreTests: XCTestCase {
         XCTAssertTrue(stored == first || stored == second)
     }
 
+    func testQueuePostRenameSyncFailureReturnsExactRecoverableIdentity() throws {
+        let root = try temporaryRoot()
+        let (workflows, printers, _, value, printerReference) = try qualifiedStores(
+            root: root
+        )
+        let storage = try PrivateImmutableDirectory(
+            root: root, syncDirectory: { _ in -1 }
+        )
+        let faulted = VirtualQueueStore(root: root, storage: storage)
+        let original = try queue(workflow: value, printerReference: printerReference)
+        let bytes = try VirtualQueueJSON.encode(original)
+        let identity = ImmutablePublicationIdentity(
+            id: original.id, schemaVersion: original.schemaVersion,
+            revision: original.revision, sha256: Self.digest(bytes)
+        )
+        XCTAssertThrowsError(try faulted.save(
+            original, workflowStore: workflows, printerStore: printers
+        )) { XCTAssertEqual($0 as? VirtualQueueStore.Error, .commitUncertain(identity)) }
+
+        let normal = try VirtualQueueStore(root: root)
+        XCTAssertEqual(try normal.load(
+            queueID: original.id, revision: original.revision,
+            workflowStore: workflows, printerStore: printers
+        ), original)
+        let recovered = try normal.save(
+            original, workflowStore: workflows, printerStore: printers
+        )
+        XCTAssertEqual(recovered.sha256, identity.sha256)
+        XCTAssertThrowsError(try normal.save(
+            queue(
+                workflow: value, printerReference: printerReference,
+                displayName: "Changed"
+            ), workflowStore: workflows, printerStore: printers
+        )) { XCTAssertEqual($0 as? VirtualQueueStore.Error, .queueConflict) }
+    }
+
     func testActiveSelectionRoundTripAndMonotonicReplacement() throws {
         let root = try temporaryRoot()
         let (workflows, printers, queues, value, printerReference) = try qualifiedStores(root: root)
@@ -364,5 +400,9 @@ final class VirtualQueueStoreTests: XCTestCase {
             queueID: reference.id, queueStore: queues,
             workflowStore: workflows, printerStore: printers
         )) { XCTAssertEqual($0 as? ActiveVirtualQueueStore.Error, .cannotRead) }
+    }
+
+    private static func digest(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 }
