@@ -1,5 +1,12 @@
 # User-initiated native read-only USB discovery
 
+Complete integrated gate at `84d397e` passed exit 0: 67 Python/173 LabelCore/
+231 LabelMac debug/release, both accelerators, 132 independent round trips,
+15/10/1 inert ABI/pipeline cases, local executable/app/nested-worker signatures
+and packaged-worker PBM/ZPL equality. This supersedes combined-local-gate pending
+statements below. Own hosted CI/review and positive-device/GUI evidence remain
+pending; no installation, scheduler, transport or physical acceptance is added.
+
 Integrated checkpoint `7ee1212`: 38 focused reader/model/setup/store/transfer
 tests passed. The actual product reader was compiled directly with a narrow
 count-only native harness and executed once under a hard ten-second timeout.
