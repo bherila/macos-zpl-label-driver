@@ -1351,6 +1351,15 @@ and release. The complete exact-head gate also passes 64 Python, 165 LabelCore
 debug/release, 132 independent round trips, all ABI/inert-pipeline checks, and
 local ad-hoc product signature verification.
 
+Second/final review remediation `887ddf5` preserves terminal delivery evidence
+across a lost caller response. Exact re-entry into a persisted `uncertain` job
+validates the immutable prepared artifact and returns the recorded accepted-byte
+count without invoking delivery; persisted `transmitted` state is likewise
+returned without a second sink pass. Re-entry also requires the ticket's queue
+ID. Two regressions bring the focused/debug LabelMac suite to 139 tests; the
+complete release gate for this final remediation remains to run. Per the
+two-pass policy, no third review will be requested.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
