@@ -23,4 +23,10 @@ This adds automated M2-AC09 cancellation evidence only. The connected synthetic
 extraction pipeline still renders in-process; integrating isolated region
 rendering remains separate work. No queue, administrator operation, scheduler
 job, device, or physical printer was used. Hosted exact-head validation remains
-pending.
+completed: automatic run [35071875026](https://github.com/bherila/macos-zpl-label-driver/actions/runs/35071875026)
+passed exact `cf379e81c7f25a0c9440717eb35cee8d8a50242f`, with repository,
+native macOS ARM, and required aggregate green. Inspected hosted logs confirm
+the same 67/165/153 debug/release suites, independent oracle/ABI/inert checks,
+and ad-hoc signatures. Independent code review completed cleanly at the same
+head against base `42a4c80966f4135973a5fcb42a3f82368d4d36ae`, with a thumbs-up
+and no inline findings. No repeat review is requested for a clean first pass.
