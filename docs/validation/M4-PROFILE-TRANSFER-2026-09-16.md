@@ -1,5 +1,12 @@
 # Native workflow definition transfer
 
+Corrected capacity implementation `a1cf439` passed the complete fail-fast local
+gate exit 0: 67 Python/173 LabelCore/223 LabelMac debug/release, both accelerators,
+132 independent round trips, 15/10/1 inert ABI/pipeline cases, executable/app/
+nested-worker signatures and packaged-worker PBM/ZPL equality. This supersedes
+pending corrected-local-gate statements below. Corrected hosted CI and second
+review remain pending; native dialog/device/integration acceptance is unchanged.
+
 First-review finding 4025900013: capacity admission now occurs inside immutable
 profile publication, under a category-wide descriptor-relative nonblocking flock.
 All public workflow saves use the unchanged 256-record budget. A new revision
