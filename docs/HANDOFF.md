@@ -1248,6 +1248,16 @@ R10-R14 source findings are now addressed, but review and hosted exact-head CI
 remain separate gates. No administrator, scheduler, transport, or hardware path
 was exercised.
 
+Review remediation `f4bb7f8` extends that durability boundary to the stable
+store root. Every successful immutable publication now syncs both the category
+directory containing the renamed record and its parent store directory. A
+targeted fault test proves that successful category sync followed by failing
+root sync returns exact commit uncertainty, leaves recoverable bytes, and
+requires an identical retry to complete both barriers. The complete local
+sequence passes with 64 Python, 165 LabelCore, and 120 LabelMac tests in debug
+and release. This remains host-filesystem barrier evidence, not an
+unconditional device-level power-loss claim.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

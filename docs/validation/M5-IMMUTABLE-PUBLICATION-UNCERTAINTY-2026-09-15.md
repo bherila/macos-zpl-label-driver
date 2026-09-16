@@ -1,7 +1,7 @@
 # M5 immutable publication uncertainty — 2026-09-15
 
 **Scope:** native source and regression evidence for review finding R13 at
-`f42226d`. This is a local persistence result contract, not installation,
+`f42226d`, including root-directory barrier remediation at `f4bb7f8`. This is a local persistence result contract, not installation,
 scheduler, delivery, or physical-printer acceptance.
 
 ## Corrected boundary
@@ -10,8 +10,10 @@ Workflow profiles, unattended-use qualifications, printer profiles, and
 virtual queue definitions now use one descriptor-relative immutable publisher.
 The publisher writes and syncs a private temporary regular file, publishes it
 with an exclusive rename, and requires a successful target-directory barrier
-before returning success. An identical retry also repeats that barrier rather
-than treating visible byte equality as durability acknowledgement.
+before returning success. Publication then requires a barrier on the stable
+store root so a newly created category entry is also durability-acknowledged.
+An identical retry repeats both barriers rather than treating visible byte
+equality as durability acknowledgement.
 
 Failure before rename returns an ordinary write error and removes the temporary
 record. Failure of the actual directory-sync operation after rename returns
@@ -31,6 +33,8 @@ Native tests establish that:
   canonical identity and digest of the uncertain revision;
 - exact visible bytes remain loadable and a later successful identical retry
   completes the required barrier; and
+- a successful category barrier followed by a failing store-root barrier
+  returns uncertainty, with an identical retry required to complete both; and
 - a conflicting retry remains a conflict and cannot replace the visible
   immutable winner.
 
@@ -41,8 +45,8 @@ On macOS 26.6.2 with Xcode 26.6:
 - repository preflight — passed;
 - Python suite — 64 passed;
 - LabelCore — 165 passed in debug and release;
-- LabelMac — 119 passed in debug and release;
-- focused workflow/profile/queue stores — 24 passed;
+- LabelMac — 120 passed in debug and release;
+- focused workflow/profile/queue stores — 25 passed;
 - independent encoder round trips — 132 passed;
 - backend ABI — 15 passed;
 - filter ABI — 10 passed;
