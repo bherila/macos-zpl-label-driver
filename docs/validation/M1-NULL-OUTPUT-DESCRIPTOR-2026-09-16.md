@@ -28,8 +28,15 @@ Existing SIGTERM, broken-pipe, delayed-consumer and ten-second stalled-consumer
 regressions remain mandatory. The bitmap, writer, planner and oracle are unchanged.
 
 The focused build and all 14 filter cases passed exit 0, including both direct
-null input modes and the retained pipe/cancellation cases. Complete local/hosted
-gates are pending at this implementation checkpoint. The previous private frozen binary is not approved
+null input modes and the retained pipe/cancellation cases. Full local gate at
+`ead620c40be069ac9073a8474a6e6acb482a838f` passed exit 0 under a finite
+1200-second limit: 82 Python/178 Core/263 Mac debug/release tests, both accelerator
+configurations, 132 independent round trips, 15 backend/14 filter/one inert
+pipeline cases per mode, local-ad-hoc ARM/minimum-26 signatures and packaged
+worker exact PBM/ZPL equality. The local app artifact is
+`artifacts/setup-app.U09TYi/Label Printer Driver Setup.app`; it does not replace
+the maintainer's pinned manual GUI artifact. Own hosted/review gates remain
+pending; publication edits are evidence/manifest only. The previous private frozen binary is not approved
 for applying the experiment: it lacks this correction. After successful gates
 and review, freeze and validate the changed executable's new signature/hash.
 Do not silently substitute bytes into an older approved snapshot. The finite
