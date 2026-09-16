@@ -29,8 +29,13 @@ configurations and independent/inert cases (132 round trips, backend15/filter14/
 pipeline1 per mode), local-ad-hoc ARM/minimum26 signatures and exact packaged
 worker PBM/ZPL equality. The local app is
 `artifacts/setup-app.SdhIaG/Label Printer Driver Setup.app`, not a replacement
-for the separately pinned maintainer GUI check. Own hosted/review gates remain
-pending. Publication changes only evidence/manifest. No supplied bitmap, graphic writer, ordering
+for the separately pinned maintainer GUI check. Own hosted35125332565 passed
+exact `48c07b4afb02dc7706ce7a171a383c7f3170ca95`; fetched logs verify both
+264Mac configurations, both14filter cases, signatures and packaged equality.
+First review is clean at base `cb86196` / head `48c07b4`, with reviewer thumbs-up
+and no inline findings or threads. No merge or duplicate review. Later publication
+changes only evidence/manifest; its own latest-head result is not inferred from
+this earlier run. No supplied bitmap, graphic writer, ordering
 planner, independent decoder or fixture is rebuilt.
 
 This slice does not change the frozen M1 filter/script/PPD/PDF bytes. The finite
