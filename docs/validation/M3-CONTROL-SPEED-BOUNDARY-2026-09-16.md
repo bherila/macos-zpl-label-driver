@@ -20,7 +20,12 @@ pipeline1 per mode), local-ad-hoc ARM/minimum26 signatures and exact packaged
 worker PBM/ZPL equality. Local app artifact:
 `artifacts/setup-app.UU2cv9/Label Printer Driver Setup.app`; it does not replace
 the separately pinned maintainer GUI artifact. Own hosted/review gates remain
-pending. Later publication changes only evidence/manifest, not source.
+passed at exact `a2c49ffb8fe1b67efa199972528f1c18ab89fba1`: hosted35127863509
+completed successfully; fetched logs verify both180Core/264Mac configurations,
+both14filter cases, local signatures and packaged equality. First review is clean
+at base `7d54fe3` / head `a2c49ff`, with reviewer thumbs-up and no inline findings
+or threads. Later publication changes only evidence/manifest, not source; its
+own latest-head checks are not inferred from this prior run. No merge.
 
 Before-edit accelerator baseline is the unchanged source of PR77's full8ac3bbe
 gate and latest7d54fe3 hosted35126325040: both independent/inert configurations

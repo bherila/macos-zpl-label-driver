@@ -5,8 +5,11 @@ based on PR77 `7d54fe3`. A public-profile/resolution old-code regression reprodu
 three rejected-speed assertion failures; the baseline encoder now independently
 enforces documented2/3/4, without clamping. All19focused control tests pass; full
 local `bff05f4` passed exit0: 82 Python/180 Core/264 Mac debug/release, both
-independent/inert configurations, signatures and packaged equality. Own hosted/
-review pending. See `validation/M3-CONTROL-SPEED-BOUNDARY-2026-09-16.md`.
+independent/inert configurations, signatures and packaged equality. Own hosted
+35127863509 passed exact `a2c49ff` with inspected both180Core/264Mac, both14filter,
+signature and packaged-byte logs. First review clean at base `7d54fe3` / head
+`a2c49ff`, no findings/threads. Later evidence-only checks are not inferred from
+this prior run. See `validation/M3-CONTROL-SPEED-BOUNDARY-2026-09-16.md`.
 No physical qualification or expanded model/control support is claimed.
 
 Issue #76 follow-up is in progress on `codex/m3-config-root-alias`, based on
