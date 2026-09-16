@@ -8,6 +8,26 @@ import LabelCore
 final class WorkflowEditorBootstrapTests: XCTestCase {
     private enum TestError: Error { case unavailable }
 
+    func testDistinctManualWorkflowsCanBeSavedInTheSameImmutableStore() async throws {
+        let profileStore = try store()
+        let first = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: fixture("letter-one"),
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let second = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: fixture("a4-one"),
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        XCTAssertNotEqual(first.profile.id, second.profile.id)
+        XCTAssertEqual(first.profile.revision, 1)
+        XCTAssertEqual(second.profile.revision, 1)
+        try first.setSelectedRegionMillimeters(left: 20, top: 20, width: 101.6, height: 152.4)
+        try second.setSelectedRegionMillimeters(left: 10, top: 30, width: 101.6, height: 152.4)
+        try first.save()
+        try first.save() // Identical save remains idempotent.
+        try second.save()
+        XCTAssertEqual(try profileStore.load(profileID: first.profile.id, revision: 1), first.profile)
+        XCTAssertEqual(try profileStore.load(profileID: second.profile.id, revision: 1), second.profile)
+        XCTAssertThrowsError(try first.approveForUnattendedUse())
+        XCTAssertThrowsError(try second.approveForUnattendedUse())
+    }
+
     func testExplicitManualBorderlessLetterRemainsUnqualifiedAndRendersOriginal() async throws {
         let source = try borderlessNativePDF(width: 612, height: 792)
         let profileStore = try store()
