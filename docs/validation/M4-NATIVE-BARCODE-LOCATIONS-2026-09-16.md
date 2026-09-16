@@ -81,7 +81,12 @@ Supplied native source hash (unchanged):
 Original MIT synthetic fixtures only; no customer labels, payload exports or
 diagnostic screenshots are committed.
 
-PENDING: full combined local gate, own exact-head hosted CI and review.
+PASS: full combined local `bash scripts/ci-swift.sh` at `7dd55d3`, exit 0:
+67 Python, 173 LabelCore and 243 LabelMac tests in debug/release; both accelerator
+modes, 132 independent round trips, CUPS/filter ABI and synthetic inert pipeline
+checks, local-ad-hoc ARM/minimum-26 signatures and packaged-worker PBM/ZPL equality.
+The subsequent parent-evidence merge changes no implementation source.
+PENDING: own exact-head hosted CI and review.
 NOT RUN: external-network-disabled session, exact 26.0 runtime, positive Code128
 qualification, carrier/template/browser matrix, actual GUI interaction, installed
 scheduler, USB output, physical label alignment/scanning or clean-host distribution.
