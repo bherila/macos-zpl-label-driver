@@ -154,10 +154,6 @@ public struct InertPersistedDelivery: @unchecked Sendable {
             )
         }
         if scenario.failBeforeTransmission {
-            _ = try transition(
-                acceptanceID: acceptanceID, expected: state,
-                next: .failedBeforeTransmission
-            )
             return .failedBeforeTransmission
         }
 

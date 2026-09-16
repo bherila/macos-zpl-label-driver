@@ -1304,7 +1304,15 @@ extension AcceptedJobStoreTests {
             workflowStore: fixture.value.workflows,
             printerStore: fixture.value.printers
         )
-        XCTAssertEqual(final.phase, .failedBeforeTransmission)
+        guard case .waiting = final.phase else {
+            return XCTFail("expected retryable waiting lifecycle state")
+        }
+
+        let retry = try inertDelivery(fixture).deliver(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario()
+        )
+        XCTAssertEqual(retry, .transmitted(byteCount: fixture.payload.bytes.count))
     }
 
     func testInertPersistedDeliveryBusyLeaseLeavesPreparedStateUntouched() throws {
