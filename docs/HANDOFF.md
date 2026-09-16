@@ -1425,8 +1425,13 @@ At `79411af`, the CI pull-request trigger now covers stacked target branches,
 while push builds remain restricted to `main`. The standard hosted runners,
 read-only tokens, pinned actions, finite timeouts, cancellation, and fail-closed
 aggregate remain unchanged. Repository preflight, 65 Python tests, 165 LabelCore
-debug tests, and 152 LabelMac debug tests pass; automatic execution on the new
-stacked PR remains to be observed. This configuration-only slice does not need
+debug tests, and 152 LabelMac debug tests pass. Automatic PR #39 run
+`35069832168` passed exact head `aaf8425` with repository preflight, macOS ARM,
+and `ci-required` green; its log confirms 65 Python tests, 165 LabelCore and
+152 LabelMac tests in debug and release, 132 independent round trips, all
+ABI/inert-pipeline checks, and local ad-hoc signatures. This proves automatic
+execution against a stacked target, not fork or deliberate-failure acceptance.
+This configuration-only slice does not need
 a separate correctness review or change printing behavior.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
