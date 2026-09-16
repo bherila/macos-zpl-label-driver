@@ -6,8 +6,10 @@ format reassembly across variable reads, and owned non-listening-port failure.
 The production adapter/state machine are unchanged. Twelve focused tests and the
 final descriptor-hygiene repeat passed. Parent PR #69's reviewed crop/media fix
 is inherited; all 61 combined focused native tests passed exit 0. Combined full
-validation is in progress. This local work is
-preserved, not published ready.
+local gate at `b9c0255` passed exit 0: 67 Python, 178 Core and 257 Mac
+debug/release, accelerator/independent/inert checks, signatures and packaged-worker
+PBM/ZPL equality. Own hosted CI awaits publication; no extra correctness review
+for this test/documentation-only slice.
 M3-AC05 stays open and no
 network-printer/scheduler/USB support is inferred. See
 `validation/M3-REAL-LOOPBACK-FAULTS-2026-09-16.md`.
@@ -19,8 +21,9 @@ effective-coordinate selection, non-square partial overlap and disjoint rejectio
 All 49 focused native renderer/extraction/pipeline tests passed exit 0. Corrected
 full local gate at `68264a6` passed exit 0: 67 Python, 178 Core and 253 Mac
 debug/release, accelerator/independent/inert checks, local signatures and packaged
-worker equality. Corrected exact `c0619e4` hosted 35109064959 and second review
-are live; finding 4027048607 is replied to, usefully voted and resolved.
+worker equality. Corrected exact `c0619e4` hosted 35109064959 is live; second
+review is clean at unchanged base `4a857a4`. Finding 4027048607 is replied to,
+usefully voted and resolved; no merge.
 Original exact `03ea2fc` hosted 35106871876
 passed 178 Core/250 Mac debug/release and signature/packaged checks, but did not
 cover this edge case. See `validation/M4-CROP-INTERSECTION-REVIEW-2026-09-16.md`.
