@@ -1140,6 +1140,24 @@ automated M3-AC02/09 and M5-AC07 evidence only. Persistent artifact publication,
 the accepted-to-prepared atomic boundary, real multi-page rendering, scheduler
 intake, delivery, and all installed/hardware evidence remain open.
 
+At `9dfe442`, prepared output became a durable, state-authorized artifact. The
+typed payload now binds each encoder result to the exact resolved output
+identity and preserves the resolved controls used to generate its bytes.
+Publication verifies output order, controls, and the immutable printer snapshot
+against the accepted ticket, then synchronizes an exclusive owner-only
+`prepared.zpl` before atomically advancing `accepted` to `prepared` with its
+exact digest and count. Digest-only preparation through the general state API
+is rejected. Pre-state faults leave an inert exact-retry-only orphan; different
+bytes conflict. Post-state-rename failure is uncertain and recoverable. Every
+payload-bearing read and later transition revalidates the artifact, including
+regular-file, owner, mode, link-count, stable-metadata, size, and digest checks.
+Seven core and eighteen store-focused tests plus the complete CI-equivalent
+sequence pass with 163 LabelCore and 105 LabelMac tests in both configurations.
+This is additional partial automated M3-AC02/09/12 and M5-AC07/09 evidence only.
+Scheduler intake, real multi-page preparation orchestration, held-job release,
+delivery/result mapping, restart enumeration, retention/deletion policy, and
+all administrator/hardware evidence remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
