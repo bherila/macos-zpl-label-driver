@@ -11,7 +11,12 @@ from pathlib import PurePosixPath
 def needs_swift(paths: list[str]) -> bool:
     if not paths:
         return True
-    for name in paths:
+    # The manifest accompanies documentation commits too. A manifest-only
+    # change remains uncertain and must still run native compilation.
+    substantive_paths = [name for name in paths if name != "MANIFEST.sha256"]
+    if not substantive_paths:
+        return True
+    for name in substantive_paths:
         path = PurePosixPath(name)
         is_documentation = path.suffix == ".md" or name in {"LICENSE", "docs/PROGRESS.json", "docs/milestones.json", "docs/requirements.json"}
         if not is_documentation:
