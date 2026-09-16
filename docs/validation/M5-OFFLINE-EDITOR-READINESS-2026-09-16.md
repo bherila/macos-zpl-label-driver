@@ -28,6 +28,11 @@ nested-worker signatures and packaged-worker PBM/ZPL equality passed. This slice
 own hosted CI/review are pending. Parent corrected run 35088390875 and second
 review were still live at this checkpoint; no clean result inferred.
 
+Subsequent PR #56 second-pass readback: the connector replaced its in-progress
+reaction with a clean thumbs-up, with no new inline findings and all three prior
+threads resolved. Base `55dd7d2` and head `e00a630` are unchanged. Hosted run
+35088390875 remains live; PR #57 run 35088846529 and first review remain live.
+
 ## Native accessibility observations and correction
 
 Earlier saved-reopening evidence described a nonempty AXWindows response as a
@@ -56,3 +61,24 @@ generate its exact preview and close. Do not invent physical observations, insta
 queues or print. Inspect keyboard and VoiceOver operation separately. If the app
 or bridge cannot show a window, preserve the failure and continue independent
 work; do not relabel menus as a window or weaken the acceptance criterion.
+
+## Stronger window observation on the combined build
+
+Two new finite 15-second Launch Services probes used the combined `079163a`
+locally built/signed app. Each requested a new instance, checked the returned
+bundle against the exact artifact and excluded preexisting instance IDs. Both
+observed one layer-zero WindowServer window owned by that instance's PID.
+Only the matching count was recorded; no unrelated window title, payload or UI
+dump was exported. This establishes an owned WindowServer window exists, not
+onscreen visibility, a usable AXWindow, correct controls or application acceptance.
+The earlier lack of a verified accessibility window is not proof the app failed
+to create any window.
+
+Accessibility still returned AXApplication/menus through AXWindows; the second
+probe also found AXMainWindow, AXFocusedWindow and AXFocusedUIElement unavailable.
+Both ended with the controls failure and without any button, checkbox, PDF or
+print action. Each requested termination and, after a finite wait, force-termination
+only of the acquired instance. Closure metadata remained false during that wait;
+subsequent exact-artifact inventories each found zero app records and zero live
+matching processes. The control-access cause remains unresolved. No source fix
+or GUI/VoiceOver pass is inferred. The manual procedure above remains necessary.

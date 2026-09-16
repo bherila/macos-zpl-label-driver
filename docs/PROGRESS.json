@@ -203,7 +203,7 @@
         "docs/validation/M3-JOB-STATE-STORE-2026-09-15.md (fc2c8de private cross-process lifecycle CAS and non-persisted capability cancellation; additional partial M5-AC07/09 evidence only)",
         "docs/validation/M3-PREPARED-JOB-PAYLOAD-2026-09-15.md (acf11ab exact-count ordered full-job payload contract for future lifecycle binding; additional partial M5-AC07 evidence only)",
         "docs/validation/M5-IMMUTABLE-PUBLICATION-UNCERTAINTY-2026-09-15.md (f42226d + f4bb7f8 + c4798ef exact workflow, qualification, printer-profile, and queue commit uncertainty with complete directory barriers and successful pre-staging identical reconciliation; additional partial M5-AC05/07/09 evidence only)",
-        "docs/validation/M5-OFFLINE-EDITOR-READINESS-2026-09-16.md (079163a offline editing independent of physical observations; installation still requires confirmations/discovered identity; five focused tests and full local 67/171/209 debug/release plus independent/inert/signature/packaged checks passed exit 0; own hosted/review pending; AXWindow validation failed, earlier menus-only observation corrected, GUI acceptance unproven)"
+        "docs/validation/M5-OFFLINE-EDITOR-READINESS-2026-09-16.md (079163a offline editing independent of physical observations; installation still requires confirmations/discovered identity; five focused tests and full local 67/171/209 debug/release plus independent/inert/signature/packaged checks passed exit 0; hosted 35088846529/first review live; two finite native probes observed owned WindowServer windows but AXWindow/control access failed and GUI acceptance remains unproven; corrected parent second review clean, hosted live)"
       ],
       "blockers": []
     },
