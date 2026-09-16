@@ -50,6 +50,10 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
         syncDirectory: @escaping @Sendable (Int32) -> Int32 = { fsync($0) },
         injectFault: @escaping @Sendable (FaultPoint) throws -> Void = { _ in }
     ) throws {
+        // Preserve the configured root spelling: reserved final components do
+        // not name a child of its containing directory for the durability check.
+        let name = root.lastPathComponent
+        guard name != ".", name != ".." else { throw Error.unsafeDirectory }
         self.root = root
         self.syncDirectory = syncDirectory
         self.injectFault = injectFault

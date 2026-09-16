@@ -1,5 +1,12 @@
 # Current implementation handoff — revision 3
 
+Issue #76 follow-up is in progress on `codex/m3-config-root-alias`, based on
+PR #75 `cb86196`. A native one-test/six-failure old-code regression shows all
+three public immutable configuration stores accept final-dot aliases. The shared
+initializer now rejects them before mkdir/open; all 35 focused store tests pass.
+Full new gates are pending; no records/schema/bitmap/oracle or M1 frozen bytes
+change. See `validation/M3-CONFIGURATION-ROOT-ALIASES-2026-09-16.md`.
+
 M1 direct null-output correction is in progress on `codex/m1-null-output-descriptor`,
 based on PR #74 `3852e21`. The new native direct-stdout regression fails on the
 old frozen filter; public upstream CUPS uses this output route for the null URI.
