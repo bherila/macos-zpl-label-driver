@@ -144,7 +144,8 @@
         "docs/validation/M5-VIRTUAL-QUEUE-STORE-2026-09-15.md (ff0f2dc private immutable queue intent with exact qualified-workflow resolution, caller-supplied printer digest binding, tamper checks, and concurrent conflict safety; additional partial M5-AC05/07 only)",
         "docs/validation/M5-PRINTER-PROFILE-CODEC-2026-09-15.md (87c7e8c exact bounded canonical printer snapshots enabling trusted digest persistence; additional partial M5-AC05/07 only)",
         "docs/validation/M5-PRINTER-PROFILE-STORE-2026-09-15.md (3fc7e58 trusted canonical printer-profile store replaces caller-supplied queue digest, with tamper and conflict safety; additional partial M5-AC05/07 only)",
-        "docs/validation/M5-ACTIVE-QUEUE-CONTRACT-2026-09-15.md (087458d exact immutable queue references plus bounded generation/previous-digest selection contract; additional partial M5-AC05/07 only)"
+        "docs/validation/M5-ACTIVE-QUEUE-CONTRACT-2026-09-15.md (087458d exact immutable queue references plus bounded generation/previous-digest selection contract; additional partial M5-AC05/07 only)",
+        "docs/validation/M5-ACTIVE-QUEUE-STORE-2026-09-15.md (aa11db9 private cross-process compare-and-swap selection persistence, exact reference resolution, atomic replacement, and explicit uncertain-commit classification; additional partial M5-AC05/07 only)"
       ],
       "blockers": []
     },
