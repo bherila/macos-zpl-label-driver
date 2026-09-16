@@ -161,7 +161,8 @@
         "docs/validation/M4-NATIVE-EDITOR-COMPONENTS-2026-09-15.md (7c5e58b reusable SwiftUI editor/model with mm controls, keyboard commands, exact packed preview, separate save/approval, and revisioned correction; partial M4-AC01/06/09/12 evidence)",
         "docs/validation/M3-IMMUTABLE-IMAGING-POLICY-2026-09-15.md (8a7fef8 editor preview and accepted job use one immutable conversion policy; additional partial M4-AC06/09 evidence only)",
         "docs/validation/M5-IMMUTABLE-PUBLICATION-UNCERTAINTY-2026-09-15.md (f42226d + f4bb7f8 + c4798ef exact workflow and qualification publication uncertainty, complete directory barriers, identical recovery, and conflict preservation; additional partial M4-AC08/09/12 evidence only)",
-        "docs/validation/M4-ISOLATED-EDITOR-PREVIEW-2026-09-16.md (real worker off main actor; obsolete-result/cancellation tests; nine focused and full local 67/166/172 debug/release gate passed; nested signatures/packaged-worker equality; GUI still unverified)"
+        "docs/validation/M4-ISOLATED-EDITOR-PREVIEW-2026-09-16.md (real worker off main actor; obsolete-result/cancellation tests; nine focused and full local 67/166/172 debug/release gate passed; nested signatures/packaged-worker equality; GUI still unverified)",
+        "docs/validation/M4-WORKER-LIFETIME-2026-09-16.md (PR #50 review remediation; child-owned finite deadline/parent-loss supervision and conservative nonce/inode/lock-bound scratch recovery; five focused tests and full local 67/166/177 debug/release gate passed; hosted CI and second review pending)"
       ],
       "blockers": []
     },
