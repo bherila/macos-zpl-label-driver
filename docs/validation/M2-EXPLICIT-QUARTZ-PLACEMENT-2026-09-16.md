@@ -57,7 +57,12 @@ SDK 26.5, Swift 6.3.3; minimum deployment remains macOS 26.0.
   not barcode scan or physical-label acceptance.
 - PASS: before-work offline accelerator suite, including 132 independent
   round trips, 15 inert backend ABI, ten filter ABI and one discard-pipeline case.
-- PENDING: combined full local gate, own hosted exact-head CI and review.
+- PASS: implementation `38fcee11c5bfec4cdd400a22be1760fd85043127`
+  completed the full local gate exit 0: 67 Python, 173 LabelCore and 237 LabelMac
+  tests in debug/release, both accelerator configurations, independent round
+  trips, inert ABI/pipeline checks, local-ad-hoc signatures and packaged-worker
+  PBM/ZPL equality. Repository preflight is repeated after evidence-only edits.
+- PENDING: own hosted exact-head CI and review.
 - NOT RUN: actual GUI interaction, network-disabled Vision, administrator
   installation, installed scheduler, USB delivery, physical printing/scanning,
   clean-host installation and public distribution.
@@ -70,10 +75,14 @@ diagnostic was removed; ordinary tests do not export source images.
 
 This is additional automated M2-AC01/02/05/13 and M4-AC02/07 evidence, not
 completion of PDF integration, local assistance or hardware acceptance.
+Saved anchor definitions made using the former underscaled analysis are not
+silently migrated or requalified. A layout mismatch requires explicit correction
+as a new immutable revision. Already-prepared artifacts retain their exact bound
+bytes; this change does not replay them or substitute a newly rendered payload.
 
 ## Next action
 
-Run and inspect the combined gate, publish this focused placement fix for review,
+Publish this locally validated focused placement fix for review,
 then restore the paused barcode worker integration and re-run its independent
 artwork-location discriminator. The administrator M1 experiment remains a
 separate finite, authorized operation; no printer commands or queue changes
