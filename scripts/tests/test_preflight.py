@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import re
 import unittest
 from pathlib import Path
 
@@ -18,6 +19,12 @@ class PreflightTests(unittest.TestCase):
 
     def test_workflow_change(self):
         self.assertTrue(needs_swift([".github/workflows/ci.yml"]))
+
+    def test_ci_covers_stacked_pull_request_targets(self):
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml").read_text()
+        trigger = workflow.split("  pull_request:", 1)[1].split("  push:", 1)[0]
+        self.assertIsNone(re.search(r"branches(?:-ignore)?:", trigger))
+        self.assertIn("branches: [main]", workflow.split("  push:", 1)[1])
 
     def test_unknown_and_empty_run_compilation(self):
         self.assertTrue(needs_swift([]))
