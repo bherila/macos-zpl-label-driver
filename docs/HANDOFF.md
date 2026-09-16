@@ -1506,6 +1506,15 @@ PR #47's connected intake review completed cleanly at code head `38cef69`.
 Automatic hosted run `35073499862` passed cumulative head `2e592f9` with all
 three required jobs green. No scheduler or physical acceptance follows.
 
+The next connected intake slice moves page-box/structural analysis into the
+existing bounded child, with checked source-bound layout facts and explicit
+output/anchor ceilings. Original bytes still feed final rendering. Focused
+worker/layout/intake tests pass; the full local gate passed 67 Python, 166 Core
+and 163 Mac tests in debug/release with all oracle/ABI/inert and signature checks.
+Hosted/review evidence remains pending
+in `M3-ISOLATED-LAYOUT-ANALYSIS-2026-09-16.md`. Per-child deadlines are not a
+whole-job bound, and installed scheduler/identity evidence remains open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

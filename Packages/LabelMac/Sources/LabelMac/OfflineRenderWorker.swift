@@ -106,6 +106,25 @@ public enum OfflineRenderWorkerProcess {
         deadlineSeconds: Double = defaultDeadlineSeconds,
         cancellation: OfflineRenderWorkerCancellation = .init()
     ) throws -> OfflineRenderWorkerOutput {
+        try runJob(
+            originalPDF: originalPDF, ticketJSON: ticketJSON,
+            workerExecutable: workerExecutable, operationFlag: "--job-directory",
+            deadlineSeconds: deadlineSeconds, cancellation: cancellation,
+            readOutput: readRenderOutput
+        )
+    }
+
+    /// Shared admission, private staging, termination and bounded result reads
+    /// for the worker's fixed render and layout-analysis operations.
+    static func runJob<Output>(
+        originalPDF: Data, ticketJSON: Data, workerExecutable: URL,
+        operationFlag: String, deadlineSeconds: Double,
+        cancellation: OfflineRenderWorkerCancellation,
+        readOutput: (URL) throws -> Output
+    ) throws -> Output {
+        guard operationFlag == "--job-directory" || operationFlag == "--analysis-directory" else {
+            throw Error.invalidResult
+        }
         guard deadlineSeconds.isFinite, deadlineSeconds > 0, deadlineSeconds <= defaultDeadlineSeconds else {
             throw Error.invalidDeadline
         }
@@ -134,7 +153,7 @@ public enum OfflineRenderWorkerProcess {
 
         let process = Process()
         process.executableURL = workerExecutable
-        process.arguments = ["--job-directory", scratch.path]
+        process.arguments = [operationFlag, scratch.path]
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
@@ -168,6 +187,10 @@ public enum OfflineRenderWorkerProcess {
             throw Error.workerFailed(status: process.terminationStatus)
         }
 
+        return try readOutput(scratch)
+    }
+
+    private static func readRenderOutput(_ scratch: URL) throws -> OfflineRenderWorkerOutput {
         do {
             let resultData = try readPrivateRegularFile(
                 scratch.appending(path: resultFilename), maximumBytes: maximumResultBytes
@@ -281,7 +304,7 @@ public enum OfflineRenderWorkerProcess {
         return directory
     }
 
-    private static func validatePrivateScratchDirectory(_ directory: URL) throws {
+    static func validatePrivateScratchDirectory(_ directory: URL) throws {
         var info = stat()
         guard lstat(directory.path, &info) == 0,
               (info.st_mode & S_IFMT) == S_IFDIR,
@@ -300,7 +323,7 @@ public enum OfflineRenderWorkerProcess {
         return failure
     }
 
-    private static func writePrivate(_ data: Data, to url: URL) throws {
+    static func writePrivate(_ data: Data, to url: URL) throws {
         let descriptor = open(url.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, S_IRUSR | S_IWUSR)
         guard descriptor >= 0 else { throw Error.scratchUnavailable }
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
@@ -314,7 +337,7 @@ public enum OfflineRenderWorkerProcess {
         }
     }
 
-    private static func readPrivateRegularFile(_ url: URL, maximumBytes: Int) throws -> Data {
+    static func readPrivateRegularFile(_ url: URL, maximumBytes: Int) throws -> Data {
         do {
             return try BoundedRegularFile.read(
                 url,

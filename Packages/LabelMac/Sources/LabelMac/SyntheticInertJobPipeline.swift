@@ -393,26 +393,11 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
     private func extractionPlan(
         sourcePDF: Data, workflow: WorkflowProfile
     ) throws -> ExtractionPlan {
-        let boxes = try QuartzPDFRenderer.documentPageBoxes(
+        let analyzed = try OfflineLayoutWorker.analyze(
             originalPDF: sourcePDF,
-            maximumInputBytes: ResolvedJobTicket.maximumSourceBytes,
-            maximumSourcePages: ResolvedJobTicket.maximumSourcePages
+            structuralPages: workflow.pageRules.filter { !$0.structuralAnchors.isEmpty }.map(\.sourcePage),
+            workerExecutable: workerExecutable
         )
-        let rules = Dictionary(uniqueKeysWithValues: workflow.pageRules.map {
-            ($0.sourcePage, $0)
-        })
-        let analyzed = try boxes.enumerated().map { index, box in
-            let page = index + 1
-            if let rule = rules[page], !rule.structuralAnchors.isEmpty {
-                return try QuartzStructuralAnalyzer.analyzeBorders(
-                    originalPDF: sourcePDF,
-                    pageNumber: page,
-                    maximumInputBytes: ResolvedJobTicket.maximumSourceBytes,
-                    maximumSourcePages: ResolvedJobTicket.maximumSourcePages
-                )
-            }
-            return try AnalyzedSourcePage(pageBox: box, anchors: nil)
-        }
         return try ExtractionPlanner.plan(
             analyzedPages: analyzed,
             profile: workflow,
