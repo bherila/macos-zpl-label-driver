@@ -1454,8 +1454,11 @@ Automatic draft PR #43 run `35071242478` failed repository preflight and
 `ci-required`, with native macOS skipped. Its log confirms the intentional
 marker, test exit 1, and aggregate `REPOSITORY_RESULT=failure`; thus a failed
 test does not produce a false green. Only the injected test was then removed.
-Repository preflight and the normal 67 Python tests pass again. Hosted green
-recovery remains pending. No product, installation, scheduler, or printer
+Repository preflight and the normal 67 Python tests pass again. Hosted recovery
+run `35071315857` passed exact `e464491` with native skipped and the aggregate
+green; separate local Core 165 and Mac 152 debug tests passed. Both finite
+M0-AC06 outcomes are now observed; fork/protection evidence remains separate.
+No product, installation, scheduler, or printer
 behavior changed; never merge the historical failing head.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
