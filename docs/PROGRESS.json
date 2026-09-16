@@ -129,12 +129,14 @@
     {
       "id": "M5",
       "directory": "docs/milestones/05-product-distribution",
-      "implementation": "not-started",
+      "implementation": "in-progress",
       "automatedValidation": "not-run",
       "macOSIntegration": "not-run",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
-      "evidence": [],
+      "evidence": [
+        "docs/validation/M5-SETUP-APP-LOCAL-SIGNING-2026-09-15.md (75c2aee bounded SwiftUI app host and original-PDF workflow bootstrap; M5-AC12 automated pass, all install/scheduler/Gatekeeper/hardware rows remain open)"
+      ],
       "blockers": []
     },
     {

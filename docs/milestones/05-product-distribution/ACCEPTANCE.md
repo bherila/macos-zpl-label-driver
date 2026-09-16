@@ -20,7 +20,7 @@ Evidence levels: **A** automated; **C** repository/CI/configuration inspection; 
 | [ ] | M5-AC09 | Diagnostics/privacy | I | Default logs/exports contain no sensitive label payloads; full export requires opt-in and review. |
 | [ ] | M5-AC10 | Accessibility | I | Core setup/profile/status/error flows support keyboard and VoiceOver and do not rely solely on color. |
 | [ ] | M5-AC11 | Local distribution security | R | Exact local-ad-hoc components verify and pass declared installation/lifecycle tests without Apple credentials; local versus quarantined launch outcomes and provenance are recorded honestly. No notarization claim is made. |
-| [ ] | M5-AC12 | Signing-mode separation | A | Local-ad-hoc is the explicit secret-free default; any selected future Developer-ID mode fails if unavailable instead of silently downgrading. Source/local binaries are accurately labeled. |
+| [x] | M5-AC12 | Signing-mode separation | A | Local-ad-hoc is the explicit secret-free default; any selected future Developer-ID mode fails if unavailable instead of silently downgrading. Source/local binaries are accurately labeled. |
 | [ ] | M5-AC13 | Ad-hoc update identity | I | Two distinct locally signed builds upgrade/rollback through authorized code validation; changed hashes do not silently break use or permit arbitrary client/payload replacement. |
 
 ## Completion rules
