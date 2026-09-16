@@ -22,7 +22,9 @@ public struct ImmutableProfileReference: Equatable, Sendable {
         guard VirtualQueueDefinition.isSelector(id) else {
             throw VirtualQueueError.invalidSelector(id)
         }
-        guard schemaVersion == 1, revision > 0 else { throw VirtualQueueError.invalidRevision }
+        guard (1...2).contains(schemaVersion), revision > 0 else {
+            throw VirtualQueueError.invalidRevision
+        }
         guard VirtualQueueDefinition.isSHA256(sha256) else { throw VirtualQueueError.invalidDigest }
         self.id = id
         self.schemaVersion = schemaVersion

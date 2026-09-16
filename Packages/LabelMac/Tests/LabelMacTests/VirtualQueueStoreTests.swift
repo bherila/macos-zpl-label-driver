@@ -61,7 +61,8 @@ final class VirtualQueueStoreTests: XCTestCase {
             id: "shipping-native", revision: revision, displayName: displayName,
             physicalDevice: PhysicalDeviceCoordinationID(sha256: deviceDigest),
             workflowProfile: ImmutableProfileReference(
-                id: reference.id, revision: reference.revision,
+                id: reference.id, schemaVersion: reference.schemaVersion,
+                revision: reference.revision,
                 sha256: workflowDigest ?? reference.sha256
             ),
             printerProfile: printerReference,

@@ -156,17 +156,22 @@ public struct WorkflowProfile: Equatable, Sendable {
     public let revision: Int
     public let outputStockID: String
     public let outputStock: PhysicalSize
+    /// The deterministic one-bit conversion used for every output label in
+    /// this immutable workflow revision. Mixed-content workflows require a
+    /// future explicit region policy rather than an ambient caller choice.
+    public let monochromeConversion: MonochromeConversion
     public let pageRules: [WorkflowPageRule]
 
     public init(
-        schemaVersion: Int = 1,
+        schemaVersion: Int = 2,
         id: String,
         revision: Int,
         outputStockID: String,
         outputStock: PhysicalSize,
+        monochromeConversion: MonochromeConversion = .textAndBarcodeThreshold(cutoff: 128),
         pageRules: [WorkflowPageRule]
     ) throws {
-        guard schemaVersion == 1, revision > 0,
+        guard schemaVersion == 2, revision > 0,
               Self.isSafeIdentifier(id), Self.isSafeIdentifier(outputStockID),
               !pageRules.isEmpty, pageRules.count <= 1_000 else {
             throw ExtractionPlanError.invalidProfile
@@ -190,6 +195,7 @@ public struct WorkflowProfile: Equatable, Sendable {
         self.revision = revision
         self.outputStockID = outputStockID
         self.outputStock = outputStock
+        self.monochromeConversion = monochromeConversion
         self.pageRules = pageRules
     }
 

@@ -20,6 +20,7 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
             revision: profile.revision + 1,
             outputStockID: profile.outputStockID,
             outputStock: profile.outputStock,
+            monochromeConversion: profile.monochromeConversion,
             pageRules: profile.pageRules
         )
     }
@@ -87,6 +88,7 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
             revision: profile.revision,
             outputStockID: profile.outputStockID,
             outputStock: profile.outputStock,
+            monochromeConversion: profile.monochromeConversion,
             pageRules: pageRules
         )
     }

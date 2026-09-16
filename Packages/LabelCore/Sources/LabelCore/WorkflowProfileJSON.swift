@@ -13,7 +13,9 @@ public enum WorkflowProfileJSONError: Error, Equatable, Sendable {
     case invalidValue(String)
 }
 
-/// Exact version-1 import/export contract. Unknown keys are rejected at every
+/// Exact version-2 import/export contract. Version 1 lacked a bound imaging
+/// policy and is deliberately not inferred during unattended import. Unknown
+/// keys are rejected at every
 /// level, so imported profiles cannot smuggle paths, documents, or commands.
 public enum WorkflowProfileJSON {
     public static let maximumBytes = 256 * 1024
@@ -34,10 +36,16 @@ public enum WorkflowProfileJSON {
         do {
             let root = try object(
                 raw,
-                allowed: ["schemaVersion", "id", "revision", "outputStock", "pages"],
-                required: ["schemaVersion", "id", "revision", "outputStock", "pages"]
+                allowed: [
+                    "schemaVersion", "id", "revision", "outputStock",
+                    "monochromeConversion", "pages",
+                ],
+                required: [
+                    "schemaVersion", "id", "revision", "outputStock",
+                    "monochromeConversion", "pages",
+                ]
             )
-            guard try integer(root, "schemaVersion") == 1 else {
+            guard try integer(root, "schemaVersion") == 2 else {
                 throw WorkflowProfileJSONError.unsupportedSchema
             }
             let output = try object(
@@ -55,11 +63,14 @@ public enum WorkflowProfileJSON {
             }
             let pages = try pagesRaw.map(decodePage)
             return try WorkflowProfile(
-                schemaVersion: 1,
+                schemaVersion: 2,
                 id: try string(root, "id"),
                 revision: try integer(root, "revision"),
                 outputStockID: try string(output, "id"),
                 outputStock: stock,
+                monochromeConversion: try decodeConversion(
+                    required(root, "monochromeConversion")
+                ),
                 pageRules: pages
             )
         } catch let error as WorkflowProfileJSONError {
@@ -83,6 +94,7 @@ public enum WorkflowProfileJSON {
                 "widthMillimeters": profile.outputStock.width.value,
                 "heightMillimeters": profile.outputStock.height.value,
             ],
+            "monochromeConversion": encodeConversion(profile.monochromeConversion),
             "pages": pages,
         ]
         let data: Data
@@ -93,6 +105,36 @@ public enum WorkflowProfileJSON {
         }
         guard data.count <= maximumBytes else { throw WorkflowProfileJSONError.outputTooLarge }
         return data
+    }
+
+    private static func decodeConversion(_ raw: Any) throws -> MonochromeConversion {
+        let value = try object(
+            raw, allowed: ["mode", "cutoff"], required: ["mode", "cutoff"]
+        )
+        switch try string(value, "mode") {
+        case "textAndBarcodeThreshold":
+            let cutoff = try integer(value, "cutoff")
+            guard (0...255).contains(cutoff) else {
+                throw WorkflowProfileJSONError.invalidValue("monochromeConversion")
+            }
+            return .textAndBarcodeThreshold(cutoff: UInt8(cutoff))
+        case "photographicOrderedDither4x4":
+            guard try required(value, "cutoff") is NSNull else {
+                throw WorkflowProfileJSONError.invalidValue("monochromeConversion")
+            }
+            return .photographicOrderedDither4x4
+        default:
+            throw WorkflowProfileJSONError.invalidValue("monochromeConversion")
+        }
+    }
+
+    private static func encodeConversion(_ value: MonochromeConversion) -> [String: Any] {
+        switch value {
+        case let .textAndBarcodeThreshold(cutoff):
+            ["mode": "textAndBarcodeThreshold", "cutoff": Int(cutoff)]
+        case .photographicOrderedDither4x4:
+            ["mode": "photographicOrderedDither4x4", "cutoff": NSNull()]
+        }
     }
 
     private static func decodePage(_ raw: Any) throws -> WorkflowPageRule {
