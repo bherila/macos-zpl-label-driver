@@ -1469,13 +1469,14 @@ round trips, every ABI/inert check, and ad-hoc signatures. PR #40 run
 `84ac6da` additionally passed run `35070883055` with native skipped and the
 aggregate green. No installation or physical acceptance follows.
 
-The isolated `codex/m0-fail-closed-validation` branch contains a temporary,
-deliberately failing Python test for M0-AC06. Its focused local invocation
-failed with the intended marker and exit 1. Never merge this failing head.
-The finite next step is to observe automatic repository/aggregate failure,
-remove only that injected test, rerun the normal suites, and verify a green
-recovery head. Hosted negative evidence is pending; no product, installation,
-scheduler, or printer behavior changed.
+The isolated M0-AC06 probe at `11084e3` deliberately failed one Python test.
+Automatic draft PR #43 run `35071242478` failed repository preflight and
+`ci-required`, with native macOS skipped. Its log confirms the intentional
+marker, test exit 1, and aggregate `REPOSITORY_RESULT=failure`; thus a failed
+test does not produce a false green. Only the injected test was then removed.
+Repository preflight and the normal 67 Python tests pass again. Hosted green
+recovery remains pending. No product, installation, scheduler, or printer
+behavior changed; never merge the historical failing head.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
