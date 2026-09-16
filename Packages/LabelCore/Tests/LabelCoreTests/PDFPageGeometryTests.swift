@@ -2,6 +2,15 @@ import XCTest
 @testable import LabelCore
 
 final class PDFPageGeometryTests: XCTestCase {
+    func testExternalSourceRectangleValidationRejectsInvalidAndOverflowingExtents() throws {
+        XCTAssertEqual(try PDFSourceRect.validated(x: -10, y: 20, width: 30, height: 40),
+                       PDFSourceRect(x: -10, y: 20, width: 30, height: 40))
+        XCTAssertThrowsError(try PDFSourceRect.validated(x: .nan, y: 0, width: 1, height: 1))
+        XCTAssertThrowsError(try PDFSourceRect.validated(x: 0, y: 0, width: 0, height: 1))
+        XCTAssertThrowsError(try PDFSourceRect.validated(x: Double.greatestFiniteMagnitude,
+            y: 0, width: Double.greatestFiniteMagnitude, height: 1))
+    }
+
     private func makeBox(rotation: Int) throws -> PDFPageBox {
         try PDFPageBox(originX: 10, originY: 20, width: 100, height: 200, rotationDegreesClockwise: rotation)
     }
