@@ -24,7 +24,12 @@ Full local `bash scripts/ci-swift.sh` completed with exit 0: 67 Python tests,
 166 Core and 158 Mac tests in debug/release, 132 independent round trips,
 15 backend and 10 filter ABI cases, one inert pipeline case, and ad-hoc
 command/app signatures passed. Ten focused bitmap/intake tests passed.
-Hosted exact-head CI and independent review are pending.
+Automatic hosted run `35073499862` passed exact cumulative head
+`2e592f984b10fa0cf6fc24a1b71850695ecfa733`: repository preflight, native macOS
+ARM and `ci-required` succeeded. Independent review completed cleanly at code
+commit `38cef69486b9bdb8c4ca0102717e812a2b76b9f8` with a completed summary,
+thumbs-up and no inline findings. The later head changes dependency evidence
+only. The prior run was cancelled by that push, not a test failure.
 
 This advances automated M2-AC09 and M3-AC12 only. The 60-second bound covers
 each render child, not the entire job. PDF page/structural layout analysis still
