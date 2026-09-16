@@ -18,6 +18,7 @@ public final class WorkflowEditorModel: ObservableObject {
         case previewRequired
         case savedRevisionRequired
         case regionReviewRequired
+        case reviewSnapshotChanged
     }
     @Published public private(set) var draft: WorkflowProfileDraft
     @Published public var selectedRegionID: String? {
@@ -86,7 +87,9 @@ public final class WorkflowEditorModel: ObservableObject {
         isSaved && unreviewedRegionCount == 0 && !profile.pageRules.contains { $0.structuralAnchors.isEmpty }
     }
 
-    public func confirmSelectedBoundsAndPreviewReviewed() throws {
+    public func confirmSelectedBoundsAndPreviewReviewed(expectedProfile: WorkflowProfile,
+                                                        expectedPreview: PreparedExtractionLabel?) throws {
+        guard profile == expectedProfile, preview == expectedPreview else { throw Error.reviewSnapshotChanged }
         guard canConfirmSelectedBoundsAndPreview, let selectedRegionID else { throw Error.previewRequired }
         if reviewedProfile != profile { reviewedRegionIDs = []; reviewedProfile = profile }
         reviewedRegionIDs.insert(selectedRegionID)
@@ -430,13 +433,7 @@ public struct WorkflowEditorView: View {
                 if let region = selectedRegion { regionControls(region) }
                 sourceReferenceView
                 previewView
-                HStack {
-                    Button("Confirm Bounds and Exact Preview Reviewed") {
-                        perform(model.confirmSelectedBoundsAndPreviewReviewed)
-                    }.disabled(!model.canConfirmSelectedBoundsAndPreview)
-                    Text("\(model.unreviewedRegionCount) regions require review before unattended approval.")
-                        .font(.caption)
-                }
+                previewReviewControls
                 if let error = model.lastError {
                     Text(error).foregroundStyle(.red).accessibilityLabel("Editor error: \(error)")
                 }
@@ -481,6 +478,19 @@ public struct WorkflowEditorView: View {
 
     private var selectedRegion: WorkflowEditorRegion? {
         model.regions.first { $0.id == model.selectedRegionID }
+    }
+
+    private var previewReviewControls: some View {
+        let displayedProfile = model.profile
+        let displayedPreview = model.preview
+        return HStack {
+            Button("Confirm Bounds and Exact Preview Reviewed") {
+                perform { try model.confirmSelectedBoundsAndPreviewReviewed(
+                    expectedProfile: displayedProfile, expectedPreview: displayedPreview) }
+            }.disabled(!model.canConfirmSelectedBoundsAndPreview)
+            Text("\(model.unreviewedRegionCount) regions require review before unattended approval.")
+                .font(.caption)
+        }
     }
 
     private var mediaSummary: some View {

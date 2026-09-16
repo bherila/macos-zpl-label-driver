@@ -3,8 +3,10 @@
 PR #58 first review found restored full-page regions could be approved without
 explicit bounds/preview review. Same-branch correction requires acknowledgement
 of every region's current packed preview, bound to the complete current profile;
-editing/reopening makes prior acknowledgement stale. 38 focused native tests
-passed. Full corrected gate pending. See
+editing/reopening makes prior acknowledgement stale. The button binds its displayed
+profile and packed preview, rejecting stale clicks. 39 focused native tests passed.
+Initial `5fb351e` full local 67/173/211 debug/release gate passed exit 0 with all
+independent/inert/signature/packaged checks; final displayed-snapshot gate pending. See
 `validation/M4-EXPLICIT-PAGE-REVIEW-2026-09-16.md`. Original hosted run 35089709098
 passed exact `39b2936`; it does not validate the correction. Parent #57 latest
 35089708869 passed exact `626122d`; its source first review was clean at `5d9c2c2`.

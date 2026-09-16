@@ -46,7 +46,7 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
         let original = try XCTUnwrap(model.editor)
         try original.save()
         await original.refreshPreviewInWorker(workerExecutable: try worker())
-        try original.confirmSelectedBoundsAndPreviewReviewed()
+        try original.confirmSelectedBoundsAndPreviewReviewed(expectedProfile: original.profile, expectedPreview: original.preview)
         try original.approveForUnattendedUse()
         let saved = original.profile
         for source in ["a4-one", "layout-changed", "mixed-pages"] {
