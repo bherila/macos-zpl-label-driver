@@ -164,4 +164,47 @@ final class OfflineRenderWorkerTests: XCTestCase {
     }
 
     private enum TestError: Error { case unavailable }
+
+    private func extractionTicket(version: Int = 2, rotation: Int = 90, expectedWidth: Int = 288) -> Data {
+        Data("""
+        { "schemaVersion": \(version), "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 10, "yDotsPerMillimeter": 10 },
+          "conversion": { "mode": "textAndBarcodeThreshold", "cutoff": 128 },
+          "extraction": {
+            "region": { "x": 0, "y": 0, "width": 1, "height": 0.5 },
+            "expectedSourceRect": { "x": 0, "y": 216, "width": \(expectedWidth), "height": 216 },
+            "rotation": \(rotation) } }
+        """.utf8)
+    }
+
+    func testExtractionWorkerMatchesOriginalRegionAndRotation() throws {
+        let source = try Data(contentsOf: repositoryRoot().appending(path: "Fixtures/generated/native-vector.pdf"))
+        let data = extractionTicket()
+        let decoded = try OfflineConversionTicket(jsonData: data)
+        let direct = try OfflineConversion.prepare(originalPDF: source, ticket: decoded)
+        let output = try OfflineRenderWorkerProcess.run(originalPDF: source, ticketJSON: data,
+            workerExecutable: try workerExecutable(), deadlineSeconds: 5)
+        XCTAssertEqual(output.previewPBM, direct.previewPBM)
+        XCTAssertEqual(output.zpl, direct.zpl)
+        let unrotated = try OfflineConversion.prepare(originalPDF: source,
+            ticket: OfflineConversionTicket(jsonData: extractionTicket(rotation: 0)))
+        XCTAssertNotEqual(output.previewPBM, unrotated.previewPBM)
+    }
+
+    func testExtractionContractRejectsVersionOneAndInvalidRotation() throws {
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: extractionTicket(version: 1)))
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: extractionTicket(rotation: 45)))
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData:
+            Data(String(decoding: ticket, as: UTF8.self).replacingOccurrences(of: "\"schemaVersion\": 1", with: "\"schemaVersion\": 2").utf8)))
+    }
+
+    func testExtractionWorkerRejectsChangedSourceGeometry() throws {
+        let source = try Data(contentsOf: repositoryRoot().appending(path: "Fixtures/generated/native-vector.pdf"))
+        XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(originalPDF: source,
+            ticketJSON: extractionTicket(expectedWidth: 287),
+            workerExecutable: try workerExecutable(), deadlineSeconds: 5)) {
+            XCTAssertEqual($0 as? OfflineRenderWorkerProcess.Error, .jobRejected(code: .geometryInvalid))
+        }
+    }
 }

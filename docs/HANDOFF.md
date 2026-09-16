@@ -1501,6 +1501,15 @@ Automatic hosted run `35071875026` passed the same exact head; inspected logs
 confirm full 67/165/153 suites, all oracle/ABI/inert checks, and ad-hoc
 signatures. No repeat review, merge, installation, or printer acceptance follows.
 
+The existing isolated worker now accepts explicit extraction ticket schema 2:
+upright normalized region, expected source rectangle, validated right-angle
+rotation, and uniform fit. Schema 1 remains full-page only; unknown versions
+remain rejected. Real-worker regressions prove exact direct/child region output,
+rotation discrimination, and changed-source geometry rejection. The full local
+gate passed 67 Python, 166 Core and 156 Mac tests in debug/release, all oracle,
+ABI/inert cases, and ad-hoc signatures. Hosted CI/review and persisted-intake
+connection remain pending; no scheduler or physical acceptance follows.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

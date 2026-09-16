@@ -328,13 +328,13 @@ final class QuartzPDFRendererTests: XCTestCase {
 
     func testOfflineTicketRejectsUnknownSchemaAndBadConversion() {
         let unsupported = Data("""
-        { "schemaVersion": 2, "pageNumber": 1,
+        { "schemaVersion": 3, "pageNumber": 1,
           "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
           "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
           "conversion": { "mode": "photographicOrderedDither4x4" } }
         """.utf8)
         XCTAssertThrowsError(try OfflineConversionTicket(jsonData: unsupported)) {
-            XCTAssertEqual($0 as? OfflineConversionTicket.TicketError, .unsupportedSchemaVersion(2))
+            XCTAssertEqual($0 as? OfflineConversionTicket.TicketError, .unsupportedSchemaVersion(3))
         }
         let invalidMode = Data("""
         { "schemaVersion": 1, "pageNumber": 1,

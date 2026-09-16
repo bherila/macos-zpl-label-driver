@@ -29,6 +29,9 @@ public struct OfflineConversionTicket: Equatable, Sendable {
     public let resolution: DotResolution
     public let conversion: Conversion
     public let placementPolicy: PagePlacementPolicy
+    public let sourceRegion: NormalizedRect?
+    public let expectedSourceRect: PDFSourceRect?
+    public let regionRotation: ExtractionRotation
 
     public init(
         schemaVersion: Int = 1,
@@ -36,9 +39,25 @@ public struct OfflineConversionTicket: Equatable, Sendable {
         physicalSize: PhysicalSize,
         resolution: DotResolution,
         conversion: Conversion,
-        placementPolicy: PagePlacementPolicy = .fit
+        placementPolicy: PagePlacementPolicy = .fit,
+        sourceRegion: NormalizedRect? = nil,
+        expectedSourceRect: PDFSourceRect? = nil,
+        regionRotation: ExtractionRotation = .degrees0
     ) throws {
-        guard schemaVersion == 1 else { throw TicketError.unsupportedSchemaVersion(schemaVersion) }
+        guard schemaVersion == 1 || schemaVersion == 2 else { throw TicketError.unsupportedSchemaVersion(schemaVersion) }
+        if schemaVersion == 1 {
+            guard sourceRegion == nil, expectedSourceRect == nil, regionRotation == .degrees0 else {
+                throw TicketError.malformedJSON
+            }
+        } else {
+            guard sourceRegion != nil, expectedSourceRect != nil, placementPolicy == .fit else {
+                throw TicketError.malformedJSON
+            }
+            if let expectedSourceRect {
+                _ = try PDFSourceRect.validated(x: expectedSourceRect.x, y: expectedSourceRect.y,
+                    width: expectedSourceRect.width, height: expectedSourceRect.height)
+            }
+        }
         guard pageNumber > 0 else { throw TicketError.invalidPageNumber }
         self.schemaVersion = schemaVersion
         self.pageNumber = pageNumber
@@ -46,16 +65,22 @@ public struct OfflineConversionTicket: Equatable, Sendable {
         self.resolution = resolution
         self.conversion = conversion
         self.placementPolicy = placementPolicy
+        self.sourceRegion = sourceRegion
+        self.expectedSourceRect = expectedSourceRect
+        self.regionRotation = regionRotation
     }
 
-    /// Decodes schema version 1 explicitly. New versions must add a reviewed
-    /// migration rather than relying on synthesized Codable layout.
+    /// Version 1 retains full-page conversion; version 2 requires a validated
+    /// extraction region, expected source rectangle, and explicit rotation.
     public init(jsonData: Data) throws {
         let wire: WireTicket
         do {
             wire = try JSONDecoder().decode(WireTicket.self, from: jsonData)
         } catch {
             throw TicketError.malformedJSON
+        }
+        guard wire.schemaVersion == 1 || wire.schemaVersion == 2 else {
+            throw TicketError.unsupportedSchemaVersion(wire.schemaVersion)
         }
         let conversion: Conversion
         switch wire.conversion.mode {
@@ -76,6 +101,22 @@ public struct OfflineConversionTicket: Equatable, Sendable {
         case "actualSize": placementPolicy = .actualSize
         default: throw TicketError.malformedJSON
         }
+        let region: NormalizedRect?
+        let expected: PDFSourceRect?
+        let rotation: ExtractionRotation
+        if let extraction = wire.extraction {
+            region = try NormalizedRect(x: extraction.region.x, y: extraction.region.y,
+                                        width: extraction.region.width, height: extraction.region.height)
+            expected = try PDFSourceRect.validated(x: extraction.expectedSourceRect.x,
+                y: extraction.expectedSourceRect.y, width: extraction.expectedSourceRect.width,
+                height: extraction.expectedSourceRect.height)
+            guard let selected = ExtractionRotation(rawValue: extraction.rotation) else {
+                throw TicketError.malformedJSON
+            }
+            rotation = selected
+        } else {
+            region = nil; expected = nil; rotation = .degrees0
+        }
         try self.init(
             schemaVersion: wire.schemaVersion,
             pageNumber: wire.pageNumber,
@@ -88,7 +129,8 @@ public struct OfflineConversionTicket: Equatable, Sendable {
                 yDotsPerMillimeter: wire.resolution.yDotsPerMillimeter
             ),
             conversion: conversion,
-            placementPolicy: placementPolicy
+            placementPolicy: placementPolicy,
+            sourceRegion: region, expectedSourceRect: expected, regionRotation: rotation
         )
     }
 
@@ -100,7 +142,8 @@ public struct OfflineConversionTicket: Equatable, Sendable {
         let conversion: WireConversion
 
         let placementPolicy: String?
-        private enum CodingKeys: String, CodingKey { case schemaVersion, pageNumber, physicalSize, resolution, conversion, placementPolicy }
+        let extraction: WireExtraction?
+        private enum CodingKeys: String, CodingKey { case schemaVersion, pageNumber, physicalSize, resolution, conversion, placementPolicy, extraction }
         init(from decoder: Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
             schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
@@ -109,7 +152,21 @@ public struct OfflineConversionTicket: Equatable, Sendable {
             resolution = try values.decode(WireResolution.self, forKey: .resolution)
             conversion = try values.decode(WireConversion.self, forKey: .conversion)
             placementPolicy = try values.decodeIfPresent(String.self, forKey: .placementPolicy)
+            extraction = try values.decodeIfPresent(WireExtraction.self, forKey: .extraction)
         }
+    }
+
+    private struct WireExtraction: Decodable {
+        let region: WireRect
+        let expectedSourceRect: WireRect
+        let rotation: Int
+    }
+
+    private struct WireRect: Decodable {
+        let x: Double
+        let y: Double
+        let width: Double
+        let height: Double
     }
 
     private struct WirePhysicalSize: Decodable {
@@ -166,6 +223,9 @@ public enum OfflineConversion {
             pageNumber: ticket.pageNumber,
             canvas: canvas,
             placementPolicy: ticket.placementPolicy,
+            sourceRegion: ticket.sourceRegion,
+            regionRotation: ticket.regionRotation,
+            expectedSourceRect: ticket.expectedSourceRect,
             maximumInputBytes: maximumInputBytes
         ))
         let bitmap = try ticket.conversion.coreConversion.convert(
