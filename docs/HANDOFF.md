@@ -34,7 +34,10 @@ including the real native Unix-socket HTTP fixture, and the live absent-queue
 query passed. First full `66ab5db` gate passed 81/178/258 debug/release, but a
 subsequent thrown termination fault reproduced an unbounded context-wait fallback.
 Explicit bounded cleanup corrects it, with distinct termination-unconfirmed
-failure and closed pipes. Corrected full/hosted/review gates are pending. Actual held-job mode remains
+failure and closed pipes. Corrected full gate at `eb46f13` passed exit 0:
+82 Python/178 Core/258 Mac debug/release, both accelerator runs, inert ABI and
+pipeline checks, local signatures and packaged-worker PBM/ZPL equality. Own
+hosted/review gates are pending. Actual held-job mode remains
 NOT RUN. See `validation/M1-READONLY-IPP-READBACK-2026-09-16.md`.
 
 Parent #72 exact `fa6c247` hosted 35112614847 passed with 178 Core/258 Mac
