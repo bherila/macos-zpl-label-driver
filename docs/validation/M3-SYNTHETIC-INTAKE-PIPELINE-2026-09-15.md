@@ -1,7 +1,7 @@
 # M3 synthetic descriptor-intake pipeline — 2026-09-15
 
 **Scope:** native automated evidence at `5a34971` with review remediation at
-`6e11d16`. This connects an already
+`6e11d16` and second-pass remediation at `887ddf5`. This connects an already
 opened synthetic PDF to immutable configuration resolution, accepted-job
 publication, original-document rendering, complete prepared-byte publication,
 persisted lifecycle, the shared device lease, and the in-memory discard sink.
@@ -42,6 +42,10 @@ references, checks the supplied source and cancellation capability, and repeats
 the accepted-bundle durability barrier. Prepared and waiting jobs reuse their
 validated stored payload, even if the active queue selection has advanced.
 Terminal or ambiguous states remain non-deliverable through this entry point.
+If a prior caller lost the result after `uncertain` or `transmitted` was
+persisted, exact re-entry validates the stored payload and returns that terminal
+outcome without invoking delivery again. The persisted accepted-byte count is
+therefore not collapsed into a generic failure.
 
 ## Regression evidence
 
@@ -64,6 +68,9 @@ a wrong cancellation capability cannot resume a job, an accepted job remains
 bound to its original immutable queue after the active selection advances, and
 a workflow/loaded-stock mismatch is rejected before acceptance. Optional bundle
 lookup returns nil only for absence; an unsafe present bundle remains an error.
+Second-pass regressions prove exact uncertainty and transmitted readback without
+state mutation or replay. Existing accepted jobs also require the same queue ID
+as the re-entry request.
 
 ## Local validation
 
@@ -72,8 +79,9 @@ On macOS 26.6.2 with Xcode 26.6:
 - repository preflight — passed;
 - Python suite — 64 passed;
 - LabelCore — 165 passed in debug and release;
-- LabelMac — 137 passed in debug and release;
-- focused descriptor/pipeline/store suite — 12 passed;
+- LabelMac — 139 focused/debug tests passed; the exact release/full gate remains
+  to run for the second-pass remediation;
+- focused descriptor/pipeline/store suite — 14 passed;
 - independent encoder round trips — 132 passed;
 - backend ABI — 15 passed;
 - filter ABI — 10 passed;
