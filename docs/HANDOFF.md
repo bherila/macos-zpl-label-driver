@@ -1,5 +1,14 @@
 # Current implementation handoff — revision 3
 
+PR #58 second-pass finding 4025638071 exposed review resurrection after an
+unsaved edit/undo. The current correction clears acknowledgements on every
+successful draft mutation/reload and binds displayed review to a checked edit
+generation, rejecting old callbacks even when profile/bitmap values match again.
+40 focused native tests passed, including the real-worker undo regression;
+full local validation is pending. Hosted 35091595114 passed the preceding
+`a1e1f58`, not this correction. No third review request or merge is authorized.
+The dependent profile-transfer slice remains held until this fix is integrated.
+
 PR #58 first review found restored full-page regions could be approved without
 explicit bounds/preview review. Same-branch correction requires acknowledgement
 of every region's current packed preview, bound to the complete current profile;
