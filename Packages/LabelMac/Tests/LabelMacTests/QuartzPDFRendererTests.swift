@@ -86,12 +86,13 @@ final class QuartzPDFRendererTests: XCTestCase {
         return data as Data
     }
 
-    private func emptyAnnotationsPDF(userUnit: Int = 1) -> Data {
+    private func emptyAnnotationsPDF(userUnit: Int = 1, cropBox: String? = nil) -> Data {
         let content = "0 0 0 rg 0 0 10 5 re f\n"
+        let cropDeclaration = cropBox.map { "/CropBox \($0) " } ?? ""
         let objects = [
             "<< /Type /Catalog /Pages 2 0 R >>",
             "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] /UserUnit \(userUnit) /Resources << >> /Annots [] /Contents 4 0 R >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 10 10] \(cropDeclaration)/UserUnit \(userUnit) /Resources << >> /Annots [] /Contents 4 0 R >>",
             "<< /Length \(content.utf8.count) >>\nstream\n\(content)endstream",
         ]
         var result = Data("%PDF-1.4\n".utf8)
@@ -122,6 +123,57 @@ final class QuartzPDFRendererTests: XCTestCase {
             )
         )
         return QuartzPDFRenderer.Request(originalPDF: pdf, pageNumber: page, canvas: canvas)
+    }
+
+    func testExpandedCropUsesEffectiveMediaIntersectionForFullAndSelectedPages() throws {
+        let pdf = emptyAnnotationsPDF(cropBox: "[-10 -10 20 20]")
+        let box = try XCTUnwrap(QuartzPDFRenderer.documentPageBoxes(originalPDF: pdf).first)
+        XCTAssertEqual(box.originX, 0)
+        XCTAssertEqual(box.originY, 0)
+        XCTAssertEqual(box.width, 10)
+        XCTAssertEqual(box.height, 10)
+        let fullRequest = try request(pdf: pdf)
+        let full = try packed(QuartzPDFRenderer.render(fullRequest))
+        let selected = try packed(QuartzPDFRenderer.render(.init(originalPDF: pdf, pageNumber: 1,
+            canvas: fullRequest.canvas,
+            sourceRegion: NormalizedRect(x: 0, y: 0, width: 1, height: 1))))
+        XCTAssertEqual(full.bytes, selected.bytes)
+        let expected = Array(repeating: UInt8(255), count: 50) + Array(repeating: UInt8(0), count: 50)
+        XCTAssertEqual(full.grayscalePreview().pixels, expected)
+        XCTAssertEqual(selected.grayscalePreview().pixels, expected)
+    }
+
+    func testExpandedCropRegionCoordinatesBindOnlyEffectiveOriginalPage() throws {
+        let pdf = emptyAnnotationsPDF(cropBox: "[-10 -10 20 20]")
+        let fullRequest = try request(pdf: pdf, width: 5, height: 10)
+        let selected = try packed(QuartzPDFRenderer.render(.init(originalPDF: pdf, pageNumber: 1,
+            canvas: fullRequest.canvas,
+            sourceRegion: NormalizedRect(x: 0, y: 0, width: 0.5, height: 1),
+            expectedSourceRect: PDFSourceRect.validated(x: 0, y: 0, width: 5, height: 10))))
+        let expected = Array(repeating: UInt8(255), count: 25) + Array(repeating: UInt8(0), count: 25)
+        XCTAssertEqual(selected.grayscalePreview().pixels, expected)
+    }
+
+    func testPartialCropMediaOverlapPreservesOriginPhysicalAspectAndExactSelection() throws {
+        let pdf = emptyAnnotationsPDF(cropBox: "[5 -10 30 30]")
+        let box = try XCTUnwrap(QuartzPDFRenderer.documentPageBoxes(originalPDF: pdf).first)
+        XCTAssertEqual(box.originX, 5)
+        XCTAssertEqual(box.originY, 0)
+        XCTAssertEqual(box.width, 5)
+        XCTAssertEqual(box.height, 10)
+        let fullRequest = try request(pdf: pdf, width: 5, height: 10)
+        let full = try packed(QuartzPDFRenderer.render(fullRequest))
+        let selected = try packed(QuartzPDFRenderer.render(.init(originalPDF: pdf, pageNumber: 1,
+            canvas: fullRequest.canvas,
+            sourceRegion: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+            expectedSourceRect: PDFSourceRect.validated(x: 5, y: 0, width: 5, height: 10))))
+        let expected = Array(repeating: UInt8(255), count: 25) + Array(repeating: UInt8(0), count: 25)
+        XCTAssertEqual(full.grayscalePreview().pixels, expected)
+        XCTAssertEqual(selected.grayscalePreview().pixels, expected)
+        let disjoint = emptyAnnotationsPDF(cropBox: "[20 20 30 30]")
+        XCTAssertThrowsError(try QuartzPDFRenderer.documentPageBoxes(originalPDF: disjoint)) {
+            XCTAssertEqual($0 as? QuartzPDFRenderer.Error, .invalidPageGeometry)
+        }
     }
 
     private func packed(_ bitmap: QuartzPDFRenderer.GrayscaleBitmap) throws -> MonochromeBitmap {
