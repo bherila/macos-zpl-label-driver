@@ -265,6 +265,11 @@ qualification, printer status or transmission. No implementation is bundled.
 [request symbologies](https://developer.apple.com/documentation/vision/vndetectbarcodesrequest/symbologies),
 and [Vision coordinate systems, WWDC24](https://developer.apple.com/videos/play/wwdc2024/10163/).
 
+[VNBarcodeObservation.payloadStringValue](https://developer.apple.com/documentation/vision/vnbarcodeobservation/payloadstringvalue)
+is used only by synthetic final-bitmap tests to compare the supplied expected
+payloads. This test oracle does not enable payload access in product analysis,
+and digital decoding is not physical scanner acceptance.
+
 Public system-framework API, revision 3, with an explicitly selected Code128/QR
 subset. Vision locations use normalized lower-left coordinates; the project
 converts them to its upright top-left geometry. Product code reads locations
