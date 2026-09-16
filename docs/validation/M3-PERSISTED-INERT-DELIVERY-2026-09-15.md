@@ -1,7 +1,7 @@
 # M3 persisted inert delivery — 2026-09-15
 
-**Scope:** automated native evidence at `c2e6e53` plus coordination binding at
-`297c6aa`, connecting a validated
+**Scope:** automated native evidence at `c2e6e53` with review remediation at
+`297c6aa` and `e977b33`, connecting a validated
 immutable prepared-job bundle to its persisted lifecycle and shared
 physical-device lease. The sink discards bytes in memory. This is not scheduler,
 network, USB, or physical-printer acceptance.
@@ -29,9 +29,14 @@ and lease contention produce no sink action. Any lifecycle publication error
 stops the simulator; commit uncertainty is preserved rather than converted into
 a retry authorization.
 
+A durably published `waiting` state is safe to resume: by contract no sink
+action can precede the later `transmitting` commit, and the ticket-derived lease
+excludes a still-live prior worker. Lease contention is therefore classified as
+automatically retryable while leaving the prepared or waiting state untouched.
+
 ## Regression evidence
 
-Seven new native cases establish:
+Eight new native cases establish:
 
 - transmitting intent is the first observed delivery event and precedes every
   discarded byte;
@@ -42,7 +47,9 @@ Seven new native cases establish:
 - a pre-transmission failure has no sink event and retains its distinct
   retryable classification;
 - a competing lease in the ticket-bound device domain leaves the prepared
-  lifecycle unchanged;
+  lifecycle unchanged and is safely retryable;
+- a job stranded after the durable `waiting` transition resumes under the same
+  lease, persists send intent, and completes without replaying prior bytes;
 - an out-of-range fault plan is rejected before lifecycle mutation, and a
   completed job cannot be delivered a second time; and
 - contradictory fault controls are rejected during scenario construction.
@@ -54,8 +61,8 @@ On macOS 26.6.2 with Xcode 26.6:
 - repository preflight — passed;
 - Python suite — 64 passed;
 - LabelCore — 165 passed in debug and release;
-- LabelMac — 127 passed in debug and release;
-- focused accepted-job suite — 32 passed;
+- LabelMac — 128 passed in debug and release;
+- focused accepted-job suite — 33 passed;
 - independent encoder round trips — 132 passed;
 - backend ABI — 15 passed;
 - filter ABI — 10 passed;

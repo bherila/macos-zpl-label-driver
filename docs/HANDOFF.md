@@ -1277,6 +1277,13 @@ from that value before acquiring the lease. The existing contention regression
 now holds the ticket-bound domain, proving that delivery cannot select an alias
 to bypass the shared boundary.
 
+Review remediation `e977b33` closes the two remaining first-pass findings. A
+job durably left in `waiting` can resume because no sink action is permitted
+before the subsequent transmitting-intent commit, while the ticket-derived
+lease excludes a still-live prior owner. Lease contention is now explicitly
+retryable because it changes neither lifecycle nor sink. The focused suite has
+33 passing accepted-job tests and the complete LabelMac suite has 128 tests.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
