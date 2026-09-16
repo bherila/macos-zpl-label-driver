@@ -138,7 +138,8 @@
       "evidence": [
         "docs/validation/M5-SETUP-APP-LOCAL-SIGNING-2026-09-15.md (75c2aee bounded SwiftUI app host and original-PDF workflow bootstrap; M5-AC12 automated pass, all install/scheduler/Gatekeeper/hardware rows remain open)",
         "docs/validation/M5-REFERENCE-SETUP-2026-09-15.md (349731e typed reference-printer facts, confirmation gating, unobserved USB identity, qualified session speed choices, and local launch; partial M5-AC01/04/05/10 only)",
-        "docs/validation/M5-VIRTUAL-QUEUE-CONTRACT-2026-09-15.md (d502d49 bounded immutable queue/profile references, conservative defaults, and shared opaque device coordination domain; partial automated M5-AC04/05/07 only)"
+        "docs/validation/M5-VIRTUAL-QUEUE-CONTRACT-2026-09-15.md (d502d49 bounded immutable queue/profile references, conservative defaults, and shared opaque device coordination domain; partial automated M5-AC04/05/07 only)",
+        "docs/validation/M5-VIRTUAL-QUEUE-STORE-2026-09-15.md (ff0f2dc private immutable queue intent with exact qualified-workflow resolution, caller-supplied printer digest binding, tamper checks, and concurrent conflict safety; additional partial M5-AC05/07 only)"
       ],
       "blockers": []
     },
