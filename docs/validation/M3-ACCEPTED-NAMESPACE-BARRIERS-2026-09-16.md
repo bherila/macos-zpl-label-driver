@@ -20,6 +20,8 @@ the bundle simply because its old descriptor remains readable. No ambiguous
 artifact or replacement is removed by this implementation.
 
 The API creates only a root whose containing directory already exists; callers
+must use an ordinary named root entry: final `.` and `..` aliases are rejected
+before any accepted namespace creation, rather than silently normalized. Callers
 must provision stable existing ancestry above that containing directory. This
 slice does not implement a recursive installation/provisioning transaction or
 authenticate arbitrary path ancestry. Checks are not a lease against later
@@ -67,3 +69,16 @@ No administrator session, queue/job action or physical printer access occurred.
 
 Next: continue the separate finite M1
 administrator proof when its interactive OS authorization is available.
+
+## Follow-up root-name regression
+
+Native Foundation path inspection showed that a final `.` remains the last
+component and deleting it can identify the root itself rather than its physical
+containing directory. The new alias-construction regression reproduced three
+failures: both dot aliases were accepted and an accepted-jobs directory was
+created. An early named-entry guard fixes that boundary without changing an
+existing directory or normalizing ambiguous caller intent. All 53 focused native
+store tests passed after correction. This additional source guard is not covered
+by the earlier 5ff59b1/a3952ba full/hosted/review checkpoints; its corrected full
+gate and second review pass remain pending. Prior documentation head 6fe7508
+hosted 35119811256 passed separately and is not alias-regression evidence.

@@ -37,8 +37,9 @@ directory barrier before returning success. Conflicting bytes never reconcile
 as an identical retry.
 
 Accepted-job acknowledgement covers the accepted-jobs directory, store root and
-root's containing directory, with descriptor/name bindings checked before and
-after the configured barriers. Callers provision stable existing ancestry above
+root's containing directory. Final `.` and `..` root aliases fail before
+namespace creation. Descriptor/name bindings are checked before and after the
+configured barriers. Callers provision stable existing ancestry above
 that containing directory; this is not recursive privileged provisioning or an
 unconditional power-loss guarantee. A detached namespace or failed barrier is
 visible-but-unconfirmed publication, never absence or safe replay authority.
