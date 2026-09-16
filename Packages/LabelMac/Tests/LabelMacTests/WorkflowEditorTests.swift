@@ -8,6 +8,32 @@ import LabelCore
 final class WorkflowEditorTests: XCTestCase {
     private enum TestError: Error { case unavailable }
 
+    func testSavedDrawAndNumericalEditsPublishNewRevisionWithoutOverwriting() throws {
+        let (model, store) = try makeModel()
+        let original = model.profile
+        try model.save()
+        XCTAssertThrowsError(try model.setSelectedRegionMillimeters(left: -1, top: 0, width: 1, height: 1))
+        XCTAssertThrowsError(try model.moveSelected(by: Int.max))
+        let rect = try SourceRegionSelection.rectangle(viewportWidth: 200, viewportHeight: 100,
+            startX: 20, startY: 10, endX: 100, endY: 50)
+        XCTAssertThrowsError(try model.updateSelectedRegion(rect, expectedRegionID: "stale-selection"))
+        XCTAssertEqual(model.profile, original)
+        XCTAssertTrue(model.isSaved)
+        try model.updateSelectedRegion(rect, expectedRegionID: "selected")
+        XCTAssertEqual(model.profile.revision, original.revision + 1)
+        XCTAssertFalse(model.isSaved)
+        try model.setSelectedRotation(.degrees90)
+        XCTAssertEqual(model.profile.revision, original.revision + 1)
+        try model.save()
+        let second = model.profile
+        XCTAssertEqual(try store.load(profileID: original.id, revision: original.revision), original)
+        XCTAssertEqual(try store.load(profileID: second.id, revision: second.revision), second)
+        try model.setSelectedRegionMillimeters(left: 0.2, top: 0.2, width: 2, height: 2)
+        XCTAssertEqual(model.profile.revision, original.revision + 2)
+        try model.save()
+        XCTAssertEqual(try store.load(profileID: second.id, revision: second.revision), second)
+    }
+
     private func pdf() throws -> Data {
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data as CFMutableData) else { throw TestError.unavailable }
