@@ -82,3 +82,55 @@ only of the acquired instance. Closure metadata remained false during that wait;
 subsequent exact-artifact inventories each found zero app records and zero live
 matching processes. The control-access cause remains unresolved. No source fix
 or GUI/VoiceOver pass is inferred. The manual procedure above remains necessary.
+
+## Finder-only finite manual check
+
+Status: **NOT RUN; awaiting the maintainer's observations.** This roughly
+five-minute offline check does not install queues or print. The maintainer was
+given `artifacts/setup-app.x3Pkqf/Label Printer Driver Setup.app`, built from
+implementation `7dd55d3` that passed the full local 67/173/243 debug/release,
+signature and packaged-worker gate. A later build is a different artifact;
+record which one was actually opened. Artifact directories are ignored local
+outputs, not published downloads. `<checkout>` means the local repository folder.
+
+1. In Finder press Command-Shift-G, enter
+   `<checkout>/artifacts/setup-app.x3Pkqf`, and open **Label Printer Driver
+   Setup.app**. Stop and record the exact message if launch is blocked or asks
+   for administrator authorization. Do not weaken security or strip quarantine.
+2. Leave both physical confirmations unchecked: **I loaded 4 × 6 inch pre-cut
+   direct-thermal labels** and **This printer is in tear-off mode with no cutter**.
+   Queue installation must remain unavailable; offline opening must be enabled.
+3. Click **Open PDF for Manual Extraction…**. In the file chooser use
+   Command-Shift-G to select `<checkout>/Fixtures/generated/letter-one.pdf`.
+   Use this committed synthetic example, not a private shipping label.
+4. Click **Show Source Page**. Require a source-page reference separately
+   identified as not the print preview.
+5. Set **Width (mm)** to `101.6`, **Height (mm)** to `152.4`, **Left (mm)** to
+   `12.7`, then **Top (mm)** to `63.5`. Press Tab after each entry. Keep rotation
+   **0°**. Shrink width/height before moving the starting full-page region so
+   intermediate bounds stay valid. These are the supplied Letter fixture's
+   4×6 region, converted from its original PDF points.
+6. Click **Preview**. Require a nonempty black-and-white exact packed label
+   preview without an error. Screen appearance is not physical/scanning evidence.
+7. Quit with Command-Q. Saving is unnecessary. Do not click **Approve for
+   Unattended Use**, install a queue, submit a scheduler job or print.
+
+Return the artifact directory, OS version and these observations:
+
+```text
+App window visible: yes/no
+Hardware confirmations stayed unchecked: yes/no
+Queue installation unavailable: yes/no
+Manual PDF opening worked: yes/no
+Source reference appeared: yes/no
+Crop fields accepted the values: yes/no
+Exact preview appeared: yes/no
+Keyboard/VoiceOver: observed result, or not tested
+Errors or confusing behavior:
+```
+
+Tab navigation is a narrow observation, not a complete accessibility pass.
+Keyboard and VoiceOver acceptance remain separate. If a screenshot is needed,
+include only the synthetic example and relevant app controls; omit other windows,
+private paths, printer identifiers and unrelated configuration. Do not convert
+missing observations into a pass or check hardware criteria.

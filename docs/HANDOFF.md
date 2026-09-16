@@ -1,5 +1,16 @@
 # Current implementation handoff — revision 3
 
+The finite offline editor check now has Finder-only steps, exact supplied Letter
+crop values, artifact identity and a short result template in
+`validation/M5-OFFLINE-EDITOR-READINESS-2026-09-16.md`. The maintainer has offered
+to perform it; observations remain NOT RUN. Hardware confirmations must stay
+unchecked and no queue, scheduler job, unattended approval or print is permitted.
+Documentation-slice validation passed: repository preflight, 67 Python tests,
+173 Core and 244 Mac debug tests. No product source changed. PR #64 hosted run
+35101596096 passed exact `0697595`, with 243 native tests debug/release and
+signature/packaged equality verified in logs; its first review is clean. PR #65
+hosted 35102242434 remains live. No installed or physical acceptance follows.
+
 An additional actual-size `/UserUnit` discriminator holds raw page geometry and
 vector artwork constant and verifies every dot as units 1 and 2 produce different
 physical extents. All 26 renderer tests and the pre-change accelerator suite passed;
