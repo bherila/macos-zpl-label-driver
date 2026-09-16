@@ -225,6 +225,55 @@ public enum AcceptedJobStateJSON {
         catch { throw AcceptedJobStateJSONError.invalidValue }
     }
 
+    /// Decodes the canonical schema-1 representation only when a caller can
+    /// supply the digest of the immutable accepted ticket that owns it. The
+    /// returned value is schema 2 and must be published under the same bundle
+    /// lock before it is exposed to another writer.
+    public static func migrateLegacyV1(
+        _ data: Data,
+        acceptedTicketSHA256: String,
+        maximumBytes: Int = maximumBytes
+    ) throws -> AcceptedJobStateRecord {
+        guard (1...Self.maximumBytes).contains(maximumBytes) else {
+            throw AcceptedJobStateJSONError.invalidLimit
+        }
+        guard data.count <= maximumBytes else { throw AcceptedJobStateJSONError.inputTooLarge }
+        let raw: Any
+        do { raw = try JSONSerialization.jsonObject(with: data) }
+        catch { throw AcceptedJobStateJSONError.malformedJSON }
+        do {
+            let root = try object(raw, allowed: [
+                "schemaVersion", "acceptanceID", "generation",
+                "previousStateSHA256", "phase",
+            ])
+            guard try integer(root, "schemaVersion") == 1 else {
+                throw AcceptedJobStateJSONError.unsupportedSchema
+            }
+            let previousRaw = try required(root, "previousStateSHA256")
+            let previous: String?
+            if previousRaw is NSNull { previous = nil }
+            else if let value = previousRaw as? String { previous = value }
+            else { throw AcceptedJobStateJSONError.invalidType("previousStateSHA256") }
+            let record = try AcceptedJobStateRecord(
+                acceptanceID: string(root, "acceptanceID"),
+                acceptedTicketSHA256: acceptedTicketSHA256,
+                generation: integer(root, "generation"),
+                previousStateSHA256: previous,
+                phase: phase(try required(root, "phase"))
+            )
+            let canonical = try JSONSerialization.data(withJSONObject: [
+                "schemaVersion": 1,
+                "acceptanceID": record.acceptanceID,
+                "generation": record.generation,
+                "previousStateSHA256": record.previousStateSHA256.map { $0 as Any } ?? NSNull(),
+                "phase": phaseObject(record.phase),
+            ], options: [.sortedKeys])
+            guard canonical == data else { throw AcceptedJobStateJSONError.invalidValue }
+            return record
+        } catch let error as AcceptedJobStateJSONError { throw error }
+        catch { throw AcceptedJobStateJSONError.invalidValue }
+    }
+
     private static func phaseObject(_ phase: AcceptedJobPhase) -> [String: Any] {
         var result: [String: Any] = ["kind": kind(phase)]
         switch phase {

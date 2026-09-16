@@ -376,12 +376,16 @@ public struct AcceptedJobStore: @unchecked Sendable {
             maximumBytes: AcceptedJobStateJSON.maximumBytes
         )
         let state: AcceptedJobStateRecord
-        do {
-            state = try AcceptedJobStateJSON.decode(stateBytes)
-            guard try AcceptedJobStateJSON.encode(state) == stateBytes else {
-                throw Error.cannotRead
-            }
-        } catch { throw Error.cannotRead }
+        if let current = try? AcceptedJobStateJSON.decode(stateBytes),
+           (try? AcceptedJobStateJSON.encode(current)) == stateBytes {
+            state = current
+        } else {
+            do {
+                state = try AcceptedJobStateJSON.migrateLegacyV1(
+                    stateBytes, acceptedTicketSHA256: Self.digest(ticket)
+                )
+            } catch { throw Error.cannotRead }
+        }
         return (ticket, source, state)
     }
 

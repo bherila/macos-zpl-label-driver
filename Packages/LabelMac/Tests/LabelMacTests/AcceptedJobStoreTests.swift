@@ -567,6 +567,117 @@ final class AcceptedJobStoreTests: XCTestCase {
         XCTAssertEqual(cancelled.phase, .cancelledBeforeTransmission)
     }
 
+    func testLegacyWaitingStateMigratesUnderBundleLockAndCanCancel() throws {
+        let value = try fixture(acceptanceID: "state-legacy-cancel")
+        try value.jobs.save(
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
+        let initial = try states.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let prepared = try states.publishPrepared(
+            acceptanceID: value.ticket.acceptanceID, expected: initial,
+            payload: preparedPayload(value), queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let waiting = try states.compareAndSwap(
+            acceptanceID: value.ticket.acceptanceID, expected: prepared,
+            next: .waiting(
+                payloadSHA256: Self.digest(try preparedPayload(value).bytes),
+                byteCount: try preparedPayload(value).bytes.count
+            ), queueStore: value.queues, workflowStore: value.workflows,
+            printerStore: value.printers
+        )
+        let statePath = Self.statePath(value)
+        try Self.writeLegacyV1(waiting, to: statePath)
+
+        XCTAssertEqual(try value.jobs.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        ).ticket, value.ticket)
+
+        let migrated = try states.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        XCTAssertEqual(migrated, waiting)
+        XCTAssertEqual(try Data(contentsOf: statePath), try AcceptedJobStateJSON.encode(waiting))
+        let cancelled = try states.cancel(
+            acceptanceID: value.ticket.acceptanceID, expected: migrated,
+            cancellationToken: value.cancellationToken, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        XCTAssertEqual(cancelled.phase, .cancelledBeforeTransmission)
+    }
+
+    func testLegacyTransmissionStatesPreserveProgressDuringMigration() throws {
+        let value = try fixture(acceptanceID: "state-legacy-progress")
+        try value.jobs.save(
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
+        var state = try states.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let payload = try preparedPayload(value)
+        state = try states.publishPrepared(
+            acceptanceID: value.ticket.acceptanceID, expected: state,
+            payload: payload, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let digest = Self.digest(payload.bytes)
+        state = try states.compareAndSwap(
+            acceptanceID: value.ticket.acceptanceID, expected: state,
+            next: .waiting(payloadSHA256: digest, byteCount: payload.bytes.count),
+            queueStore: value.queues, workflowStore: value.workflows,
+            printerStore: value.printers
+        )
+        state = try states.compareAndSwap(
+            acceptanceID: value.ticket.acceptanceID, expected: state,
+            next: .transmitting(
+                payloadSHA256: digest, byteCount: payload.bytes.count, bytesAccepted: 3
+            ), queueStore: value.queues, workflowStore: value.workflows,
+            printerStore: value.printers
+        )
+        let statePath = Self.statePath(value)
+        try Self.writeLegacyV1(state, to: statePath)
+        state = try states.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        XCTAssertEqual(
+            state.phase,
+            .transmitting(
+                payloadSHA256: digest, byteCount: payload.bytes.count, bytesAccepted: 3
+            )
+        )
+
+        state = try states.compareAndSwap(
+            acceptanceID: value.ticket.acceptanceID, expected: state,
+            next: .uncertain(
+                payloadSHA256: digest, byteCount: payload.bytes.count, bytesAccepted: 5
+            ), queueStore: value.queues, workflowStore: value.workflows,
+            printerStore: value.printers
+        )
+        try Self.writeLegacyV1(state, to: statePath)
+        let migrated = try states.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        XCTAssertEqual(migrated, state)
+        XCTAssertEqual(
+            migrated.phase,
+            .uncertain(
+                payloadSHA256: digest, byteCount: payload.bytes.count, bytesAccepted: 5
+            )
+        )
+    }
+
     func testCrossStoreTokensAndExpectedStatesCannotMutateAnotherBundle() throws {
         let acceptanceID = "state-cross-store"
         let first = try fixture(
@@ -994,5 +1105,27 @@ final class AcceptedJobStoreTests: XCTestCase {
 
     private static func digest(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func statePath(_ value: Fixture) -> URL {
+        value.root.appending(path: "accepted-jobs")
+            .appending(path: AcceptedJobStore.directoryName(value.ticket.acceptanceID))
+            .appending(path: "state.json")
+    }
+
+    private static func writeLegacyV1(
+        _ state: AcceptedJobStateRecord, to path: URL
+    ) throws {
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: AcceptedJobStateJSON.encode(state)
+            ) as? [String: Any]
+        )
+        object["schemaVersion"] = 1
+        object.removeValue(forKey: "acceptedTicketSHA256")
+        try JSONSerialization.data(
+            withJSONObject: object, options: [.sortedKeys]
+        ).write(to: path)
+        XCTAssertEqual(chmod(path.path, 0o600), 0)
     }
 }
