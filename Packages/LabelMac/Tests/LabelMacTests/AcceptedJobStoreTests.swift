@@ -1325,6 +1325,30 @@ private extension AcceptedJobStoreTests {
         }
         return try stored.get()
     }
+
+    private func additionalTicket(
+        _ fixture: PreparedInertFixture,
+        acceptanceID: String
+    ) throws -> ResolvedJobTicket {
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(
+                with: ResolvedJobTicketJSON.encode(fixture.value.ticket)
+            ) as? [String: Any]
+        )
+        object["acceptanceID"] = acceptanceID
+        let bytes = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        let workflow = try fixture.value.workflows.load(
+            profileID: fixture.value.queue.workflowProfile.id,
+            revision: fixture.value.queue.workflowProfile.revision
+        )
+        return try ResolvedJobTicketJSON.decode(
+            bytes,
+            queueReference: fixture.value.ticket.queue,
+            queueDefinition: fixture.value.queue,
+            workflowProfile: workflow,
+            printerProfile: fixture.value.printer
+        )
+    }
 }
 
 extension AcceptedJobStoreTests {
@@ -1750,5 +1774,221 @@ extension AcceptedJobStoreTests {
         XCTAssertEqual(try recovery(uncertain).reconcile(
             acceptanceID: uncertain.value.ticket.acceptanceID
         ), .uncertain(bytesAccepted: 2))
+    }
+
+    func testInventoryAndSweepReportResidualsWithoutDeletingOrReplaying() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "inventory-ready")
+        let jobs = fixture.value.root.appending(path: "accepted-jobs")
+        let staging = jobs.appending(path: ".tmp-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: staging, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700]
+        )
+        let invalid = jobs.appending(path: String(repeating: "a", count: 64))
+        try FileManager.default.createSymbolicLink(
+            at: invalid, withDestinationURL: fixture.value.root
+        )
+        let invalidStaging = jobs.appending(path: ".tmp-\(UUID().uuidString)")
+        try FileManager.default.createSymbolicLink(
+            at: invalidStaging, withDestinationURL: fixture.value.root
+        )
+
+        let inventory = try fixture.value.jobs.inventory(
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        XCTAssertEqual(inventory.acceptanceIDs, [fixture.value.ticket.acceptanceID])
+        XCTAssertEqual(inventory.stagedArtifactCount, 1)
+        XCTAssertEqual(inventory.invalidArtifactCount, 2)
+
+        let sweep = try recovery(fixture).reconcileAll()
+        XCTAssertEqual(sweep, PersistedJobRecoverySweep(
+            records: [PersistedJobRecoveryRecord(
+                acceptanceID: fixture.value.ticket.acceptanceID,
+                result: .recovered(.readyForDelivery)
+            )],
+            stagedArtifactCount: 1,
+            invalidArtifactCount: 2
+        ))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: staging.path))
+        XCTAssertNotNil(try FileManager.default.destinationOfSymbolicLink(atPath: invalid.path))
+        XCTAssertNotNil(
+            try FileManager.default.destinationOfSymbolicLink(atPath: invalidStaging.path)
+        )
+        XCTAssertEqual(try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        ), fixture.preparedState)
+    }
+
+    func testInventoryLimitsFailClosedBeforePartialSweep() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "inventory-limit")
+        let staging = fixture.value.root.appending(
+            path: "accepted-jobs/.tmp-\(UUID().uuidString)"
+        )
+        try FileManager.default.createDirectory(
+            at: staging, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700]
+        )
+        XCTAssertThrowsError(try fixture.value.jobs.inventory(
+            maximumEntries: 0,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .invalidInventoryLimit) }
+        XCTAssertThrowsError(try fixture.value.jobs.inventory(
+            maximumEntries: 1,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .inventoryLimitExceeded) }
+        XCTAssertThrowsError(try recovery(fixture).reconcileAll(maximumEntries: 1)) {
+            XCTAssertEqual($0 as? PersistedJobRecovery.Error, .inventoryLimitExceeded)
+        }
+        XCTAssertThrowsError(try fixture.value.jobs.inventory(
+            maximumSourceBytes: 1,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .inventorySourceLimitExceeded) }
+        XCTAssertThrowsError(try recovery(fixture).reconcileAll(maximumSourceBytes: 1)) {
+            XCTAssertEqual($0 as? PersistedJobRecovery.Error, .inventorySourceLimitExceeded)
+        }
+        XCTAssertThrowsError(try fixture.value.jobs.inventory(
+            maximumPreparedBytes: 1,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .inventoryPreparedLimitExceeded) }
+        XCTAssertThrowsError(try recovery(fixture).reconcileAll(maximumPreparedBytes: 1)) {
+            XCTAssertEqual($0 as? PersistedJobRecovery.Error, .inventoryPreparedLimitExceeded)
+        }
+    }
+
+    func testInventoryUsesPinnedStoreAfterRootPathReplacement() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "inventory-pinned-root")
+        let moved = fixture.value.root.deletingLastPathComponent().appending(
+            path: "AcceptedJobStore-moved-\(UUID().uuidString)"
+        )
+        addTeardownBlock { try? FileManager.default.removeItem(at: moved) }
+        try FileManager.default.moveItem(at: fixture.value.root, to: moved)
+        try FileManager.default.createDirectory(
+            at: fixture.value.root, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700]
+        )
+        let replacementJobs = fixture.value.root.appending(path: "accepted-jobs")
+        try FileManager.default.createDirectory(
+            at: replacementJobs, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700]
+        )
+        try FileManager.default.createDirectory(
+            at: replacementJobs.appending(path: ".tmp-\(UUID().uuidString)"),
+            withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700]
+        )
+        let movedWorkflows = try WorkflowProfileStore(root: moved)
+        let movedPrinters = try PrinterProfileStore(root: moved)
+        let movedQueues = try VirtualQueueStore(root: moved)
+
+        let inventory = try fixture.value.jobs.inventory(
+            queueStore: movedQueues,
+            workflowStore: movedWorkflows,
+            printerStore: movedPrinters
+        )
+        XCTAssertEqual(inventory.acceptanceIDs, [fixture.value.ticket.acceptanceID])
+        XCTAssertEqual(inventory.stagedArtifactCount, 0)
+        XCTAssertEqual(inventory.invalidArtifactCount, 0)
+    }
+
+    func testSweepReportsOneUnavailableJobWithoutHidingOtherJobs() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "z-valid-ready")
+        let second = try additionalTicket(fixture, acceptanceID: "a-corrupt-prepared")
+        try fixture.value.jobs.save(
+            second, sourcePDF: fixture.value.sourcePDF,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        let accepted = try fixture.states.load(
+            acceptanceID: second.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        _ = try fixture.states.publishPrepared(
+            acceptanceID: second.acceptanceID,
+            expected: accepted,
+            payload: fixture.payload,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        let corrupt = fixture.value.root.appending(path: "accepted-jobs")
+            .appending(path: AcceptedJobStore.directoryName(second.acceptanceID))
+            .appending(path: "prepared.zpl")
+        try Data("synthetic corrupt prepared bytes".utf8).write(to: corrupt)
+        XCTAssertEqual(chmod(corrupt.path, 0o600), 0)
+
+        let sweep = try recovery(fixture).reconcileAll()
+        XCTAssertEqual(sweep.records, [
+            PersistedJobRecoveryRecord(
+                acceptanceID: second.acceptanceID,
+                result: .failed(.stateUnavailable)
+            ),
+            PersistedJobRecoveryRecord(
+                acceptanceID: fixture.value.ticket.acceptanceID,
+                result: .recovered(.readyForDelivery)
+            ),
+        ])
+        XCTAssertEqual(sweep.stagedArtifactCount, 0)
+        XCTAssertEqual(sweep.invalidArtifactCount, 0)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: corrupt.path))
+    }
+
+    func testSweepDiscoversAndRecoversAbandonedTransmissionWithoutReplay() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "inventory-abandoned-send")
+        _ = try transmitting(fixture, bytesAccepted: 2)
+
+        let sweep = try recovery(fixture).reconcileAll()
+        XCTAssertEqual(sweep.records, [PersistedJobRecoveryRecord(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            result: .recovered(.uncertain(bytesAccepted: 2))
+        )])
+        let final = try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        guard case let .uncertain(_, _, accepted) = final.phase else {
+            return XCTFail("expected uncertain lifecycle state")
+        }
+        XCTAssertEqual(accepted, 2)
+    }
+
+    func testInventoryReservesSourceBudgetBeforeLaterValidationFailure() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "inventory-budget-valid")
+        let second = try additionalTicket(fixture, acceptanceID: "inventory-budget-invalid")
+        try fixture.value.jobs.save(
+            second, sourcePDF: fixture.value.sourcePDF,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        let state = fixture.value.root.appending(path: "accepted-jobs")
+            .appending(path: AcceptedJobStore.directoryName(second.acceptanceID))
+            .appending(path: "state.json")
+        try Data("{}".utf8).write(to: state)
+        XCTAssertEqual(chmod(state.path, 0o600), 0)
+
+        XCTAssertThrowsError(try fixture.value.jobs.inventory(
+            maximumSourceBytes: fixture.value.sourcePDF.count,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )) { XCTAssertEqual($0 as? AcceptedJobStore.Error, .inventorySourceLimitExceeded) }
     }
 }

@@ -136,7 +136,7 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
             guard let binding = Self.payloadBinding(state.phase) else {
                 throw Error.preparedPayloadUnavailable
             }
-            let bytes = try readPrepared(directory)
+            let bytes = try readPrepared(directory, maximumBytes: binding.byteCount)
             guard bytes.count == binding.byteCount,
                   Self.digest(bytes) == binding.sha256 else {
                 throw Error.preparedPayloadMismatch
@@ -339,7 +339,10 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
         return state
     }
 
-    private func readPrepared(_ directory: Int32) throws -> Data {
+    private func readPrepared(
+        _ directory: Int32,
+        maximumBytes: Int = PreparedJobPayload.maximumBytes
+    ) throws -> Data {
         let descriptor = NonblockingRegularFileDescriptor.open(
             at: directory, name: "prepared.zpl"
         )
@@ -350,7 +353,7 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
               (before.st_mode & S_IFMT) == S_IFREG,
               before.st_uid == geteuid(), before.st_nlink == 1,
               (before.st_mode & 0o077) == 0, before.st_size > 0,
-              before.st_size <= PreparedJobPayload.maximumBytes else {
+              before.st_size <= min(maximumBytes, PreparedJobPayload.maximumBytes) else {
             throw Error.preparedPayloadMismatch
         }
         var bytes = Data(count: Int(before.st_size)); var offset = 0
@@ -383,7 +386,7 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
         state: AcceptedJobStateRecord, directory: Int32
     ) throws {
         guard let binding = Self.payloadBinding(state.phase) else { return }
-        let bytes = try readPrepared(directory)
+        let bytes = try readPrepared(directory, maximumBytes: binding.byteCount)
         guard bytes.count == binding.byteCount,
               Self.digest(bytes) == binding.sha256 else {
             throw Error.preparedPayloadMismatch

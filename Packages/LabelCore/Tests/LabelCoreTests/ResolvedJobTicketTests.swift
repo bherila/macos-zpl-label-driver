@@ -102,6 +102,8 @@ final class ResolvedJobTicketTests: XCTestCase {
         let bytes = try ResolvedJobTicketJSON.encode(original)
         let (_, reference, queue, workflow, printer, _) = try fixture()
         XCTAssertEqual(try ResolvedJobTicketJSON.queueReference(bytes), reference)
+        XCTAssertEqual(try ResolvedJobTicketJSON.acceptanceID(bytes), original.acceptanceID)
+        XCTAssertEqual(try ResolvedJobTicketJSON.sourceByteCount(bytes), 4_096)
         let decoded = try ResolvedJobTicketJSON.decode(
             bytes, queueReference: reference, queueDefinition: queue,
             workflowProfile: workflow, printerProfile: printer
