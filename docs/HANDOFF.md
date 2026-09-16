@@ -1112,6 +1112,22 @@ configurations. This is partial automated M3-AC09/12 and M5-AC07 evidence only.
 Persistence, cancellation-token authorization, scheduler result mapping,
 restart recovery, and all installed/hardware evidence remain open.
 
+At `fc2c8de`, accepted-job state became private compare-and-swap persistence.
+The initial canonical accepted record is part of the same exclusive directory
+publication as the ticket and original PDF. Later updates take a per-job
+cross-process lock, compare the complete expected record, bind the next
+generation to the exact prior canonical digest, and atomically replace the
+owner-only state file. Concurrent writers have one winner; post-rename failure
+is uncertain and recoverable. Cancellation is a separate operation whose
+bounded raw capability must hash to the ticket's stored digest using
+constant-time comparison; ordinary transitions cannot forge cancellation, a
+wrong capability has zero state effect, and raw capabilities are not persisted.
+Fourteen focused tests and the complete CI-equivalent sequence pass with 159
+LabelCore and 101 LabelMac tests in both configurations. This is additional
+partial automated M3-AC09/12 and M5-AC07/09 evidence only. Scheduler intake,
+prepared-artifact integration, scheduler retry mapping, restart recovery,
+retention/deletion policy, and all installed/hardware evidence remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
