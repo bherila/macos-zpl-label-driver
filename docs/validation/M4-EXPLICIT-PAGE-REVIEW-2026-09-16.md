@@ -6,8 +6,12 @@ successful draft mutation and reload now clears review state and advances a
 checked edit generation. The displayed acknowledgement captures that generation
 as well as the profile and packed preview. An old callback is rejected even if
 later edits restore identical values. Invalid edits preserve valid review state.
-The real-worker undo regression and 40 focused native tests passed. Full local
-validation for this second-pass correction is pending. No third review request
+The real-worker undo regression and 40 focused native tests passed. At
+`501cdf1`, the full local gate passed exit 0: 67 Python, 173 LabelCore and
+213 LabelMac tests in debug/release; both accelerator suites, 132 independent
+round trips, 15/10/1 inert ABI/pipeline cases, local executable/app/nested-worker
+signatures and packaged-worker PBM/ZPL equality. Corrected hosted CI remains
+pending. No third review request
 will be made; the second-pass correctness finding is being fixed on this branch.
 
 Native editor source/automated evidence for finding 4025449342, not GUI,

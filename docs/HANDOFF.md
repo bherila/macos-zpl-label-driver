@@ -4,8 +4,10 @@ PR #58 second-pass finding 4025638071 exposed review resurrection after an
 unsaved edit/undo. The current correction clears acknowledgements on every
 successful draft mutation/reload and binds displayed review to a checked edit
 generation, rejecting old callbacks even when profile/bitmap values match again.
-40 focused native tests passed, including the real-worker undo regression;
-full local validation is pending. Hosted 35091595114 passed the preceding
+40 focused native tests passed, including the real-worker undo regression.
+At `501cdf1`, full local validation passed exit 0 with 67/173/213 debug/release,
+accelerator/independent/inert/signature and packaged-worker equality checks.
+Corrected hosted CI is pending. Hosted 35091595114 passed the preceding
 `a1e1f58`, not this correction. No third review request or merge is authorized.
 The dependent profile-transfer slice remains held until this fix is integrated.
 
