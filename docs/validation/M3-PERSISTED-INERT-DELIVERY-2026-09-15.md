@@ -1,7 +1,8 @@
 # M3 persisted inert delivery — 2026-09-15
 
 **Scope:** automated native evidence at `c2e6e53` with review remediation at
-`297c6aa` and `e977b33`, connecting a validated
+`297c6aa` and `e977b33`, restacked with immutable-publication remediation
+`c4798ef`, connecting a validated
 immutable prepared-job bundle to its persisted lifecycle and shared
 physical-device lease. The sink discards bytes in memory. This is not scheduler,
 network, USB, or physical-printer acceptance.
@@ -61,7 +62,7 @@ On macOS 26.6.2 with Xcode 26.6:
 - repository preflight — passed;
 - Python suite — 64 passed;
 - LabelCore — 165 passed in debug and release;
-- LabelMac — 128 passed in debug and release;
+- LabelMac — 129 passed in debug and release;
 - focused accepted-job suite — 33 passed;
 - independent encoder round trips — 132 passed;
 - backend ABI — 15 passed;

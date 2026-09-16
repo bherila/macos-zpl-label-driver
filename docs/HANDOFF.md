@@ -1292,6 +1292,9 @@ before the subsequent transmitting-intent commit, while the ticket-derived
 lease excludes a still-live prior owner. Lease contention is now explicitly
 retryable because it changes neither lifecycle nor sink. The focused suite has
 33 passing accepted-job tests and the complete LabelMac suite has 128 tests.
+After merging PR #34 remediation `c4798ef`, exact combined head `9401b39`
+passes 64 Python, 165 LabelCore, and 129 LabelMac tests in debug and release,
+plus all independent oracle, ABI, inert-pipeline, and local-signature checks.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
