@@ -1342,6 +1342,18 @@ debug and release, all 139 LabelMac tests in debug and release, 132 independent
 round trips, all ABI/inert-pipeline checks, and local ad-hoc product signature
 verification. Per the two-pass policy, no third review will be requested.
 
+At `65dce21`, the first restart-recovery primitive reconciles one known
+accepted-job ID without adding scheduler or printer I/O. It validates the exact
+prepared artifact and acquires the same ticket-derived physical-device lease
+as delivery before converting an abandoned `transmitting` record to terminal
+`uncertain`, preserving the last known accepted-byte count. A held lease leaves
+state unchanged; prepared/waiting jobs remain merely ready, and terminal
+transmitted/device-confirmed/uncertain evidence is read without replay or
+mutation. Four regressions bring LabelMac to 143 tests in debug and release.
+This is partial automated M3-AC09 evidence only: installed restart discovery,
+worker IPC, scheduler retry mapping, transport, USB, and physical output remain
+unverified.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
