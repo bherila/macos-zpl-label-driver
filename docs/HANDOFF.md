@@ -4,7 +4,9 @@ Issue #78 speed-boundary fix is in progress on `codex/m3-control-speed-boundary`
 based on PR77 `7d54fe3`. A public-profile/resolution old-code regression reproduced
 three rejected-speed assertion failures; the baseline encoder now independently
 enforces documented2/3/4, without clamping. All19focused control tests pass; full
-new gates pending. See `validation/M3-CONTROL-SPEED-BOUNDARY-2026-09-16.md`.
+local `bff05f4` passed exit0: 82 Python/180 Core/264 Mac debug/release, both
+independent/inert configurations, signatures and packaged equality. Own hosted/
+review pending. See `validation/M3-CONTROL-SPEED-BOUNDARY-2026-09-16.md`.
 No physical qualification or expanded model/control support is claimed.
 
 Issue #76 follow-up is in progress on `codex/m3-config-root-alias`, based on
