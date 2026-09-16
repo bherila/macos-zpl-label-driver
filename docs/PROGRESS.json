@@ -15,7 +15,7 @@
         "docs/validation/M0-STACKED-PR-CI-2026-09-16.md (79411af unrestricted PR-target CI trigger; automatic stacked PR run 35069832168 passed exact aaf8425 with full native tests and signatures)",
         "scripts/ci_scope.py (docs plus mandatory manifest classification corrected with 67 Python tests; hosted docs-only aggregate acceptance remains unproven)",
         "docs/validation/M0-DOCS-MANIFEST-SCOPE-2026-09-16.md (full native run 35070667206 passed exact 431f0d6; docs-only run 35070738539 passed exact 83aec67 with native skipped and aggregate green; deliberate failure/fork remain open)",
-        "M0-AC06 negative run 35071242478 failed exact 11084e3 repository and aggregate with intentional test marker; injected test removed and local 67 tests green; hosted recovery pending"
+        "docs/validation/M0-FAIL-CLOSED-CI-2026-09-16.md (negative run 35071242478 failed exact 11084e3; injected test removed; recovery 35071315857 passed exact e464491; both M0-AC06 outcomes observed)"
       ],
       "blockers": []
     },
