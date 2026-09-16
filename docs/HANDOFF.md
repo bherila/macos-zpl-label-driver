@@ -26,6 +26,17 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+Discovery integration `7ee1212` passes 38 focused native discovery/setup/store/
+transfer tests. A single hard-timeout count-only smoke of the actual native
+reader succeeded with zero matching interfaces/observations; positive-device
+resolution and GUI remain NOT RUN. Full combined gate pending. No USB service
+connection, identity qualification or printer command occurred.
+
+The pushed parent capacity correction `6234f06` is now integrated into discovery
+WIP; run its full combined gate before promotion. Parent corrected hosted run
+35095948906 and second review were confirmed live. This supersedes earlier
+pre-fix hold/pending status below; no parent clean review is claimed yet.
+
 Local native read-only discovery implementation now connects a user-initiated
 scan/session interface picker to setup without qualifying identity or enabling
 installation. Native build and 13 focused reader/model/setup tests passed; full
