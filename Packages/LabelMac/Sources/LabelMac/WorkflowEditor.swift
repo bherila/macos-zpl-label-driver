@@ -375,7 +375,11 @@ public final class WorkflowEditorModel: ObservableObject {
     }
 
     public func save() throws {
+        let (following, overflow) = editGeneration.addingReportingOverflow(isSaved ? 0 : 1)
+        guard !overflow else { throw Error.editSequenceExhausted }
         try store.save(profile)
+        // A successful draft-to-saved boundary invalidates displayed draft callbacks.
+        editGeneration = following
         isSaved = true
         lastError = nil
     }
