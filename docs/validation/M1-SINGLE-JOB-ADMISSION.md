@@ -51,6 +51,16 @@ operations. A failed query is not absence.
    destination, held state, one document, and expected attributes. If another
    job appeared, stop; do not cancel an unrelated job or claim exclusive use.
    Preserve the experiment and report the conflict for administrator resolution.
+   The read-only developer helper `python3 scripts/check_m1_ipp_readback.py
+   --held-job NUMBER` performs fixed-queue URI, stopped/rejecting/unshared,
+   outstanding-job and required held-PDF attribute checks through the explicitly
+   selected socket. `NUMBER` is only the returned positive CUPS numeric ID, not
+   an invented ID or a request from an unrelated queue. This helper never submits,
+   releases or cancels work. Its checks are point-in-time observations, not an
+   atomic scheduler transaction or authority to mutate a changed destination.
+   Missing/unsupported attributes fail closed. The actual held-job mode remains
+   NOT RUN until the approved administrator experiment; see R40 and
+   [readback preparation](M1-READONLY-IPP-READBACK-2026-09-16.md).
 5. Enable processing only after verification, then resume only that held job
    (`lp -i JOB_ID -H resume`, not restart). Observe for at most 60 seconds.
    Require scheduler-correlated `WARNING: LABEL_CAPTURE_FILTER` schema-2 metadata
