@@ -177,7 +177,9 @@ public struct ActiveVirtualQueueStore: @unchecked Sendable {
     }
 
     private func read(directory: Int32, stem: String) throws -> ActiveVirtualQueueSelection? {
-        let descriptor = openat(directory, "\(stem).json", O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        let descriptor = NonblockingRegularFileDescriptor.open(
+            at: directory, name: "\(stem).json"
+        )
         if descriptor < 0, errno == ENOENT { return nil }
         guard descriptor >= 0 else { throw Error.cannotRead }
         defer { close(descriptor) }
