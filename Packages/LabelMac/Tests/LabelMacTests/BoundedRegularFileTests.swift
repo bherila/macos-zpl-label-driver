@@ -20,6 +20,30 @@ final class BoundedRegularFileTests: XCTestCase {
         }
     }
 
+    func testDescriptorReadKeepsOffsetAndSurvivesPathReplacement() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(
+            path: "BoundedRegularFileDescriptor-\(UUID().uuidString)"
+        )
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appending(path: "input.bin")
+        let openedBytes = Data([1, 2, 3, 4])
+        try openedBytes.write(to: file)
+        let descriptor = open(file.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+        XCTAssertEqual(lseek(descriptor, 2, SEEK_SET), 2)
+
+        let moved = directory.appending(path: "opened.bin")
+        try FileManager.default.moveItem(at: file, to: moved)
+        try Data([9, 9]).write(to: file, options: .withoutOverwriting)
+
+        XCTAssertEqual(try BoundedRegularFile.read(
+            openFileDescriptor: descriptor, maximumBytes: 4
+        ), openedBytes)
+        XCTAssertEqual(lseek(descriptor, 0, SEEK_CUR), 2)
+    }
+
     func testRejectsFinalComponentSymbolicLinkAndNonRegularFile() throws {
         let directory = FileManager.default.temporaryDirectory.appending(path: "BoundedRegularFileType-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
