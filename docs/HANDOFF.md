@@ -951,6 +951,21 @@ This closes M5-AC12 at automated level only. The app has not been installed or
 launched for hands-on UI, accessibility, quarantine, helper, scheduler,
 restart, or physical-printer acceptance.
 
+At `349731e`, the setup app gained a conservative reference-printer setup
+surface derived from the typed GC420d profile. It distinguishes reported
+USB/stock/tear-off facts from an unobserved stable device identity, exposes
+only the documented 2/3/4 inches-per-second choices, and labels that choice as
+an unsaved session draft that changes no printer setting. Cutter is unavailable
+for this setup; peeler, darkness, and installed tracking remain explicitly
+unknown or unqualified. Stock and tear-off confirmation gate local workflow
+editing, but queue installation stays unavailable because no device identity
+was discovered. Four focused tests and the complete CI-equivalent sequence pass
+with 130 LabelCore and 74 LabelMac tests in both configurations. The signed app
+also launched as a normal process and quit cleanly. UI automation could not
+start on this host, so visual layout, keyboard traversal, VoiceOver, discovery,
+saved defaults, install, scheduler, restart, and hardware behavior remain
+unverified; no M5 acceptance row is newly closed by this slice.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
