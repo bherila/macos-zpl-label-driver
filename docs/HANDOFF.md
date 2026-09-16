@@ -13,7 +13,13 @@ Important correction: the earlier nonempty AXWindows result had AXApplication
 role and exposed menus, not a verified AXWindow. Both direct and new-instance
 Launch Services probes failed the stronger window check. No GUI pass is claimed;
 the exact test app namespace has no live instances. Parent PR #56 hosted run
-35085759520 passed exact `ef26682`; corrected hosted/second review remain live.
+35085759520 passed exact `ef26682`; corrected run 35088390875 remains live,
+and second review is clean at unchanged base/head. PR #57 hosted/first review live.
+New combined-build Launch Services probes observed one owned layer-zero
+WindowServer window each, but AXWindow/control access remains unavailable.
+This is stronger evidence of window creation, not GUI/VoiceOver acceptance;
+both finite probes closed only owned instances, with no matching live processes
+in subsequent exact-artifact inventories. See the same readiness evidence.
 
 PR #56 first review found historical-revision collision, equal-dimension foreign
 stock acceptance and unavailable detectors mislabeled as layout changes. Local
