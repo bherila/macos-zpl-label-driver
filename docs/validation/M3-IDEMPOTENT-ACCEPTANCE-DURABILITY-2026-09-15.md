@@ -35,8 +35,8 @@ On macOS 26.6.2 with Xcode 26.6:
 
 - repository preflight — passed;
 - Python suite — 64 passed;
-- LabelCore — 164 passed;
-- LabelMac — 112 passed;
+- LabelCore — 165 passed;
+- LabelMac — 114 passed;
 - focused accepted-job store — 23 passed;
 - independent encoder round trips — 132 passed;
 - backend ABI — 15 passed;

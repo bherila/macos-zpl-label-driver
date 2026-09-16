@@ -1251,7 +1251,7 @@ when exact bytes are visible. Regressions inject that actual barrier, cover
 persistent failure and later recovery, pause one writer between rename and sync
 while a duplicate writer confirms durability, and prove that retries never
 reset an already-prepared lifecycle record. Local validation passes with 64
-Python, 164 LabelCore, and 112 LabelMac tests, including 23 focused store tests.
+Python, 165 LabelCore, and 114 LabelMac tests, including 25 focused store tests.
 This does not claim universal power-loss persistence, scheduler acceptance, or
 hardware evidence. R13 remains open for the other immutable reference stores.
 
