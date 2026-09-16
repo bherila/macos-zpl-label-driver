@@ -44,11 +44,17 @@ The initial compile-only probe selected zero tests and is not counted as a pass.
 At implementation `8067779`, full local gate passed exit 0: 67 Python/173 Core/
 216 Mac tests debug/release; both accelerator suites, independent/inert checks,
 local executable/app/nested-worker signatures and packaged-worker PBM/ZPL equality.
-Publication is held on PR #58's genuine first-review finding `4025449342`: native
-UI approval must require explicit current-profile bounds/preview review, including
-restored regions and reopening. This checkpoint does not fix that dependency.
-After its same-branch correction, integrate it and rerun the combined gate before
-publishing. Own hosted CI/review and native dialog checks remain pending.
+PR #58's same-branch correction is now integrated from `a1e1f58`: native UI
+approval requires explicit bounds/displayed-packed-preview review for every
+region of the complete current profile; editing/reopening/stale clicks cannot
+bypass it. The connected transfer test uses this stricter throwing API and checks
+the current editor's acknowledgement/approval remains valid after an import.
+The parent's final local 67/173/212 gate passed; corrected hosted/second review
+remain live. Run the combined gate before publication. Own hosted CI/review and
+native dialog checks remain pending. After integration, 45 focused native tests
+passed: fourteen editor, five transfer, fourteen document-opening and twelve
+bootstrap. The transfer preservation test explicitly acknowledges the displayed
+profile/packed preview before approval; imports preserve that current review state.
 
 ## Finite native validation — NOT RUN
 

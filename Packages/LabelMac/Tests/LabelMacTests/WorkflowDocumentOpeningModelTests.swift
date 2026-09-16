@@ -12,8 +12,9 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
         await model.currentOpeningTask?.value
         let original = try XCTUnwrap(model.editor)
         try original.save()
-        try original.approveForUnattendedUse()
         await original.refreshPreviewInWorker(workerExecutable: try worker())
+        try original.confirmSelectedBoundsAndPreviewReviewed(expectedProfile: original.profile, expectedPreview: original.preview)
+        try original.approveForUnattendedUse()
         let preview = try XCTUnwrap(original.preview)
         let definition = await model.prepareProfileExport(original.profile)
         let file = store.root.appending(path: "synthetic-export.json")
@@ -22,6 +23,7 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
         XCTAssertTrue(model.editor === original)
         XCTAssertEqual(original.preview, preview)
         XCTAssertTrue(original.isSaved)
+        XCTAssertTrue(original.canApproveForUnattendedUse)
         XCTAssertNotNil(try store.qualification(for: original.profile))
         let imported = try XCTUnwrap(model.savedWorkflows.first { $0.profile.id != original.profile.id }?.profile)
         XCTAssertNil(try store.qualification(for: imported))
@@ -72,6 +74,8 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
         await model.currentOpeningTask?.value
         let original = try XCTUnwrap(model.editor)
         try original.save()
+        await original.refreshPreviewInWorker(workerExecutable: try worker())
+        try original.confirmSelectedBoundsAndPreviewReviewed(expectedProfile: original.profile, expectedPreview: original.preview)
         try original.approveForUnattendedUse()
         let saved = original.profile
         for source in ["a4-one", "layout-changed", "mixed-pages"] {

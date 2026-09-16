@@ -6,11 +6,25 @@ the exact own-store saved snapshot. Publication uncertainty retains/reconciles
 the same candidate, not a duplicate import. Nineteen focused native tests passed,
 including real-worker preservation of the current editor/preview/local approval.
 At `8067779`, full local 67/173/216 debug/release gate passed exit 0 with independent,
-inert, signature and packaged-worker checks. Publication held on PR #58's first
-review finding 4025449342: native-UI approval needs exact-profile region bounds/
-preview review, including restoration/reopening. Fix on #58 and integrate before
-publishing this dependent slice. See `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. No queue,
+inert, signature and packaged-worker checks. PR #58's exact-profile/displayed-preview
+review correction is now integrated from `a1e1f58`; 45 combined focused native
+tests passed. Combined full gate pending before
+publication. Its corrected hosted/second review remain live. See
+`validation/M4-PROFILE-TRANSFER-2026-09-16.md`. No queue,
 privilege or device I/O. Noninteractive administrator authorization remains absent.
+
+PR #58 first review found restored full-page regions could be approved without
+explicit bounds/preview review. Same-branch correction requires acknowledgement
+of every region's current packed preview, bound to the complete current profile;
+editing/reopening makes prior acknowledgement stale. The button binds its displayed
+profile and packed preview, rejecting stale clicks. 39 focused native tests passed.
+Initial `5fb351e` full local 67/173/211 debug/release gate passed exit 0 with all
+independent/inert/signature/packaged checks; final `a51780f` gate passed exit 0
+with 67/173/212 debug/release and all independent/inert/signature/packaged checks.
+Corrected hosted/second review pending. See
+`validation/M4-EXPLICIT-PAGE-REVIEW-2026-09-16.md`. Original hosted run 35089709098
+passed exact `39b2936`; it does not validate the correction. Parent #57 latest
+35089708869 passed exact `626122d`; its source first review was clean at `5d9c2c2`.
 
 Latest local slice connects explicit non-label page confirmation and full-page
 restoration to the editor's existing typed planner. Page geometry/anchors remain
