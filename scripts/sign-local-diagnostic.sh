@@ -22,7 +22,7 @@ if [[ -L artifacts ]]; then
 fi
 mkdir -p artifacts
 work_dir="$(mktemp -d "$PWD/artifacts/local-adhoc.XXXXXX")"
-for product in label-driver-diagnostics label-driver label-render-worker; do
+for product in label-driver-diagnostics label-driver label-render-worker label-worker-supervision-fixture; do
   source_binary="$bin_dir/$product"
   if [[ ! -f "$source_binary" || -L "$source_binary" ]]; then
     echo "Expected a regular built executable: $source_binary" >&2

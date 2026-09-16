@@ -8,6 +8,7 @@ import LabelMac
 final class SetupAppController: ObservableObject {
     @Published var editor: WorkflowEditorModel?
     @Published var error: String?
+    @Published var scratchWarning: String?
 
     private let store: WorkflowProfileStore?
     let printerSetup: ReferencePrinterSetupModel?
@@ -17,6 +18,10 @@ final class SetupAppController: ObservableObject {
 
     init() {
         do {
+            let recovery = try OfflineRenderWorkerProcess.recoverAbandonedScratch()
+            if recovery.requiresReview > 0 || recovery.truncated {
+                scratchWarning = "Some temporary worker data require manual review; they were not removed."
+            }
             let setup = try ReferencePrinterSetupModel.gc420dUSB()
             let support = try FileManager.default.url(
                 for: .applicationSupportDirectory,
@@ -61,6 +66,10 @@ struct SetupRootView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                if let warning = controller.scratchWarning {
+                    Text(warning).foregroundStyle(.orange)
+                        .accessibilityLabel(warning)
+                }
                 if let printerSetup = controller.printerSetup {
                     ReferencePrinterSetupView(model: printerSetup)
                 }
