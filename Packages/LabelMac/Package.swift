@@ -9,6 +9,7 @@ let package = Package(
         .executable(name: "label-driver-diagnostics", targets: ["LabelDriverDiagnostics"]),
         .executable(name: "label-driver", targets: ["LabelDriverCLI"]),
         .executable(name: "label-render-worker", targets: ["LabelRenderWorker"]),
+        .executable(name: "label-printer-setup", targets: ["LabelSetupApp"]),
     ],
     dependencies: [.package(path: "../LabelCore")],
     targets: [
@@ -16,6 +17,7 @@ let package = Package(
         .executableTarget(name: "LabelDriverDiagnostics", dependencies: ["LabelMac"]),
         .executableTarget(name: "LabelDriverCLI", dependencies: ["LabelMac"]),
         .executableTarget(name: "LabelRenderWorker", dependencies: ["LabelMac"]),
+        .executableTarget(name: "LabelSetupApp", dependencies: ["LabelMac"]),
         .testTarget(name: "LabelMacTests", dependencies: ["LabelMac"]),
     ],
     swiftLanguageModes: [.v6]
