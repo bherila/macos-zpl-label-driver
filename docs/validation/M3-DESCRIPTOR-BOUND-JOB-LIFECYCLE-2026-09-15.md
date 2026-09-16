@@ -1,8 +1,9 @@
 # M3 descriptor-bound job lifecycle — 2026-09-15
 
 **Scope:** native source and regression evidence for review finding R11 at
-`5a1d04a`. This is persistence and authorization binding evidence, not scheduler
-intake, delivery, or physical-printer acceptance.
+`5a1d04a`, with schema-upgrade remediation at `8a3ef38`. This is persistence
+and authorization binding evidence, not scheduler intake, delivery, or
+physical-printer acceptance.
 
 ## Corrected boundary
 
@@ -20,6 +21,13 @@ and cancellation all require the state, expected record, locked bundle, and
 ticket digest to agree. Cancellation checks its bounded capability only after
 the exact bundle has been locked and loaded.
 
+Canonical schema-1 lifecycle records remain readable during upgrade. Immutable
+bundle inspection derives their schema-2 ticket binding from the exact ticket
+bytes but does not mutate state. The lifecycle store performs the actual
+schema-2 replacement only after locking that same descriptor-selected bundle,
+verifying its ticket identity, and validating any prepared artifact. A failed
+post-replacement durability barrier remains an explicit uncertain commit.
+
 ## Regression evidence
 
 Native tests cover two independent valid repositories with the same acceptance
@@ -32,15 +40,20 @@ creates a different valid repository at the old pathname, and proves that the
 bound store continues to load and update the original descriptor-selected
 bundle while leaving the replacement empty.
 
+Upgrade regressions cover a waiting state that remains cancellable and
+transmitting and uncertain states that retain their exact accepted-byte
+progress. Noncanonical legacy bytes and migration without a valid canonical
+ticket digest fail closed.
+
 ## Local validation
 
 On macOS 26.6.2 with Xcode 26.6:
 
 - repository preflight — passed;
 - Python suite — 64 passed;
-- LabelCore — 164 passed;
-- LabelMac — 109 passed;
-- focused lifecycle store — 20 passed;
+- LabelCore — 165 passed;
+- LabelMac — 111 passed;
+- focused lifecycle store — 22 passed;
 - independent encoder round trips — 132 passed;
 - backend ABI — 15 passed;
 - filter ABI — 10 passed;
