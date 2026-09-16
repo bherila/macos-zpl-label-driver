@@ -1,5 +1,12 @@
 # Current implementation handoff — revision 3
 
+Integrated read-only discovery `84d397e` passed the full local gate exit 0 with
+67/173/231 debug/release, accelerator/independent/inert/signature and packaged
+worker equality checks. 38 focused native tests and one finite actual-reader
+empty-match smoke passed. Combined local publication hold is cleared; own
+hosted/review, positive-device resolution and GUI acceptance remain pending.
+No service connection, identity qualification, installation or printer I/O.
+
 Discovery integration `7ee1212` passes 38 focused native discovery/setup/store/
 transfer tests. A single hard-timeout count-only smoke of the actual native
 reader succeeded with zero matching interfaces/observations; positive-device
