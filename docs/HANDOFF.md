@@ -1,5 +1,10 @@
 # Current implementation handoff — revision 3
 
+PR #59 capacity correction `a1cf439` passed the full local gate exit 0 with
+67/173/223 debug/release, accelerator/independent/inert/signature and packaged
+worker equality checks. This supersedes corrected-local-gate pending statements
+below. Corrected hosted/second review pending; no installed/GUI/hardware result.
+
 PR #59 first finding 4025900013 is corrected locally with atomic bounded-category
 capacity admission: public workflow saves hold a validated directory-relative
 nonblocking flock through count/rename and preserve the unchanged 256-record cap.
