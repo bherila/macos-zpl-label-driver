@@ -38,6 +38,16 @@ Original exact `03ea2fc` hosted 35106871876
 passed 178 Core/250 Mac debug/release and signature/packaged checks, but did not
 cover this edge case. See `validation/M4-CROP-INTERSECTION-REVIEW-2026-09-16.md`.
 
+The current test-only TCP slice adds explicitly loopback-bound native peers for
+real stopped-reader backpressure, reset after observed prefix, exact prepared
+format reassembly across variable reads, and owned non-listening-port failure.
+The production adapter/state machine are unchanged. Twelve focused tests and the
+final descriptor-hygiene repeat passed; full gate awaits the parent PR #69
+crop/media review correction. This local work is preserved, not published ready.
+M3-AC05 stays open and no
+network-printer/scheduler/USB support is inferred. See
+`validation/M3-REAL-LOOPBACK-FAULTS-2026-09-16.md`.
+
 The current automated extraction slice exercises the supplied native, Letter and
 A4 originals through separate immutable workflow bindings and the complete
 accepted/prepared/inert pipeline. It preserves source geometry and original
