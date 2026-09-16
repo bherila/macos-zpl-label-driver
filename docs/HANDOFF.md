@@ -913,6 +913,19 @@ at automated level and adds partial M4-AC06 evidence only. Rendered native
 editor controls, keyboard operation, exact-preview presentation, and installed
 save/reload interaction remain open.
 
+At `7c5e58b`, M4 gained reusable native SwiftUI teach-once components and a
+main-actor editor model. The view exposes explicit millimeter geometry,
+right-angle rotation, global ordering, keyboard shortcuts, distinct input/output
+media summaries, accessible errors, and separate save versus unattended
+approval. Preview planning consumes analyzed original-page geometry and renders
+the original PDF through the exact packed bitmap/encoder path. Four native tests
+prove black/white region correction changes packed bytes, invalid edits are
+nonmutating, save/approval stay separate, and reload creates the next revision.
+The complete CI-equivalent sequence passes 130 LabelCore and 63 LabelMac tests
+in both configurations. This is partial M4-AC01/06/09/12 evidence only: the
+components still need a signed setup-app host, document-open flow, hands-on
+keyboard/accessibility evidence, queue binding, and installed recovery proof.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

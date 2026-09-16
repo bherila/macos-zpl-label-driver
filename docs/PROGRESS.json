@@ -121,7 +121,8 @@
         "docs/validation/M4-STRUCTURAL-ANALYSIS-2026-09-15.md (5ae58ea bounded local border analysis validates letter-one and rejects layout-changed before planning; M4-AC04 automated pass)",
         "docs/validation/M4-WORKFLOW-QUALIFICATION-2026-09-15.md (b3b2a32 exact-profile user-confirmation wrapper gates unattended matching; partial M4-AC09/12 automated evidence only)",
         "docs/validation/M4-PROFILE-STORE-2026-09-15.md (df06929 private immutable profile revisions, separate exact-digest qualification, exclusive atomic publication, and concurrent conflict safety; partial M4-AC06/08/09/12 evidence)",
-        "docs/validation/M4-DRAFT-ORDER-ACCOUNTING-2026-09-15.md (05eb16d canonical revision editing and cross-page reorder plus existing page/copy oracles; M4-AC03/05 automated pass, partial M4-AC06 evidence)"
+        "docs/validation/M4-DRAFT-ORDER-ACCOUNTING-2026-09-15.md (05eb16d canonical revision editing and cross-page reorder plus existing page/copy oracles; M4-AC03/05 automated pass, partial M4-AC06 evidence)",
+        "docs/validation/M4-NATIVE-EDITOR-COMPONENTS-2026-09-15.md (7c5e58b reusable SwiftUI editor/model with mm controls, keyboard commands, exact packed preview, separate save/approval, and revisioned correction; partial M4-AC01/06/09/12 evidence)"
       ],
       "blockers": []
     },
