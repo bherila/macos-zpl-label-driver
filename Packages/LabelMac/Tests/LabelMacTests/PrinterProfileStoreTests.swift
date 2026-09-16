@@ -1,3 +1,4 @@
+import CryptoKit
 import Darwin
 import Foundation
 import XCTest
@@ -106,5 +107,35 @@ final class PrinterProfileStoreTests: XCTestCase {
         XCTAssertEqual(results.filter { $0 }.count, 1)
         let stored = try store.load(id: "gc420d-usb", revision: 7).profile
         XCTAssertTrue(stored == first || stored == second)
+    }
+
+    func testPostRenameSyncFailureReturnsExactRecoverableIdentity() throws {
+        let root = try temporaryRoot()
+        let storage = try PrivateImmutableDirectory(
+            root: root, syncDirectory: { _ in -1 }
+        )
+        let faulted = PrinterProfileStore(root: root, storage: storage)
+        let value = try profile()
+        let bytes = try PrinterProfileJSON.encode(value)
+        let identity = ImmutablePublicationIdentity(
+            id: "gc420d-usb", schemaVersion: value.schemaVersion,
+            revision: value.revision, sha256: Self.digest(bytes)
+        )
+        XCTAssertThrowsError(try faulted.save(id: identity.id, profile: value)) {
+            XCTAssertEqual($0 as? PrinterProfileStore.Error, .commitUncertain(identity))
+        }
+
+        let normal = try PrinterProfileStore(root: root)
+        let stored = try normal.load(id: identity.id, revision: identity.revision)
+        XCTAssertEqual(stored.profile, value)
+        XCTAssertEqual(stored.reference.sha256, identity.sha256)
+        XCTAssertEqual(try normal.save(id: identity.id, profile: value), stored.reference)
+        XCTAssertThrowsError(try normal.save(
+            id: identity.id, profile: profile(model: "Changed")
+        )) { XCTAssertEqual($0 as? PrinterProfileStore.Error, .profileConflict) }
+    }
+
+    private static func digest(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 }

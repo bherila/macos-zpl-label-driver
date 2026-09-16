@@ -1,23 +1,56 @@
 import Darwin
 import Foundation
 
+public struct ImmutablePublicationIdentity: Equatable, Sendable {
+    public let id: String
+    public let schemaVersion: Int
+    public let revision: Int
+    public let sha256: String
+
+    init(id: String, schemaVersion: Int, revision: Int, sha256: String) {
+        self.id = id
+        self.schemaVersion = schemaVersion
+        self.revision = revision
+        self.sha256 = sha256
+    }
+}
+
 /// Shared descriptor-relative storage primitive for private immutable product
 /// configuration. Public stores map these internal errors to domain errors.
 struct PrivateImmutableDirectory: @unchecked Sendable {
-    enum Error: Swift.Error {
+    enum Error: Swift.Error, Equatable {
         case cannotCreate
         case cannotOpen
         case unsafeDirectory
         case cannotRead
         case notFound
         case cannotWrite
+        case commitUncertain
         case conflict
     }
 
+    enum FaultPoint: Equatable, Sendable {
+        case beforeRename
+    }
+
     let root: URL
+    private let syncDirectory: @Sendable (Int32) -> Int32
+    private let injectFault: @Sendable (FaultPoint) throws -> Void
 
     init(root: URL) throws {
+        try self.init(
+            root: root, syncDirectory: { fsync($0) }, injectFault: { _ in }
+        )
+    }
+
+    init(
+        root: URL,
+        syncDirectory: @escaping @Sendable (Int32) -> Int32 = { fsync($0) },
+        injectFault: @escaping @Sendable (FaultPoint) throws -> Void = { _ in }
+    ) throws {
         self.root = root
+        self.syncDirectory = syncDirectory
+        self.injectFault = injectFault
         if mkdir(root.path, 0o700) != 0, errno != EEXIST { throw Error.cannotCreate }
         let descriptor = open(root.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard descriptor >= 0 else { throw Error.cannotOpen }
@@ -57,6 +90,8 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
                 }
             }
             guard fsync(descriptor) == 0 else { throw Error.cannotWrite }
+            do { try injectFault(.beforeRename) }
+            catch { throw Error.cannotWrite }
             if renameatx_np(directory, temporary, directory, fileName, UInt32(RENAME_EXCL)) != 0 {
                 guard errno == EEXIST else { throw Error.cannotWrite }
                 let existing = try read(
@@ -65,9 +100,10 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
                     maximumBytes: maximumBytes
                 )
                 guard existing == data else { throw Error.conflict }
+                guard syncDirectory(directory) == 0 else { throw Error.commitUncertain }
             } else {
                 shouldUnlink = false
-                guard fsync(directory) == 0 else { throw Error.cannotWrite }
+                guard syncDirectory(directory) == 0 else { throw Error.commitUncertain }
             }
         }
     }
