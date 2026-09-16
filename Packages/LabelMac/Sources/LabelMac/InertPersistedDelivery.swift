@@ -43,8 +43,10 @@ public enum InertPersistedDeliveryOutcome: Equatable, Sendable {
     case deviceBusy
 
     public var mayRetryAutomatically: Bool {
-        if case .failedBeforeTransmission = self { return true }
-        return false
+        switch self {
+        case .failedBeforeTransmission, .deviceBusy: true
+        case .transmitted, .uncertain: false
+        }
     }
 }
 
@@ -114,10 +116,22 @@ public struct InertPersistedDelivery: @unchecked Sendable {
             throw Error.invalidScenario
         }
         var state = prepared.state
-        guard case let .prepared(payloadSHA256, byteCount) = state.phase,
-              byteCount == prepared.bytes.count else {
+        let payloadSHA256: String
+        let byteCount: Int
+        let needsWaitingTransition: Bool
+        switch state.phase {
+        case let .prepared(hash, count):
+            payloadSHA256 = hash
+            byteCount = count
+            needsWaitingTransition = true
+        case let .waiting(hash, count):
+            payloadSHA256 = hash
+            byteCount = count
+            needsWaitingTransition = false
+        default:
             throw Error.invalidState
         }
+        guard byteCount == prepared.bytes.count else { throw Error.invalidState }
         let lease: PhysicalDeviceLease
         do {
             lease = try PhysicalDeviceLease(
@@ -133,10 +147,12 @@ public struct InertPersistedDelivery: @unchecked Sendable {
         }
         defer { lease.release() }
 
-        state = try transition(
-            acceptanceID: acceptanceID, expected: state,
-            next: .waiting(payloadSHA256: payloadSHA256, byteCount: byteCount)
-        )
+        if needsWaitingTransition {
+            state = try transition(
+                acceptanceID: acceptanceID, expected: state,
+                next: .waiting(payloadSHA256: payloadSHA256, byteCount: byteCount)
+            )
+        }
         if scenario.failBeforeTransmission {
             _ = try transition(
                 acceptanceID: acceptanceID, expected: state,
