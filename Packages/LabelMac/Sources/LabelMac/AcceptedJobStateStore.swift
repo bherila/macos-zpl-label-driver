@@ -69,13 +69,7 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
             acceptanceID: acceptanceID, queueStore: queueStore,
             workflowStore: workflowStore, printerStore: printerStore
         ) { directory, bundle in
-            let state = try read(directory)
-            guard state.acceptanceID == bundle.ticket.acceptanceID,
-                  state.acceptedTicketSHA256 == bundle.acceptedTicketSHA256 else {
-                throw Error.acceptedJobMismatch
-            }
-            try validatePreparedArtifact(state: state, directory: directory)
-            return state
+            try read(directory, bundle: bundle)
         }
     }
 
@@ -107,7 +101,7 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
                   payload.resolvedControls == bundle.ticket.controls else {
                 throw Error.preparedPayloadMismatch
             }
-            let current = try read(directory)
+            let current = try read(directory, bundle: bundle)
             guard current == expected else { throw Error.stateConflict }
             guard current.phase == .accepted else { throw Error.invalidTransition }
             try persistPrepared(payload.bytes, directory: directory)
@@ -137,11 +131,7 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
             let profile: PrinterProfile
             do { profile = try printerStore.load(reference: bundle.ticket.printerProfile) }
             catch { throw Error.acceptedJobMismatch }
-            let state = try read(directory)
-            guard state.acceptanceID == bundle.ticket.acceptanceID,
-                  state.acceptedTicketSHA256 == bundle.acceptedTicketSHA256 else {
-                throw Error.acceptedJobMismatch
-            }
+            let state = try read(directory, bundle: bundle)
             guard let binding = Self.payloadBinding(state.phase) else {
                 throw Error.preparedPayloadUnavailable
             }
@@ -237,9 +227,8 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
               expected.acceptedTicketSHA256 == bundle.acceptedTicketSHA256 else {
             throw Error.acceptedJobMismatch
         }
-        let current = try read(directory)
+        let current = try read(directory, bundle: bundle)
         guard current == expected else { throw Error.stateConflict }
-        try validatePreparedArtifact(state: current, directory: directory)
         let nextRecord = try advance(current, to: next)
         try replace(try canonical(nextRecord, readFailure: false), directory: directory)
         return nextRecord
@@ -288,7 +277,9 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
         }
     }
 
-    private func read(_ directory: Int32) throws -> AcceptedJobStateRecord {
+    private func read(
+        _ directory: Int32, bundle: AcceptedJobBundle
+    ) throws -> AcceptedJobStateRecord {
         let descriptor = NonblockingRegularFileDescriptor.open(at: directory, name: "state.json")
         guard descriptor >= 0 else { throw Error.cannotRead }
         defer { close(descriptor) }
@@ -320,7 +311,30 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
               before.st_ctimespec.tv_nsec == after.st_ctimespec.tv_nsec else {
             throw Error.cannotRead
         }
-        return try canonicalDecode(bytes)
+        let decoded: (state: AcceptedJobStateRecord, needsMigration: Bool)
+        do {
+            let state = try AcceptedJobStateJSON.decode(bytes)
+            guard try AcceptedJobStateJSON.encode(state) == bytes else {
+                throw Error.cannotRead
+            }
+            decoded = (state, false)
+        } catch {
+            do {
+                decoded = (try AcceptedJobStateJSON.migrateLegacyV1(
+                    bytes, acceptedTicketSHA256: bundle.acceptedTicketSHA256
+                ), true)
+            } catch { throw Error.cannotRead }
+        }
+        let state = decoded.state
+        guard state.acceptanceID == bundle.ticket.acceptanceID,
+              state.acceptedTicketSHA256 == bundle.acceptedTicketSHA256 else {
+            throw Error.acceptedJobMismatch
+        }
+        try validatePreparedArtifact(state: state, directory: directory)
+        if decoded.needsMigration {
+            try replace(try canonical(state, readFailure: false), directory: directory)
+        }
+        return state
     }
 
     private func readPrepared(_ directory: Int32) throws -> Data {
@@ -415,14 +429,6 @@ public struct AcceptedJobStateStore: @unchecked Sendable {
         try injectFault(.afterPreparedRename)
         guard fsync(directory) == 0 else { throw Error.cannotWrite }
         try injectFault(.afterPreparedDirectorySync)
-    }
-
-    private func canonicalDecode(_ bytes: Data) throws -> AcceptedJobStateRecord {
-        do {
-            let state = try AcceptedJobStateJSON.decode(bytes)
-            guard try AcceptedJobStateJSON.encode(state) == bytes else { throw Error.cannotRead }
-            return state
-        } catch { throw Error.cannotRead }
     }
 
     private func canonical(

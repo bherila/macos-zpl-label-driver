@@ -72,6 +72,34 @@ final class AcceptedJobStateTests: XCTestCase {
         XCTAssertEqual(state.previousStateSHA256, hashB)
     }
 
+    func testCanonicalLegacyStateRequiresExplicitTicketBoundMigration() throws {
+        let legacy = Data("""
+        {"acceptanceID":"legacy-job","generation":4,"phase":{"byteCount":10,"bytesAccepted":3,"kind":"transmitting","payloadSHA256":"\(hashA)"},"previousStateSHA256":"\(hashB)","schemaVersion":1}
+        """.utf8)
+        XCTAssertThrowsError(try AcceptedJobStateJSON.decode(legacy))
+        let migrated = try AcceptedJobStateJSON.migrateLegacyV1(
+            legacy, acceptedTicketSHA256: hashB
+        )
+        XCTAssertEqual(migrated.schemaVersion, 2)
+        XCTAssertEqual(migrated.acceptanceID, "legacy-job")
+        XCTAssertEqual(migrated.acceptedTicketSHA256, hashB)
+        XCTAssertEqual(migrated.generation, 4)
+        XCTAssertEqual(migrated.previousStateSHA256, hashB)
+        XCTAssertEqual(
+            migrated.phase,
+            .transmitting(payloadSHA256: hashA, byteCount: 10, bytesAccepted: 3)
+        )
+
+        var noncanonical = legacy
+        noncanonical.append(0x0a)
+        XCTAssertThrowsError(try AcceptedJobStateJSON.migrateLegacyV1(
+            noncanonical, acceptedTicketSHA256: hashB
+        ))
+        XCTAssertThrowsError(try AcceptedJobStateJSON.migrateLegacyV1(
+            legacy, acceptedTicketSHA256: "bad"
+        ))
+    }
+
     func testMalformedUnknownOversizedAndNoncanonicalValuesFail() throws {
         let state = try AcceptedJobStateRecord.accepted(
             acceptanceID: "job-6", acceptedTicketSHA256: hashA
