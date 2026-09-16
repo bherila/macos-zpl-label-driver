@@ -66,44 +66,60 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
     ) throws {
         guard data.count <= maximumBytes else { throw Error.cannotWrite }
         try withDirectory(name, syncRootAfterBody: true) { directory in
-            let temporary = ".tmp-\(UUID().uuidString)"
-            let descriptor = openat(
-                directory, temporary,
-                O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
-                mode_t(0o600)
-            )
-            guard descriptor >= 0 else { throw Error.cannotWrite }
-            var shouldUnlink = true
-            defer {
-                close(descriptor)
-                if shouldUnlink { unlinkat(directory, temporary, 0) }
-            }
-            try data.withUnsafeBytes { raw in
-                guard var cursor = raw.baseAddress else { return }
-                var remaining = raw.count
-                while remaining > 0 {
-                    let count = Darwin.write(descriptor, cursor, remaining)
-                    if count < 0, errno == EINTR { continue }
-                    guard count > 0 else { throw Error.cannotWrite }
-                    remaining -= count
-                    cursor = cursor.advanced(by: count)
-                }
-            }
-            guard fsync(descriptor) == 0 else { throw Error.cannotWrite }
-            do { try injectFault(.beforeRename) }
-            catch { throw Error.cannotWrite }
-            if renameatx_np(directory, temporary, directory, fileName, UInt32(RENAME_EXCL)) != 0 {
-                guard errno == EEXIST else { throw Error.cannotWrite }
-                let existing = try read(
-                    directoryDescriptor: directory,
-                    fileName: fileName,
-                    maximumBytes: maximumBytes
+            if try reconcileExisting(
+                data, directory: directory, fileName: fileName,
+                maximumBytes: maximumBytes
+            ) { return }
+            do {
+                let temporary = ".tmp-\(UUID().uuidString)"
+                let descriptor = openat(
+                    directory, temporary,
+                    O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC,
+                    mode_t(0o600)
                 )
-                guard existing == data else { throw Error.conflict }
-                guard syncDirectory(directory) == 0 else { throw Error.commitUncertain }
-            } else {
-                shouldUnlink = false
-                guard syncDirectory(directory) == 0 else { throw Error.commitUncertain }
+                guard descriptor >= 0 else { throw Error.cannotWrite }
+                var shouldUnlink = true
+                defer {
+                    close(descriptor)
+                    if shouldUnlink { unlinkat(directory, temporary, 0) }
+                }
+                try data.withUnsafeBytes { raw in
+                    guard var cursor = raw.baseAddress else { return }
+                    var remaining = raw.count
+                    while remaining > 0 {
+                        let count = Darwin.write(descriptor, cursor, remaining)
+                        if count < 0, errno == EINTR { continue }
+                        guard count > 0 else { throw Error.cannotWrite }
+                        remaining -= count
+                        cursor = cursor.advanced(by: count)
+                    }
+                }
+                guard fsync(descriptor) == 0 else { throw Error.cannotWrite }
+                do { try injectFault(.beforeRename) }
+                catch { throw Error.cannotWrite }
+                if renameatx_np(
+                    directory, temporary, directory, fileName, UInt32(RENAME_EXCL)
+                ) != 0 {
+                    guard errno == EEXIST else { throw Error.cannotWrite }
+                    guard try reconcileExisting(
+                        data, directory: directory, fileName: fileName,
+                        maximumBytes: maximumBytes
+                    ) else { throw Error.cannotWrite }
+                } else {
+                    shouldUnlink = false
+                    guard syncDirectory(directory) == 0 else {
+                        throw Error.commitUncertain
+                    }
+                }
+            } catch let failure as Error {
+                if failure == .conflict || failure == .commitUncertain {
+                    throw failure
+                }
+                if try reconcileExisting(
+                    data, directory: directory, fileName: fileName,
+                    maximumBytes: maximumBytes
+                ) { return }
+                throw failure
             }
         }
     }
@@ -141,8 +157,61 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
             guard syncDirectory(rootDescriptor) == 0 else {
                 throw Error.commitUncertain
             }
+            try syncContainingDirectory(of: rootDescriptor)
         }
         return result
+    }
+
+    private func reconcileExisting(
+        _ expected: Data,
+        directory: Int32,
+        fileName: String,
+        maximumBytes: Int
+    ) throws -> Bool {
+        let existing: Data
+        do {
+            existing = try read(
+                directoryDescriptor: directory, fileName: fileName,
+                maximumBytes: maximumBytes
+            )
+        } catch Error.notFound {
+            return false
+        }
+        guard existing == expected else { throw Error.conflict }
+        guard syncDirectory(directory) == 0 else { throw Error.commitUncertain }
+        return true
+    }
+
+    private func syncContainingDirectory(of rootDescriptor: Int32) throws {
+        let name = root.lastPathComponent
+        let parentURL = root.deletingLastPathComponent()
+        guard !name.isEmpty, parentURL.path != root.path else {
+            throw Error.commitUncertain
+        }
+        let parent = open(
+            parentURL.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard parent >= 0 else { throw Error.commitUncertain }
+        defer { close(parent) }
+        let reopened = openat(
+            parent, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard reopened >= 0 else { throw Error.commitUncertain }
+        defer { close(reopened) }
+        do {
+            try Self.validateDirectory(reopened)
+        } catch {
+            throw Error.commitUncertain
+        }
+        var originalInfo = stat()
+        var reopenedInfo = stat()
+        guard fstat(rootDescriptor, &originalInfo) == 0,
+              fstat(reopened, &reopenedInfo) == 0,
+              originalInfo.st_dev == reopenedInfo.st_dev,
+              originalInfo.st_ino == reopenedInfo.st_ino,
+              syncDirectory(parent) == 0 else {
+            throw Error.commitUncertain
+        }
     }
 
     private func read(
