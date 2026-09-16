@@ -16,6 +16,8 @@ public struct WorkflowProfileStore: @unchecked Sendable {
         case unsafeStoreDirectory
         case cannotRead
         case cannotWrite
+        case catalogCapacityReached
+        case publicationBusy
         case commitUncertain(ImmutablePublicationIdentity)
         case profileConflict
         case profileIdentityMismatch
@@ -44,7 +46,8 @@ public struct WorkflowProfileStore: @unchecked Sendable {
             try storage.publish(
                 bytes, directory: "profiles",
                 fileName: Self.profileFileName(profile.id, profile.revision),
-                maximumBytes: WorkflowProfileJSON.maximumBytes
+                maximumBytes: WorkflowProfileJSON.maximumBytes,
+                maximumRecords: 256
             )
         } catch PrivateImmutableDirectory.Error.conflict {
             throw Error.profileConflict
@@ -207,6 +210,8 @@ public struct WorkflowProfileStore: @unchecked Sendable {
         case .cannotOpen: .cannotOpenStore
         case .unsafeDirectory: .unsafeStoreDirectory
         case .cannotWrite, .commitUncertain, .conflict: .cannotWrite
+        case .recordCapacityReached: .catalogCapacityReached
+        case .publicationBusy: .publicationBusy
         case .cannotRead, .notFound, .none: .cannotRead
         }
     }

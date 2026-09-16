@@ -1,5 +1,31 @@
 # Native workflow definition transfer
 
+Corrected capacity implementation `a1cf439` passed the complete fail-fast local
+gate exit 0: 67 Python/173 LabelCore/223 LabelMac debug/release, both accelerators,
+132 independent round trips, 15/10/1 inert ABI/pipeline cases, executable/app/
+nested-worker signatures and packaged-worker PBM/ZPL equality. This supersedes
+pending corrected-local-gate statements below. Corrected hosted CI and second
+review remain pending; native dialog/device/integration acceptance is unchanged.
+
+First-review finding 4025900013: capacity admission now occurs inside immutable
+profile publication, under a category-wide descriptor-relative nonblocking flock.
+All public workflow saves use the unchanged 256-record budget. A new revision
+is counted/admitted and renamed while that lock is held; exact existing retries
+reconcile before the capacity check, and conflicts remain conflicts. Contention
+returns publicationBusy without a new revision; capacity failure is separately
+reported in native import status. No automatic retry, deletion or bound increase.
+The persistent hidden lock is owner/mode/type/link validated and rechecked by
+inode against its directory-relative name before rename. It is never unlinked.
+
+39 focused native tests passed: 19 store, six transfer, 14 document-opening.
+New tests cover a full catalog with identical/conflicting retries, two independent
+store handles competing for the final slot with deterministic bounded barriers,
+unsafe symlink/hardlink/FIFO/permission/directory lock artifacts, and a connected
+full-catalog import preserving its readable picker/catalog. This is same-process
+independent-writer evidence, not a subprocess/power-loss experiment. Full corrected
+local gate, hosted CI and second review remain pending. No GUI/installed/hardware
+acceptance is inferred. Discovery WIP stays held until correction integration.
+
 Latest combined checkpoint `f60d11a` passed the full fail-fast local gate exit 0:
 67 Python, 173 LabelCore and 219 LabelMac tests debug/release, both accelerator
 suites, 132 independent round trips, 15/10/1 inert ABI/pipeline cases, executable/

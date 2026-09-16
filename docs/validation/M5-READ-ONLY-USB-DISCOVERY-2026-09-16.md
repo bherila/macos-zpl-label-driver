@@ -1,5 +1,12 @@
 # User-initiated native read-only USB discovery
 
+Parent capacity correction `a1cf439` is now integrated from pushed head
+`6234f06`: public workflow saves serialize bounded capacity admission and rename
+without increasing the 256-record catalog cap. Its full local 67/173/223 gate
+passed. Corrected parent hosted 35095948906 and second review remain live.
+The discovery combined gate is pending; older pre-fix hold statements below
+are superseded by this integration checkpoint.
+
 Partial M5-AC01/09/10 implementation only. No model/transport/identity,
 installation, GUI, scheduler or hardware acceptance is added.
 

@@ -1,5 +1,10 @@
 # Current implementation handoff — revision 3
 
+The pushed parent capacity correction `6234f06` is now integrated into discovery
+WIP; run its full combined gate before promotion. Parent corrected hosted run
+35095948906 and second review were confirmed live. This supersedes earlier
+pre-fix hold/pending status below; no parent clean review is claimed yet.
+
 Local native read-only discovery implementation now connects a user-initiated
 scan/session interface picker to setup without qualifying identity or enabling
 installation. Native build and 13 focused reader/model/setup tests passed; full
@@ -17,6 +22,20 @@ recorded with a finite reproduction in
 Parent #58 corrected hosted 35093979617 passed exact `730d65b`; logs confirm
 213 native debug/release tests, signatures and packaged-worker equality.
 Own #59 hosted 35094427805 and first review remain live at `04202d9`.
+
+PR #59 capacity correction `a1cf439` passed the full local gate exit 0 with
+67/173/223 debug/release, accelerator/independent/inert/signature and packaged
+worker equality checks. This supersedes corrected-local-gate pending statements
+below. Corrected hosted/second review pending; no installed/GUI/hardware result.
+
+PR #59 first finding 4025900013 is corrected locally with atomic bounded-category
+capacity admission: public workflow saves hold a validated directory-relative
+nonblocking flock through count/rename and preserve the unchanged 256-record cap.
+Exact retries remain reconcilable at capacity; contention and capacity errors
+are distinct, with no automatic retry or destructive repair. 39 focused native
+tests passed; full corrected local gate/hosted/second review pending. See
+`validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
+but has no PR; integrate this correction and run its combined gate before promotion.
 
 Latest combined transfer checkpoint `f60d11a` integrates parent review correction
 `730d65b` and passed the full local gate exit 0: 67/173/219 debug/release,
