@@ -18,6 +18,14 @@ changes. Native tests were run with pipe-failure propagation enabled.
 This follow-up changes documentation/metadata/manifest only and targets the
 classifier implementation branch. Its automatic PR run must show repository
 preflight success, native macOS skipped, and `ci-required` success before the
-docs-only half of M0-AC06 is recorded as observed. That result is pending.
+docs-only half of M0-AC06 is recorded as observed.
+
+Automatic PR #42 run [35070738539](https://github.com/bherila/macos-zpl-label-driver/actions/runs/35070738539)
+passed exact head `83aec6747df9518d5c38107a8d5b3b31784447d1`:
+repository preflight passed, native macOS was skipped, and `ci-required`
+passed. The hosted log confirms `swift_changed=false` and aggregate inputs
+`SWIFT_NEEDED=false`, `MACOS_RESULT=skipped`. The Linux Python suite ran 67
+tests with one platform-specific skip; this is not a native test result.
+This establishes the docs-only half only.
 The deliberate-failure half and contributor-fork evidence remain separate.
 No installation, scheduler job, printer I/O, or release occurred.

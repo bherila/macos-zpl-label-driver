@@ -1436,7 +1436,11 @@ Classifier implementation `431f0d6` additionally passed 165 LabelCore and 152
 LabelMac debug tests with pipe-failure propagation. The documentation-only
 follow-up records the concrete manifest regression and supplies the intended
 hosted skip/aggregate probe against that implementation branch. Its result is
-pending; deliberate-failure and fork acceptance remain separate.
+now proven at exact `83aec67` by automatic PR #42 run `35070738539`:
+repository preflight passed, native macOS skipped, and `ci-required` passed.
+Its log confirms the false scope and skipped native aggregate inputs; Linux
+ran 67 Python tests with one platform-specific skip. Deliberate-failure and
+fork acceptance remain separate.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
