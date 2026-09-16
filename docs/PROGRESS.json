@@ -118,7 +118,7 @@
         "docs/validation/M3-IDEMPOTENT-ACCEPTANCE-DURABILITY-2026-09-15.md (1e51a8b identical accepted-bundle retries require a successful parent barrier, preserve advanced state, and retain explicit uncertainty on sync failure; additional partial M3-AC12 evidence only)",
         "docs/validation/M5-IMMUTABLE-PUBLICATION-UNCERTAINTY-2026-09-15.md (f42226d + f4bb7f8 + c4798ef exact post-rename uncertainty, complete category/root/containing-parent barriers, and pre-staging reconciliation for immutable configuration references; additional partial M3-AC12/13 evidence only)",
         "docs/validation/M3-PERSISTED-INERT-DELIVERY-2026-09-15.md (c2e6e53 + 297c6aa + e977b33 + 7929944 validated immutable prepared bundle through ticket-derived shared lease, safe waiting-state recovery, pre-send retry consistency, and persisted send-attempt ordering to bounded discard outcomes; additional partial M3-AC05/07/08/09/12 evidence only)",
-        "docs/validation/M3-SYNTHETIC-INTAKE-PIPELINE-2026-09-15.md (5a34971 + 6e11d16 descriptor-bound synthetic PDF intake through loaded-stock validation, bounded preparation, immutable acceptance/retry, original-document rendering, complete prepared publication, and inert persisted delivery; additional partial M3-AC02/09/12 evidence only)"
+        "docs/validation/M3-SYNTHETIC-INTAKE-PIPELINE-2026-09-15.md (5a34971 + 6e11d16 + 887ddf5 descriptor-bound synthetic PDF intake through loaded-stock validation, bounded preparation, immutable acceptance/retry, terminal outcome readback, original-document rendering, complete prepared publication, and inert persisted delivery; additional partial M3-AC02/09/12 evidence only)"
       ],
       "blockers": []
     },
