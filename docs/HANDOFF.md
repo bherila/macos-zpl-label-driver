@@ -1236,7 +1236,12 @@ sharing an acceptance identifier cannot lend cancellation tokens or expected
 states to one another, and a path-replacement test proves that a bound store
 cannot be redirected to a new repository at the old pathname. Local validation
 passes with 64 Python, 164 LabelCore, and 109 LabelMac tests, including 20
-focused lifecycle tests. R12 and R13 remain open; no scheduler, transport,
+focused lifecycle tests. Review remediation `8a3ef38` additionally migrates
+canonical schema-1 lifecycle records only under the descriptor-bound bundle
+lock after binding them to the verified ticket digest. Waiting jobs remain
+cancellable, and transmitting or uncertain jobs retain exact byte progress.
+The complete local sequence now passes with 64 Python, 165 LabelCore, and 111
+LabelMac tests. R12 and R13 remain open; no scheduler, transport,
 administrator, or hardware path was exercised.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
