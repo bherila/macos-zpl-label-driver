@@ -134,6 +134,14 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         )) {
             XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, .acceptanceFailed)
         }
+        XCTAssertThrowsError(try fixture.pipeline.run(
+            queueID: "different-queue", sourcePDFDescriptor: descriptor,
+            acceptanceID: "synthetic-waiting-retry",
+            cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario()
+        )) {
+            XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, .acceptanceFailed)
+        }
 
         let laterQueue = try VirtualQueueDefinition(
             id: fixture.queue.id,
@@ -259,6 +267,69 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
             workflowStore: fixture.workflows,
             printerStore: fixture.printers
         ))
+    }
+
+    func testPersistedUncertaintyIsReturnedWithoutReplayOnReentry() throws {
+        let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
+        let fixture = try makeFixture(workflowSource: original)
+        let path = fixture.root.appending(path: "persisted-uncertainty.pdf")
+        try original.write(to: path, options: .withoutOverwriting)
+        let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+
+        let first = try fixture.pipeline.run(
+            queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: "synthetic-persisted-uncertain",
+            cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario(
+                maximumChunkBytes: 2, becomeAmbiguousAfterBytes: 3
+            )
+        )
+        XCTAssertEqual(first.delivery, .uncertain(bytesAccepted: 3))
+        let states = AcceptedJobStateStore(acceptedJobStore: fixture.jobs)
+        let before = try states.load(
+            acceptanceID: first.acceptanceID,
+            queueStore: fixture.queues, workflowStore: fixture.workflows,
+            printerStore: fixture.printers
+        )
+
+        let recovered = try fixture.pipeline.run(
+            queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: first.acceptanceID,
+            cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario()
+        )
+        XCTAssertEqual(recovered, first)
+        XCTAssertEqual(try states.load(
+            acceptanceID: first.acceptanceID,
+            queueStore: fixture.queues, workflowStore: fixture.workflows,
+            printerStore: fixture.printers
+        ), before)
+    }
+
+    func testPersistedTransmissionIsReturnedWithoutSecondDelivery() throws {
+        let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
+        let fixture = try makeFixture(workflowSource: original)
+        let path = fixture.root.appending(path: "persisted-transmission.pdf")
+        try original.write(to: path, options: .withoutOverwriting)
+        let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+
+        let first = try fixture.pipeline.run(
+            queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: "synthetic-persisted-transmitted",
+            cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario()
+        )
+        let recovered = try fixture.pipeline.run(
+            queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: first.acceptanceID,
+            cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario(becomeAmbiguousAfterBytes: 0)
+        )
+        XCTAssertEqual(recovered, first)
     }
 
     private func makeFixture(
