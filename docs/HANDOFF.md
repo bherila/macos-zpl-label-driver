@@ -1253,7 +1253,20 @@ while a duplicate writer confirms durability, and prove that retries never
 reset an already-prepared lifecycle record. Local validation passes with 64
 Python, 165 LabelCore, and 114 LabelMac tests, including 25 focused store tests.
 This does not claim universal power-loss persistence, scheduler acceptance, or
-hardware evidence. R13 remains open for the other immutable reference stores.
+hardware evidence.
+
+At `f42226d`, review finding R13 is closed at the immutable configuration-store
+boundary. Workflow profiles, unattended qualifications, printer profiles, and
+virtual queues share a publisher that distinguishes pre-rename failure from a
+visible but durability-unconfirmed commit. The latter carries the exact ID,
+schema, revision, and canonical digest. Identical retries repeat the real
+directory barrier; conflicts remain conflicts. Fault injection proves no final
+record before rename, persistent uncertainty after rename, exact-byte recovery,
+and later successful reconciliation. The complete local sequence passes with
+64 Python, 165 LabelCore, and 119 LabelMac tests in debug and release. The
+R10-R14 source findings are now addressed, but review and hosted exact-head CI
+remain separate gates. No administrator, scheduler, transport, or hardware path
+was exercised.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
