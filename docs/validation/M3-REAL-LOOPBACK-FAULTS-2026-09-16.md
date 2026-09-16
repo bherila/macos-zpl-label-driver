@@ -46,8 +46,13 @@ PASS: before offline accelerator, exit 0, including 132 independent round trips,
 15 backend ABI, 10 filter ABI and one inert discard pipeline case.
 PASS: focused 12 native TCP tests, exit 0; both observed-prefix fault cases and
 complete variable-read reassembly passed. PASS: final descriptor-hygiene repeat,
-12 native tests, exit 0. Complete local gate awaits the parent PR #69 crop/media
-review correction; this work is preserved locally, not published as ready.
+12 native tests, exit 0. Parent PR #69's crop/media correction `c0619e4` is now
+inherited. PASS: combined 61 native TCP/renderer/extraction/pipeline focused tests,
+exit 0, retaining both network fault semantics and exact crop/Letter/A4 checks.
+Combined full validation is in progress. This work is preserved
+locally, not published as ready. Parent corrected full local gate at `68264a6`
+passed 67 Python/178 Core/253 Mac debug/release plus independent/inert/signature/
+packaged checks. Corrected hosted 35109064959 and second review are live.
 Native host: macOS 26.6.2 build 25G83,
 Apple Silicon, Swift 6.3.3.
 

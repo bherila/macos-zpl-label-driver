@@ -26,6 +26,18 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+The current test-only TCP slice adds explicitly loopback-bound native peers for
+real stopped-reader backpressure, reset after observed prefix, exact prepared
+format reassembly across variable reads, and owned non-listening-port failure.
+The production adapter/state machine are unchanged. Twelve focused tests and the
+final descriptor-hygiene repeat passed. Parent PR #69's reviewed crop/media fix
+is inherited; all 61 combined focused native tests passed exit 0. Combined full
+validation is in progress. This local work is
+preserved, not published ready.
+M3-AC05 stays open and no
+network-printer/scheduler/USB support is inferred. See
+`validation/M3-REAL-LOOPBACK-FAULTS-2026-09-16.md`.
+
 PR #69's first review finding 4027048607 is reproduced and corrected: native
 page geometry and direct selected rendering now share the effective CropBox /
 MediaBox intersection. Three every-dot regressions cover expanded crops,
