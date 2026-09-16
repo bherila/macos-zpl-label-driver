@@ -1163,6 +1163,22 @@ M4-AC06/09, and M5-AC07/09 evidence only. Explicit pre-release profile
 recreation, real accepted-job rendering, scheduler intake, installation,
 transport, and all physical evidence remain open.
 
+At `c9a652e`, the M1 discard transaction closes the remaining competing-
+invocation rollback defect identified as R10. Automatic rollback is enabled
+only after this invocation successfully reserves the protected root and then
+requires the exact random transaction identifier from its protected intent.
+It cannot adopt a generic matching record. A queue found by the late absence
+check, or one left after an ambiguous queue-create result, is retained with
+the filter and intent instead of being deleted. Explicit `--remove` remains a
+separate record-validated recovery operation. Four contention regressions join
+the existing mutation-boundary and signal harness. The complete local
+CI-equivalent sequence passes with 60 Python, 164 LabelCore, and 105 LabelMac
+tests in both configurations, plus 132 independent round trips, 15 backend ABI
+cases, 10 filter ABI cases, and one inert pipeline case. This is source-level
+M1 transaction safety evidence only. No administrator authorization, queue,
+protected path, scheduler job, system setting, or printer was changed; all M1
+integration acceptance remains open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
