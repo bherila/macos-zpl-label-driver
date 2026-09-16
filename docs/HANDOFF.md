@@ -1409,6 +1409,17 @@ trips, all ABI/inert-pipeline checks, and local ad-hoc signature verification.
 This is partial automated M3-AC09/12 evidence, not an atomic concurrent snapshot,
 installed worker startup, scheduler mapping, retention/deletion, or printer pass.
 
+PR #38 completed both permitted independent code-review passes cleanly at
+`53c6b99`, with no inline findings. Hosted run `35069104708` is validating that
+same exact head by manual dispatch; repository preflight passed and the macOS
+ARM build/test/signature job remains running. Stacked PRs do not automatically
+trigger the workflow because its PR branch filter names only `main`.
+
+The M1 read-only scheduler, filter-signature, and three pinned-PPD checks were
+refreshed at `53c6b99`: all passed, with the experiment namespace absent and no
+system state changed. Administrative apply/remove and held-job submission remain
+NOT RUN; no scheduler or physical acceptance follows from these prerequisites.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
