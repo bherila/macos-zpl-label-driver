@@ -115,6 +115,10 @@ public struct StableConnectionIdentity: Equatable, Sendable, CustomStringConvert
 
     private let rawValue: String
 
+    // Available only inside LabelCore for the bounded private profile codec.
+    // Public descriptions remain redacted.
+    var privateProfileValue: String { rawValue }
+
     public init(opaqueValue: String) throws {
         guard !opaqueValue.isEmpty, opaqueValue.utf8.count <= 512,
               opaqueValue.unicodeScalars.allSatisfy({
