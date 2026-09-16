@@ -30,7 +30,11 @@ native dialog adapters. Imports get a fresh unqualified identity; exports verify
 the exact own-store saved snapshot. Publication uncertainty retains/reconciles
 the same candidate, not a duplicate import. Nineteen focused native tests passed,
 including real-worker preservation of the current editor/preview/local approval.
-Full gate pending. See `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. No queue,
+At `8067779`, full local 67/173/216 debug/release gate passed exit 0 with independent,
+inert, signature and packaged-worker checks. Publication held on PR #58's first
+review finding 4025449342: native-UI approval needs exact-profile region bounds/
+preview review, including restoration/reopening. Fix on #58 and integrate before
+publishing this dependent slice. See `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. No queue,
 privilege or device I/O. Noninteractive administrator authorization remains absent.
 
 Latest local slice connects explicit non-label page confirmation and full-page
