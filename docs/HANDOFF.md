@@ -1,3 +1,9 @@
+# Qualified finishing framing source checkpoint — 2026-09-17
+
+Implementation b76cfd3903d05076ded9074a3e3d3ae06b847d3c passed the recorded local 89/272/324 full gate.
+Next verify source push, PR equality and exact hosted run. No physical/admin/merge/
+binary publication. Actual sender/status/lease and accepted admission remain open.
+
 Finishing framing full gate session6593 completed ownexit0: 89 Python/272 Core/324
 native debug/release, independent oracle, inert ABI/pipeline, metadata/signature and
 packaged-worker equality checks passed. Artifact artifacts/setup-app.P5wHzx.
