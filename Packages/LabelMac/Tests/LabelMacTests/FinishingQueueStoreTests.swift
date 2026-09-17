@@ -731,4 +731,74 @@ final class FinishingQueueStoreTests: XCTestCase {
         XCTAssertThrowsError(try absent.report(workerExecutable:worker))
         XCTAssertFalse(FileManager.default.fileExists(atPath:missing.path))
     }
+    func testPackedPreviewExportMatchesActualRastersAndBindsAcceptedIdentity() throws {
+        let (framed,workflows,_,_,_,_)=try cancellableFramedFixture()
+        let directory=workflows.root.appendingPathComponent("synthetic-packed-preview")
+        try PackedFinishingPreviewExport.write(framed.prepared,toNewDirectory:directory)
+        let files=try FileManager.default.contentsOfDirectory(atPath:directory.path)
+        XCTAssertEqual(files.count,5);XCTAssertFalse(files.contains { $0.hasSuffix(".zpl") })
+        for (index,raster) in framed.prepared.preparation.rasters.enumerated() {
+            XCTAssertEqual(try Data(contentsOf:directory.appendingPathComponent(String(format:"label-%05d.pbm",index+1))),raster.pbmData())
+        }
+        let meta=try XCTUnwrap(JSONSerialization.jsonObject(with:Data(contentsOf:directory.appendingPathComponent("preview.json"))) as? [String:Any])
+        XCTAssertEqual(meta["acceptedRecordSHA256"] as? String,framed.reference.sha256)
+        XCTAssertEqual(meta["sourceSHA256"] as? String,framed.prepared.acceptance.sourceSHA256)
+        XCTAssertEqual(meta["hardwareCompletion"] as? String,"unknown")
+    }
+    func testPackedPreviewExportNeverOverwritesAndRejectsBudgetBeforeCreatingOutput() throws {
+        let (framed,workflows,_,_,_,_)=try cancellableFramedFixture()
+        let directory=workflows.root.appendingPathComponent("synthetic-existing-preview")
+        try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:false)
+        let sentinel=directory.appendingPathComponent("sentinel")
+        try Data("synthetic-sentinel".utf8).write(to:sentinel)
+        XCTAssertThrowsError(try PackedFinishingPreviewExport.write(framed.prepared,toNewDirectory:directory)) {
+            XCTAssertEqual($0 as? PackedFinishingPreviewExport.Error,.destinationExists)
+        }
+        XCTAssertEqual(try Data(contentsOf:sentinel),Data("synthetic-sentinel".utf8))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath:directory.path),["sentinel"])
+        let empty=workflows.root.appendingPathComponent("synthetic-empty-preview")
+        try FileManager.default.createDirectory(at:empty,withIntermediateDirectories:false)
+        var originalInfo=stat(), finalInfo=stat()
+        XCTAssertEqual(lstat(empty.path,&originalInfo),0)
+        XCTAssertThrowsError(try PackedFinishingPreviewExport.write(framed.prepared,toNewDirectory:empty)) {
+            XCTAssertEqual($0 as? PackedFinishingPreviewExport.Error,.destinationExists)
+        }
+        XCTAssertEqual(lstat(empty.path,&finalInfo),0);XCTAssertEqual(finalInfo.st_ino,originalInfo.st_ino)
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath:empty.path).isEmpty)
+        let absent=workflows.root.appendingPathComponent("synthetic-budget-preview")
+        XCTAssertThrowsError(try PackedFinishingPreviewExport.write(framed.prepared,toNewDirectory:absent,maximumBytes:1)) {
+            XCTAssertEqual($0 as? PackedFinishingPreviewExport.Error,.byteLimit)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath:absent.path))
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath:workflows.root.path).contains { $0.hasPrefix(".packed-preview-") })
+    }
+    func testPackedPreviewCLIExportsExactPreparedBytesAndRefusesExistingOutput() throws {
+        let (framed,workflows,_,_,worker,_)=try cancellableFramedFixture()
+        let directory=workflows.root.appendingPathComponent("synthetic-cli-preview")
+        let args=["finishing-preview","--catalog",workflows.root.path,"--accepted-id",framed.reference.acceptanceID,
+            "--accepted-sha",framed.reference.sha256,"--preview-dir",directory.path,"--json"]
+        func invoke() throws -> (Int32,Data,Data) {
+            let process=Process(), output=Pipe(), errors=Pipe()
+            process.executableURL=worker.deletingLastPathComponent().appendingPathComponent("label-driver")
+            process.arguments=args;process.standardOutput=output;process.standardError=errors
+            try process.run()
+            let end=Date().addingTimeInterval(75)
+            while process.isRunning && Date()<end { Thread.sleep(forTimeInterval:0.01) }
+            if process.isRunning { kill(process.processIdentifier,SIGKILL) }
+            process.waitUntilExit()
+            return (process.terminationStatus,output.fileHandleForReading.readDataToEndOfFile(),errors.fileHandleForReading.readDataToEndOfFile())
+        }
+        let (code,stdout,stderr)=try invoke()
+        XCTAssertEqual(code,0);XCTAssertTrue(stderr.isEmpty)
+        let result=try XCTUnwrap(JSONSerialization.jsonObject(with:stdout) as? [String:Any])
+        XCTAssertEqual(result["hardwareCompletion"] as? String,"unknown")
+        XCTAssertEqual(result["outputLabelCount"] as? Int,4)
+        let original=try Data(contentsOf:directory.appendingPathComponent("label-00001.pbm"))
+        XCTAssertEqual(original,framed.prepared.preparation.rasters[0].pbmData())
+        let (badCode,badOutput,badErrors)=try invoke()
+        XCTAssertEqual(badCode,73);XCTAssertTrue(badOutput.isEmpty)
+        XCTAssertFalse(String(decoding:badErrors,as:UTF8.self).contains(directory.path))
+        XCTAssertEqual(try Data(contentsOf:directory.appendingPathComponent("label-00001.pbm")),original)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath:workflows.root.path).contains{$0.hasPrefix(".packed-preview-")})
+    }
 }

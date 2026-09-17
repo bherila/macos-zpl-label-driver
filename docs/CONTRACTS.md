@@ -408,3 +408,8 @@ metadata. It emits no printer payload and never infers hardware completion or re
 Both accepted intent and cancellation recovery reads open existing namespaces without creating
 them; missing namespaces yield absence only after independently verified accepted context.
 Existing publication paths retain explicit namespace creation and durability barriers.
+
+PackedFinishingPreviewExport accepts only verified durable preparation and exports the actual
+ordered packed PBMs plus identity/hash metadata. No resampling or printer payload is involved.
+Aggregate bounds include headers/manifest; output is staged privately and renamed exclusively.
+Existing output is never overwritten; uncertain final durability preserves the published tree.

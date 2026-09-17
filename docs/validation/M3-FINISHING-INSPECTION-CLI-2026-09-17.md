@@ -24,7 +24,7 @@ ignored. Exact restored28 cases passed exit0. Full finite900-second Mac gate ses
 benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc
 signatures, Developer-ID negative and packaged-worker PBM/ZPL equality. Local artifact:
 artifacts/setup-app.qYKkpi.
-Source commit pending.
+Implementation checkpoint: 66a00ada27e11c72598f0bb2113168a0bf86b17d. Source publication pending.
 
 Prescribed scheduler/queue/USB/retail/physical I/H/R gates remain NOT RUN. Frozen Part B is
 unchanged. No printer I/O, administrator action, merge or publication occurred.

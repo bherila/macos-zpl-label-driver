@@ -21,12 +21,12 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
   `3047f7880665e9550efb621fbfad2ceb328fff49`. Latest published software
   implementation `ccd7a9a`: immutable original-PDF acceptance and range/copy ownership.
   Earlier explicit A assessments remain historical; new source needs reassessment.
-- Latest completed finite900s `bash scripts/ci-swift.sh`, session70662, completed
-  `FULL_GATE_EXIT 0`:104 Python/281 Core/352 native tests in debug/release,
+- Latest completed finite900s `bash scripts/ci-swift.sh`, session53728, completed
+  `FULL_GATE_EXIT 0`:104 Python/281 Core/355 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.qYKkpi`; no printer accessed.
+  Local artifact: `artifacts/setup-app.8PsoaR`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
@@ -230,10 +230,17 @@ oracle/inert/signature/packaged checks. See [recovery evidence](validation/M3-AC
 Offline finishing inspection CLI is now local; focused/restored28 cases passed exit0,
 including actual CLI success and digest mismatch with empty stdout. Four independent faults
 for uncertainty/hardware/root guard/namespace creation failed expected assertions. Full
-full gate session70662 passed exit0:104Python/281Core/352Mac debug/release plus
+gate session70662 passed exit0:104Python/281Core/352Mac debug/release plus
 oracle/inert/signature/packaged checks; see
 [inspection evidence](validation/M3-FINISHING-INSPECTION-CLI-2026-09-17.md).
-Next: validate CLI integration, then exact packed-preview export; no recovery grants replay.
+Packed accepted preview export is now local: thirty focused native cases passed exit0,
+including exact PBM/manifest equality, no ZPL assets, existing output preservation, byte
+budget and staged cleanup. CLI export integration passed31 focused cases exit0, including actual executable success
+and repeat-export refusal. Empty existing-directory inode preservation also passed. Pixel/
+overwrite/budget faults each failed expected assertions; exact restored31 cases passed
+exit0. Full finite900-second Mac gate session53728 passed exit0:104Python/281Core/355Mac debug/release plus oracle/inert/signature/packaged checks; see
+[export evidence](validation/M3-PACKED-FINISHING-PREVIEW-EXPORT-2026-09-17.md).
+Next: native utility integration for verified saved-job inspection and exact preview export; no recovery grants replay.
 Actual identified unit correspondence remains open.
 
 ## Manual Part A and Part B
