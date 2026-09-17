@@ -1,5 +1,9 @@
 # Physical geometry qualification policy — 2026-09-17
 
+Published source `b9c6e5c7e93f029e60916a6b91fab772018eff66` on PR #81. Remote branch and PR
+head read back exact. Changed-head hosted35211447478 is live; no pass claim.
+Precedingcd86738 hosted35210640524 passed at its exact source.
+
 Current component validates separately qualified width/continuous
 length/home-X/home-Y limits and resolves every supplied physical field. It rejects
 empty/incomplete/unavailable/out-of-range geometry and requires explicit qualified
