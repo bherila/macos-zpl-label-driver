@@ -637,4 +637,52 @@ final class FinishingQueueStoreTests: XCTestCase {
             }
         }
     }
+    func testColdFinishingRecoveryReportsCancellationWithoutResolvingAttemptUncertainty() throws {
+        let (framed,workflows,printers,queues,worker,token)=try cancellableFramedFixture()
+        let requests=try AcceptedFinishingCancellationStore(root:workflows.root)
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        func recover() throws -> AcceptedFinishingRecovery {
+            try AcceptedFinishingRecovery.inspect(reference:framed.reference,against:framed.prepared.acceptance,
+                attemptStore:AcceptedFinishingAttemptStore(root:workflows.root),
+                cancellationStore:AcceptedFinishingCancellationStore(root:workflows.root),queueStore:queues,
+                workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        }
+        XCTAssertEqual(try recover().reference,framed.reference)
+        XCTAssertEqual(try recover().observation,.noRecordedIntent(cancellationRequested:false))
+        try requests.request(reference:framed.reference,against:framed.prepared.acceptance,token:token,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        XCTAssertEqual(try recover().observation,.noRecordedIntent(cancellationRequested:true))
+        try intents.recordPotentialAttempt(reference:framed.reference,against:framed.prepared.acceptance,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        _ = try InertFinishingDelivery.run(output:framed.output,coordinationID:framed.prepared.acceptance.geometry.physicalDevice,
+            leaseDirectory:workflows.root)
+        XCTAssertEqual(try recover().observation,.uncertainAfterRecordedIntent(cancellationRequested:true))
+        let file=workflows.root.appendingPathComponent("accepted-finishing-cancellations")
+            .appendingPathComponent(AcceptedFinishingCancellationStore.fileName(framed.reference))
+        try Data("corrupt".utf8).write(to:file)
+        XCTAssertThrowsError(try recover()) { XCTAssertEqual($0 as? AcceptedFinishingCancellationStore.Error,.invalidRecord) }
+    }
+    func testColdFinishingRecoveryKeepsUncancelledIntentUncertainAndRejectsLimitsOrCancellation() throws {
+        let (framed,workflows,printers,queues,worker,_)=try cancellableFramedFixture()
+        let requests=try AcceptedFinishingCancellationStore(root:workflows.root)
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        try intents.recordPotentialAttempt(reference:framed.reference,against:framed.prepared.acceptance,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        XCTAssertEqual(try AcceptedFinishingRecovery.inspect(reference:framed.reference,against:framed.prepared.acceptance,
+            attemptStore:intents,cancellationStore:requests,queueStore:queues,workflowStore:workflows,
+            printerStore:printers,workerExecutable:worker).observation,.uncertainAfterRecordedIntent(cancellationRequested:false))
+        for limit in [0.0,61.0,Double.nan,Double.infinity] {
+            XCTAssertThrowsError(try AcceptedFinishingRecovery.inspect(reference:framed.reference,against:framed.prepared.acceptance,
+                attemptStore:intents,cancellationStore:requests,queueStore:queues,workflowStore:workflows,
+                printerStore:printers,workerExecutable:URL(fileURLWithPath:"/nonexistent-worker"),deadlineSeconds:limit)) {
+                XCTAssertEqual($0 as? AcceptedFinishingJob.Error,.invalidLimit)
+            }
+        }
+        let cancellation=OfflineRenderWorkerCancellation();cancellation.cancel()
+        XCTAssertThrowsError(try AcceptedFinishingRecovery.inspect(reference:framed.reference,against:framed.prepared.acceptance,
+            attemptStore:intents,cancellationStore:requests,queueStore:queues,workflowStore:workflows,
+            printerStore:printers,workerExecutable:URL(fileURLWithPath:"/nonexistent-worker"),cancellation:cancellation)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJob.Error,.cancelled)
+        }
+    }
 }

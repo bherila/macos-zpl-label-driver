@@ -397,3 +397,8 @@ Both accepted coordinator entry points require the durable cancellation store. A
 monitor polls before execution, at file/chunk/status events and final return. Observed requests
 stop further callbacks, while prior intent remains uncertain and vetoes fresh admission.
 Cancellation cannot undo bytes accounted before the poll boundary.
+
+AcceptedFinishingRecovery revalidates durable accepted identity and both store contexts
+under one finite aggregate budget. Cancellation is reported separately from intent; recorded
+intent always remains uncertain. Observations are not atomic admission snapshots and grant
+no completion, delivery or replay authority. Concurrent requests require execution polling.

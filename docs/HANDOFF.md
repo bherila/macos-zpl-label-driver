@@ -21,12 +21,12 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
   `3047f7880665e9550efb621fbfad2ceb328fff49`. Latest published software
   implementation `ccd7a9a`: immutable original-PDF acceptance and range/copy ownership.
   Earlier explicit A assessments remain historical; new source needs reassessment.
-- Latest completed finite900s `bash scripts/ci-swift.sh`, session54742, completed
-  `FULL_GATE_EXIT 0`:104 Python/281 Core/349 native tests in debug/release,
+- Latest completed finite900s `bash scripts/ci-swift.sh`, session31620, completed
+  `FULL_GATE_EXIT 0`:104 Python/281 Core/351 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.8RRkkZ`; no printer accessed.
+  Local artifact: `artifacts/setup-app.zxDtj3`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
@@ -221,7 +221,12 @@ event boundaries, with twenty-five focused cases passed exit0. Polling omission 
 exit0. Full gate session54742 passed exit0:104Python/281Core/349Mac debug/release plus
 oracle/inert/signature/packaged checks. See
 [cancellation evidence](validation/M3-ACCEPTED-FINISHING-CANCELLATION-2026-09-17.md).
-Next: durable accepted-job recovery interpretation; uncertainty never grants replay.
+Cold recovery interpretation is now local: twenty-seven focused native cases passed exit0,
+including cancellation/intent combinations, synthetic success, corrupt records and finite
+operation guards. Intent/cancellation mapping omissions each failed exit1 through expected assertions;
+exact restored27 cases passed exit0. Full gate session31620 passed exit0:104Python/281Core/351Mac debug/release plus
+oracle/inert/signature/packaged checks. See [recovery evidence](validation/M3-ACCEPTED-FINISHING-RECOVERY-2026-09-17.md).
+Next: bounded offline application integration; no recovery observation grants replay.
 Actual identified unit correspondence remains open.
 
 ## Manual Part A and Part B

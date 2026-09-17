@@ -24,7 +24,7 @@ Full finite900-second Mac gate session54742 completed FULL_GATE_EXIT0:104Python,
 281Core and349Mac debug/release;132 strict and180 ASCII oracle cases per mode; finite
 benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc
 signatures, Developer-ID negative and packaged-worker PBM/ZPL equality. Local artifact:
-artifacts/setup-app.8RRkkZ. Source commit pending.
+artifacts/setup-app.8RRkkZ. Implementation checkpoint: d3889ba92d77b68f6251b8735a7a894fbd7225ed. Source publication pending.
 
 Mandatory durable polling is integrated in both accepted coordinator entry points. A validated
 monitor checks before execution, before/after each event and at final return under the one
