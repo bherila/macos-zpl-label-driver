@@ -136,7 +136,8 @@ local27.0/26A428 arm64 automation, separate from narrow reported GUI and absent 
 physical qualification. Runtime, application, transport/accessory and distribution rows
 retain exact pending gates; no qualified physical row or broad family/runtime claim.
 Preflight/diffcheck passed. See [inventory evidence](validation/M6-COMPATIBILITY-INVENTORY-2026-09-17.md).
-This is documentation; per-ID assessments and semantic review remain open.
+Documentation checkpoint 523fa6b committed locally; push pending.
+Per-ID assessments and semantic review remain open.
 
 ## Manual Part A and Part B
 
