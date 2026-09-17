@@ -1,6 +1,6 @@
 # Immutable thermal jobs — 2026-09-17
 
-Current locally validated source adds queue6/ticket7 thermal defaults/references, explicit
+Validated source5698f2f34ba5322af9bb86789033cd952806d204 adds queue6/ticket7 thermal defaults/references, explicit
 profile7 method requirement and ordinary per-label ^MTD/^MTT with declared consumables
 in prepared/delivery snapshots. Legacy formats/bytes and GC420d transfer rejection
 remain unchanged. All256Core and52 focused native cases passed ownexit0, including
