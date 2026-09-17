@@ -1,5 +1,8 @@
 # Offline continuous tracking/length fragment — 2026-09-17
 
+Published source `cd86738a9368dee56dac7cd80021bc51693c389a` on PR #81; remote and PR head
+read back exact. Changed-head hosted35210640524 is queued, not pass evidence.
+
 Current fragment pairs explicit continuous mode with a positive
 model-memory-bounded length; R46 records official indexed provenance, direct-fetch
 limitations and unchanged optional scope flag. Y/N both apply to explicitly
@@ -13,7 +16,7 @@ Next slice is coherent qualified geometry/memory/default/profile/queue/ticket
 integration before packed graphics, not claiming sensed-stock length semantics.
 
 Published editor348b367 remote/PR head read back exact, source hosted35209880271
-is live. Its local89/217/283 full gate passed. Preceding83cfaa8 hosted35209283943
+passed at that exact source. Its local89/217/283 full gate passed. Preceding83cfaa8 hosted35209283943
 passed exact. Part B is separately frozen; no printer/admin/merge/binary release.
 
 # Offline qualified darkness editor — 2026-09-17

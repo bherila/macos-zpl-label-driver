@@ -51,3 +51,7 @@ an encoder-only production path or ignore a requested length on sensed media.
 Factory continuous tracking remains unknown. Physical state isolation, supported
 firmware semantics and actual media behavior require prescribed finite evidence.
 Frozen Part B remains unchanged. No manual acceptance/support row is promoted.
+
+Published source `cd86738a9368dee56dac7cd80021bc51693c389a`, remote/PR read back exact.
+Changed-head hosted35210640524 queued. Preceding348b367 hosted35209880271
+passed; it does not cover this changed source.
