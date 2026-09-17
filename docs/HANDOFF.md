@@ -1,3 +1,8 @@
+# Finishing stock implementation checkpoint — 2026-09-17
+
+Implementation `c1a0ff7e1b7000674eb1b96c415890af9f8afbe5` is locally validated as recorded below.
+Publish source checkpoint and read back remote/PR head; hosted result remains separate.
+
 # Finishing stock-plan terminal validation — 2026-09-17
 
 Full finite CI-equivalent recheck passed ownexit0:89Python/266Core/313Mac
