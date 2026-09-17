@@ -31,3 +31,5 @@ Evaluated regression digest: 230b8c20595ada42fa3b650afb79d91db249aaeefc6327ce6f0
 Current per-ID source-bound records become historical after the code/test change;
 do not mechanically carry prior M3-AC02 assessments forward. The wider declaration
 case must be included in any fresh semantic assessment. Manual gates remain unchanged.
+
+Local implementation checkpoint: `8dcc24141aaa8dbb6ca6aa27aecba0ba9193267b`; committed implementation/regression bytes match the tested digests above. This is unpublished, not a hosted CI/review claim.
