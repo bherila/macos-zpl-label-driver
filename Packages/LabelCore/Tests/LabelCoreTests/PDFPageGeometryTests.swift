@@ -2,6 +2,22 @@ import XCTest
 @testable import LabelCore
 
 final class PDFPageGeometryTests: XCTestCase {
+    func testPageBoxRejectsOverflowingExtentsAcrossRotationAndUserUnit() throws {
+        let large = Double.greatestFiniteMagnitude
+        for rotation in [0, 90, 180, 270] {
+            for (x, y, width, height) in [(large, 0.0, large, 1.0), (0.0, large, 1.0, large)] {
+                XCTAssertThrowsError(try PDFPageBox(originX: x, originY: y, width: width, height: height,
+                    rotationDegreesClockwise: rotation, userUnit: 2)) {
+                    XCTAssertEqual($0 as? PageGeometryError, .nonFiniteValue)
+                }
+            }
+            let box = try PDFPageBox(originX: -large, originY: -large, width: large, height: large,
+                rotationDegreesClockwise: rotation, userUnit: 2)
+            XCTAssertEqual(box.sourceRect(for: try NormalizedRect(x: 0, y: 0, width: 1, height: 1)),
+                PDFSourceRect(x: -large, y: -large, width: large, height: large))
+        }
+    }
+
     private func makeBox(rotation: Int) throws -> PDFPageBox {
         try PDFPageBox(originX: 10, originY: 20, width: 100, height: 200, rotationDegreesClockwise: rotation)
     }

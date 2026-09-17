@@ -57,6 +57,10 @@ public struct PDFPageBox: Equatable, Sendable {
             throw PageGeometryError.nonFiniteValue
         }
         guard width > 0, height > 0 else { throw PageGeometryError.nonPositiveBox }
+        // Finite components alone do not bound original-coordinate corners.
+        guard (originX + width).isFinite, (originY + height).isFinite else {
+            throw PageGeometryError.nonFiniteValue
+        }
         guard (0...270).contains(rotationDegreesClockwise), rotationDegreesClockwise % 90 == 0 else {
             throw PageGeometryError.unsupportedRotation
         }
