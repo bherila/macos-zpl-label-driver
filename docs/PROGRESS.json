@@ -241,7 +241,8 @@
         "docs/validation/M3-STATUS-FUNCTION-BUDGET-2026-09-17.md (discarded function-setting fields enforce eight-bit grammar; reproduced three invalid acceptances; 283 Core tests debug/release, accelerator and release app build passed)",
         "docs/validation/M3-TCP-LATE-CALLBACKS-2026-09-17.md (terminal-result immutability after late TCP callbacks; three failure outcomes, finite queue-drain assertions, 17 TCP tests debug/release; partial M3-AC05 only)",
         "docs/validation/EXACT-JSON-INTEGER-CODECS-2026-09-17.md (exact numeric token admission across seven manual codecs, private geometry/offset readers and native qualification manifest; 299 Core and 21 native store tests debug/release passed; complete native baseline pending)",
-        "docs/validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished b12e65a63cfebcce3625a249975e837dbb0bc2ee; full native CI sequence exit 0; 106 Python/299 Core/364 native debug/release, oracle/ABI/signature/packaged fidelity; manual and physical gates unchanged)"
+        "docs/validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished b12e65a63cfebcce3625a249975e837dbb0bc2ee; full native CI sequence exit 0; 106 Python/299 Core/364 native debug/release, oracle/ABI/signature/packaged fidelity; manual and physical gates unchanged)",
+        "docs/validation/M3-NETWORK-CORRECTNESS-ASSESSMENT-2026-09-17.md (explicit M3-AC05 A-level semantic assessment; exact short-write/backpressure/framing/zero/reset/timeout oracles at b12e65a63cfebcce3625a249975e837dbb0bc2ee; native/physical gates remain open)"
       ],
       "blockers": []
     },

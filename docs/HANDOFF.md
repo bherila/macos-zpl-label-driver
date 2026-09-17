@@ -392,3 +392,11 @@ Unpublished token-traversal implementation checkpoint: `37977fdb1912ece63784ac4a
 ## Current complete software baseline
 
 [Exact JSON integrated baseline](validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md) evaluated clean unpublished `b12e65a63cfebcce3625a249975e837dbb0bc2ee` with the finite 900-second native CI sequence, exit 0. Passed 106 Python, 299 Core and 364 native tests debug/release, both oracle/ABI modes, ARM/minimum-26 metadata, nested local ad-hoc signatures, fail-closed Developer-ID negative and packaged-worker synthetic PBM/ZPL equality. Local artifact `artifacts/setup-app.ANaCKz` does not replace the frozen manual candidate. Manual/physical/retail-host gates remain open; no ledger acceptance was refreshed. Next: audit remaining independent software requirements against this checkpoint and prepare reviewable source integration without merging or binary publication.
+
+## M3 network automated assessment
+
+[M3-AC05 assessment](validation/M3-NETWORK-CORRECTNESS-ASSESSMENT-2026-09-17.md) now records the exact A-level simulator criterion as passed at unpublished `b12e65a63cfebcce3625a249975e837dbb0bc2ee`, using the full current software baseline and inspected short-write/loopback/terminal-state assertions. Production queue retry/ownership, USB, physical completion and status-channel gates remain open separately. This is not a global M3 completion claim.
+
+## Full-scope gap audit and next implementation
+
+[All 21 mandatory requirements](validation/FULL-SCOPE-GAP-AUDIT-2026-09-17.md) retain explicit completion gaps. The next independent slice is the missing cited control protocol table for tracking, dimensions, offsets and qualified finishing; current source has emitted commands but only five structured metadata rows. Production installer/helper/USB/queue integration remains pending the actual ADR 0003 admission boundary, rather than falsely labeled implemented. Hosted PR81 checks still apply only to published 3047f78. No goal completion/block claim.

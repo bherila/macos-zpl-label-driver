@@ -550,6 +550,52 @@
           "sha256": "50053ff9274b2c2c3cab6a2036a0e4fda8cabb05597fded3fc7478282962e7d8"
         }
       ]
+    },
+    {
+      "acceptanceID": "M3-AC05",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "b12e65a63cfebcce3625a249975e837dbb0bc2ee",
+      "implementation": [
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/BoundedDelivery.swift",
+          "sha256": "7e421749e87bd694cd41912a484f2e16dcb5ca6d84320ef5167c6a747ee0cfa3"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/DeliveryState.swift",
+          "sha256": "7f51ce800a6b73a4e5c3b9369c54efbe53807cd527f60159f27a84895ebd38af"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLPreparedLabelEncoder.swift",
+          "sha256": "da2b9c0706e16997154d8dc6eeeaf1980f4832d039116f8815d6124e1ae6f238"
+        },
+        {
+          "path": "Packages/LabelMac/Sources/LabelMac/RawTCPDelivery.swift",
+          "sha256": "19534977419f9c1d3639475f460a80edab75b43cc737d18713d6aff92e000b04"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/BoundedDeliveryTests.swift",
+          "sha256": "b435d05002f541eecb9c8eae5b414bddd431b17e1c33655096c15a6a760e03c5"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/DeliveryStateTests.swift",
+          "sha256": "a79d81f23bc793d430adccd59445c8ebaf071fa1a81c22fe71260380135479bf"
+        },
+        {
+          "path": "Packages/LabelMac/Tests/LabelMacTests/RawTCPDeliveryTests.swift",
+          "sha256": "d0f83df8b78e2bf660dae831d28fb103f5f6e67c6fd27db2db8dee0df9bbc2c4"
+        },
+        {
+          "path": "docs/validation/M3-NETWORK-CORRECTNESS-ASSESSMENT-2026-09-17.md",
+          "sha256": "1f48a05925712c0ab07f5104962ab1cfaf6797856035b7fa7d20649ff290a981"
+        },
+        {
+          "path": "docs/validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md",
+          "sha256": "9e608671e8c4912c9d9c05de8b5e227da98bb21ebe7e6080a33926a3f8c6c7e4"
+        }
+      ]
     }
   ]
 }
