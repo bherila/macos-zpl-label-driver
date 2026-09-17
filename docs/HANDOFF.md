@@ -1,3 +1,18 @@
+# Physical geometry qualification policy — 2026-09-17
+
+Current component validates separately qualified width/continuous
+length/home-X/home-Y limits and resolves every supplied physical field. It rejects
+empty/incomplete/unavailable/out-of-range geometry and requires explicit qualified
+continuous mode/length pairing. Known packed containment uses guarded subtraction,
+including known nonzero home; unknown shift/home state is not a claimed zero.
+Five focused cases passed; full CI-equivalent gate exit0:
+89 Python / 224 Core / 283 Mac debug/release, both132 original and180 ASCII round-trips, twelve benchmark CLI cases, fifteen inert ABI cases, native builds, nested local-ad-hoc signatures, ARM/minimum26 metadata and packaged PBM/ZPL equality. This reusable offline
+policy/fragment bridge is not ordinary profile admission. Next coherent strict
+profile/queue/ticket slice must bind all limits/defaults, resolve fields individually
+and call raster containment before original graphics/first field separator.
+See `validation/M3-PHYSICAL-GEOMETRY-POLICY-2026-09-17.md`. Additional partial
+M3-AC02/03,M2-AC08 only. Reference remains unchanged; Part B stays frozen.
+
 # Offline continuous tracking/length fragment — 2026-09-17
 
 Published source `cd86738a9368dee56dac7cd80021bc51693c389a` on PR #81; remote and PR head
