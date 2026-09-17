@@ -40,7 +40,7 @@ Full finite900s gate session6450 completed FULL_GATE_EXIT0:104Python/281Core/338
 in debug/release plus strict/ASCII oracles, finite inert ABI/filter/pipeline checks,
 ARM/min26 metadata, nested local signatures and packaged-worker PBM/ZPL equality.
 Log /tmp/zpl-accepted-finishing-store-full.log; artifact artifacts/setup-app.svfO7x.
-Existing native CI includes new source/tests. Source publication pending.
+Existing native CI includes new source/tests. Implementation checkpoint f878bf6729428c32791b7dbe394c47e114c22f3d; source publication pending.
 
 Next: accepted identity binding into prepared framing and attempt intent, durable cancellation/
 lifecycle recovery and authoritative progress. Installed scheduler/privileged admission,
