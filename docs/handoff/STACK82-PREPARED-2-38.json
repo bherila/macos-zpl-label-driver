@@ -1,0 +1,372 @@
+[
+  {
+    "pr": 2,
+    "branch": "codex/m2-geometry",
+    "oldBase": "ac0fdfea7964ffc322ff002d3842cd69f93db258",
+    "oldHead": "db1cb431bd94c17bbc83af45c8421de4a2d11a95",
+    "parent": "main",
+    "preparedHead": "02ab849bbf4f8125213d8aa671e29bc1121d84f1",
+    "preparedBase": "072dbe3badee66c324359422d610e4f226010277",
+    "testedPreparedHead": "2b0c39f5c1d8715a3d8399954eae2a445cbb5f4e"
+  },
+  {
+    "pr": 3,
+    "branch": "codex/m2-quartz-renderer",
+    "oldBase": "e4acebcd4495a7e332512ffe4ee910c104ebd8f8",
+    "oldHead": "5e8b19692a2a2a67a67529794ae31b8d1bea429a",
+    "parent": "codex/m2-geometry",
+    "preparedHead": "d1ecfe3ae0643cffa47f5e30e12ff60d8b0829e5",
+    "preparedBase": "02ab849bbf4f8125213d8aa671e29bc1121d84f1",
+    "testedPreparedHead": "5696fe3f5c9b0cd00de329de343821074bfe997b"
+  },
+  {
+    "pr": 4,
+    "branch": "codex/m2-monochrome-preview",
+    "oldBase": "5e8b19692a2a2a67a67529794ae31b8d1bea429a",
+    "oldHead": "610c0fef36ec5c2a824ee6a4ad5f4b6dddd3d2a1",
+    "parent": "codex/m2-quartz-renderer",
+    "preparedHead": "3e240e5411f4b65da0cc21bbc303bf8eb4218b2c",
+    "preparedBase": "d1ecfe3ae0643cffa47f5e30e12ff60d8b0829e5",
+    "testedPreparedHead": "27ef18e759ee4214df5d9eaa8648e20281eb9568"
+  },
+  {
+    "pr": 5,
+    "branch": "codex/m2-render-to-mono",
+    "oldBase": "610c0fef36ec5c2a824ee6a4ad5f4b6dddd3d2a1",
+    "oldHead": "14456641a851a873f363c0c6b5a148ee7f8cf1e2",
+    "parent": "codex/m2-monochrome-preview",
+    "preparedHead": "d4ca09044ef5afed5a35f9c89b559978dd545d84",
+    "preparedBase": "3e240e5411f4b65da0cc21bbc303bf8eb4218b2c",
+    "testedPreparedHead": "9f14c86ae35661de00a3fb077870520828809d9e"
+  },
+  {
+    "pr": 6,
+    "branch": "codex/m2-monochrome-policy",
+    "oldBase": "14456641a851a873f363c0c6b5a148ee7f8cf1e2",
+    "oldHead": "7e6c9a4a6c3e4957a91d10db22cf705ca2285e30",
+    "parent": "codex/m2-render-to-mono",
+    "preparedHead": "9e185a8818d92bf5afcdb7d18e7606f1d0840d7f",
+    "preparedBase": "d4ca09044ef5afed5a35f9c89b559978dd545d84",
+    "testedPreparedHead": "6fd05ea097708c9125ff2a4fc87528e955c3ad78"
+  },
+  {
+    "pr": 7,
+    "branch": "codex/m2-quartz-fixtures",
+    "oldBase": "7e6c9a4a6c3e4957a91d10db22cf705ca2285e30",
+    "oldHead": "1b4cc0a3794755ed0ba02ea3ed057a39cfed51ec",
+    "parent": "codex/m2-monochrome-policy",
+    "preparedHead": "69677379d5c64be98f9a8c61fe6414b8998f49d0",
+    "preparedBase": "9e185a8818d92bf5afcdb7d18e7606f1d0840d7f",
+    "testedPreparedHead": "d1bca29a3439873513850ce0d70273174ddb7ae4"
+  },
+  {
+    "pr": 8,
+    "branch": "codex/m2-box-origin-fixtures",
+    "oldBase": "1b4cc0a3794755ed0ba02ea3ed057a39cfed51ec",
+    "oldHead": "5ad4ceb685f09699af318355301fc3bab5aca3e1",
+    "parent": "codex/m2-quartz-fixtures",
+    "preparedHead": "3db4cc264fa45dce24926e2f61d8f66e2d092904",
+    "preparedBase": "69677379d5c64be98f9a8c61fe6414b8998f49d0",
+    "testedPreparedHead": "3182850596b0b22d1f26e491bed93a14c59cbde9"
+  },
+  {
+    "pr": 9,
+    "branch": "codex/m2-source-page-limits",
+    "oldBase": "5ad4ceb685f09699af318355301fc3bab5aca3e1",
+    "oldHead": "7a2d3fcc19d7ce0adaea3b756b3e8e6d89c3df3d",
+    "parent": "codex/m2-box-origin-fixtures",
+    "preparedHead": "11be04fe3a6d3331ba900966e0c18384e8db53a5",
+    "preparedBase": "3db4cc264fa45dce24926e2f61d8f66e2d092904",
+    "testedPreparedHead": "c7b9a994b9174922439105d5a001f20bfd7933ce"
+  },
+  {
+    "pr": 10,
+    "branch": "codex/m2-offline-conversion",
+    "oldBase": "7a2d3fcc19d7ce0adaea3b756b3e8e6d89c3df3d",
+    "oldHead": "c3eab79c89961cdca1ecb2b532c76c8a4b3b9fc7",
+    "parent": "codex/m2-source-page-limits",
+    "preparedHead": "f93ebb4b88b7bca17cd71d1c3b0f1fd7efbfe711",
+    "preparedBase": "11be04fe3a6d3331ba900966e0c18384e8db53a5",
+    "testedPreparedHead": "2a2f9f599c4473a38c51f8cb972b9e14364c15e9"
+  },
+  {
+    "pr": 11,
+    "branch": "codex/m3-settings-resolution",
+    "oldBase": "c3eab79c89961cdca1ecb2b532c76c8a4b3b9fc7",
+    "oldHead": "4b39352c8383c45b98eb15a2d431df853a3b54db",
+    "parent": "codex/m2-offline-conversion",
+    "preparedHead": "08affd161f5637293ca86a7d52b448a626d0fdf9",
+    "preparedBase": "f93ebb4b88b7bca17cd71d1c3b0f1fd7efbfe711",
+    "testedPreparedHead": "dc0fb42ffc8d764f385a456dbe76cb7695ab4b51"
+  },
+  {
+    "pr": 12,
+    "branch": "codex/m3-delivery-state",
+    "oldBase": "4b39352c8383c45b98eb15a2d431df853a3b54db",
+    "oldHead": "2f8260bff10d7d882dfe97eafb0daf4fb0e1ac41",
+    "parent": "codex/m3-settings-resolution",
+    "preparedHead": "453c504bd2d8d8fd794fea62100cf4c35d25c149",
+    "preparedBase": "08affd161f5637293ca86a7d52b448a626d0fdf9",
+    "testedPreparedHead": "594b898a57a39ca035fe21caefb7501c2e5b0cbc"
+  },
+  {
+    "pr": 13,
+    "branch": "codex/m4-teach-once-editor",
+    "oldBase": "2f8260bff10d7d882dfe97eafb0daf4fb0e1ac41",
+    "oldHead": "b9b5240b0ddc11dfa89fd2086c2034a35003fdf5",
+    "parent": "codex/m3-delivery-state",
+    "preparedHead": "eb564679a8cbf8f8209d6fe15128cf4cd7ce075c",
+    "preparedBase": "453c504bd2d8d8fd794fea62100cf4c35d25c149",
+    "testedPreparedHead": "1eb57cf6a9251a897624d34c4b1777395d8f0008"
+  },
+  {
+    "pr": 14,
+    "branch": "codex/m5-setup-app",
+    "oldBase": "b9b5240b0ddc11dfa89fd2086c2034a35003fdf5",
+    "oldHead": "f30912167f8a0bfe1d690b19d8a7fa66ca46712f",
+    "parent": "codex/m4-teach-once-editor",
+    "preparedHead": "62a4f52dcb83e57e8befae65f297a1788773bebf",
+    "preparedBase": "eb564679a8cbf8f8209d6fe15128cf4cd7ce075c",
+    "testedPreparedHead": "a9eb80b7b5fa935e725581222090cf9ac59e5ff2"
+  },
+  {
+    "pr": 15,
+    "branch": "codex/m5-reference-setup",
+    "oldBase": "f30912167f8a0bfe1d690b19d8a7fa66ca46712f",
+    "oldHead": "0fef58f75d5336514cf1680956bb8a49e8af6535",
+    "parent": "codex/m5-setup-app",
+    "preparedHead": "c426fb438d0a91ccc446c64b1102c2bb43756de6",
+    "preparedBase": "62a4f52dcb83e57e8befae65f297a1788773bebf",
+    "testedPreparedHead": "3d0a187eecd9c24ea29aeb65231452ee0dda29f4"
+  },
+  {
+    "pr": 16,
+    "branch": "codex/m5-virtual-queue-contract",
+    "oldBase": "0fef58f75d5336514cf1680956bb8a49e8af6535",
+    "oldHead": "9957739cb29607942c87bfbf7da3fb8987c760b5",
+    "parent": "codex/m5-reference-setup",
+    "preparedHead": "78bd476855a0de5ead1e3805d20bdd912c15c220",
+    "preparedBase": "c426fb438d0a91ccc446c64b1102c2bb43756de6",
+    "testedPreparedHead": "fc81f3fc85ff78ab4064f1c08de5dfdf08878a4b"
+  },
+  {
+    "pr": 17,
+    "branch": "codex/m5-virtual-queue-store",
+    "oldBase": "9957739cb29607942c87bfbf7da3fb8987c760b5",
+    "oldHead": "f2614d548a031b61ab822c5e077c5f04e7cb7fb0",
+    "parent": "codex/m5-virtual-queue-contract",
+    "preparedHead": "8d7825a4b92c3c71e8e1325a9f53819254064b77",
+    "preparedBase": "78bd476855a0de5ead1e3805d20bdd912c15c220",
+    "testedPreparedHead": "1b511966e26b611421b8e87e23c9921b46623100"
+  },
+  {
+    "pr": 18,
+    "branch": "codex/m5-printer-profile-codec",
+    "oldBase": "f2614d548a031b61ab822c5e077c5f04e7cb7fb0",
+    "oldHead": "3b0fe086806a51f9de383ed620ecc547056b4640",
+    "parent": "codex/m5-virtual-queue-store",
+    "preparedHead": "19a0d9a494a0e64ab138cbe6304904d151d40b09",
+    "preparedBase": "8d7825a4b92c3c71e8e1325a9f53819254064b77",
+    "testedPreparedHead": "e22a6bc00cff978c73e3d305af7964a19f2053f1"
+  },
+  {
+    "pr": 19,
+    "branch": "codex/m5-printer-profile-store",
+    "oldBase": "3b0fe086806a51f9de383ed620ecc547056b4640",
+    "oldHead": "0764ca113d7a4678acc7927da3701bb6da0f8167",
+    "parent": "codex/m5-printer-profile-codec",
+    "preparedHead": "3bf63020b1990e3f7293c330335eab105f8de75f",
+    "preparedBase": "19a0d9a494a0e64ab138cbe6304904d151d40b09",
+    "testedPreparedHead": "07a6016368fdcd6023c957719a2aec0161aaf770"
+  },
+  {
+    "pr": 20,
+    "branch": "codex/m5-active-queue-contract",
+    "oldBase": "0764ca113d7a4678acc7927da3701bb6da0f8167",
+    "oldHead": "14f37252b007bf5eef3482119db9497e51c97e42",
+    "parent": "codex/m5-printer-profile-store",
+    "preparedHead": "40246001ba37c9f1a43bed90d4d7bc463d0ea81c",
+    "preparedBase": "3bf63020b1990e3f7293c330335eab105f8de75f",
+    "testedPreparedHead": "acf30b48339e2f0caf9c8e7bdf77727fb6cff54a"
+  },
+  {
+    "pr": 21,
+    "branch": "codex/m5-active-queue-store",
+    "oldBase": "14f37252b007bf5eef3482119db9497e51c97e42",
+    "oldHead": "85f3a85f073a837705d7aa545ca095fced686904",
+    "parent": "codex/m5-active-queue-contract",
+    "preparedHead": "84d648b650b50aa46adbdb06c3c92adc68f74457",
+    "preparedBase": "40246001ba37c9f1a43bed90d4d7bc463d0ea81c",
+    "testedPreparedHead": "cb5f9a176a49f6108af2f8ab2667bc2e77e5ac0e"
+  },
+  {
+    "pr": 22,
+    "branch": "codex/m3-resolved-job-ticket",
+    "oldBase": "85f3a85f073a837705d7aa545ca095fced686904",
+    "oldHead": "a4b236dab3925e71dc26d91a37e24b2fdd90c196",
+    "parent": "codex/m5-active-queue-store",
+    "preparedHead": "00f8db8ad2253da6993ea7f3f36d081ea503bdf3",
+    "preparedBase": "84d648b650b50aa46adbdb06c3c92adc68f74457",
+    "testedPreparedHead": "3b952d4ec87ac18a0daf0b80273c5537ff2cc22d"
+  },
+  {
+    "pr": 23,
+    "branch": "codex/m3-accepted-job-store",
+    "oldBase": "a4b236dab3925e71dc26d91a37e24b2fdd90c196",
+    "oldHead": "952b476cdb93eec7379a53cdfd9f2a65f205de5a",
+    "parent": "codex/m3-resolved-job-ticket",
+    "preparedHead": "c5b6203131e63fb6b360498d676b53c249268232",
+    "preparedBase": "00f8db8ad2253da6993ea7f3f36d081ea503bdf3",
+    "testedPreparedHead": "332964543529366f4d60f21f25ac3c16face0f44"
+  },
+  {
+    "pr": 24,
+    "branch": "codex/m3-accepted-job-bundle",
+    "oldBase": "952b476cdb93eec7379a53cdfd9f2a65f205de5a",
+    "oldHead": "bde2f5fe88530d1d58ab3ca0a3324c8148de00b8",
+    "parent": "codex/m3-accepted-job-store",
+    "preparedHead": "c3028de9261642eee9037e57ada5260f8e496a79",
+    "preparedBase": "c5b6203131e63fb6b360498d676b53c249268232",
+    "testedPreparedHead": "3a33ea8378268b6ed92ad1074aedc46c38a32843"
+  },
+  {
+    "pr": 25,
+    "branch": "codex/m3-persistent-job-state",
+    "oldBase": "bde2f5fe88530d1d58ab3ca0a3324c8148de00b8",
+    "oldHead": "8890a199c9b2864febb379fec51a92fb4dcc2901",
+    "parent": "codex/m3-accepted-job-bundle",
+    "preparedHead": "6d353ab78e707c41955dc601f3afc704ce765768",
+    "preparedBase": "c3028de9261642eee9037e57ada5260f8e496a79",
+    "testedPreparedHead": "9f41fe226cdb8a02f8366f38eb01d887c2b8941b"
+  },
+  {
+    "pr": 26,
+    "branch": "codex/m3-job-state-store",
+    "oldBase": "8890a199c9b2864febb379fec51a92fb4dcc2901",
+    "oldHead": "15a2357b314f432734962d8c78af97690cb6c497",
+    "parent": "codex/m3-persistent-job-state",
+    "preparedHead": "6cae712000afa8f109672443fe2257702f7b7e47",
+    "preparedBase": "6d353ab78e707c41955dc601f3afc704ce765768",
+    "testedPreparedHead": "0bb8be97d6b65d7d6e4f6c7fb371c8455ae2a6f1"
+  },
+  {
+    "pr": 27,
+    "branch": "codex/m3-prepared-job-payload",
+    "oldBase": "15a2357b314f432734962d8c78af97690cb6c497",
+    "oldHead": "a38d7eff0ecb5321a747f9bcd3b681f33aa92872",
+    "parent": "codex/m3-job-state-store",
+    "preparedHead": "e9cce405c5f1e72745c00ff9e5a9d63157fd1c2b",
+    "preparedBase": "6cae712000afa8f109672443fe2257702f7b7e47",
+    "testedPreparedHead": "7c9028871f7e9c8fad71eddf4e54f1380f5e40a2"
+  },
+  {
+    "pr": 28,
+    "branch": "codex/m3-prepared-job-store",
+    "oldBase": "a38d7eff0ecb5321a747f9bcd3b681f33aa92872",
+    "oldHead": "b3aca1110721731a2ddefa9d41aee499b3cabafc",
+    "parent": "codex/m3-prepared-job-payload",
+    "preparedHead": "9116f5c99aa6c63366218e54c161184e9af94209",
+    "preparedBase": "e9cce405c5f1e72745c00ff9e5a9d63157fd1c2b",
+    "testedPreparedHead": "d4a6f25ae62f29ef8fae2d7415c5fa0dceca1225"
+  },
+  {
+    "pr": 29,
+    "branch": "codex/m3-ticket-imaging-policy",
+    "oldBase": "b3aca1110721731a2ddefa9d41aee499b3cabafc",
+    "oldHead": "6f5217f8b3e3634b763b1964d5483a22f43e1645",
+    "parent": "codex/m3-prepared-job-store",
+    "preparedHead": "f26a8d4824aae999456719617ebcb3d504f1c25f",
+    "preparedBase": "9116f5c99aa6c63366218e54c161184e9af94209",
+    "testedPreparedHead": "c49190c3140c727b0a2271ecd6a3a89b126df683"
+  },
+  {
+    "pr": 30,
+    "branch": "codex/m1-acquired-transaction-ownership",
+    "oldBase": "6f5217f8b3e3634b763b1964d5483a22f43e1645",
+    "oldHead": "efc03623076c8ca6c903a0d57e8f8d2e6851fb52",
+    "parent": "codex/m3-ticket-imaging-policy",
+    "preparedHead": "4732e403b9b35a18ddad6bf525afb6b8cda6c99e",
+    "preparedBase": "f26a8d4824aae999456719617ebcb3d504f1c25f",
+    "testedPreparedHead": "8f2957d1f37be3c1c163d6210dbef6eda0effb57"
+  },
+  {
+    "pr": 31,
+    "branch": "codex/m2-nonblocking-regular-file-open",
+    "oldBase": "efc03623076c8ca6c903a0d57e8f8d2e6851fb52",
+    "oldHead": "e303269726491f0b86fa2d878bd79e81478ed01e",
+    "parent": "codex/m1-acquired-transaction-ownership",
+    "preparedHead": "a457aa21fd5dda30ba09a3c7068df0f822ac6ca5",
+    "preparedBase": "4732e403b9b35a18ddad6bf525afb6b8cda6c99e",
+    "testedPreparedHead": "2cb310c957fab8476a66c0dfb23880ee203d1dda"
+  },
+  {
+    "pr": 32,
+    "branch": "codex/m3-bind-cancellation-bundle",
+    "oldBase": "e303269726491f0b86fa2d878bd79e81478ed01e",
+    "oldHead": "df611c7f38ac40687c22c6cd2e91b1827e43749d",
+    "parent": "codex/m2-nonblocking-regular-file-open",
+    "preparedHead": "39e0bbe334bbea86fddd3a8abfc4fd4ff8375ee0",
+    "preparedBase": "a457aa21fd5dda30ba09a3c7068df0f822ac6ca5",
+    "testedPreparedHead": "184ad822eb66ba6b7a27bac1212c7cc81a901606"
+  },
+  {
+    "pr": 33,
+    "branch": "codex/m3-idempotent-publication-durability",
+    "oldBase": "df611c7f38ac40687c22c6cd2e91b1827e43749d",
+    "oldHead": "c6af24268bbdc8a4b01ba0e161da95834d1f6e63",
+    "parent": "codex/m3-bind-cancellation-bundle",
+    "preparedHead": "450ccb56e8e6a71a593d2d943d3906e35b7bba3e",
+    "preparedBase": "39e0bbe334bbea86fddd3a8abfc4fd4ff8375ee0",
+    "testedPreparedHead": "3eff78de3d4f3bce45af90044392c6a489a84597"
+  },
+  {
+    "pr": 34,
+    "branch": "codex/m5-immutable-publication-uncertainty",
+    "oldBase": "c6af24268bbdc8a4b01ba0e161da95834d1f6e63",
+    "oldHead": "0f9673252a722ac65f442c538aaeb3aebe0cc58e",
+    "parent": "codex/m3-idempotent-publication-durability",
+    "preparedHead": "99dc48c211d263f265c5597af69c1aa148479aaa",
+    "preparedBase": "450ccb56e8e6a71a593d2d943d3906e35b7bba3e",
+    "testedPreparedHead": "f2b51c0cc05a849d69c69329f6a0f58a40b0c3ef"
+  },
+  {
+    "pr": 35,
+    "branch": "codex/m3-persisted-inert-delivery",
+    "oldBase": "0f9673252a722ac65f442c538aaeb3aebe0cc58e",
+    "oldHead": "953e4a080d6228e805edf1476a08533436d6653f",
+    "parent": "codex/m5-immutable-publication-uncertainty",
+    "preparedHead": "cc4d9e27a2c53226dfd8eeb5ab1c5032fbeeaf6c",
+    "preparedBase": "99dc48c211d263f265c5597af69c1aa148479aaa",
+    "testedPreparedHead": "d2f0b0f6fe3a111f3c0a43dfae6637cb99d48422"
+  },
+  {
+    "pr": 36,
+    "branch": "codex/m3-synthetic-intake-pipeline",
+    "oldBase": "953e4a080d6228e805edf1476a08533436d6653f",
+    "oldHead": "e4dcde341db551343426af19578bf60aeb0666a2",
+    "parent": "codex/m3-persisted-inert-delivery",
+    "preparedHead": "e938c180bd38795e45a33fc013fa0d626abcb85e",
+    "preparedBase": "cc4d9e27a2c53226dfd8eeb5ab1c5032fbeeaf6c",
+    "testedPreparedHead": "411a9a9015a81df0ae518a20407877af14d55697"
+  },
+  {
+    "pr": 37,
+    "branch": "codex/m3-restart-reconciliation",
+    "oldBase": "e4dcde341db551343426af19578bf60aeb0666a2",
+    "oldHead": "312a3352ac104955040f92d403275bf946f4a4de",
+    "parent": "codex/m3-synthetic-intake-pipeline",
+    "preparedHead": "6c982e95f247856bb4f93f486753e1c10c7e98a4",
+    "preparedBase": "e938c180bd38795e45a33fc013fa0d626abcb85e",
+    "testedPreparedHead": "6c4fc3d25b4b95785eea8a61f06af9f448e1e6ca"
+  },
+  {
+    "pr": 38,
+    "branch": "codex/m3-restart-inventory",
+    "oldBase": "312a3352ac104955040f92d403275bf946f4a4de",
+    "oldHead": "616896072433b5185f5f1f8dd3885c1400607ba9",
+    "parent": "codex/m3-restart-reconciliation",
+    "preparedHead": "dd533028ed0e1efb8b9b3f8da6f36173b9fa6d13",
+    "preparedBase": "6c982e95f247856bb4f93f486753e1c10c7e98a4",
+    "testedPreparedHead": "abed0be096b9d1b16152abc7386a0ca2db2f523b"
+  }
+]
