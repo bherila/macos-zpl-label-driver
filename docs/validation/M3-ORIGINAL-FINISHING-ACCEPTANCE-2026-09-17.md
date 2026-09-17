@@ -48,7 +48,7 @@ Full finite900s gate session88103 completed FULL_GATE_EXIT0:104Python/281Core/33
 in debug/release plus strict/ASCII oracles, finite inert ABI/filter/pipeline checks,
 ARM/min26 metadata, nested local signatures and packaged-worker PBM/ZPL equality.
 Log /tmp/zpl-accepted-finishing-full.log; artifact artifacts/setup-app.B7XMVz.
-Both library files/tests are included by existing CI. Source publication pending.
+Both library files/tests are included by existing CI. Implementation checkpoint ccd7a9aab1175518fda1a8db783862ed865b1d81; source publication pending.
 
 Next: canonical durable finishing ticket/original-source publication, complete accepted
 identity linking into framing/attempt intent, cancellation and lifecycle recovery. Actual
