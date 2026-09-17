@@ -153,4 +153,37 @@ final class PrinterDefaultsEditingModelTests: XCTestCase {
         XCTAssertEqual(profile.configuredDefaults.offsets?.labelTopDots, 0)
     }
 
+    func testThermalProfileSaveAndStartupPreserveReportedConsumablesAndQualification() throws {
+        let baseline = try PrinterProfile.gc420dUSBReference()
+        let c = baseline.capabilities
+        let fact = CapabilityFact(state: .supported,
+            evidence: .documentedModel(sourceID: "synthetic-thermal-fixture"))
+        let consumables = ThermalMediaConfiguration(
+            method: .observed(.directThermal, evidence: .reportedInstallation),
+            ribbonPresent: .observed(false, evidence: .reportedInstallation))
+        let profile = try PrinterProfile(schemaVersion: 7, revision: 1,
+            capabilities: .init(model: "synthetic-thermal-model", thermalTransfer: c.thermalTransfer,
+                cutter: c.cutter, peeler: c.peeler, rewind: c.rewind, tracking: c.tracking,
+                printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: c.darkness, directThermal: fact),
+            installedHardware: baseline.installedHardware, media: baseline.media, connection: baseline.connection,
+            configuredDefaults: .init(thermalMethod: .directThermal, finishing: .tearOff, printSpeedIps: 3),
+            thermalMedia: consumables)
+        let store = try PrinterProfileStore(root: root())
+        let model = try PrinterDefaultsEditingModel(store: store, profileID: "synthetic-printer", initialProfile: profile)
+        try model.setup.selectSpeed(4)
+        let reference = try model.save()
+        XCTAssertEqual(reference.schemaVersion, 7)
+        XCTAssertEqual(reference.revision, 2)
+        let saved = try store.load(reference: reference)
+        XCTAssertEqual(saved.thermalMedia, consumables)
+        XCTAssertEqual(saved.capabilities.directThermal, fact)
+        XCTAssertEqual(saved.configuredDefaults.printSpeedIps, 4)
+        let reopened = try PrinterDefaultsEditingModel(store: store, profileID: "synthetic-printer", initialProfile: baseline)
+        XCTAssertEqual(reopened.currentReference, reference)
+        XCTAssertEqual(reopened.setup.profile.thermalMedia, consumables)
+        XCTAssertEqual(reopened.setup.profile.capabilities, saved.capabilities)
+        XCTAssertEqual(profile.revision, 1)
+        XCTAssertEqual(profile.configuredDefaults.printSpeedIps, 3)
+    }
+
 }

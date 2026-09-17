@@ -59,7 +59,7 @@ public final class PrinterDefaultsEditingModel: ObservableObject {
             configuredDefaults: .init(thermalMethod: controls.thermalMethod, finishing: controls.finishing,
                 printSpeedIps: controls.printSpeedIps, feedSpeedIps: controls.feedSpeedIps,
                 backfeedSpeedIps: controls.backfeedSpeedIps, darkness: controls.darkness,
-                tracking: controls.tracking, mediaGeometry: controls.mediaGeometry, offsets: controls.offsets))
+                tracking: controls.tracking, mediaGeometry: controls.mediaGeometry, offsets: controls.offsets), thermalMedia: snapshot.thermalMedia)
         let reference = try store.save(id: profileID, profile: profile)
         guard try store.load(reference: reference) == profile else { throw Error.readbackMismatch }
         let refreshed = try store.savedProfiles(id: profileID)

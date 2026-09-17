@@ -1,5 +1,19 @@
 import Foundation
 
+/// Immutable declarations of the intended loaded consumables. They are not
+/// model capabilities or proof of a sensor readback.
+public struct ThermalMediaConfiguration: Equatable, Sendable {
+    public let method: Observation<ThermalMethod>
+    public let ribbonPresent: Observation<Bool>
+
+    public init(method: Observation<ThermalMethod>, ribbonPresent: Observation<Bool>) {
+        self.method = method
+        self.ribbonPresent = ribbonPresent
+    }
+
+    public static let unobserved = Self(method: .unobserved, ribbonPresent: .unobserved)
+}
+
 /// Model command support is distinct from the loaded media and ribbon. This
 /// policy produces offline fragments only; it does not authorize device I/O.
 public struct ThermalControlQualification: Equatable, Sendable {

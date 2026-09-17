@@ -121,6 +121,17 @@ fail before delivery. The source qualification is a profile declaration, not
 hardware evidence or privileged authorization. No automatic migration or
 physical-control qualification follows from a version change.
 
+Private printer-profile7 adds required `thermalMedia` with exact method and
+ribbon-presence observation records, and required direct-thermal capability fact.
+Earlier schemas retain their original keys and reject the new declarations.
+A configured thermal method requires independently evidenced model support and
+matching installation-reported consumables. Observed ribbon is a strict JSON
+boolean; absent observation is not false. Generic immutable profile references
+admit7 for storage, while current queue1..5/ticket2..6 admission retains its own
+printer-role bound. Profile7 ordinary job binding/encoding remains unfinished;
+persistence alone does not enable thermal-transfer jobs or qualify a printer.
+Utility save/reopen preserves these declarations; it does not modify live state.
+
 PPD/IPP option strings map to typed internal values through a fixed table. Profile display names and job titles never become ZPL syntax. Selectors are IDs, not file paths. Regeneration of PPDs/defaults is transactional and preserves unrelated queues.
 
 ## Copies, ranges and ordering

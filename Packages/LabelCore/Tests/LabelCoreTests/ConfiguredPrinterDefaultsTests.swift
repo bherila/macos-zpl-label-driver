@@ -73,7 +73,7 @@ final class ConfiguredPrinterDefaultsTests: XCTestCase {
         var root = try XCTUnwrap(try JSONSerialization.jsonObject(with: bytes) as? [String: Any])
         root["schemaVersion"] = 1
         XCTAssertThrowsError(try PrinterProfileJSON.decode(JSONSerialization.data(withJSONObject: root)))
-        root["schemaVersion"] = 7
+        root["schemaVersion"] = 8
         XCTAssertThrowsError(try PrinterProfileJSON.decode(JSONSerialization.data(withJSONObject: root))) {
             XCTAssertEqual($0 as? PrinterProfileJSONError, .unsupportedSchema)
         }

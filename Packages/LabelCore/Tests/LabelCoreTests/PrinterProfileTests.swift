@@ -76,7 +76,7 @@ final class PrinterProfileTests: XCTestCase {
     func testProfileVersionIsBounded() throws {
         let reference = try PrinterProfile.gc420dUSBReference()
         XCTAssertThrowsError(try PrinterProfile(
-            schemaVersion: 7,
+            schemaVersion: 8,
             revision: 1,
             capabilities: reference.capabilities,
             installedHardware: reference.installedHardware,
