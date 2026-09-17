@@ -5,7 +5,7 @@ import LabelCore
 /// An explicitly configured raw-TCP target. This is deliberately not a
 /// discovery API: callers must supply one bounded host and port, and neither
 /// value is suitable for command construction or general logging.
-public struct RawTCPEndpoint: Equatable, Sendable {
+public struct RawTCPEndpoint: Equatable, Sendable, RedactedDiagnosticValue {
     public enum ValidationError: Error, Equatable, Sendable {
         case invalidHost
         case invalidPort

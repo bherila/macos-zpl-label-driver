@@ -1,10 +1,11 @@
 import Foundation
 import IOKit
 import IOKit.usb
+import LabelCore
 
 /// Session-only registry observation, never a stable transport/device capability.
 public struct USBPrinterObservation: Equatable, Sendable, Identifiable,
-    CustomStringConvertible, CustomDebugStringConvertible {
+    RedactedDiagnosticValue {
     public let id: UUID
     public let vendorID: UInt16
     public let productID: UInt16
@@ -19,8 +20,6 @@ public struct USBPrinterObservation: Equatable, Sendable, Identifiable,
         self.interfaceNumber = interfaceNumber
     }
 
-    public var description: String { "USBPrinterObservation(redacted)" }
-    public var debugDescription: String { description }
 }
 
 public struct USBRegistryDiscoverySnapshot: Equatable, Sendable {

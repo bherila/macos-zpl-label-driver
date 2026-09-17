@@ -5,6 +5,21 @@ import XCTest
 @testable import LabelMac
 
 final class RawTCPDeliveryTests: XCTestCase {
+    func testEndpointDiagnosticsRedactCoordinatesWithoutChangingTransportValues() throws {
+        let endpoint = try RawTCPEndpoint(host: "synthetic.example.test", port: 19101)
+        XCTAssertEqual(String(describing: endpoint), "RawTCPEndpoint(redacted)")
+        XCTAssertEqual(String(reflecting: endpoint), "RawTCPEndpoint(redacted)")
+        var output = ""
+        dump([endpoint], to: &output)
+        XCTAssertFalse(output.contains("synthetic.example.test"))
+        XCTAssertFalse(output.contains("19101"))
+        XCTAssertTrue(Mirror(reflecting: endpoint).children.isEmpty)
+        XCTAssertEqual(endpoint.host, "synthetic.example.test")
+        XCTAssertEqual(endpoint.port, 19101)
+        XCTAssertEqual(endpoint, try RawTCPEndpoint(host: endpoint.host, port: endpoint.port))
+        XCTAssertNotEqual(endpoint, try RawTCPEndpoint(host: endpoint.host, port: 19102))
+    }
+
     private func completeJob() throws -> PreparedJobPayload {
         let profile = try PrinterProfile.gc420dUSBReference(revision: 29)
         let encoder = try ZPLPreparedLabelEncoder()

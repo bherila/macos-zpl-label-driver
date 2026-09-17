@@ -1,3 +1,19 @@
+# Current identity diagnostics slice — 2026-09-17
+
+Prior complete-job handoff was pushed as `052e83e` on PR #81. Exact-head hosted
+run 35200301828 is active; earlier a370e05 run was superseded/cancelled, not passed.
+A new shared diagnostic policy covers StableConnectionIdentity, RawTCPEndpoint
+and USBPrinterObservation. Three old-code tests reproduced fourteen assertion
+failures; corrected 14 profile / 15 TCP / 6 registry focused tests pass.
+Typed values, private codec and transport behavior remain explicit and unchanged;
+routine descriptions and structural dumps expose no stored identity fields.
+The full required local gate passed exit 0: 86 Python / 190 Core / 269 Mac
+debug/release, both independent/inert/signature/packaged checks. See
+`validation/M3-IDENTITY-DIAGNOSTIC-REDACTION-2026-09-17.md`.
+Additional partial M3-AC12 only. Second cloud review is clean at a370e05/base
+77c29ff and does not cover later complete-job/redaction source. No merge/release.
+The frozen B candidate is not replaced by normal package builds.
+
 # Current complete-job delivery handoff — 2026-09-17
 
 Published previous delivery fix: `a370e05` on PR #81, base `77c29ff`.
