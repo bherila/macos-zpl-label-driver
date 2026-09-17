@@ -1,7 +1,7 @@
 # Immutable offset control persistence and placement — 2026-09-17
 
 Partial implementation evidence for M3-AC02/03/11, M2-AC08, M4-AC12 and
-M5-AC04. Current source unpublished; no manual acceptance completion.
+M5-AC04. Source published on PR81; no manual acceptance completion.
 
 ## Independent constraint and version contract
 
@@ -80,3 +80,7 @@ No model/hardware support row is widened. Installed adapter/system dialog, helpe
 identity/lifecycle, actual sensing/stock, USB, alternating physical state and fault
 recovery require prescribed evidence. Part B retains its frozen approved candidate.
 No administrator/queue/printer action, physical label, merge or binary publication.
+
+## Source checkpoint
+
+Remote branch/PR81 head read back at `272fc90690490c3ffe030999f79cb464635de444`. Hosted run35215154447 observed in progress, not pass evidence. Preceding64272f0 run35214380345 passed exact source before this push.

@@ -254,18 +254,19 @@ final class ReferencePrinterSetupTests: XCTestCase {
         XCTAssertEqual(profile.configuredDefaults.darkness, 15)
     }
 
-    private func geometryProfile(defaults: PrinterControlDefaults? = nil, qualifiedOffsets: Bool = false) throws -> PrinterProfile {
+    private func geometryProfile(defaults: PrinterControlDefaults? = nil, qualifiedOffsets: Bool = false, qualifiedMark: Bool = false) throws -> PrinterProfile {
         let b = try darknessProfile(defaultValue: 15)
         let c = b.capabilities
         let fact = CapabilityFact(state: .supported, evidence: .documentedModel(sourceID: "synthetic-geometry-fixture"))
         var tracking = c.tracking; tracking[.continuous] = fact
+        if qualifiedMark { tracking[.blackMark] = fact }
         func limit(_ value: Int) -> QualifiedDotLimit { .init(fact: fact, maximumDots: value) }
         let geometry = try MediaGeometryRequest(widthDots: 20, lengthDots: 10, originXDot: 1, originYDot: 1)
         return try PrinterProfile(schemaVersion: qualifiedOffsets ? 6 : 5, revision: b.revision,
             capabilities: .init(model: c.model, thermalTransfer: c.thermalTransfer, cutter: c.cutter, peeler: c.peeler,
                 rewind: c.rewind, tracking: tracking, printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: c.darkness,
                 physicalGeometry: .init(width: limit(832), continuousLength: limit(1500), homeX: limit(100), homeY: limit(200)),
-                offsets: qualifiedOffsets ? .init(shiftLeft: .init(fact: fact, range: -30...40),
+                offsets: qualifiedOffsets ? .init(blackMark: qualifiedMark ? .init(fact: fact, range: -10...20) : .unverified, shiftLeft: .init(fact: fact, range: -30...40),
                     labelTop: .init(fact: fact, range: -5...6)) : .unverified),
             installedHardware: b.installedHardware, media: b.media, connection: b.connection,
             configuredDefaults: defaults ?? .init(printSpeedIps: 3, darkness: 15, tracking: .continuous, mediaGeometry: geometry,
@@ -380,6 +381,75 @@ final class ReferencePrinterSetupTests: XCTestCase {
         XCTAssertEqual(defaults.mediaGeometry?.originXDot, 0)
         XCTAssertEqual(model.geometryRange(for: .width), 2...832)
         XCTAssertEqual(profile.configuredDefaults.mediaGeometry?.originXDot, 1)
+    }
+
+    func testOffsetDraftPreservesIndependentControlsAndExplicitSignedZero() throws {
+        let profile = try geometryProfile(qualifiedOffsets: true)
+        let model = ReferencePrinterSetupModel(profile: profile)
+        XCTAssertEqual(model.offsetRange(for: .shiftLeft), -30...40)
+        XCTAssertEqual(model.offsetRange(for: .labelTop), -5...6)
+        model.offsetDraft[.shiftLeft] = "-2"
+        let first = try model.workflowDefaults()
+        XCTAssertEqual(first.offsets, .init(shiftLeftDots: -2, labelTopDots: 0))
+        model.offsetDraft[.labelTop] = "0"
+        model.offsetDraft[.shiftLeft] = ""
+        let defaults = try model.workflowDefaults()
+        XCTAssertEqual(defaults.offsets, .init(shiftLeftDots: 0, labelTopDots: 0))
+        XCTAssertEqual(defaults.tracking, .continuous)
+        XCTAssertEqual(defaults.darkness, 15)
+        XCTAssertEqual(defaults.mediaGeometry?.lengthDots, 10)
+        XCTAssertEqual(profile.configuredDefaults.offsets, .init(shiftLeftDots: 0, labelTopDots: 0))
+        XCTAssertFalse(model.canInstallQueue)
+    }
+
+    func testEveryInvalidOffsetDraftStaysVisibleAndBlocksReadiness() throws {
+        let profile = try geometryProfile(qualifiedOffsets: true, qualifiedMark: true)
+        let model = ReferencePrinterSetupModel(profile: profile)
+        for field in ReferencePrinterSetupModel.OffsetField.allCases {
+            for text in ["broken", "1.5", "nan", "9999999999999999999999999999", "-10000", "10000"] {
+                model.offsetDraft = [field: text]
+                XCTAssertThrowsError(try model.workflowDefaults())
+                XCTAssertTrue(model.validationMessage?.contains("signed whole dots") == true)
+                XCTAssertEqual(model.offsetDraft[field], text)
+                XCTAssertFalse(model.canInstallQueue)
+            }
+        }
+        model.offsetDraft = [.labelTop: "7"]
+        XCTAssertThrowsError(try model.workflowDefaults())
+        model.offsetDraft = [.shiftLeft: "41"]
+        XCTAssertThrowsError(try model.workflowDefaults())
+    }
+
+    func testBlackMarkDraftRequiresExplicitOffsetAndModeChangesDoNotDropIt() throws {
+        let profile = try geometryProfile(defaults: .init(printSpeedIps: 3, darkness: 15, tracking: .gap,
+            mediaGeometry: MediaGeometryRequest(widthDots: 20, originXDot: 0, originYDot: 0),
+            offsets: .init(shiftLeftDots: 0, labelTopDots: 0)), qualifiedOffsets: true, qualifiedMark: true)
+        let model = ReferencePrinterSetupModel(profile: profile)
+        XCTAssertTrue(model.trackingChoices.contains(.blackMark))
+        try model.selectTracking(.blackMark)
+        XCTAssertThrowsError(try model.workflowDefaults())
+        XCTAssertTrue(model.validationMessage?.contains("black-mark offset") == true)
+        model.offsetDraft[.blackMark] = "0"
+        XCTAssertEqual(try model.workflowDefaults().offsets?.blackMarkOffsetDots, 0)
+        XCTAssertEqual(try model.workflowDefaults().tracking, .blackMark)
+        try model.selectTracking(.gap)
+        XCTAssertThrowsError(try model.workflowDefaults())
+        model.offsetDraft[.blackMark] = ""
+        XCTAssertEqual(try model.workflowDefaults().tracking, .gap)
+        XCTAssertNil(try model.workflowDefaults().offsets?.blackMarkOffsetDots)
+        XCTAssertEqual(model.facts.first { $0.id == "offset-blackMark" }?.status, .configured)
+    }
+
+    func testUnqualifiedReferenceDoesNotExposeOrAcceptOffsetDrafts() throws {
+        let model = try ReferencePrinterSetupModel.gc420dUSB()
+        for field in ReferencePrinterSetupModel.OffsetField.allCases {
+            XCTAssertNil(model.offsetRange(for: field))
+            model.offsetDraft = [field: "0"]
+            XCTAssertThrowsError(try model.workflowDefaults())
+        }
+        XCTAssertEqual(model.facts.first { $0.id == "offset-shiftLeft" }?.status, .unknown)
+        model.offsetDraft = [:]
+        XCTAssertNil(try model.workflowDefaults().offsets)
     }
 
 }
