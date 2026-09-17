@@ -1,3 +1,32 @@
+# Original-source finishing preparation terminal gate — 2026-09-17
+
+Full finite900s session77319 completed ownexit0:89Python/270Core/323Mac debug/release, independent strict and ASCII oracles, finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.0bWZBw. No printer accessed.
+Eight restored focused cases passed; source-hash omission reproduced independent
+same-size substitution failure. Source review and disclosure scan passed. Next commit
+and verify pushed source/PR exact head and its hosted run. Accepted ticket/queue/device
+binding, qualified pitch, normalized mechanical bytes/file framing, peel waits and
+manual/hardware gates remain open. Frozen B unchanged; no merge/binary publication.
+
+Full-gate session77319 remains live:89Python/270Core debug-release and323Mac
+debug passed zero failures; native release/packaging pending. Source/disclosure review
+passed with restored hash unchanged. Keep local slice unpublished until own full exit.
+
+Restored eight focused cases passed ownexit0; full finite900s gate now live
+under session77319, log `/tmp/zpl-finishing-source-full.log`. Poll the same process;
+do not restart on observation timeout or claim full success before own terminal exit.
+
+# Original-source finishing preparation — 2026-09-17
+
+New local preparation renders original PDF bytes via isolated analysis/render workers,
+retains complete extraction/copy order and source/canvas/conversion provenance, and
+binds actual packed inputs to the exact finishing job. Eight focused cases passed;
+omitted source hash reproduced same-size mutation acceptance, then source restored.
+See validation/M3-FINISHING-SOURCE-PREPARATION-2026-09-17.md. Next restored focused
+and finite900s full gate; source remains unpublished. Canvas pitch, accepted ticket,
+normalized mechanical bytes/wire boundaries, peel waits and manual/physical gates
+remain open. Frozen B unchanged. Published raster checkpoint186a76f hosted35226005783
+was last observed in progress; no pass claimed.
+
 # Ordered raster binding terminal gate — 2026-09-17
 
 Full finite900s gate completed ownexit0:89Python/270Core/322Mac debug/release, independent oracle/finite inert ABI and pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.JX0Qc6. No printer accessed; no scheduler/GUI/installation/physical acceptance inferred.

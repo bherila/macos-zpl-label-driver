@@ -39,6 +39,75 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
         return try store.finishingPlan(reference: reference, mode: .cut, outputLabelCount: count, schedule: .endOfJob)
     }
 
+    @MainActor
+    func testFinishingPreparationRendersOriginalSourceAndRetainsExpandedExtraction() async throws {
+        var root = URL(fileURLWithPath: #filePath)
+        for _ in 0..<5 { root.deleteLastPathComponent() }
+        let source = try Data(contentsOf: root.appending(path: "Fixtures/generated/native-vector.pdf"))
+        #if DEBUG
+        let configuration = "debug"
+        #else
+        let configuration = "release"
+        #endif
+        let worker = root.appending(path: "Packages/LabelMac/.build/\(configuration)/label-render-worker")
+        let directory = FileManager.default.temporaryDirectory.appending(path: "FinishingSource-\(UUID().uuidString)")
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let model = try WorkflowEditorBootstrap.makeModel(originalPDF: source,
+            store: WorkflowProfileStore(root: directory))
+        let pages = try QuartzPDFRenderer.documentPageBoxes(originalPDF: source)
+        let plan = try ExtractionPlanner.plan(sourcePages: pages, profile: model.profile,
+            copyPolicy: .engine(copies: 2, collated: true))
+        let canvas = try DotCanvas(physicalSize: model.profile.outputStock,
+            resolution: DotResolution(xDotsPerMillimeter: 1, yDotsPerMillimeter: 1))
+        let conversion = MonochromeConversion.textAndBarcodeThreshold(cutoff: 128)
+        let job = try job(2)
+        let result = try FinishingRasterPreparation.prepare(job: job, originalPDF: source,
+            extraction: plan, canvas: canvas, conversion: conversion, workerExecutable: worker)
+        XCTAssertEqual(result.extraction, plan)
+        XCTAssertEqual(result.rasters.count, 2) // No second copy expansion.
+        XCTAssertEqual(result.rasters[0], result.rasters[1])
+        XCTAssertEqual(result.rasters[0], try OfflineExtractionWorker.render(originalPDF: source,
+            label: plan.outputLabels[0], canvas: canvas, conversion: conversion, workerExecutable: worker))
+        XCTAssertNoThrow(try result.binding.validate(job: job, orderedRasters: result.rasters))
+        XCTAssertNoThrow(try result.validateSource(originalPDF: source, extraction: plan, canvas: canvas, conversion: conversion))
+        var sameSizeChanged = source
+        sameSizeChanged[sameSizeChanged.startIndex] ^= 1
+        XCTAssertEqual(sameSizeChanged.count, source.count)
+        XCTAssertThrowsError(try result.validateSource(originalPDF: sameSizeChanged,
+            extraction: plan, canvas: canvas, conversion: conversion))
+        XCTAssertThrowsError(try result.validateSource(originalPDF: source + Data([0]),
+            extraction: plan, canvas: canvas, conversion: conversion))
+        XCTAssertThrowsError(try result.validateSource(originalPDF: source, extraction: plan,
+            canvas: canvas, conversion: .photographicOrderedDither4x4))
+        let otherCanvas = try DotCanvas(physicalSize: canvas.physicalSize,
+            resolution: DotResolution(xDotsPerMillimeter: 2, yDotsPerMillimeter: 2))
+        XCTAssertThrowsError(try result.validateSource(originalPDF: source, extraction: plan,
+            canvas: otherCanvas, conversion: conversion))
+        let single = try ExtractionPlanner.plan(sourcePages: pages, profile: model.profile)
+        XCTAssertThrowsError(try result.validateSource(originalPDF: source, extraction: single,
+            canvas: canvas, conversion: conversion))
+        // Resource/count failures precede any worker execution.
+        let inert = URL(fileURLWithPath: "/usr/bin/false")
+        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job, originalPDF: source,
+            extraction: single, canvas: canvas, conversion: conversion, workerExecutable: inert)) {
+            XCTAssertEqual($0 as? FinishingRasterPreparation.Error, .planMismatch)
+        }
+        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job, originalPDF: source,
+            extraction: plan, canvas: canvas, conversion: conversion, workerExecutable: inert, maximumPackedBytes: 1)) {
+            XCTAssertEqual($0 as? FinishingRasterPreparation.Error, .byteLimit)
+        }
+        let cancelled = OfflineRenderWorkerCancellation(); cancelled.cancel()
+        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job, originalPDF: source,
+            extraction: plan, canvas: canvas, conversion: conversion, workerExecutable: inert, cancellation: cancelled)) {
+            XCTAssertEqual($0 as? FinishingRasterPreparation.Error, .cancelled)
+        }
+        let unexpectedPages = try Data(contentsOf: root.appending(path: "Fixtures/generated/mixed-pages.pdf"))
+        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job, originalPDF: unexpectedPages,
+            extraction: plan, canvas: canvas, conversion: conversion, workerExecutable: worker)) {
+            XCTAssertEqual($0 as? FinishingRasterPreparation.Error, .planMismatch)
+        }
+    }
+
     func testRasterBindingRejectsReorderingReplacementAndDimensionsWithIdenticalBytes() throws {
         let job = try job()
         let a = try MonochromeBitmap(width: 8, height: 2, bytes: [0x80, 0])
