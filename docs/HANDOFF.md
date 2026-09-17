@@ -1,3 +1,18 @@
+# Qualified thermal consumable policy — 2026-09-17
+
+Current locally validated source adds independent model/matching loaded-media/ribbon
+validation and bounded offline thermal fragments. Four focused tests passed
+own exit0; full finite CI-equivalent gate passed own exit0:89Python/246Core/306Mac
+debug/release plus independent/inert/signature/packaged checks. Ribbon-check fault
+failed both method combinations; source byte-for-byte restored and all246Core
+tests passed own exit0. See
+`validation/M3-QUALIFIED-THERMAL-POLICY-2026-09-17.md`. Ordinary revision binding,
+prepared-job/encoder integration and utility controls remain work; GC420d stays
+direct-thermal only. No physical/admin/merge/binary action. Part B unchanged.
+Preceding persistence cacca16 pushed; remote/PR81 exact readback confirmed.
+Hosted run35216715041 in progress, not pass evidence. Preceding8b70383
+hosted run35216048756 passed at its exact source.
+
 # Persistent immutable utility defaults — 2026-09-17
 
 Current unpublished source adds native save/reopen/refresh, latest canonical startup
