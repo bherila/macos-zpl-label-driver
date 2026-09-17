@@ -3243,7 +3243,8 @@ archive reference/context. Cold reopen preserves uncertainty without any byte ca
 absence is observation only, never retry authorization. All four modes exercise cold reopen,
 idempotence, corrupt/context/cancel rejection and uncertain sync. Nine focused cases passed;
 missing-intent fault failed exit1 and restored nine cases passed exit0; finite full gate session87410 passed FULL_GATE_EXIT 0 with 103/272/324 tests and
-the checks above; log /tmp/zpl-finishing-intent-full.log. Source commit pending.
+the checks above; log /tmp/zpl-finishing-intent-full.log. Implementation 3c96e68acdeeef4152aa5381f77be6e9dbd3d9c5 committed locally;
+source push and hosted coverage pending.
 See [intent evidence](validation/M3-FINISHING-ATTEMPT-INTENT-2026-09-17.md).
 Accepted lifecycle/device binding and sender integration remain open.
 

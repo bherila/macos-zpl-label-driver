@@ -27,10 +27,9 @@ This is offline storage, not accepted ticket/device binding or sender authority.
 integration must publish intent before external attempts, retain validated physical ownership
 through every file/status wait, and bind accepted identity and lifecycle. Correlated status,
 accepted durable progress/completion, restart recovery and scheduler retry evidence remain
-open. No administrator, device, merge or binary publication action. Source checkpoint and
-Finite 900-second full gate session87410 completed FULL_GATE_EXIT 0:
+open. No administrator, device, merge or binary publication action. Finite 900-second full gate session87410 completed FULL_GATE_EXIT 0:
 103 Python / 272 Core / 324 native tests in debug/release, 132 strict and 180 ASCII
 oracle round trips per mode, finite benchmark/inert ABI/pipeline checks, ARM/minimum26
 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged
 worker PBM/ZPL equality. Log /tmp/zpl-finishing-intent-full.log; local artifact
-artifacts/setup-app.PozJuX. No printer accessed. Source checkpoint pending.
+artifacts/setup-app.PozJuX. No printer accessed. Implementation source 3c96e68acdeeef4152aa5381f77be6e9dbd3d9c5; committed locally, hosted coverage pending.
