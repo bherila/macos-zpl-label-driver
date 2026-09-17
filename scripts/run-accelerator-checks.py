@@ -10,6 +10,7 @@ from pathlib import Path
 from zpl_oracle import verify_vectors
 from zpl_compression_oracle import verify_vectors as verify_compressed_vectors
 from benchmark_encoding import verify_cli as verify_encoding_benchmark
+from check_lab_diagnostics import verify as verify_lab_diagnostics
 from check_probe import verify as verify_probe
 from check_capture_filter import verify as verify_capture_filter
 from check_capture_pipeline import verify as verify_capture_pipeline
@@ -40,6 +41,7 @@ def main():
         r=subprocess.run([str(binary/"label-core-lab"),"--vectors-dir",str(vectors)],
                          cwd=ROOT,capture_output=True,timeout=10)
         if r.returncode == 0: raise RuntimeError("lab unexpectedly overwrote existing destination")
+    print(f"Private lab failure diagnostics cases: {verify_lab_diagnostics(binary/'label-core-lab')}",flush=True)
     print(f"Finite encoding benchmark CLI cases: {verify_encoding_benchmark(binary/'label-core-lab')}",flush=True)
     print(f"Inert CUPS ABI cases: {verify_probe(binary/'labelprobe')}",flush=True)
     print(f"Inert CUPS filter ABI cases: {verify_capture_filter(binary/'labelcapture-filter')}",flush=True)
