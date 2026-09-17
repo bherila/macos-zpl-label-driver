@@ -18,21 +18,22 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
 - Branch: `codex/m2-ascii-graphic-compression`; open PR81, base
   `codex/m3-control-speed-boundary`. This is stacked unmerged work, not main.
 - Published source/remote/PR equality verified at
-  `51d9e2ae56cc6ace723a2c9a2746f92f1f3b7f28`. Latest published
-  implementation `9475574`: source-bound read-only acceptance traceability.
-- Latest finite900s `bash scripts/ci-swift.sh`, session87410, completed
+  `385a545613793ce436eecdd70de0cd13106610c1`. Latest published
+  implementation `3c96e68`: conservative durable finishing attempt intent.
+- Latest finite900s `bash scripts/ci-swift.sh`, session64896, completed
   `FULL_GATE_EXIT 0`:103 Python/272 Core/324 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.PozJuX`; no printer accessed.
+  Local artifact: `artifacts/setup-app.thCaUD`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
   accounting detected treating zero known accepted bytes as a retryable send attempt.
 - Hosted run35236186182 completed success at exact604aef7 (archive store).
-  M6-head run35237535380 is currently in progress at exact51d9e2a. It does
-  not qualify the local attempt-store slice. Poll exact handles without restarting.
+  M6-head run35237535380 passed at exact51d9e2a. Attempt-store run35238690886
+  is queued at exact385a545; it does not qualify the local coordinator integration.
+  Poll exact handles without restarting.
 - The two earlier cloud review passes apply to older base/head pairs. No third pass
   was requested, and these passes are not a verdict on subsequent changes.
 - Local host evidence is macOS27 ARM; minimum-runtime26 and hosted checks are
@@ -111,9 +112,22 @@ absence is observation only, never retry authorization. All four modes exercise 
 idempotence, corrupt/context/cancel rejection and uncertain sync. Nine focused cases passed;
 missing-intent fault failed exit1 and restored nine cases passed exit0; finite full gate session87410 passed FULL_GATE_EXIT 0 with 103/272/324 tests and
 the checks above; log /tmp/zpl-finishing-intent-full.log. Implementation 3c96e68acdeeef4152aa5381f77be6e9dbd3d9c5 committed locally;
-source push and hosted coverage pending.
+source push/remote/PR equality verified at385a545; hosted run35238690886 pending.
 See [intent evidence](validation/M3-FINISHING-ATTEMPT-INTENT-2026-09-17.md).
 Accepted lifecycle/device binding and sender integration remain open.
+
+## Local inert persisted finishing integration
+
+InertPersistedFinishingDelivery now composes exact archive/context intent with the
+existing device lease before first discard, plus an artifact lease across simulator
+aliases. Previous intent rejects restart. All four modes exercise no-attempt cancel/stop,
+zero-byte attempt, synthetic waits, uncertain sync and lease release. Expanded nine tests
+passed; publication/replay faults detected exit1, restored nine cases passed exit0.
+Full finite gate session64896 passed FULL_GATE_EXIT 0 with 103/272/324 tests and
+the checks above; log /tmp/zpl-persisted-finishing-full.log. Source commit pending.
+See
+[integration evidence](validation/M3-INERT-PERSISTED-FINISHING-2026-09-17.md).
+No actual accepted sender/device status or replay authority is introduced.
 
 ## Manual Part A and Part B
 
@@ -145,13 +159,22 @@ Part B alone does not accept the production adapter or complete M1.
 
 ## Remaining implementation and evidence
 
-Next independent software work: connect conservative attempt intent to the inert
-coordinator under its existing lease before first discard; then accepted-context
-framed-artifact binding and durable lifecycle/restart recovery; persistent exact-profile output qualifications; accepted finishing
+Next independent software work: validate the local intent/coordinator integration,
+then accepted-context framed-artifact binding and durable lifecycle/restart recovery; persistent exact-profile output qualifications; accepted finishing
 queue/ticket/device and qualified-pitch binding; actual bounded file/status provider
 integration retaining ownership throughout waits. These must reuse established
 immutable stores and coordination invariants, not manufacture accepted-device authority
 from the private utility catalog or flatten finishing files into raw TCP bytes.
+
+Accepted-context gap inspection: VirtualQueueDefinition admits schemas1–6 and profile1–7,
+with tear-off defaults; ResolvedJobTicket admits schemas2–7 and independently checks queue/
+printer references in its initializer. Finishing profile8 cannot enter either path. The
+next admission slice must extend typed queue/defaults and ticket serialization/validation,
+then store/load and preparation binding together, with regressions for every reference,
+mode/schedule/output-order/source/device/cancellation combination. Preserve ordinary role
+rejection until the separate finishing path is complete; M1 privilege/backend identity
+still requires its prescribed real scheduler evidence before production assumptions.
+
 
 Manual M1 must establish actual scheduler fidelity/options, sandbox/helper identity,
 backend lifetime and retry behavior before production adapter assumptions. Installed

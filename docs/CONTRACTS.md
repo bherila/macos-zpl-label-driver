@@ -298,3 +298,24 @@ counts its explicit closed record format; existing JSON publishers keep their de
 Uncertain publication exposes the exact selector for explicit readback. Cold reopen
 requires exact reference and independently bound context; storage creates no accepted
 device/ticket, status receipt or automatic post-crash replay authority.
+
+### Conservative finishing attempt intent
+
+FinishingAttemptStore publishes at most four immutable binary intent records, each bounded
+by 1024 bytes and tied to an exact FinishingArtifactReference. Both publication and recovery
+independently revalidate the archived complete output context. A recorded intent means
+uncertainAfterRecordedIntent even with zero accepted bytes or synthetic completion. Missing
+intent is only noRecordedIntent, never proof of no external transmission or retry authority.
+Corrupt/unsafe/unreadable records fail closed. Idempotent publication does not grant another
+send. Uncertain commit or cancellation after publication stops the caller; there is no reset.
+
+### Inert persisted finishing coordination
+
+InertPersistedFinishingDelivery composes that intent with the discard-only coordinator.
+It checks and publishes intent under the existing device lease before the first discard
+callback. A separate domain-prefixed artifact lease serializes the same immutable reference
+across simulator aliases. Both leases are nonblocking and scoped through all file/status
+steps; exceptions release ownership without clearing intent. Existing intent rejects another
+run. Synthetic completion never clears or upgrades the durable observation to printed.
+Accepted ticket/device binding, correlated hardware status, authoritative durable completion
+and installed scheduler retry semantics remain separate acceptance gates.
