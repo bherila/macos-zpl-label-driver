@@ -94,6 +94,10 @@ public struct PhysicalGeometryQualification: Equatable, Sendable {
                                tracking: MediaTracking? = nil,
                                trackingFact: CapabilityFact = .init(state: .unknown, evidence: .unobserved)) throws {
         _ = try controls(for: request, tracking: tracking, trackingFact: trackingFact)
+        try Self.validateKnownRaster(bitmap, request: request)
+    }
+
+    static func validateKnownRaster(_ bitmap: MonochromeBitmap, request: MediaGeometryRequest) throws {
         if let width = request.widthDots {
             guard bitmap.layout.width <= width else { throw Error.rasterExceedsWidth }
             if let x = request.originXDot {

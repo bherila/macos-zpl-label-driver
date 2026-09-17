@@ -100,7 +100,17 @@ public extension PrinterProfile {
         let backfeed = job.backfeedSpeedIps ?? workflowDefaults.backfeedSpeedIps ?? configuredDefaults.backfeedSpeedIps
         let darkness = job.darkness ?? workflowDefaults.darkness ?? configuredDefaults.darkness
         let tracking = job.tracking ?? workflowDefaults.tracking ?? configuredDefaults.tracking
-        let mediaGeometry = job.mediaGeometry ?? workflowDefaults.mediaGeometry ?? configuredDefaults.mediaGeometry
+        let mediaGeometry: MediaGeometryRequest?
+        if job.mediaGeometry != nil || workflowDefaults.mediaGeometry != nil || configuredDefaults.mediaGeometry != nil {
+            func field(_ key: KeyPath<MediaGeometryRequest, Int?>) -> Int? {
+                let explicit = job.mediaGeometry?[keyPath: key]
+                let workflow = workflowDefaults.mediaGeometry?[keyPath: key]
+                let configured = configuredDefaults.mediaGeometry?[keyPath: key]
+                return explicit ?? workflow ?? configured
+            }
+            mediaGeometry = try .init(widthDots: field(\.widthDots), lengthDots: field(\.lengthDots),
+                                      originXDot: field(\.originXDot), originYDot: field(\.originYDot))
+        } else { mediaGeometry = nil }
 
         try validate(.init(
             thermalMethod: thermal,

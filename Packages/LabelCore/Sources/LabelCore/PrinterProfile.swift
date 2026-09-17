@@ -168,6 +168,7 @@ public struct PrinterCapabilities: Equatable, Sendable {
     public let printSpeedChoicesIps: Set<Int>
     public let darkness: CapabilityFact
     public let feedSpeeds: QualifiedSpeedChoices
+    public let physicalGeometry: PhysicalGeometryQualification
     public let backfeedSpeeds: QualifiedSpeedChoices
 
     public init(
@@ -180,7 +181,8 @@ public struct PrinterCapabilities: Equatable, Sendable {
         printSpeedChoicesIps: Set<Int>,
         darkness: CapabilityFact,
         feedSpeeds: QualifiedSpeedChoices = .unverified,
-        backfeedSpeeds: QualifiedSpeedChoices = .unverified
+        backfeedSpeeds: QualifiedSpeedChoices = .unverified,
+        physicalGeometry: PhysicalGeometryQualification = .unverified
     ) {
         self.model = model
         self.thermalTransfer = thermalTransfer
@@ -192,6 +194,7 @@ public struct PrinterCapabilities: Equatable, Sendable {
         self.darkness = darkness
         self.feedSpeeds = feedSpeeds
         self.backfeedSpeeds = backfeedSpeeds
+        self.physicalGeometry = physicalGeometry
     }
 }
 
@@ -246,7 +249,7 @@ public struct PrinterProfile: Equatable, Sendable {
         connection: ConnectionConfiguration,
         configuredDefaults: PrinterControlDefaults = .init()
     ) throws {
-        guard (1...4).contains(schemaVersion), revision > 0,
+        guard (1...5).contains(schemaVersion), revision > 0,
               schemaVersion >= 2 || configuredDefaults == .init() else {
             throw PrinterProfileError.invalidProfileVersion
         }
@@ -261,6 +264,10 @@ public struct PrinterProfile: Equatable, Sendable {
                configuredDefaults.feedSpeedIps == nil && configuredDefaults.backfeedSpeedIps == nil) else {
             throw PrinterProfileError.invalidProfileVersion
         }
+        guard schemaVersion == 5 || capabilities.physicalGeometry == .unverified else {
+            throw PrinterProfileError.invalidProfileVersion
+        }
+        try capabilities.physicalGeometry.validateDeclaration()
         for speeds in [capabilities.feedSpeeds, capabilities.backfeedSpeeds] {
             guard speeds.choicesIps.count <= 11,
                   speeds.choicesIps.allSatisfy({ (2...12).contains($0) }),
@@ -414,7 +421,7 @@ public extension PrinterProfile {
             }
         }
         if let darkness = request.darkness {
-            guard schemaVersion == 4, capabilities.darkness.state == .supported,
+            guard schemaVersion >= 4, capabilities.darkness.state == .supported,
                   capabilities.darkness.evidence != .unobserved else {
                 throw PrinterProfileError.unavailableDarkness
             }
@@ -423,15 +430,18 @@ public extension PrinterProfile {
             }
         }
         if let tracking = request.tracking {
-            // Model capability and a read-only observation do not qualify a
-            // control command. Tracking remains unavailable until its command,
-            // installed-media semantics, and validation evidence are explicit.
-            throw PrinterProfileError.unavailableTracking(tracking)
+            guard schemaVersion == 5, tracking != .blackMark,
+                  let fact = capabilities.tracking[tracking], fact.state == .supported,
+                  fact.evidence != .unobserved else { throw PrinterProfileError.unavailableTracking(tracking) }
+            if tracking == .continuous && request.mediaGeometry?.lengthDots == nil {
+                throw PhysicalGeometryQualification.Error.continuousLengthRequired
+            }
         }
-        // Nominal stock never authorizes device geometry. The reference profile
-        // has no observed calibration or cited ordinary-job mapping, so an
-        // explicit geometry request fails instead of being dropped or guessed.
-        if request.mediaGeometry != nil { throw PrinterProfileError.unavailableMediaGeometry }
+        if let geometry = request.mediaGeometry {
+            guard schemaVersion == 5 else { throw PrinterProfileError.unavailableMediaGeometry }
+            _ = try capabilities.physicalGeometry.controls(for: geometry, tracking: request.tracking,
+                trackingFact: capabilities.tracking[.continuous] ?? .init(state: .unknown, evidence: .unobserved))
+        }
     }
 }
 

@@ -164,3 +164,26 @@ For GC420d, retain `advertisedNominalDPI=203` separately from documented physica
 `BuildSigningMode` is explicitly `localAdhoc`, optional `localCertificate`, or future `developerID`; it must not silently switch modes after failure. An artifact report distinguishes payload signature, installer-container signature, OS launch assessment, authorization and provenance. Missing Team ID is expected for `localAdhoc`, not a cue to trust every same-bundle-ID client. Actual installed-code trust must follow [local-signing boundaries](LOCAL-SIGNING.md).
 
 Hardware qualification and release scope are separate fields. `notApplicableToInstalledBaseline` does not mutate the generic device capability to unsupported or close its broader physical tests. Future production schemas must preserve that distinction; `docs/reference-target.json` is planning data, not the production wire schema.
+
+
+## Qualified physical geometry persistence
+
+Profile5 adds exact physicalGeometry capability objects for width, continuousLength,
+homeX and homeY, each fact plus nullable maximumDots. Supported values require
+explicit evidence and the bounded implemented subset; unknown/unsupported require
+nil limits. Nullable tracking and mediaGeometry defaults are required fields.
+The latter has exact nullable widthDots/lengthDots/originXDot/originYDot fields.
+Profile1..4 canonical keys and behavior remain unchanged; no automatic migration.
+Queue4 adds the same required nullable defaults and can bind profile5; older queues
+reject new fields/reference. Ticket5 binds those exact versions. Profile-reference
+versions are not interchangeable with queue/workflow versions in reference slots.
+
+Resolution is per physical field, job over workflow over configured profile.
+Complete effective home and explicit qualified continuous mode/length are required.
+Conflicting sensed mode/retained configured length fails, not silent field discard.
+Gap mapping is explicit and qualified; black-mark offsets and sensed-stock length
+remain unavailable. Ordinary output places width/home/tracking before first ^FS
+and original packed graphics. Both direct and prepared bitmap encoding check the
+same necessary known extent/home containment, using guarded subtraction. Unknown
+shift/top/current state and stock-versus-printable extent are not invented values
+or physical validation. Complete jobs reject mixed geometry on one profile revision.

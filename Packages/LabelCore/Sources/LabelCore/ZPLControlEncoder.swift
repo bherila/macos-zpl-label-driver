@@ -80,11 +80,44 @@ public struct ZPLControlEncoder: Sendable {
         }
         var darknessBytes: Data?
         if case let .value(value) = controls.darkness {
-            guard controls.profileSchemaVersion == 4 else { throw ZPLControlEncodingError.unqualifiedDarkness }
+            guard controls.profileSchemaVersion >= 4 else { throw ZPLControlEncodingError.unqualifiedDarkness }
             darknessBytes = try ZPLDocumentedControlEncoder().encode([.absoluteDarkness(value)],
                 qualification: [.absoluteDarkness: .supported])
         }
-        guard controls.tracking == .leaveUnchanged else { throw ZPLControlEncodingError.unqualifiedTracking }
+        var physical: [ZPLDocumentedControl] = []
+        var width: Int?
+        var length: Int?
+        if case let .value(tracking) = controls.tracking {
+            guard controls.profileSchemaVersion == 5 else { throw ZPLControlEncodingError.unqualifiedTracking }
+            switch tracking {
+            case .gap: physical.append(.gapTracking)
+            case .continuous:
+                guard case let .value(geometry) = controls.mediaGeometry, let value = geometry.lengthDots else {
+                    throw PhysicalGeometryQualification.Error.continuousLengthRequired
+                }
+                length = value
+                physical.append(.continuousTracking(labelLengthDots: value))
+            case .blackMark: throw ZPLControlEncodingError.unqualifiedTracking
+            }
+        }
+        if case let .value(geometry) = controls.mediaGeometry {
+            guard controls.profileSchemaVersion == 5 else { throw PrinterProfileError.unavailableMediaGeometry }
+            if geometry.lengthDots != nil && length == nil { throw PhysicalGeometryQualification.Error.continuousModeRequired }
+            guard (geometry.originXDot == nil) == (geometry.originYDot == nil) else {
+                throw PhysicalGeometryQualification.Error.incompleteHome
+            }
+            if let value = geometry.widthDots {
+                guard (2...32_000).contains(value) else { throw ZPLDocumentedControlEncoder.Error.invalidValue(.printWidth) }
+                width = value; physical.append(.printWidth(dots: value))
+            }
+            if let x = geometry.originXDot, let y = geometry.originYDot { physical.append(.labelHome(xDots: x, yDots: y)) }
+            guard geometry.widthDots != nil || geometry.lengthDots != nil || geometry.originXDot != nil else {
+                throw PhysicalGeometryQualification.Error.emptyRequest
+            }
+        }
+        let physicalBytes = try ZPLDocumentedControlEncoder().encode(physical,
+            qualification: Dictionary(uniqueKeysWithValues: physical.map { ($0.kind, CapabilityState.supported) }),
+            limits: .init(maximumPrintWidthDots: width, maximumContinuousLabelLengthDots: length))
         // This encoder implements only the documented GC420d subset. A caller's
         // capability declaration cannot widen the documented command subset.
         if case let .value(speed) = controls.printSpeedIps, ![2, 3, 4].contains(speed) {
@@ -112,6 +145,7 @@ public struct ZPLControlEncoder: Sendable {
             output.append(contentsOf: "^PR\(speed)\n".utf8)
         }
         if let darknessBytes { output.append(darknessBytes) }
+        output.append(physicalBytes)
         guard output.count <= maxOutputBytes else { throw ZPLControlEncodingError.outputLimit }
         return output
     }

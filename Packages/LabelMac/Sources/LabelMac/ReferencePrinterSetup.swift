@@ -54,7 +54,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
     }
 
     public var darknessChoices: [Int] {
-        guard profile.schemaVersion == 4, profile.capabilities.darkness.state == .supported,
+        guard profile.schemaVersion >= 4, profile.capabilities.darkness.state == .supported,
               profile.capabilities.darkness.evidence != .unobserved else { return [] }
         return Array(0...30)
     }
@@ -167,9 +167,14 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         let darkness: Int?
         if case let .value(value) = resolved.darkness { darkness = value }
         else { darkness = nil }
+        let tracking: MediaTracking?
+        if case let .value(value) = resolved.tracking { tracking = value } else { tracking = nil }
+        let geometry: MediaGeometryRequest?
+        if case let .value(value) = resolved.mediaGeometry { geometry = value } else { geometry = nil }
         return .init(thermalMethod: .directThermal, finishing: .tearOff,
                      printSpeedIps: printSpeed, feedSpeedIps: resolved.feedSpeedIps.explicitValue,
-                     backfeedSpeedIps: resolved.backfeedSpeedIps.explicitValue, darkness: darkness)
+                     backfeedSpeedIps: resolved.backfeedSpeedIps.explicitValue, darkness: darkness,
+                     tracking: tracking, mediaGeometry: geometry)
     }
 
     public var validationMessage: String? {
@@ -191,6 +196,15 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         }
     }
 
+    private var trackingFact: PrinterSetupFact {
+        if let value = profile.configuredDefaults.tracking {
+            return .init(id: "tracking", label: "Media tracking",
+                value: "Configured profile default: \(value.rawValue); current setting unknown", status: .configured)
+        }
+        return .init(id: "tracking", label: "Media tracking",
+            value: "No configured default; current setting unknown", status: .unknown)
+    }
+
     public var facts: [PrinterSetupFact] {
         [
             .init(id: "model", label: "Model", value: profile.capabilities.model, status: .configured),
@@ -202,7 +216,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
             motorFact(id: "feedSpeed", label: "Feed speed", capability: profile.capabilities.feedSpeeds),
             motorFact(id: "backfeedSpeed", label: "Backfeed speed", capability: profile.capabilities.backfeedSpeeds),
             darknessFact,
-            .init(id: "tracking", label: "Media tracking", value: "Not observed; leave unchanged", status: .unknown),
+            trackingFact,
         ]
     }
 }
