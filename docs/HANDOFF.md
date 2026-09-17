@@ -1,3 +1,10 @@
+# Finishing profile source checkpoint — 2026-09-17
+
+Implementation `44e6893d7ffc7dfb97180919227196cd9ef0a08d` follows separate test-budget commit4af29a3.
+Local full89/270/314 and restored270Core passed ownexit0 as recorded below.
+Push/readback source checkpoint next; new exact hosted validation is separate.
+Ordinary profile8 remains gated pending job/normalization/delivery integration.
+
 # Finishing profile8 terminal local validation — 2026-09-17
 
 Full finite CI-equivalent gate passed ownexit0:89Python/270Core/314Mac debug/release

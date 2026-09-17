@@ -88,3 +88,10 @@ fail ownexit1 (missing expected throw). Source restored byte-for-byte, SHA256
 e79a2f518880d87c6e1076a80f51a7397553c6e3c80eeeae76cf5882b665f632;
 all270 restored Core tests passed ownexit0. The four ordinary admission calls
 also failed before the shared version guard was introduced.
+
+## Implementation checkpoint
+
+Source `44e6893d7ffc7dfb97180919227196cd9ef0a08d` contains the validated persistence/admission slice,
+after separate barcode correctness-budget commit4af29a3. Local artifact was built
+from the tested working tree before these commits; it is not a published binary
+or exact hosted result. Publication checkpoint validation remains separate.
