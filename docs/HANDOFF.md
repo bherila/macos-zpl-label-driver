@@ -1,3 +1,8 @@
+# Bound normal-control encoding source checkpoint — 2026-09-17
+
+Implementation 7481e23c1deb63252b70f76ec9775fbd8233e098 passed the recorded local finite gate.
+Next verify pushed source/PR equality and exact hosted run; no merge/binary release.
+
 # Finishing normal-control encoding terminal gate — 2026-09-17
 
 Full finite900s session87326 completed ownexit0:89Python/272Core/323Mac debug/release,132 strict and180 ASCII oracle round trips per mode, finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.I8weej. No printer accessed.
