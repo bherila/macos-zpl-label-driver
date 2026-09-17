@@ -5,6 +5,47 @@ import LabelCore
 
 @MainActor
 final class WorkflowDocumentOpeningModelTests: XCTestCase {
+    func testExplicitOfflineStockOpeningPreservesConfiguredAdmissionAndSavedSnapshots() async throws {
+        let profileStore = try store()
+        let sourceURL = fixture("letter-one")
+        let manual = try await WorkflowEditorBootstrap.makeModelUsingWorker(
+            originalPDF: Data(contentsOf: sourceURL), store: profileStore,
+            workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let base = manual.profile
+        let variants: [(String, PhysicalSize, Int, Int)] = [
+            ("custom-stock", PhysicalSize(width: try .inches(2), height: try .inches(3)), 406, 610),
+            ("synthetic-continuous-stock", base.outputStock, 813, 1_219)
+        ]
+        let model = WorkflowDocumentOpeningModel(store: profileStore, workerExecutable: try worker())
+        for (index, item) in variants.enumerated() {
+            let saved = try WorkflowProfile(id: base.id, revision: index + 1,
+                outputStockID: item.0, outputStock: item.1, pageRules: base.pageRules)
+            try profileStore.save(saved)
+            let previousEditor = model.editor
+            model.openSavedWorkflow(sourceURL, profile: saved)
+            await model.currentOpeningTask?.value
+            XCTAssertTrue(model.editor === previousEditor)
+            XCTAssertEqual(model.error,
+                "This saved workflow uses different output stock. The current setup is 4×6 tear-off.")
+            model.openSavedWorkflowForOfflineEditing(sourceURL, profile: saved)
+            await model.currentOpeningTask?.value
+            let candidate = try XCTUnwrap(model.editor)
+            XCTAssertNil(model.error)
+            XCTAssertTrue(candidate.isReopenedWorkflow)
+            XCTAssertFalse(candidate.isSaved)
+            XCTAssertEqual(candidate.profile.pageRules, saved.pageRules)
+            XCTAssertEqual(candidate.profile.outputStock, saved.outputStock)
+            XCTAssertEqual(candidate.profile.outputStockID, saved.outputStockID)
+            XCTAssertEqual(candidate.profile.revision, saved.revision + 1)
+            XCTAssertEqual(candidate.unreviewedRegionCount, candidate.regions.count)
+            XCTAssertFalse(candidate.canApproveForUnattendedUse)
+            XCTAssertEqual(try profileStore.load(profileID: saved.id, revision: saved.revision), saved)
+            await candidate.refreshPreviewInWorker(workerExecutable: try worker(), deadlineSeconds: 5)
+            XCTAssertEqual(candidate.preview?.bitmap.layout.width, item.2)
+            XCTAssertEqual(candidate.preview?.bitmap.layout.height, item.3)
+        }
+    }
+
     func testOfflineDiagnosticsTracksRealManualEditorPreviewWithoutExportingIdentity() async throws {
         let model = WorkflowDocumentOpeningModel(store: try store(), workerExecutable: try worker())
         func snapshot() -> OfflineSetupDiagnostics {
@@ -177,6 +218,11 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
         try storeB.save(altered.profile)
         let model = WorkflowDocumentOpeningModel(store: storeB, workerExecutable: try worker())
         model.openSavedWorkflow(fixture("letter-one"), profile: expected)
+        await model.currentOpeningTask?.value
+        XCTAssertNil(model.editor)
+        XCTAssertEqual(model.error,
+            "The saved workflow changed or could not be verified. Refresh the saved workflow list.")
+        model.openSavedWorkflowForOfflineEditing(fixture("letter-one"), profile: expected)
         await model.currentOpeningTask?.value
         XCTAssertNil(model.editor)
         XCTAssertEqual(model.error,

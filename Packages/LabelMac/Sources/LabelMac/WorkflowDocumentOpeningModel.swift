@@ -145,7 +145,14 @@ public final class WorkflowDocumentOpeningModel: ObservableObject {
         beginOpening(url, mode: .manual, savedProfile: profile)
     }
 
-    private func beginOpening(_ url: URL, mode: WorkflowOpeningMode, savedProfile: WorkflowProfile?) {
+    /// Explicit offline correction does not assert compatibility with configured media.
+    /// Store verification, layout admission, rendering caps and new review still apply.
+    public func openSavedWorkflowForOfflineEditing(_ url: URL, profile: WorkflowProfile) {
+        beginOpening(url, mode: .manual, savedProfile: profile, stockPolicy: .offlineCandidate)
+    }
+
+    private func beginOpening(_ url: URL, mode: WorkflowOpeningMode, savedProfile: WorkflowProfile?,
+                              stockPolicy: WorkflowStockOpeningPolicy = .configuredReference) {
         cancelOpening()
         editor?.cancelPreview()
         editor?.cancelSourcePreview()
@@ -190,7 +197,7 @@ public final class WorkflowDocumentOpeningModel: ObservableObject {
                 let model = try await WorkflowEditorBootstrap.makeModelUsingWorker(
                     originalPDF: data, store: self.store, workerExecutable: self.workerExecutable,
                     deadlineSeconds: min(remaining, 60), cancellation: cancellation, mode: mode,
-                    savedProfile: savedProfile)
+                    savedProfile: savedProfile, stockPolicy: stockPolicy)
                 await self.afterAnalysis()
                 guard self.request == id, !Task.isCancelled, !cancellation.isCancelled else { return }
                 guard clock.now < start.advanced(by: .seconds(60)) else {

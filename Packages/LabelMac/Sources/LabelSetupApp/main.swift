@@ -149,6 +149,7 @@ struct SetupDocumentView: View {
                                 .tag(Optional(entry.id))
                         }
                     }
+                    Text("Reopens for offline correction. Configured printer stock is unchanged.").font(.caption)
                     Button("Reopen Saved Workflow with PDF…") {
                         reopeningProfile = documents.savedWorkflows.first { $0.id == selectedSavedWorkflow }
                         if reopeningProfile != nil { importing = true }
@@ -168,7 +169,7 @@ struct SetupDocumentView: View {
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
             if case let .success(url) = result {
-                if let reopeningProfile { documents.openSavedWorkflow(url, profile: reopeningProfile.profile) }
+                if let reopeningProfile { documents.openSavedWorkflowForOfflineEditing(url, profile: reopeningProfile.profile) }
                 else { documents.open(url, mode: openingMode) }
             }
             if case .failure = result { documents.reportImportFailure() }

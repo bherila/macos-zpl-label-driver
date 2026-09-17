@@ -7,6 +7,14 @@ public enum WorkflowOpeningMode: Equatable, Sendable {
     case manual
 }
 
+/// Stock admission context for user-session editing, never device-write authority.
+public enum WorkflowStockOpeningPolicy: Equatable, Sendable {
+    /// Preserve the configured reference stock's identity and physical dimensions.
+    case configuredReference
+    /// Explicit offline correction can change stock under finite preview budgets.
+    case offlineCandidate
+}
+
 @MainActor
 public enum WorkflowEditorBootstrap {
     public enum Error: Swift.Error, Equatable, Sendable {
@@ -46,13 +54,22 @@ public enum WorkflowEditorBootstrap {
         maximumPages: Int = 32, deadlineSeconds: Double = 60,
         cancellation: OfflineRenderWorkerCancellation = .init(),
         mode: WorkflowOpeningMode = .assisted,
-        savedProfile: WorkflowProfile? = nil
+        savedProfile: WorkflowProfile? = nil,
+        stockPolicy: WorkflowStockOpeningPolicy = .configuredReference
     ) async throws -> WorkflowEditorModel {
         guard (1...32).contains(maximumPages) else { throw QuartzStructuralAnalyzer.Error.invalidLimits }
         guard deadlineSeconds.isFinite, deadlineSeconds > 0, deadlineSeconds <= 60 else {
             throw OfflineRenderWorkerProcess.Error.invalidDeadline
         }
         if let savedProfile {
+            if stockPolicy == .configuredReference {
+                let reference = try ReferenceWorkflowDefinition.gc420dInitialSet()[0]
+                guard savedProfile.outputStockID == reference.outputStockID,
+                      abs(savedProfile.outputStock.width.value - reference.outputStock.width.value) <= 1e-6,
+                      abs(savedProfile.outputStock.height.value - reference.outputStock.height.value) <= 1e-6 else {
+                    throw Error.unsupportedOutputStock
+                }
+            }
             // This opens an offline editable candidate, not an installed queue.
             // Admit changed stock under the same finite preview geometry budgets;
             // printer/media qualification remains a separate acceptance boundary.

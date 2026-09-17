@@ -18,7 +18,7 @@ final class WorkflowEditorBootstrapTests: XCTestCase {
         try original.save()
         let saved = original.profile
         let reopened = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
-            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, savedProfile: saved)
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, savedProfile: saved, stockPolicy: .offlineCandidate)
         XCTAssertTrue(reopened.isReopenedWorkflow)
         XCTAssertFalse(reopened.isSaved)
         XCTAssertEqual(reopened.profile.revision, saved.revision + 1)
@@ -47,7 +47,7 @@ final class WorkflowEditorBootstrapTests: XCTestCase {
         do {
             _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
                 store: profileStore, workerExecutable: URL(fileURLWithPath: "/nonexistent-worker"),
-                deadlineSeconds: 5, savedProfile: oversized)
+                deadlineSeconds: 5, savedProfile: oversized, stockPolicy: .offlineCandidate)
             XCTFail("oversized saved stock admitted")
         } catch {
             XCTAssertEqual(error as? PhysicalGeometryError, .exceedsDotLimit(actual: 80_000, limit: 8_192))
