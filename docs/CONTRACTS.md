@@ -330,3 +330,10 @@ valid expanded counts and consistent explicit job choices. Whole selection overr
 remove obsolete cut schedules; other controls preserve shared precedence and explicit
 zero. A future store must independently verify canonical reference digests. This type
 provides no source/order/pitch/device admission, persistence or delivery authority.
+
+FinishingQueueJSON uses a distinct offlineFinishingQueue kind/schema1 and16KiB cap.
+Exact field sets, typed integers/booleans and full shared defaults are reconstructed
+through the offline definition against supplied snapshots. Decode requires exact canonical
+re-encoding bytes, preventing duplicate-key or alternate-encoding identity normalization.
+Reference extraction is preliminary only; independent store resolution and digest checks
+are still mandatory. The codec grants no accepted-job or scheduler authority.

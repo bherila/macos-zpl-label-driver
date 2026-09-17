@@ -3304,6 +3304,10 @@ accepted ticket is produced. Full gate session76703 passed exit0 with104Python/2
 in debug/release and oracle/inert/signature/packaged checks. Local implementation
 8493efcbea4420ada22d70002a5d08e2010b5c37; publication pending. See
 [queue evidence](validation/M3-FINISHING-QUEUE-DEFINITION-2026-09-17.md).
+The canonical codec is now implemented locally; seven focused/restored cases passed and
+canonical-byte omission failed two assertions. Full gate session28149 passed exit0 with
+104Python/279Core/324Mac debug/release and oracle/inert/signature/packaged checks; see
+[codec evidence](validation/M3-FINISHING-QUEUE-CODEC-2026-09-17.md).
 Next independent slice: canonical bounded private queue persistence with actual reference
 readback, then accepted finishing source/order/pitch/device and durable lifecycle binding.
 

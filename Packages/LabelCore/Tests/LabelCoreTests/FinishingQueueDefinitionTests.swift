@@ -107,4 +107,34 @@ final class FinishingQueueDefinitionTests: XCTestCase {
         XCTAssertEqual(try q.resolve(outputLabelCount: 7, workflow: w, printer: p).controls.darkness, .value(9))
     }
 
+    func testCanonicalFinishingPolicyRoundTripsEveryModeWithoutOrdinaryAdmission() throws {
+        let p = try profile(), w = try workflow()
+        for mode in [FinishingMode.tearOff, .cut, .peel, .rewind] {
+            let q = try queue(.init(mode: mode, schedule: mode == .cut ? .batch(size: 3, cutRemainderAtJobEnd: false) : nil),
+                printer: p, workflow: w, defaults: .init(printSpeedIps: 3, darkness: 0))
+            let bytes = try FinishingQueueJSON.encode(q)
+            XCTAssertEqual(try FinishingQueueJSON.decode(bytes, workflow: w, printer: p), q)
+            let refs = try FinishingQueueJSON.references(in: bytes)
+            XCTAssertEqual(refs.workflow, q.workflowProfile)
+            XCTAssertEqual(refs.printer, q.printerProfile)
+            XCTAssertThrowsError(try VirtualQueueJSON.decode(bytes, validatingAgainst: p))
+        }
+    }
+    func testCanonicalPolicyRejectsDuplicateKeysBooleansAndAlteredSchedule() throws {
+        let p = try profile(), w = try workflow(), q = try queue(printer: p, workflow: w)
+        let bytes = try FinishingQueueJSON.encode(q)
+        let text = String(decoding: bytes, as: UTF8.self)
+        let duplicate = Data(("{\"id\":\"ignored\"," + text.dropFirst()).utf8)
+        XCTAssertThrowsError(try FinishingQueueJSON.decode(duplicate, workflow: w, printer: p))
+        for (before, after) in [("\"size\":3", "\"size\":true"),
+                                 ("\"cutRemainderAtJobEnd\":true", "\"cutRemainderAtJobEnd\":1"),
+                                 ("\"size\":3", "\"size\":4"),
+                                 ("\"revision\":2", "\"revision\":true"),
+                                 ("\"kind\":\"offlineFinishingQueue\"", "\"kind\":\"ordinaryQueue\"")] {
+            XCTAssertTrue(text.contains(before))
+            XCTAssertThrowsError(try FinishingQueueJSON.decode(Data(text.replacingOccurrences(of: before, with: after).utf8), workflow: w, printer: p))
+        }
+        XCTAssertThrowsError(try FinishingQueueJSON.decode(bytes + Data([32]), workflow: w, printer: p))
+        XCTAssertThrowsError(try FinishingQueueJSON.references(in: Data(repeating: 32, count: FinishingQueueJSON.maximumBytes + 1)))
+    }
 }
