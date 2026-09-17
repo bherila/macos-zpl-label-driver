@@ -423,7 +423,47 @@ public final class WorkflowEditorModel: ObservableObject {
         lastError = nil
     }
 
-    public func report(_ error: Swift.Error) { lastError = String(describing: error) }
+    /// User-facing failures use fixed vocabulary, never arbitrary descriptions.
+    /// Reporting does not change draft/review/save state or authorize a retry.
+    public func report(_ error: Swift.Error) {
+        if let editorError = error as? Error {
+            lastError = switch editorError {
+            case .previewRequired: String(localized: "Prepare the exact preview before reviewing these bounds.")
+            case .savedRevisionRequired: String(localized: "Save this revision before approving unattended use.")
+            case .regionReviewRequired: String(localized: "Review every region and its exact preview before approving unattended use.")
+            case .reviewSnapshotChanged: String(localized: "The preview or draft changed. Prepare a current preview and review it again.")
+            case .editSequenceExhausted: String(localized: "This editing session cannot accept more changes. Reopen the saved revision to continue.")
+            case .editSnapshotChanged: String(localized: "The draft changed. Review the current values before editing again.")
+            }
+        } else if let draftError = error as? WorkflowProfileDraft.Error {
+            lastError = switch draftError {
+            case .revisionOverflow: String(localized: "This profile cannot create another revision.")
+            case .regionNotFound: String(localized: "The selected region is no longer available. Select a current region.")
+            case .invalidDestination: String(localized: "Choose a position within the current region order.")
+            case .lastRegionOnPage: String(localized: "Keep one region on this page, or explicitly mark the page as skipped.")
+            case .pageNotFound: String(localized: "The selected page is no longer available. Select a current page.")
+            case .invalidPageDisposition: String(localized: "This page cannot use the selected extraction or skip rule.")
+            case .lastOutputPage: String(localized: "Keep at least one page that produces labels.")
+            }
+        } else if let storeError = error as? WorkflowProfileStore.Error {
+            lastError = switch storeError {
+            case .commitUncertain: String(localized: "Save completion is uncertain. Preserve the current draft and review saved revisions before retrying.")
+            case .publicationBusy: String(localized: "Another save is in progress. Wait for it to finish before saving again.")
+            case .profileConflict: String(localized: "This revision already exists with different content. Reopen it for correction instead of overwriting it.")
+            case .catalogCapacityReached: String(localized: "The saved profile catalog is full. Review existing revisions before saving another.")
+            case .cannotCreateStore, .cannotOpenStore, .unsafeStoreDirectory:
+                String(localized: "The saved profile catalog could not be opened safely.")
+            case .cannotRead: String(localized: "The saved revision could not be read.")
+            case .cannotWrite: String(localized: "The revision could not be saved. Preserve the current draft.")
+            case .profileIdentityMismatch, .malformedQualification, .qualificationMismatch:
+                String(localized: "The saved revision or its approval does not match. Reopen the current revision and review it again.")
+            }
+        } else if error is PageGeometryError || error is PhysicalGeometryError {
+            lastError = String(localized: "Enter finite, positive dimensions and keep the region within its source page.")
+        } else {
+            lastError = String(localized: "This edit could not be completed. Review the current draft before continuing.")
+        }
+    }
 
     private static func regions(in profile: WorkflowProfile) -> [WorkflowEditorRegion] {
         profile.pageRules.flatMap { rule -> [WorkflowEditorRegion] in

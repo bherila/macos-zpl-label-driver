@@ -7,6 +7,35 @@ import LabelCore
 @MainActor
 final class WorkflowEditorTests: XCTestCase {
     private enum TestError: Error { case unavailable }
+
+    func testActionErrorsUsePrivateSafeMessagesWithoutChangingDraftOrSaveState() throws {
+        let (model, _) = try makeModel()
+        let profile = model.profile
+        let generation = model.editGeneration
+        let saved = model.isSaved
+        let identity = ImmutablePublicationIdentity(id: "synthetic-private-identifier",
+            schemaVersion: 1, revision: 1, sha256: String(repeating: "a", count: 64))
+        let cases: [(any Swift.Error, String)] = [
+            (NSError(domain: "synthetic-private.example.test", code: 1,
+                userInfo: [NSFilePathErrorKey: "/private/synthetic-private-input.pdf",
+                           NSLocalizedDescriptionKey: "synthetic-private-label"]),
+             String(localized: "This edit could not be completed. Review the current draft before continuing.")),
+            (WorkflowProfileDraft.Error.regionNotFound("synthetic-private-identifier"),
+             String(localized: "The selected region is no longer available. Select a current region.")),
+            (WorkflowEditorModel.Error.editSnapshotChanged,
+             String(localized: "The draft changed. Review the current values before editing again.")),
+            (WorkflowProfileStore.Error.commitUncertain(identity),
+             String(localized: "Save completion is uncertain. Preserve the current draft and review saved revisions before retrying.")),
+        ]
+        for (error, expected) in cases {
+            model.report(error)
+            XCTAssertEqual(model.lastError, expected)
+            XCTAssertFalse(model.lastError?.contains("synthetic-private") ?? true)
+            XCTAssertEqual(model.profile, profile)
+            XCTAssertEqual(model.editGeneration, generation)
+            XCTAssertEqual(model.isSaved, saved)
+        }
+    }
     private func confirmReview(_ model: WorkflowEditorModel) throws {
         try model.confirmSelectedBoundsAndPreviewReviewed(expectedProfile: model.profile, expectedPreview: model.preview,
             expectedEditGeneration: model.editGeneration)
