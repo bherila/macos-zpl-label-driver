@@ -165,4 +165,93 @@ final class ReferencePrinterSetupTests: XCTestCase {
         XCTAssertEqual(try model.workflowDefaults().feedSpeedIps, 4)
     }
 
+    private func darknessProfile(fact: CapabilityFact = .init(state: .supported,
+        evidence: .documentedModel(sourceID: "synthetic-darkness-fixture")),
+        version: Int = 4, defaultValue: Int? = nil) throws -> PrinterProfile {
+        let b = try PrinterProfile.gc420dUSBReference()
+        let c = b.capabilities
+        return try PrinterProfile(schemaVersion: version, revision: 7,
+            capabilities: .init(model: "synthetic-darkness-profile", thermalTransfer: c.thermalTransfer,
+                cutter: c.cutter, peeler: c.peeler, rewind: c.rewind, tracking: c.tracking,
+                printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: fact),
+            installedHardware: b.installedHardware, media: b.media, connection: b.connection,
+            configuredDefaults: .init(printSpeedIps: 3, darkness: defaultValue))
+    }
+
+    func testConfiguredDarknessSurvivesOfflineWorkflowEditing() throws {
+        let model = ReferencePrinterSetupModel(profile: try darknessProfile(defaultValue: 15))
+        XCTAssertEqual(try model.workflowDefaults().darkness, 15)
+        try model.selectSpeed(4)
+        XCTAssertEqual(try model.workflowDefaults().darkness, 15)
+        XCTAssertEqual(model.profile.configuredDefaults.darkness, 15)
+        XCTAssertEqual(model.profile.revision, 7)
+    }
+
+    func testQualifiedDarknessIncludesExplicitZeroAndNilConfiguredFallback() throws {
+        let model = ReferencePrinterSetupModel(profile: try darknessProfile(defaultValue: 15))
+        XCTAssertEqual(model.selectedDarkness, 15)
+        XCTAssertEqual(model.darknessChoices, Array(0...30))
+        for value in model.darknessChoices {
+            try model.selectDarkness(value)
+            XCTAssertEqual(try model.workflowDefaults().darkness, value)
+        }
+        for value in [Int.min, -1, 31, Int.max] {
+            XCTAssertThrowsError(try model.selectDarkness(value)) {
+                XCTAssertEqual($0 as? ReferencePrinterSetupModel.Error, .unsupportedDarkness(value))
+            }
+            XCTAssertEqual(model.selectedDarkness, 30)
+        }
+        try model.selectDarkness(nil)
+        XCTAssertNil(model.selectedDarkness)
+        XCTAssertEqual(try model.workflowDefaults().darkness, 15)
+        XCTAssertEqual(model.defaultDarknessChoiceLabel, "Use configured device default (15)")
+        let unset = ReferencePrinterSetupModel(profile: try darknessProfile())
+        XCTAssertNil(try unset.workflowDefaults().darkness)
+        XCTAssertEqual(unset.defaultDarknessChoiceLabel, "Do not explicitly set darkness")
+        try unset.selectDarkness(0)
+        XCTAssertEqual(try unset.workflowDefaults().darkness, 0)
+        _ = ReferencePrinterSetupView(model: model)
+    }
+
+    func testLegacyUnknownUnsupportedAndUnobservedDarknessOfferNoChoices() throws {
+        let facts = [CapabilityFact(state: .unknown, evidence: .unobserved),
+                     .init(state: .unsupported, evidence: .documentedModel(sourceID: "synthetic-fixture")),
+                     .init(state: .supported, evidence: .unobserved)]
+        var models = try facts.map { ReferencePrinterSetupModel(profile: try darknessProfile(fact: $0)) }
+        models.append(ReferencePrinterSetupModel(profile: try darknessProfile(version: 3)))
+        models.append(try .gc420dUSB())
+        for model in models {
+            XCTAssertEqual(model.darknessChoices, [])
+            XCTAssertNil(model.selectedDarkness)
+            XCTAssertThrowsError(try model.selectDarkness(15)) {
+                XCTAssertEqual($0 as? ReferencePrinterSetupModel.Error, .unavailableDarkness)
+            }
+            XCTAssertNil(try model.workflowDefaults().darkness)
+            let expected: PrinterSetupFact.Status = model.profile.capabilities.darkness.state == .unsupported ? .unavailable : .unknown
+            XCTAssertEqual(model.facts.first { $0.id == "darkness" }?.status, expected)
+        }
+    }
+
+    func testDarknessEditingRetainsIndependentQualifiedMotorTuple() throws {
+        let b = try configuredMotorProfile()
+        let c = b.capabilities
+        let profile = try PrinterProfile(schemaVersion: 4, revision: b.revision,
+            capabilities: .init(model: c.model, thermalTransfer: c.thermalTransfer, cutter: c.cutter,
+                peeler: c.peeler, rewind: c.rewind, tracking: c.tracking,
+                printSpeedChoicesIps: c.printSpeedChoicesIps,
+                darkness: .init(state: .supported, evidence: .documentedModel(sourceID: "synthetic-darkness-fixture")),
+                feedSpeeds: c.feedSpeeds, backfeedSpeeds: c.backfeedSpeeds),
+            installedHardware: b.installedHardware, media: b.media, connection: b.connection,
+            configuredDefaults: .init(printSpeedIps: 3, feedSpeedIps: 4, backfeedSpeedIps: 2, darkness: 15))
+        let model = ReferencePrinterSetupModel(profile: profile)
+        try model.selectDarkness(0)
+        let defaults = try model.workflowDefaults()
+        XCTAssertEqual(defaults.printSpeedIps, 3)
+        XCTAssertEqual(defaults.feedSpeedIps, 4)
+        XCTAssertEqual(defaults.backfeedSpeedIps, 2)
+        XCTAssertEqual(defaults.darkness, 0)
+        XCTAssertNil(model.validationMessage)
+        XCTAssertEqual(profile.configuredDefaults.darkness, 15)
+    }
+
 }

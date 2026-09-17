@@ -1,3 +1,17 @@
+# Offline qualified darkness editor — 2026-09-17
+
+Current source preserves configured darkness in returned workflow defaults and
+exposes absolute0..30 only for supported/evidenced profile4 qualification.
+Invalid values preserve selection; nil uses configured fallback or no explicit
+control. Editing darkness retains independent qualified motor defaults. Factory
+reference darkness remains unknown with no selector; no revision or device change.
+Old model regression reproduced2 assertion failures; all13 focused native setup
+cases passed. Full CI-equivalent gate passed exit0:
+89 Python / 217 Core / 283 Mac debug/release, both132 original and180 ASCII round-trips, twelve benchmark CLI cases, fifteen inert ABI cases, native builds, nested local-ad-hoc signatures, ARM/minimum26 metadata and packaged PBM/ZPL equality. See
+`validation/M5-QUALIFIED-DARKNESS-EDITING-2026-09-17.md`. Additional partial
+M5-AC04/10 and M3-AC02/03 only; keyboard/VoiceOver/system-dialog/installed/physical
+acceptance remains open. Part B is separately frozen unchanged.
+
 # Qualified absolute darkness persistence — 2026-09-17
 
 Published source `83cfaa8de97fe933f7884d79d63b64add8dc49dc` on PR #81. Remote branch and PR

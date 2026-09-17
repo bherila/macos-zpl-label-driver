@@ -26,6 +26,8 @@ public struct PrinterSetupFact: Equatable, Identifiable, Sendable {
 public final class ReferencePrinterSetupModel: ObservableObject {
     public enum MotorSpeedKind: Equatable, Sendable { case print, feed, backfeed }
     public enum Error: Swift.Error, Equatable, Sendable {
+        case unavailableDarkness
+        case unsupportedDarkness(Int)
         case unsupportedSpeed(Int)
         case unavailableMotorSpeed(MotorSpeedKind, CapabilityState)
         case unsupportedMotorSpeed(MotorSpeedKind, Int)
@@ -34,12 +36,14 @@ public final class ReferencePrinterSetupModel: ObservableObject {
     public let profile: PrinterProfile
     @Published public var stockLoadedConfirmed = false
     @Published public var tearOffConfirmed = false
+    @Published public private(set) var selectedDarkness: Int?
     @Published public private(set) var selectedSpeedIps: Int?
     @Published public private(set) var selectedFeedSpeedIps: Int?
     @Published public private(set) var selectedBackfeedSpeedIps: Int?
 
     init(profile: PrinterProfile) {
         self.profile = profile
+        selectedDarkness = profile.configuredDefaults.darkness
         selectedSpeedIps = profile.configuredDefaults.printSpeedIps
         selectedFeedSpeedIps = profile.configuredDefaults.feedSpeedIps
         selectedBackfeedSpeedIps = profile.configuredDefaults.backfeedSpeedIps
@@ -47,6 +51,38 @@ public final class ReferencePrinterSetupModel: ObservableObject {
 
     public static func gc420dUSB() throws -> ReferencePrinterSetupModel {
         ReferencePrinterSetupModel(profile: try .gc420dUSBReference())
+    }
+
+    public var darknessChoices: [Int] {
+        guard profile.schemaVersion == 4, profile.capabilities.darkness.state == .supported,
+              profile.capabilities.darkness.evidence != .unobserved else { return [] }
+        return Array(0...30)
+    }
+
+    public var defaultDarknessChoiceLabel: String {
+        if let value = profile.configuredDefaults.darkness {
+            return "Use configured device default (\(value))"
+        }
+        return "Do not explicitly set darkness"
+    }
+
+    public func selectDarkness(_ value: Int?) throws {
+        if let value {
+            guard !darknessChoices.isEmpty else { throw Error.unavailableDarkness }
+            guard darknessChoices.contains(value) else { throw Error.unsupportedDarkness(value) }
+        }
+        selectedDarkness = value
+    }
+
+    private var darknessFact: PrinterSetupFact {
+        if !darknessChoices.isEmpty {
+            return .init(id: "darkness", label: "Darkness",
+                value: "Qualified profile range: 0–30; current setting unknown", status: .configured)
+        }
+        if profile.capabilities.darkness.state == .unsupported {
+            return .init(id: "darkness", label: "Darkness", value: "Unavailable in this profile", status: .unavailable)
+        }
+        return .init(id: "darkness", label: "Darkness", value: "Not qualified; current setting unknown", status: .unknown)
     }
 
     public var speedChoices: [Int] { profile.capabilities.printSpeedChoicesIps.intersection([2, 3, 4]).sorted() }
@@ -121,16 +157,19 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         let resolved = try profile.resolveControls(job: .init(
             thermalMethod: .directThermal, finishing: .tearOff,
             printSpeedIps: selectedSpeedIps, feedSpeedIps: selectedFeedSpeedIps,
-            backfeedSpeedIps: selectedBackfeedSpeedIps))
+            backfeedSpeedIps: selectedBackfeedSpeedIps, darkness: selectedDarkness))
         // Validate against the actual current ordinary encoder as well as
         // supplied profile declarations; this is bounded memory work, no I/O.
         _ = try ZPLControlEncoder().encode(resolved)
         let printSpeed: Int?
         if case let .value(value) = resolved.printSpeedIps { printSpeed = value }
         else { printSpeed = nil }
+        let darkness: Int?
+        if case let .value(value) = resolved.darkness { darkness = value }
+        else { darkness = nil }
         return .init(thermalMethod: .directThermal, finishing: .tearOff,
                      printSpeedIps: printSpeed, feedSpeedIps: resolved.feedSpeedIps.explicitValue,
-                     backfeedSpeedIps: resolved.backfeedSpeedIps.explicitValue)
+                     backfeedSpeedIps: resolved.backfeedSpeedIps.explicitValue, darkness: darkness)
     }
 
     public var validationMessage: String? {
@@ -138,7 +177,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         catch PrinterProfileError.incompleteMotorSpeeds {
             return "Choose print, feed and backfeed speeds together, or use a complete configured default."
         } catch {
-            return "The selected speed combination is unavailable in this profile."
+            return "The selected control combination is unavailable in this profile."
         }
     }
 
@@ -162,7 +201,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
             .init(id: "peeler", label: "Peeler", value: "Not qualified", status: .unknown),
             motorFact(id: "feedSpeed", label: "Feed speed", capability: profile.capabilities.feedSpeeds),
             motorFact(id: "backfeedSpeed", label: "Backfeed speed", capability: profile.capabilities.backfeedSpeeds),
-            .init(id: "darkness", label: "Darkness", value: "Not qualified; leave unchanged", status: .unknown),
+            darknessFact,
             .init(id: "tracking", label: "Media tracking", value: "Not observed; leave unchanged", status: .unknown),
         ]
     }
@@ -193,6 +232,20 @@ public struct ReferencePrinterSetupView: View {
                 }
                 if !model.speedChoices(for: .backfeed).isEmpty {
                     speedPicker(.backfeed, label: "Draft backfeed speed for this setup session")
+                }
+                if !model.darknessChoices.isEmpty {
+                    Picker("Draft absolute darkness for this setup session", selection: Binding(
+                        get: { model.selectedDarkness }, set: { try? model.selectDarkness($0) }
+                    )) {
+                        Text(model.defaultDarknessChoiceLabel).tag(Int?.none)
+                        ForEach(model.darknessChoices, id: \.self) { value in
+                            Text("\(value)").tag(Int?.some(value))
+                        }
+                    }
+                    .accessibilityHint("Only qualified values are available. This edits a draft without changing the printer.")
+                    Text("An explicit darkness value replaces the printer’s relative adjustment when printing.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 if let message = model.validationMessage {
                     Label(message, systemImage: "exclamationmark.triangle")
