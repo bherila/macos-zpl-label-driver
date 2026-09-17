@@ -15,14 +15,15 @@ final class ResolvedJobTicketTests: XCTestCase {
         copyPolicy: LabelOrderPlan.CopyPolicy = .engine(copies: 2, collated: true),
         qualifiedMotorSpeeds: Bool = false,
         qualifiedDarkness: Bool = false,
-        qualifiedGeometry: Bool = false
+        qualifiedGeometry: Bool = false,
+        qualifiedOffsets: Bool = false
     ) throws -> (
         ActiveVirtualQueueSelection, ImmutableProfileReference,
         VirtualQueueDefinition, WorkflowProfile, PrinterProfile, ExtractionPlan
     ) {
         let baseline = try qualifiedMotorSpeeds ? MotorSpeedTestFixture.profile() : PrinterProfile.gc420dUSBReference(revision: 7)
         let c = baseline.capabilities
-        let printer = try qualifiedGeometry ? GeometryControlTestFixture.profile() : (qualifiedDarkness ? PrinterProfile(schemaVersion: 4, revision: 7,
+        let printer = try qualifiedOffsets ? OffsetControlTestFixture.profile() : (qualifiedGeometry ? GeometryControlTestFixture.profile() : (qualifiedDarkness ? PrinterProfile(schemaVersion: 4, revision: 7,
             capabilities: .init(model: c.model, thermalTransfer: c.thermalTransfer, cutter: c.cutter,
                 peeler: c.peeler, rewind: c.rewind, tracking: c.tracking,
                 printSpeedChoicesIps: c.printSpeedChoicesIps,
@@ -31,7 +32,7 @@ final class ResolvedJobTicketTests: XCTestCase {
             installedHardware: baseline.installedHardware, media: baseline.media, connection: baseline.connection,
             configuredDefaults: .init(printSpeedIps: baseline.configuredDefaults.printSpeedIps,
                 feedSpeedIps: baseline.configuredDefaults.feedSpeedIps,
-                backfeedSpeedIps: baseline.configuredDefaults.backfeedSpeedIps, darkness: 10)) : baseline)
+                backfeedSpeedIps: baseline.configuredDefaults.backfeedSpeedIps, darkness: 10)) : baseline))
         let workflowReference = try ImmutableProfileReference(
             id: "letter-two-labels", schemaVersion: 2,
             revision: 3, sha256: workflowDigest
@@ -40,7 +41,7 @@ final class ResolvedJobTicketTests: XCTestCase {
             id: "gc420d-usb", schemaVersion: printer.schemaVersion, revision: 7, sha256: printerDigest
         )
         let queue = try VirtualQueueDefinition(
-            schemaVersion: qualifiedGeometry ? 4 : (qualifiedDarkness ? 3 : (qualifiedMotorSpeeds ? 2 : 1)),
+            schemaVersion: qualifiedOffsets ? 5 : (qualifiedGeometry ? 4 : (qualifiedDarkness ? 3 : (qualifiedMotorSpeeds ? 2 : 1))),
             id: "shipping-labels", revision: queueRevision, displayName: "Shipping labels",
             physicalDevice: PhysicalDeviceCoordinationID(sha256: deviceDigest),
             workflowProfile: workflowReference,
@@ -50,7 +51,8 @@ final class ResolvedJobTicketTests: XCTestCase {
                 feedSpeedIps: qualifiedMotorSpeeds ? 4 : nil,
                 backfeedSpeedIps: qualifiedMotorSpeeds ? 2 : nil, darkness: qualifiedDarkness ? 20 : nil,
                 tracking: qualifiedGeometry ? .continuous : nil,
-                mediaGeometry: qualifiedGeometry ? MediaGeometryRequest(widthDots: 30, lengthDots: 20, originXDot: 2) : nil
+                mediaGeometry: qualifiedGeometry ? MediaGeometryRequest(widthDots: 30, lengthDots: 20, originXDot: 2) : nil,
+                offsets: qualifiedOffsets ? .init(shiftLeftDots: 1) : nil
             ),
             validatingAgainst: printer
         )
@@ -438,7 +440,7 @@ final class ResolvedJobTicketTests: XCTestCase {
         }
         changed = root
         var futureQueue = try XCTUnwrap(root["queue"] as? [String: Any])
-        futureQueue["schemaVersion"] = 5; changed["queue"] = futureQueue
+        futureQueue["schemaVersion"] = 6; changed["queue"] = futureQueue
         XCTAssertThrowsError(try ResolvedJobTicketJSON.queueReference(JSONSerialization.data(withJSONObject: changed))) {
             XCTAssertEqual($0 as? ResolvedJobTicketError, .invalidReference)
         }
@@ -447,6 +449,45 @@ final class ResolvedJobTicketTests: XCTestCase {
             var changedQueue = queueRoot; changedQueue["schemaVersion"] = version
             XCTAssertThrowsError(try VirtualQueueJSON.decode(JSONSerialization.data(withJSONObject: changedQueue), validatingAgainst: printer))
         }
+    }
+
+    func testOffsetQueueFiveAndTicketSixPreserveIndependentImmutableFields() throws {
+        let (selection, reference, queue, workflow, printer, plan) = try fixture(qualifiedOffsets: true)
+        let queueBytes = try VirtualQueueJSON.encode(queue)
+        XCTAssertEqual(try VirtualQueueJSON.decode(queueBytes, validatingAgainst: printer), queue)
+        XCTAssertEqual(try VirtualQueueJSON.printerProfileReference(in: queueBytes), queue.printerProfile)
+        let ticket = try ResolvedJobTicket.accept(acceptanceID: "synthetic-offset-ticket",
+            cancellationSHA256: cancellationDigest, activeSelection: selection, queueReference: reference,
+            queueDefinition: queue, workflowProfile: workflow, printerProfile: printer,
+            sourceDocumentSHA256: sourceDigest, sourceByteCount: 100, intakeProvenance: .offlineCLI, plan: plan,
+            copyOwnership: .engine(copies: 2, collated: true), pageRangeOwnership: .engine(selectedSourcePages: [1, 2]),
+            explicitControls: .init(offsets: .init(labelTopDots: 2)))
+        XCTAssertEqual(ticket.schemaVersion, 6)
+        XCTAssertEqual(ticket.queue.schemaVersion, 5)
+        XCTAssertEqual(ticket.printerProfile.schemaVersion, 6)
+        XCTAssertEqual(ticket.controls.offsets, .value(.init(shiftLeftDots: 1, labelTopDots: 2)))
+        let bytes = try ResolvedJobTicketJSON.encode(ticket)
+        XCTAssertEqual(try ResolvedJobTicketJSON.decode(bytes, queueReference: reference, queueDefinition: queue,
+            workflowProfile: workflow, printerProfile: printer), ticket)
+        let root = try XCTUnwrap(try JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+        var changed = root
+        var controls = try XCTUnwrap(root["controls"] as? [String: Any])
+        controls["offsets"] = ["mode": "leaveUnchanged", "value": NSNull()]; changed["controls"] = controls
+        XCTAssertThrowsError(try ResolvedJobTicketJSON.decode(JSONSerialization.data(withJSONObject: changed),
+            queueReference: reference, queueDefinition: queue, workflowProfile: workflow, printerProfile: printer))
+        for version in [2, 3, 4, 5, 7] {
+            changed = root; changed["schemaVersion"] = version
+            XCTAssertThrowsError(try ResolvedJobTicketJSON.acceptanceID(JSONSerialization.data(withJSONObject: changed)))
+        }
+        let queueRoot = try XCTUnwrap(try JSONSerialization.jsonObject(with: queueBytes) as? [String: Any])
+        for version in [1, 2, 3, 4, 6] {
+            changed = queueRoot; changed["schemaVersion"] = version
+            XCTAssertThrowsError(try VirtualQueueJSON.decode(JSONSerialization.data(withJSONObject: changed), validatingAgainst: printer))
+        }
+        changed = root
+        var wrongQueue = try XCTUnwrap(root["queue"] as? [String: Any])
+        wrongQueue["schemaVersion"] = 6; changed["queue"] = wrongQueue
+        XCTAssertThrowsError(try ResolvedJobTicketJSON.queueReference(JSONSerialization.data(withJSONObject: changed)))
     }
 
 }

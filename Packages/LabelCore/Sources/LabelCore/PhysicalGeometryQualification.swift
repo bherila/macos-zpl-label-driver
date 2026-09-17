@@ -97,16 +97,28 @@ public struct PhysicalGeometryQualification: Equatable, Sendable {
         try Self.validateKnownRaster(bitmap, request: request)
     }
 
-    static func validateKnownRaster(_ bitmap: MonochromeBitmap, request: MediaGeometryRequest) throws {
+    static func validateKnownRaster(_ bitmap: MonochromeBitmap, request: MediaGeometryRequest,
+                                    offsets: OffsetControlRequest? = nil) throws {
+        var x = request.originXDot, y = request.originYDot
+        if let home = x, let shift = offsets?.shiftLeftDots {
+            let result = home.subtractingReportingOverflow(shift)
+            guard !result.overflow, result.partialValue >= 0 else { throw Error.rasterExceedsWidth }
+            x = result.partialValue
+        }
+        if let home = y, let top = offsets?.labelTopDots {
+            let result = home.addingReportingOverflow(top)
+            guard !result.overflow, result.partialValue >= 0 else { throw Error.rasterExceedsLength }
+            y = result.partialValue
+        }
         if let width = request.widthDots {
             guard bitmap.layout.width <= width else { throw Error.rasterExceedsWidth }
-            if let x = request.originXDot {
+            if let x {
                 guard x <= width, bitmap.layout.width <= width - x else { throw Error.rasterExceedsWidth }
             }
         }
         if let length = request.lengthDots {
             guard bitmap.layout.height <= length else { throw Error.rasterExceedsLength }
-            if let y = request.originYDot {
+            if let y {
                 guard y <= length, bitmap.layout.height <= length - y else { throw Error.rasterExceedsLength }
             }
         }

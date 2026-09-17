@@ -48,10 +48,11 @@ public enum PrinterProfileJSON {
             defaults["feedSpeedIps"] = profile.configuredDefaults.feedSpeedIps.map { $0 as Any } ?? NSNull()
             defaults["backfeedSpeedIps"] = profile.configuredDefaults.backfeedSpeedIps.map { $0 as Any } ?? NSNull()
             if profile.schemaVersion >= 4 { defaults["darkness"] = profile.configuredDefaults.darkness.map { $0 as Any } ?? NSNull() }
-            if profile.schemaVersion == 5 {
+            if profile.schemaVersion >= 5 {
                 defaults["tracking"] = profile.configuredDefaults.tracking.map { $0.rawValue as Any } ?? NSNull()
                 defaults["mediaGeometry"] = PrivatePhysicalGeometryJSON.encode(profile.configuredDefaults.mediaGeometry)
             }
+            if profile.schemaVersion == 6 { defaults["offsets"] = PrivateOffsetJSON.encode(profile.configuredDefaults.offsets) }
             root["configuredDefaults"] = defaults
         }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
@@ -75,7 +76,7 @@ public enum PrinterProfileJSON {
                 throw PrinterProfileJSONError.invalidType("object")
             }
             let version = try integer(dictionary, "schemaVersion")
-            guard (1...5).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
+            guard (1...6).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
             var keys: Set<String> = [
                 "schemaVersion", "revision", "capabilities", "installedHardware",
                 "media", "connection",
@@ -87,7 +88,8 @@ public enum PrinterProfileJSON {
                 var defaultKeys: Set<String> = ["thermalMethod", "finishing", "printSpeedIps"]
                 if version >= 3 { defaultKeys.formUnion(["feedSpeedIps", "backfeedSpeedIps"]) }
                 if version >= 4 { defaultKeys.insert("darkness") }
-                if version == 5 { defaultKeys.formUnion(["tracking", "mediaGeometry"]) }
+                if version >= 5 { defaultKeys.formUnion(["tracking", "mediaGeometry"]) }
+                if version == 6 { defaultKeys.insert("offsets") }
                 let value = try object(required(root, "configuredDefaults"), allowed: defaultKeys)
                 if !(try required(value, "thermalMethod") is NSNull) {
                     defaults.thermalMethod = try enumeration(value, "thermalMethod", ThermalMethod.self)
@@ -95,9 +97,10 @@ public enum PrinterProfileJSON {
                 if !(try required(value, "finishing") is NSNull) {
                     defaults.finishing = try enumeration(value, "finishing", FinishingMode.self)
                 }
+                if version == 6 { defaults.offsets = try PrivateOffsetJSON.decode(required(value, "offsets")) }
                 defaults.printSpeedIps = try optionalInteger(value, "printSpeedIps")
                 if version >= 4 { defaults.darkness = try optionalInteger(value, "darkness") }
-                if version == 5 {
+                if version >= 5 {
                     if !(try required(value, "tracking") is NSNull) { defaults.tracking = try enumeration(value, "tracking", MediaTracking.self) }
                     defaults.mediaGeometry = try PrivatePhysicalGeometryJSON.decode(required(value, "mediaGeometry"))
                 }
@@ -138,7 +141,7 @@ public enum PrinterProfileJSON {
             result["feedSpeeds"] = encodeSpeedChoices(value.feedSpeeds)
             result["backfeedSpeeds"] = encodeSpeedChoices(value.backfeedSpeeds)
         }
-        if version == 5 {
+        if version >= 5 {
             let p = value.physicalGeometry
             func limit(_ value: QualifiedDotLimit) -> Any {
                 ["fact": encodeFact(value.fact), "maximumDots": value.maximumDots.map { $0 as Any } ?? NSNull()]
@@ -146,7 +149,31 @@ public enum PrinterProfileJSON {
             result["physicalGeometry"] = ["width": limit(p.width), "continuousLength": limit(p.continuousLength),
                                           "homeX": limit(p.homeX), "homeY": limit(p.homeY)]
         }
+        if version == 6 {
+            func limit(_ value: QualifiedDotRange) -> Any {
+                ["fact": encodeFact(value.fact), "minimumDots": value.range.map { $0.lowerBound as Any } ?? NSNull(),
+                 "maximumDots": value.range.map { $0.upperBound as Any } ?? NSNull()]
+            }
+            result["offsets"] = ["blackMark": limit(value.offsets.blackMark), "shiftLeft": limit(value.offsets.shiftLeft),
+                                 "labelTop": limit(value.offsets.labelTop)]
+        }
         return result
+    }
+
+    private static func decodeOffsets(_ raw: Any) throws -> OffsetControlQualification {
+        let value = try object(raw, allowed: ["blackMark", "shiftLeft", "labelTop"])
+        func limit(_ key: String) throws -> QualifiedDotRange {
+            let item = try object(required(value, key), allowed: ["fact", "minimumDots", "maximumDots"])
+            let low = try optionalInteger(item, "minimumDots"), high = try optionalInteger(item, "maximumDots")
+            guard (low == nil) == (high == nil) else { throw PrinterProfileJSONError.invalidType("offset range") }
+            let range: ClosedRange<Int>?
+            if let low, let high {
+                guard low >= -9_999, high <= 9_999, low <= high else { throw PrinterProfileJSONError.invalidType("offset range") }
+                range = low...high
+            } else { range = nil }
+            return .init(fact: try decodeFact(required(item, "fact")), range: range)
+        }
+        return try .init(blackMark: limit("blackMark"), shiftLeft: limit("shiftLeft"), labelTop: limit("labelTop"))
     }
 
     private static func decodePhysicalGeometry(_ raw: Any) throws -> PhysicalGeometryQualification {
@@ -181,7 +208,8 @@ public enum PrinterProfileJSON {
             capabilities.rewind, capabilities.darkness, capabilities.feedSpeeds.fact,
             capabilities.backfeedSpeeds.fact, capabilities.physicalGeometry.width.fact,
             capabilities.physicalGeometry.continuousLength.fact, capabilities.physicalGeometry.homeX.fact,
-            capabilities.physicalGeometry.homeY.fact,
+            capabilities.physicalGeometry.homeY.fact, capabilities.offsets.blackMark.fact,
+            capabilities.offsets.shiftLeft.fact, capabilities.offsets.labelTop.fact,
         ] + Array(capabilities.tracking.values) {
             try validateEvidence(fact.evidence)
         }
@@ -217,7 +245,8 @@ public enum PrinterProfileJSON {
         var keys: Set<String> = ["model", "thermalTransfer", "cutter", "peeler", "rewind", "tracking",
                                  "printSpeedChoicesIps", "darkness"]
         if version >= 3 { keys.formUnion(["feedSpeeds", "backfeedSpeeds"]) }
-        if version == 5 { keys.insert("physicalGeometry") }
+        if version >= 5 { keys.insert("physicalGeometry") }
+        if version == 6 { keys.insert("offsets") }
         let value = try object(raw, allowed: keys)
         let trackingObject = try object(try required(value, "tracking"), allowed: [
             MediaTracking.gap.rawValue, MediaTracking.blackMark.rawValue,
@@ -247,7 +276,8 @@ public enum PrinterProfileJSON {
             darkness: try decodeFact(required(value, "darkness")),
             feedSpeeds: version >= 3 ? try decodeSpeedChoices(required(value, "feedSpeeds")) : .unverified,
             backfeedSpeeds: version >= 3 ? try decodeSpeedChoices(required(value, "backfeedSpeeds")) : .unverified,
-            physicalGeometry: version == 5 ? try decodePhysicalGeometry(required(value, "physicalGeometry")) : .unverified
+            physicalGeometry: version >= 5 ? try decodePhysicalGeometry(required(value, "physicalGeometry")) : .unverified,
+            offsets: version == 6 ? try decodeOffsets(required(value, "offsets")) : .unverified
         )
     }
 

@@ -88,7 +88,7 @@ public struct ZPLControlEncoder: Sendable {
         var width: Int?
         var length: Int?
         if case let .value(tracking) = controls.tracking {
-            guard controls.profileSchemaVersion == 5 else { throw ZPLControlEncodingError.unqualifiedTracking }
+            guard controls.profileSchemaVersion >= 5 else { throw ZPLControlEncodingError.unqualifiedTracking }
             switch tracking {
             case .gap: physical.append(.gapTracking)
             case .continuous:
@@ -97,11 +97,13 @@ public struct ZPLControlEncoder: Sendable {
                 }
                 length = value
                 physical.append(.continuousTracking(labelLengthDots: value))
-            case .blackMark: throw ZPLControlEncodingError.unqualifiedTracking
+            case .blackMark:
+                guard controls.profileSchemaVersion == 6, case let .value(offsets) = controls.offsets,
+                      offsets.blackMarkOffsetDots != nil else { throw ZPLControlEncodingError.unqualifiedTracking }
             }
         }
         if case let .value(geometry) = controls.mediaGeometry {
-            guard controls.profileSchemaVersion == 5 else { throw PrinterProfileError.unavailableMediaGeometry }
+            guard controls.profileSchemaVersion >= 5 else { throw PrinterProfileError.unavailableMediaGeometry }
             if geometry.lengthDots != nil && length == nil { throw PhysicalGeometryQualification.Error.continuousModeRequired }
             guard (geometry.originXDot == nil) == (geometry.originYDot == nil) else {
                 throw PhysicalGeometryQualification.Error.incompleteHome
@@ -115,6 +117,22 @@ public struct ZPLControlEncoder: Sendable {
                 throw PhysicalGeometryQualification.Error.emptyRequest
             }
         }
+        var offsetControls: [ZPLDocumentedControl] = []
+        var markRange: ClosedRange<Int>?
+        var topRange: ClosedRange<Int>?
+        if case let .value(offsets) = controls.offsets {
+            guard controls.profileSchemaVersion == 6 else { throw PrinterProfileError.invalidProfileVersion }
+            if let value = offsets.blackMarkOffsetDots {
+                guard controls.tracking == .value(.blackMark) else { throw OffsetControlQualification.Error.blackMarkModeRequired }
+                offsetControls.append(.blackMarkTracking(offsetDots: value)); markRange = value...value
+            }
+            if let value = offsets.shiftLeftDots { offsetControls.append(.labelShiftLeft(dots: value)) }
+            if let value = offsets.labelTopDots { offsetControls.append(.labelTop(dots: value)); topRange = value...value }
+            guard !offsetControls.isEmpty else { throw OffsetControlQualification.Error.emptyRequest }
+        }
+        let offsetBytes = try ZPLDocumentedControlEncoder().encode(offsetControls,
+            qualification: Dictionary(uniqueKeysWithValues: offsetControls.map { ($0.kind, CapabilityState.supported) }),
+            limits: .init(blackMarkOffsetDots: markRange, labelTopDots: topRange))
         let physicalBytes = try ZPLDocumentedControlEncoder().encode(physical,
             qualification: Dictionary(uniqueKeysWithValues: physical.map { ($0.kind, CapabilityState.supported) }),
             limits: .init(maximumPrintWidthDots: width, maximumContinuousLabelLengthDots: length))
@@ -146,6 +164,7 @@ public struct ZPLControlEncoder: Sendable {
         }
         if let darknessBytes { output.append(darknessBytes) }
         output.append(physicalBytes)
+        output.append(offsetBytes)
         guard output.count <= maxOutputBytes else { throw ZPLControlEncodingError.outputLimit }
         return output
     }

@@ -60,8 +60,11 @@ public final class ReferencePrinterSetupModel: ObservableObject {
     }
 
     public var trackingChoices: [MediaTracking] {
-        guard profile.schemaVersion == 5 else { return [] }
-        return [MediaTracking.gap, .continuous].filter {
+        guard profile.schemaVersion >= 5 else { return [] }
+        var modes: [MediaTracking] = [.gap, .continuous]
+        if profile.schemaVersion == 6, profile.capabilities.offsets.blackMark.fact.state == .supported,
+           profile.capabilities.offsets.blackMark.fact.evidence != .unobserved { modes.append(.blackMark) }
+        return modes.filter {
             guard let fact = profile.capabilities.tracking[$0] else { return false }
             return fact.state == .supported && fact.evidence != .unobserved
         }
@@ -73,7 +76,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
     }
 
     public func geometryRange(for field: GeometryField) -> ClosedRange<Int>? {
-        guard profile.schemaVersion == 5 else { return nil }
+        guard profile.schemaVersion >= 5 else { return nil }
         let p = profile.capabilities.physicalGeometry
         let limit: QualifiedDotLimit
         let minimum: Int
@@ -239,13 +242,18 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         return .init(thermalMethod: .directThermal, finishing: .tearOff,
                      printSpeedIps: printSpeed, feedSpeedIps: resolved.feedSpeedIps.explicitValue,
                      backfeedSpeedIps: resolved.backfeedSpeedIps.explicitValue, darkness: darkness,
-                     tracking: tracking, mediaGeometry: geometry)
+                     tracking: tracking, mediaGeometry: geometry,
+                     offsets: { if case let .value(value) = resolved.offsets { return value }; return nil }())
     }
 
     public var validationMessage: String? {
         do { _ = try workflowDefaults(); return nil }
         catch PrinterProfileError.incompleteMotorSpeeds {
             return "Choose print, feed and backfeed speeds together, or use a complete configured default."
+        } catch OffsetControlQualification.Error.blackMarkOffsetRequired {
+            return "Black-mark tracking requires a qualified explicit offset; offset editing is not yet available here."
+        } catch OffsetControlQualification.Error.blackMarkModeRequired {
+            return "A configured black-mark offset requires black-mark tracking."
         } catch Error.invalidGeometryText {
             return "Enter whole dots within the qualified range, or leave the field blank to use its configured default."
         } catch PhysicalGeometryQualification.Error.incompleteHome {
@@ -361,11 +369,11 @@ public struct ReferencePrinterSetupView: View {
                     )) {
                         Text("Use configured tracking default").tag(MediaTracking?.none)
                         ForEach(model.trackingChoices, id: \.self) { tracking in
-                            Text(tracking == .gap ? "Gap / web sensing" : "Continuous").tag(MediaTracking?.some(tracking))
+                            Text(tracking == .gap ? "Gap / web sensing" : tracking == .continuous ? "Continuous" : "Black mark").tag(MediaTracking?.some(tracking))
                         }
                     }
                     .accessibilityHint("This chooses a draft control. The printer’s current tracking setting is unknown.")
-                    Text("Black-mark tracking is unavailable until its offset is qualified.").font(.caption)
+                    Text("Black-mark tracking requires a qualified offset. Offset editing is not yet available here.").font(.caption)
                 }
                 ForEach(ReferencePrinterSetupModel.GeometryField.allCases, id: \.self) { field in
                     if let range = model.geometryRange(for: field) {
@@ -380,7 +388,7 @@ public struct ReferencePrinterSetupView: View {
                         }
                     }
                 }
-                if model.profile.schemaVersion == 5 {
+                if model.profile.schemaVersion >= 5 {
                     Text("Physical geometry is separate from source-page crop and loaded stock. Current device geometry remains unknown.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
