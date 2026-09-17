@@ -490,3 +490,11 @@ Local unpublished d86206a2bb5721c36569f5f7100c5b58c3facb66 documents the impleme
 ## Portable output-margin placement
 
 [Margin receipt](validation/M4-OUTPUT-MARGIN-PLACEMENT-2026-09-17.md) records unpublished2711a3f. Typed finite nonnegative nominal-stock margins and planner preserve uniform physical fit, independent pitch, asymmetric blank space, actual-size clipping and existing zero defaults; checked corners reject overflow.307Core both,106Python/accelerator debug and35native default-rendering cases both passed. Next carry margins through immutable profile/schema/planned labels/strict private worker/original-source render, then reviewed UI; preserve legacy output and reject invalid margins on stock edit. This is not measured printer calibration or completed margin workflow. Prior full380native/app/Linux snapshot remain bound to77de47c. Hosted36missing-head CI batch last24success/5running/7queued, separate from PR checks; no merge/rebase/publication. Frozen manual candidate unchanged.
+
+## Immutable output-margin definitions
+
+[Receipt](validation/M4-IMMUTABLE-OUTPUT-MARGINS-2026-09-17.md) evaluates local unpublished 5464ebe0cb587e6517d9473418835202f3d43bbe. Schema-v3 margins now survive immutable drafts, stock/page edits, store correction and definition import, and bind every planned label. Legacy v2 bytes remain unchanged; invalid stock changes are atomic.309Core both modes,87focused native both and106Python/accelerator debug passed. Both native render parents reject nonzero margins before parsing/worker launch until the private contract and original-source rendering support them. Queue-v3 admission remains disabled. Next: coherent margin worker/render pipeline, then UI. No full native/signature/packaging/current Linux/manual/physical evidence or remote source change. Hosted missing-head batch last34success/2running; exact refresh required.
+
+## Missing-head CI batch complete
+
+[Exact hosted receipt](validation/M0-MISSING-PR-HEAD-CI-2026-09-17.md): all36 existing PR3–38 workflow_dispatch runs successful with matching expected heads. These do not attach to PR3 rollup and do not validate unpublished successors. Draft/nonlinear-history/geometry-fix reconciliation remains before stack merge readiness. No merges/rebases/stack registration.
