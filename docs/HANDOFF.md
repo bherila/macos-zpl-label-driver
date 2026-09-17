@@ -21,12 +21,12 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
   `3047f7880665e9550efb621fbfad2ceb328fff49`. Latest published software
   implementation `ccd7a9a`: immutable original-PDF acceptance and range/copy ownership.
   Earlier explicit A assessments remain historical; new source needs reassessment.
-- Latest completed finite900s `bash scripts/ci-swift.sh`, session32086, completed
-  `FULL_GATE_EXIT 0`:104 Python/281 Core/344 native tests in debug/release,
+- Latest completed finite900s `bash scripts/ci-swift.sh`, session54742, completed
+  `FULL_GATE_EXIT 0`:104 Python/281 Core/349 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.0aX201`; no printer accessed.
+  Local artifact: `artifacts/setup-app.8RRkkZ`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
@@ -214,7 +214,14 @@ faults failed exit1 through expected assertions; exact restored20 cases passed e
 Full gate session32086 passed exit0:104Python/281Core/344Mac debug/release plus
 oracle/inert/signature/packaged checks;
 see [coordinator evidence](validation/M3-ACCEPTED-FINISHING-COORDINATOR-2026-09-17.md).
-Next: durable accepted-job cancellation/lifecycle recovery.
+Durable accepted-job cancellation requests and a validated bounded monitor are now local;
+twenty-three focused/restored native cases passed exit0; three independent authorization/
+context/record faults failed exit1. Mandatory polling is now integrated at accepted execution
+event boundaries, with twenty-five focused cases passed exit0. Polling omission failed exit1 through expected assertions; exact restored25 cases passed
+exit0. Full gate session54742 passed exit0:104Python/281Core/349Mac debug/release plus
+oracle/inert/signature/packaged checks. See
+[cancellation evidence](validation/M3-ACCEPTED-FINISHING-CANCELLATION-2026-09-17.md).
+Next: durable accepted-job recovery interpretation; uncertainty never grants replay.
 Actual identified unit correspondence remains open.
 
 ## Manual Part A and Part B

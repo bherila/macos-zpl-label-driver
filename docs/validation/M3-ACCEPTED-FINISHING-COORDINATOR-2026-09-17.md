@@ -30,4 +30,4 @@ Next: durable accepted-job cancellation/lifecycle recovery. This coordinator is 
 inert integration, not a production adapter. No true cross-process product queues, discovered
 unit correspondence, installed scheduler, retail installation or physical output is qualified.
 Those prescribed I/H/R gates remain NOT RUN. Frozen Part B remains unchanged. No printer I/O,
-administrator action, merge or binary publication occurred. Source commit pending.
+administrator action, merge or binary publication occurred. Implementation checkpoint: 42cd02feb1ae837e12e05cd0522fb08848795d31. Source publication pending.

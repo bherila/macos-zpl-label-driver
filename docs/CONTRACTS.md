@@ -386,3 +386,14 @@ geometry, holds an acceptance-ID lease across validation, device coordination an
 and publishes conservative intent before the first discard callback. Recorded uncertainty
 vetoes later admission. A single finite aggregate deadline spans validation/publication/steps.
 Synthetic confirmations do not clear intent or prove hardware completion.
+
+AcceptedFinishingCancellationStore authenticates a bounded token against the accepted
+snapshot and validates exact durable context before immutable publication. Cold observation
+revalidates context; a sealed monitor then polls only bounded records. Corrupt/unsafe state
+fails closed. Cancellation never clears delivery intent, authorizes replay, sends a device
+command or claims that previously accepted bytes have been undone.
+
+Both accepted coordinator entry points require the durable cancellation store. A sealed
+monitor polls before execution, at file/chunk/status events and final return. Observed requests
+stop further callbacks, while prior intent remains uncertain and vetoes fresh admission.
+Cancellation cannot undo bytes accounted before the poll boundary.
