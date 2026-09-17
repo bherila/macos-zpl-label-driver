@@ -3151,15 +3151,15 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
 - Branch: `codex/m2-ascii-graphic-compression`; open PR81, base
   `codex/m3-control-speed-boundary`. This is stacked unmerged work, not main.
 - Published source/remote/PR equality verified at
-  `8c2499783c64b218c289fc50d5bb019b42e8ff8c`. Latest published software
-  implementation `42a4cae`: inert durable finishing intent/coordinator integration;
-  compatibility inventory and two explicit A assessments are also published.
-- Latest completed finite900s `bash scripts/ci-swift.sh`, session41257, completed
-  `FULL_GATE_EXIT 0`:104 Python/279 Core/329 native tests in debug/release,
+  `029ddd52c463b34e18ce8e7af2f0275b55a097b2`. Latest published software
+  implementation `a6d90b4`: independently verified private finishing queue storage.
+  Earlier explicit A assessments remain historical; new source needs reassessment.
+- Latest completed finite900s `bash scripts/ci-swift.sh`, session56035, completed
+  `FULL_GATE_EXIT 0`:104 Python/279 Core/332 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.KNUte4`; no printer accessed.
+  Local artifact: `artifacts/setup-app.TOGAq2`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
@@ -3167,7 +3167,8 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
 - Hosted run35236186182 completed success at exact604aef7 (archive store).
   Attempt-store run35238690886 passed at exact385a545. New coordinator/evidence
   run35240005700 passed at exactfc24c3d. CI-history/evidence run35241292200
-  passed at exact8c24997. Neither covers the newer offline queue source.
+  passed at exact8c24997. Queue run35244168027 is in progress at exact029ddd5;
+  it does not cover newer local device geometry. Poll this exact handle.
 - The two earlier cloud review passes apply to older base/head pairs. No third pass
   was requested, and these passes are not a verdict on subsequent changes.
 - Local host evidence is macOS27 ARM; minimum-runtime26 and hosted checks are
@@ -3315,7 +3316,12 @@ independently failed exit1. Full gate session41257 passed exit0 with104Python/27
 debug/release and oracle/inert/signature/packaged checks. Local implementation
 a6d90b4a1d9ed8b7eb4e73e42513be2c39f56092; source publication pending. See
 [store evidence](validation/M3-FINISHING-QUEUE-STORE-2026-09-17.md).
-Next independent slice: accepted finishing source/order/pitch/device and durable lifecycle binding.
+Native-pitch/profile/domain geometry binding is locally implemented; eight focused/restored
+cases passed and three independent guard omissions failed exit1. Full gate session56035
+passed exit0 with104Python/279Core/332Mac debug/release and oracle/inert/signature/packaged checks; see
+[geometry evidence](validation/M3-FINISHING-DEVICE-GEOMETRY-2026-09-17.md).
+Next: original-PDF acceptance with exact copy/range/output/geometry/control snapshots,
+then durable finishing ticket/lifecycle binding. Actual identified unit correspondence remains open.
 
 ## Manual Part A and Part B
 

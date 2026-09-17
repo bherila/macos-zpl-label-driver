@@ -344,3 +344,10 @@ printer/workflow digest resolution, qualified workflow and complete snapshot rev
 Load verifies full record digest before resolving references and canonical reconstruction.
 Conflicts do not overwrite; uncertain publication carries the exact typed recovery reference.
 Storage or recovery does not create installed queues, accepted tickets or replay authority.
+
+FinishingDeviceGeometry separately retains rehashed schema8 printer bytes, coordination
+domain and explicit evidenced native pitch. Unknown facts fail; GC420d requires8dots/mm
+on both axes. Canvas construction binds exact queue reference/domain, complete profile/
+workflow snapshots and reported stock, using native pitch and existing bounds. Canvas
+revalidation requires full equality. Documentary/reported declarations do not prove a
+discovered unit, physical qualification, scheduler acceptance or transmission authority.
