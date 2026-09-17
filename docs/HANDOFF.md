@@ -378,3 +378,7 @@ Unpublished width-subset implementation checkpoint `8dcc24141aaa8dbb6ca6aa27aecb
 ## Exact integer conversion dependency
 
 [Token conversion validation](validation/EXACT-JSON-INTEGER-TOKENS-2026-09-17.md) records the internal scalar parser and signed-edge/fraction/exponent tests. All 287 Core tests passed debug/release; debug accelerator passed. Product codecs are unchanged and the identity defect is still open. Next is bounded JSON traversal retaining numeric lexemes and integration across all enumerated codec sites, with original round-trip regressions. No Mac GUI/scheduler or physical gates were advanced.
+
+## Token-preserving JSON traversal dependency
+
+[Traversal evidence](validation/TOKEN-PRESERVING-JSON-2026-09-17.md) records the internal bounded object/array parser, numeric lexeme retention and adversarial grammar/resource tests. All 291 Core tests passed debug/release. Product codecs are unchanged: the integer identity defect remains open. Next is integration across the enumerated codec sites with original regressions and explicit compatibility/error-contract checks. Manual gates are unchanged.
