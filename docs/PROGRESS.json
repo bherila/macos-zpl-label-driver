@@ -315,12 +315,14 @@
     {
       "id": "M6",
       "directory": "docs/milestones/06-compatibility-release",
-      "implementation": "not-started",
+      "implementation": "in-progress",
       "automatedValidation": "not-run",
       "macOSIntegration": "not-run",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
-      "evidence": [],
+      "evidence": [
+        "docs/validation/M6-TRACEABILITY-REPORT-2026-09-17.md (read-only explicit per-ID assessments/source-reference integrity report maps90IDs/21requirements;14focused/restored and103Python tests passed with independent level/failure/source faults detected; empty ledger remains unready; full finite gate session24242 exit0:103Python/272Core/324Mac debug/release plus oracle/inert pipeline/signature/packaged-worker checks; M6-AC01 backfill/semantic review and all prescribed integration/hardware/release gates open)"
+      ],
       "blockers": []
     }
   ]
