@@ -1,5 +1,9 @@
 # Qualified absolute darkness persistence — 2026-09-17
 
+Published source `83cfaa8de97fe933f7884d79d63b64add8dc49dc` on PR #81. Remote branch and PR
+head read back at that exact SHA. Changed-head hosted run35209283943 is queued;
+preceding editor success is separate evidence. No cloud verdict covers this source.
+
 Current feature adds profile4/queue3/ticket4 darkness persistence and
 qualified ordinary encoding (^MD0 then ~SDnn). Earlier canonical formats remain
 strict, and reference GC420d darkness stays unknown. Nearest independent constraint:
