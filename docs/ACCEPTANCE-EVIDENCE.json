@@ -168,6 +168,240 @@
           "sha256": "f3cb6018a13b95810c4dca871bce6ff69a206083efd42dd74ff1bb68442f0f52"
         }
       ]
+    },
+    {
+      "acceptanceID": "M0-AC03",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "2f1f0e6061885274824e0895fcc6dbe14dea5e48",
+      "implementation": [
+        {
+          "path": "Packages/LabelCore/Package.swift",
+          "sha256": "df22a5504d3634917e02eaae27ebb722a26af3606aedd01fb777fc74e4534432"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometry.swift",
+          "sha256": "3ddc0af9886f4b323b382f5e2dc3aca1cea41cc26eb05ec054d57732f8bf0ed0"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/PhysicalGeometryTests.swift",
+          "sha256": "c976f1895bef74e9ca6cdff225c8897ba970b64685d96ab68b9b40e7632ccba4"
+        },
+        {
+          "path": "docs/validation/M0-M2-CURRENT-SOFTWARE-ASSESSMENT-2026-09-17.md",
+          "sha256": "5f8277475fa379f3749175eb4d2c4bd2d07adfd3c8e7c4ab1a8faf5a33da05ac"
+        }
+      ]
+    },
+    {
+      "acceptanceID": "M0-AC04",
+      "level": "I",
+      "state": "pass",
+      "sourceSHA": "2f1f0e6061885274824e0895fcc6dbe14dea5e48",
+      "implementation": [
+        {
+          "path": "Packages/LabelMac/Package.swift",
+          "sha256": "46f46385ec5a6cf2dca5a87d64d8d9b74adda4e98c734c4abfa87351c49d5546"
+        },
+        {
+          "path": "Packages/LabelMac/Sources/LabelMac/CoreGraphicsSmokeCheck.swift",
+          "sha256": "4f20227685bd03bedc468323ab7514ee5084e516e09445213f62e6a7eee6e47d"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "Packages/LabelMac/Tests/LabelMacTests/CoreGraphicsSmokeCheckTests.swift",
+          "sha256": "51db3a726ab1d372a00614d9bc77e4d493d0a4c2f687f4cb8c31a881b48dc65a"
+        },
+        {
+          "path": "docs/validation/M0-M2-CURRENT-SOFTWARE-ASSESSMENT-2026-09-17.md",
+          "sha256": "5f8277475fa379f3749175eb4d2c4bd2d07adfd3c8e7c4ab1a8faf5a33da05ac"
+        }
+      ]
+    },
+    {
+      "acceptanceID": "M0-AC07",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "2f1f0e6061885274824e0895fcc6dbe14dea5e48",
+      "implementation": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "sha256": "35849a47c71fddc29237dc0c37697fbb2cc1f61adb8eabecfe4ba772e8f4c2de"
+        },
+        {
+          "path": ".github/workflows/compatibility.yml",
+          "sha256": "3365cd7a0bc1c9066f9a2c7bd3705ec2c6377ccaa59c338f4a395d8f13a086e2"
+        },
+        {
+          "path": "scripts/check_repo.py",
+          "sha256": "20fbe5cc9eb23af7bf1df1fb0e1a7f90d29cdb36f23411ba126b4eac07c2910a"
+        },
+        {
+          "path": "scripts/ci-swift.sh",
+          "sha256": "b50148b645e3322e205be71a824c28d4971d24acf0bea18a07b9e3e37cf98655"
+        },
+        {
+          "path": "scripts/sign-local-diagnostic.sh",
+          "sha256": "93215c0adfc981cd2c519a80da8a95b7fc4cff594484ca54cd03190b8ee5724d"
+        },
+        {
+          "path": "scripts/build-local-app.sh",
+          "sha256": "a5b634e74696ed79265aac96b46a0c7b09469f214c6eada2d9024baa193fb3c4"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "scripts/tests/test_preflight.py",
+          "sha256": "529e00414b905e1176ab8242a7b990de3be7f68ff945359fd25e47000c0a6b8c"
+        },
+        {
+          "path": "docs/validation/M0-M2-CURRENT-SOFTWARE-ASSESSMENT-2026-09-17.md",
+          "sha256": "5f8277475fa379f3749175eb4d2c4bd2d07adfd3c8e7c4ab1a8faf5a33da05ac"
+        }
+      ]
+    },
+    {
+      "acceptanceID": "M0-AC08",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "2f1f0e6061885274824e0895fcc6dbe14dea5e48",
+      "implementation": [
+        {
+          "path": "scripts/check_repo.py",
+          "sha256": "20fbe5cc9eb23af7bf1df1fb0e1a7f90d29cdb36f23411ba126b4eac07c2910a"
+        },
+        {
+          "path": "docs/milestones.json",
+          "sha256": "7649660a66258644955005561f376098a20384b4de65ea10bcaf7896d0f020a1"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "scripts/tests/test_preflight.py",
+          "sha256": "529e00414b905e1176ab8242a7b990de3be7f68ff945359fd25e47000c0a6b8c"
+        },
+        {
+          "path": "scripts/tests/test_traceability_report.py",
+          "sha256": "8346de1d8066d5965ea2f7962c4214aa2b1502bb8c7ffeb8e1c8e6db02b18564"
+        },
+        {
+          "path": "docs/validation/M0-M2-CURRENT-SOFTWARE-ASSESSMENT-2026-09-17.md",
+          "sha256": "5f8277475fa379f3749175eb4d2c4bd2d07adfd3c8e7c4ab1a8faf5a33da05ac"
+        }
+      ]
+    },
+    {
+      "acceptanceID": "M0-AC11",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "2f1f0e6061885274824e0895fcc6dbe14dea5e48",
+      "implementation": [
+        {
+          "path": "docs/reference-target.json",
+          "sha256": "3de0e4ec05d9915d6c98b2ba40e386d5997158b0502720bb318ec974d819456e"
+        },
+        {
+          "path": "scripts/check_reference_target.py",
+          "sha256": "3d6e32c23f67e02bffe698d467c426a02c5abf8e6461f04d349c6abde8f8bcb5"
+        },
+        {
+          "path": "Packages/LabelCore/Package.swift",
+          "sha256": "df22a5504d3634917e02eaae27ebb722a26af3606aedd01fb777fc74e4534432"
+        },
+        {
+          "path": "Packages/LabelMac/Package.swift",
+          "sha256": "46f46385ec5a6cf2dca5a87d64d8d9b74adda4e98c734c4abfa87351c49d5546"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "scripts/tests/test_reference_target.py",
+          "sha256": "e4c459ae182823c1f66393d3d4faae6ae6f73f9d3f6cbd1ce72cceee9fb605ca"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/PhysicalGeometryTests.swift",
+          "sha256": "c976f1895bef74e9ca6cdff225c8897ba970b64685d96ab68b9b40e7632ccba4"
+        },
+        {
+          "path": "docs/validation/M0-M2-CURRENT-SOFTWARE-ASSESSMENT-2026-09-17.md",
+          "sha256": "5f8277475fa379f3749175eb4d2c4bd2d07adfd3c8e7c4ab1a8faf5a33da05ac"
+        }
+      ]
+    },
+    {
+      "acceptanceID": "M2-AC07",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "2f1f0e6061885274824e0895fcc6dbe14dea5e48",
+      "implementation": [
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLGraphicEncoder.swift",
+          "sha256": "a15fdd3327d19234b6d35f6ccbd679c64f3b5f44366fcf14c94e89a1e44b5a3b"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLASCIICompression.swift",
+          "sha256": "1576651c7ac06883cb1eadf229e568f75cfa67c5b9c7e981b0894ac83d64a2dd"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLGraphicEncoderTests.swift",
+          "sha256": "273fdc5fb6788b1e24ee8f069f480e14fe5521783d882258c936e881aea34d3b"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLASCIICompressionTests.swift",
+          "sha256": "c12015da7e7e4db3f54d2a10886227e424b70659778be0a9a29444772d83f2cb"
+        },
+        {
+          "path": "scripts/zpl_oracle.py",
+          "sha256": "1353600f5d1a0a47d90d020cc7603432d71dde38c4285885f82d9eb0c19982c7"
+        },
+        {
+          "path": "scripts/zpl_compression_oracle.py",
+          "sha256": "f877caa5f31176a092149e73ce64a9b36dc1ceada9f5865cc1640bd4306482d6"
+        },
+        {
+          "path": "scripts/tests/test_zpl_oracle.py",
+          "sha256": "57df8288716bd623a0f1b81d12c1ac0e7d83f93d7d63511f58ce17555ef51c17"
+        },
+        {
+          "path": "scripts/tests/test_zpl_compression_oracle.py",
+          "sha256": "1e449a156ec5bf57dd928c37f636404cd70dd618fc06fe7bbaf88841c5baa263"
+        },
+        {
+          "path": "docs/validation/M0-M2-CURRENT-SOFTWARE-ASSESSMENT-2026-09-17.md",
+          "sha256": "5f8277475fa379f3749175eb4d2c4bd2d07adfd3c8e7c4ab1a8faf5a33da05ac"
+        }
+      ]
+    },
+    {
+      "acceptanceID": "M5-AC12",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "2f1f0e6061885274824e0895fcc6dbe14dea5e48",
+      "implementation": [
+        {
+          "path": "scripts/build-local-app.sh",
+          "sha256": "a5b634e74696ed79265aac96b46a0c7b09469f214c6eada2d9024baa193fb3c4"
+        },
+        {
+          "path": "scripts/sign-local-diagnostic.sh",
+          "sha256": "93215c0adfc981cd2c519a80da8a95b7fc4cff594484ca54cd03190b8ee5724d"
+        },
+        {
+          "path": "scripts/ci-swift.sh",
+          "sha256": "b50148b645e3322e205be71a824c28d4971d24acf0bea18a07b9e3e37cf98655"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "docs/validation/M0-M2-CURRENT-SOFTWARE-ASSESSMENT-2026-09-17.md",
+          "sha256": "5f8277475fa379f3749175eb4d2c4bd2d07adfd3c8e7c4ab1a8faf5a33da05ac"
+        }
+      ]
     }
   ]
 }

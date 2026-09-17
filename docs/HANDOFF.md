@@ -21,16 +21,14 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
   `3047f7880665e9550efb621fbfad2ceb328fff49`. Latest published software
   implementation `ccd7a9a`: immutable original-PDF acceptance and range/copy ownership.
   Earlier explicit A assessments remain historical; new source needs reassessment.
-- Latest completed finite900s `bash scripts/ci-swift.sh`, session14214, completed
-  `FULL_GATE_EXIT 0`:104 Python/281 Core/358 native tests in debug/release,
+- Latest completed finite900s `bash scripts/ci-swift.sh`, session46436, completed
+  `BASELINE_EXIT 0`:104 Python/281 Core/360 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.gLgyA5`; no printer accessed.
-  This gate preceded the additional busy-state test and setup-error copy redaction;
-  their three focused model cases passed in debug/release separately in32129, with
-  an expected busy-ownership fault failure and final app/signature/packaged checks
-  exit0. Final local artifact: `artifacts/setup-app.KxC3wr`.
+  Local artifact: `artifacts/setup-app.sqj9Kl`; no printer accessed.
+  This current-source gate includes the busy-state regression, setup-error redaction
+  and both finishing CLI worker-admitted cancellation routes.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
@@ -310,3 +308,16 @@ separate S2 accessory/model evidence. USB unplug/replug, output quality/count/or
 physical status/faults, actual cross-queue serialization and finishing remain unobserved.
 Never promote compiled, inert, reported GUI or hosted checks into printed evidence.
 Do not automatically calibrate/reset/save/upgrade firmware/erase or replay ambiguity.
+
+## Current software acceptance baseline
+
+Current-source CLI signature run88261 passed exit0; private local copies are in
+artifacts/local-adhoc.T0kngf. Full finite900-second baseline46436 evaluates clean source
+2f1f0e6061885274824e0895fcc6dbe14dea5e48; full baseline passed exit0:104Python/281Core/360Mac debug/release plus independent/inert/
+signature/packaged checks; artifact artifacts/setup-app.sqj9Kl. Source stays frozen; metadata-only semantic assessment is recorded in
+[current software assessment](validation/M0-M2-CURRENT-SOFTWARE-ASSESSMENT-2026-09-17.md).
+No checkbox/ledger pass is inferred from counts. Native GUI automation returned
+cgWindowNotFound twice for the local app; no window was observed, so GUI remains NOT RUN.
+Seven explicit source-bound assessments are now recorded: M0-AC03/07/08/11, M2-AC07,
+M5-AC12 at A; M0-AC04 at I for actual local native build/CGContext smoke only.
+Next: validate the clean ledger readback, then continue remaining software gap review. All manual/hardware/release gates remain unchanged.

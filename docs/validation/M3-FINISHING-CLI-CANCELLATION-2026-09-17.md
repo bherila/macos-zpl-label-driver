@@ -23,8 +23,10 @@ refusal (exit73, preserved output). Finite180-second bounds per mode.
 The preceding app gate14214 passed104Python/281Core/358Mac debug/release and independent/
 inert/signature/packaged checks; it does not cover this later fix. App-specific post-gate
 three model cases passed debug/release and final app build32129 passed; these are distinct
-checkpoints. Unpublished implementation checkpoint `9ae4776ffdc0e26c2b38e64f42d7ddde62e7b845`. Later CLI signature verification is not claimed by the
-preceding app-build evidence; no new full360-case suite declaration.
+checkpoints. Unpublished implementation checkpoint `9ae4776ffdc0e26c2b38e64f42d7ddde62e7b845`. Separate current-source CLI signature run88261 passed own exit0 with strict local-ad-hoc
+verification and minimum26 metadata; copies artifacts/local-adhoc.T0kngf. Full current
+source baseline46436 passed own exit0:104Python/281Core/360Mac debug/release plus
+independent/inert/signature/packaged checks; artifact artifacts/setup-app.sqj9Kl.
 
 Installed scheduler, native GUI/accessibility, minimum-runtime26, identified USB unit/status,
 retail launch/install policy and physical printing remain open. Frozen Part B unchanged.
