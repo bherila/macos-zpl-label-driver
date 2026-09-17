@@ -358,3 +358,7 @@ Unpublished width-subset implementation checkpoint `8dcc24141aaa8dbb6ca6aa27aecb
 ## Endpoint byte-budget follow-on
 
 [Endpoint validation](validation/M3-ENDPOINT-UTF8-BUDGET-2026-09-17.md) records the reproduced grapheme-count bypass and bounded UTF-8 fix. All 16 TCP tests passed debug/release; 106 Python tests and the release setup-app build passed. This is unpublished local evidence. The preceding full baseline and source-bound acceptance records predate the width and endpoint changes. Manual gates are unchanged.
+
+## Legacy status grammar follow-on
+
+[Function-setting validation](validation/M3-STATUS-FUNCTION-BUDGET-2026-09-17.md) records the eight-bit boundary regression and fix. All 283 Core tests passed debug/release; the debug accelerator and release setup-app build passed. This advances status validation without a complete M3-AC12 assessment. No printer query or physical evidence was added. Next: assess the remaining control/status requirements against current source while preserving the frozen M1 Part B candidate.
