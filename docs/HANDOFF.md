@@ -1,6 +1,6 @@
 # Finishing qualification and cut intentions — 2026-09-17
 
-Current locally validated source adds explicit enabled/model/accessory gates for bounded
+Implementation `b768a172cd78d43e2d2046ec7df8894357c43cc6` is locally validated and adds explicit enabled/model/accessory gates for bounded
 offline finishing-mode fragments and independently qualified engine-output cut
 boundary planning, including explicit final partial-batch behavior. No cut schedule
 is equated to a mode fragment or unqualified delayed-cut/file delivery boundary.
@@ -12,7 +12,7 @@ See `validation/M3-QUALIFIED-FINISHING-POLICY-2026-09-17.md`. Ordinary integrati
 stock compatibility, native finishing and physical/accessory waits/faults/isolation
 remain work; profile7/queue6/ticket7 still tear-off only. No printer/admin/merge/
 binary release. Frozen B unchanged. Previous6c8e16a remote/PR81 confirmed;
-exact hosted35219619085 last observed live, not pass evidence.
+exact hosted35219619085 completed successfully at6c8e16a, not finishing evidence.
 
 # Thermal utility publication readback — 2026-09-17
 

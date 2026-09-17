@@ -64,3 +64,10 @@ finishing need separately verified accessory configurations and finite physical
 consent; the reference remains tear-off/no cutter. M1/privileged identity/lifecycle,
 installed/default/dialog, keyboard/VoiceOver, USB and actual output remain open.
 No printer/admin/merge/release/binary publication. Part B frozen bytes unchanged.
+
+## Source checkpoint
+
+Implementation commit `b768a172cd78d43e2d2046ec7df8894357c43cc6` contains the validated slice.
+Publication and exact hosted validation remain separate observations. Previous
+thermal utility checkpoint6c8e16a hosted run35219619085 completed successfully
+at its exact head; that result does not cover this finishing slice.
