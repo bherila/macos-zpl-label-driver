@@ -15,7 +15,8 @@
         "docs/validation/M0-STACKED-PR-CI-2026-09-16.md (79411af unrestricted PR-target CI trigger; automatic stacked PR run 35069832168 passed exact aaf8425 with full native tests and signatures)",
         "scripts/ci_scope.py (docs plus mandatory manifest classification corrected with 67 Python tests; hosted docs-only aggregate acceptance remains unproven)",
         "docs/validation/M0-DOCS-MANIFEST-SCOPE-2026-09-16.md (full native run 35070667206 passed exact 431f0d6; docs-only run 35070738539 passed exact 83aec67 with native skipped and aggregate green; deliberate failure/fork remain open)",
-        "docs/validation/M0-FAIL-CLOSED-CI-2026-09-16.md (negative run 35071242478 failed exact 11084e3; injected test removed; recovery 35071315857 passed exact e464491; both M0-AC06 outcomes observed)"
+        "docs/validation/M0-FAIL-CLOSED-CI-2026-09-16.md (negative run 35071242478 failed exact 11084e3; injected test removed; recovery 35071315857 passed exact e464491; both M0-AC06 outcomes observed)",
+        "docs/HANDOFF.md and docs/HANDOFF-HISTORY-2026-09-17.md (concise current snapshot replaces 3041-line chronological handoff; preceding tracked history preserved exactly, links/preflight passed; published source remains eafb564, hosted35233437806 in progress; no acceptance or runtime behavior changes)"
       ],
       "blockers": []
     },
