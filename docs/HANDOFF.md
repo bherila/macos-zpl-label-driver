@@ -1,3 +1,27 @@
+# Profile-bound finishing terminal local gate — 2026-09-17
+
+Full finite CI-equivalent gate passed ownexit0:89Python/270Core/318Mac debug/release
+plus independent/inert/native/signature/packaged checks. Artifact `artifacts/setup-app.w04t7p`.
+Four focused/restored cases passed; omitted reference equality failed four independent
+reference components. Disclosure scan and manual source review passed. Next commit/
+push this slice and verify remote/PR exact head and hosted run. Binding is limited
+to profile/count/mode/schedule; prepared raster-order and transmission authority
+remain work. Profile8 ordinary output still rejected. Frozen B unchanged.
+
+# Profile-bound finishing intentions — 2026-09-17
+
+Local PrinterProfileStore planning now verifies the exact full profile reference
+and constructs intents from its immutable profile8 configuration. Retained inputs
+reject reference/count/mode/schedule substitution; newer revisions cannot change
+old limits. Four focused native cases passed ownexit0; removing reference equality
+reproduced four failures, then byte-restored four focused pass. Full finite900s gate
+is live under session87489, log `/tmp/zpl-profile-bound-finishing-full.log`;
+poll same handle. No full pass/source push yet. See
+`validation/M3-PROFILE-BOUND-FINISHING-PLAN-2026-09-17.md`. Count/reference binding
+is not prepared raster-order or delivery authority. Ordinary profile8 remains
+rejected until job/normalization/transport integration. Physical/manual gates open.
+Frozen B unchanged. No printer/admin/merge/binary release.
+
 # Finishing profile source checkpoint — 2026-09-17
 
 Implementation `44e6893d7ffc7dfb97180919227196cd9ef0a08d` follows separate test-budget commit4af29a3.
