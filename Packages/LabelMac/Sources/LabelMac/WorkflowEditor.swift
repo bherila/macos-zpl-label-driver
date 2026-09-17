@@ -605,10 +605,28 @@ public struct WorkflowEditorView: View {
 
     private var mediaSummary: some View {
         let stock = model.profile.outputStock
-        return VStack(alignment: .leading) {
+        let binding = model.selectedRegionID.map {
+            WorkflowEditorEditBinding(regionID: $0, editGeneration: model.editGeneration)
+        }
+        return VStack(alignment: .leading, spacing: 8) {
             Text("Input sheet geometry is configured per source page.")
-            Text("Output stock: \(stock.width.value, format: .number.precision(.fractionLength(1))) × \(stock.height.value, format: .number.precision(.fractionLength(1))) mm")
-        }.accessibilityElement(children: .combine)
+            GroupBox("Output stock dimensions") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        measurementField("Stock width (mm)", value: stock.width.value) { value in
+                            try model.setOutputStock(id: "custom-stock", size: PhysicalSize(
+                                width: Millimeters(value), height: stock.height), expectedBinding: binding)
+                        }
+                        measurementField("Stock height (mm)", value: stock.height.value) { value in
+                            try model.setOutputStock(id: "custom-stock", size: PhysicalSize(
+                                width: stock.width, height: Millimeters(value)), expectedBinding: binding)
+                        }
+                    }
+                    Text("These dimensions change this workflow's label previews. Verify the physical stock and printer limits separately before printing.")
+                        .font(.caption)
+                }
+            }
+        }
     }
 
     private var pageHandling: some View {

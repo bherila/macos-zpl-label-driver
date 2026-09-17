@@ -8,6 +8,53 @@ import LabelCore
 final class WorkflowEditorBootstrapTests: XCTestCase {
     private enum TestError: Error { case unavailable }
 
+    func testChangedStockReopensAsUnreviewedCorrectionAndRendersOriginalPDF() async throws {
+        let source = try fixture("letter-one")
+        let profileStore = try store()
+        let original = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let stock = PhysicalSize(width: try .inches(2), height: try .inches(3))
+        try original.setOutputStock(id: "custom-stock", size: stock)
+        try original.save()
+        let saved = original.profile
+        let reopened = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, savedProfile: saved)
+        XCTAssertTrue(reopened.isReopenedWorkflow)
+        XCTAssertFalse(reopened.isSaved)
+        XCTAssertEqual(reopened.profile.revision, saved.revision + 1)
+        XCTAssertEqual(reopened.profile.pageRules, saved.pageRules)
+        XCTAssertEqual(reopened.profile.outputStock, stock)
+        XCTAssertEqual(reopened.unreviewedRegionCount, reopened.regions.count)
+        XCTAssertEqual(try profileStore.load(profileID: saved.id, revision: saved.revision), saved)
+        await reopened.refreshPreviewInWorker(workerExecutable: try worker(), deadlineSeconds: 5)
+        let preview = try XCTUnwrap(reopened.preview)
+        XCTAssertEqual(preview.bitmap.layout.width, 406)
+        XCTAssertEqual(preview.bitmap.layout.height, 610)
+        XCTAssertEqual(preview.previewPBM, preview.bitmap.pbmData())
+        XCTAssertFalse(reopened.canApproveForUnattendedUse)
+    }
+
+    func testOversizedSavedStockRejectedBeforeWorkerLaunch() async throws {
+        let source = try fixture("letter-one")
+        let profileStore = try store()
+        let model = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let current = model.profile
+        let oversized = try WorkflowProfile(id: current.id, revision: current.revision,
+            outputStockID: "oversized-stock", outputStock: PhysicalSize(
+                width: Millimeters(10_000), height: Millimeters(10)),
+            pageRules: current.pageRules)
+        do {
+            _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+                store: profileStore, workerExecutable: URL(fileURLWithPath: "/nonexistent-worker"),
+                deadlineSeconds: 5, savedProfile: oversized)
+            XCTFail("oversized saved stock admitted")
+        } catch {
+            XCTAssertEqual(error as? PhysicalGeometryError, .exceedsDotLimit(actual: 80_000, limit: 8_192))
+        }
+        XCTAssertEqual(model.profile, current)
+    }
+
     func testDistinctManualWorkflowsCanBeSavedInTheSameImmutableStore() async throws {
         let profileStore = try store()
         let first = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: fixture("letter-one"),
