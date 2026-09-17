@@ -193,7 +193,9 @@
         "74b030ed45766b4e1df0caa35900d9449a68d796 (shared offline finishing resolution source checkpoint; local 89/272/323 full gate passed, hosted/readback pending)",
         "docs/validation/M3-FINISHING-PREPARATION-CONTROLS-2026-09-17.md (local effective controls retained before isolated workers, immutable-policy revalidation and qualified home/shift containment; eight focused/restored native cases passed with independent control-equality and offset-forwarding failures; full gate pending, command/wire/ticket/queue/device/pitch/manual/physical gates open)",
         "docs/validation/M3-FINISHING-PREPARATION-CONTROLS-2026-09-17.md (terminal full local gate passed ownexit0 89/272/323 debug/release with independent/inert/native/signature/packaged checks; eight restored focused cases and source/disclosure review passed; command/wire/ticket/queue/device/pitch/manual/physical gates remain open)",
-        "6baef390eeea89b90e711125eed8ffb68bf90bbb (effective controls retained in finishing preparation source checkpoint; local 89/272/323 full gate passed; hosted/readback pending)"
+        "6baef390eeea89b90e711125eed8ffb68bf90bbb (effective controls retained in finishing preparation source checkpoint; local 89/272/323 full gate passed; hosted/readback pending)",
+        "docs/validation/M3-FINISHING-NORMAL-CONTROL-ENCODING-2026-09-17.md (local sealed complete-profile/plan/controls/normal-byte encoding retained by original-PDF preparation; six Core/eight native restored focused cases passed and schema8 thermal omission independently failed; full gate pending; finishing/format/cut/quantity policy and ordinary/accepted/manual/hardware gates open)",
+        "docs/validation/M3-FINISHING-NORMAL-CONTROL-ENCODING-2026-09-17.md (terminal full local gate passed ownexit0 89/272/323 debug/release with independent/inert/native/signature/packaged checks; six Core/eight native restored focused and source/disclosure review passed; finishing/format/cut/quantity/accepted/manual/hardware gates open)"
       ],
       "blockers": []
     },

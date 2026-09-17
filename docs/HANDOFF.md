@@ -1,3 +1,30 @@
+# Finishing normal-control encoding terminal gate — 2026-09-17
+
+Full finite900s session87326 completed ownexit0:89Python/272Core/323Mac debug/release,132 strict and180 ASCII oracle round trips per mode, finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.I8weej. No printer accessed.
+Six Core/eight native restored focused cases passed; thermal omission failed then
+byte-restored. Source/disclosure review passed. Next commit/push and verify remote/
+PR equality and exact hosted run. Mechanical format/cut/file/peel policy, accepted
+queue/ticket/device/pitch context and manual/hardware gates remain open. Ordinary
+schema8 admission stays gated. Frozen B unchanged; no merge/binary publication.
+
+Normal-control encoding source/disclosure review passed; restored encoder hash unchanged.
+Same finite full gate session87326 passed272Core debug/release; native/package stages
+remain live. Keep source unpublished until own terminal result; no full/hosted pass claimed.
+
+Finite900s full gate live session87326, log `/tmp/zpl-finishing-normalization-full.log`.
+Poll the same process; source unchanged since restored focused ownexit0.
+
+# Bound normal-control finishing prefix — 2026-09-17
+
+Local preparation now retains a sealed profile/plan/effective-controls/normal-bytes
+context from the shared ordinary encoder. Schema8 thermal is explicit; finishing/
+format/quantity/cut triggers are outside this prefix. Six Core/eight native restored
+focused cases passed; thermal omission reproduced failures then source byte-restored.
+See validation/M3-FINISHING-NORMAL-CONTROL-ENCODING-2026-09-17.md. Next finite900s
+full gate, source/disclosure review and same-PR source commit/readback. Mechanical
+output policy, accepted ticket/queue/device/pitch and manual/hardware gates open.
+Source remains local only; frozen B unchanged.
+
 # Effective-control preparation source checkpoint — 2026-09-17
 
 Implementation 6baef390eeea89b90e711125eed8ffb68bf90bbb passed the recorded local finite gate.

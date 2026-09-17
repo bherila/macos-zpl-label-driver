@@ -72,10 +72,26 @@ public struct ZPLControlEncoder: Sendable {
 
     public func encode(_ controls: ResolvedPrinterControls) throws -> Data {
         try OrdinaryPrinterProfileAdmission.validate(controls.profileSchemaVersion)
+        return try encodeResolved(controls, excludeFinishing: false)
+    }
+
+    /// Normal control prefix only. Finishing commands, cut boundaries, format
+    /// framing and peel handling require a separate qualified output policy.
+    public func prepareFinishingNormalization(
+        profile: PrinterProfile, plan: FinishingJobPlan, job: PrinterControlRequest,
+        workflowDefaults: PrinterControlDefaults = .init()
+    ) throws -> FinishingControlNormalization {
+        let controls = try profile.resolveFinishingControls(plan: plan, job: job,
+            workflowDefaults: workflowDefaults)
+        return try .init(profile: profile, plan: plan, controls: controls,
+            bytes: encodeResolved(controls, excludeFinishing: true))
+    }
+
+    private func encodeResolved(_ controls: ResolvedPrinterControls, excludeFinishing: Bool) throws -> Data {
         switch controls.thermalMethod {
         case .leaveUnchanged, .value(.directThermal): break
         case .value(.thermalTransfer):
-            guard controls.profileSchemaVersion == 7 else { throw ZPLControlEncodingError.unsupportedThermalMethod }
+            guard controls.profileSchemaVersion == 7 || (excludeFinishing && controls.profileSchemaVersion == 8) else { throw ZPLControlEncodingError.unsupportedThermalMethod }
         }
         switch controls.finishing {
         case .leaveUnchanged: break
@@ -83,7 +99,8 @@ public struct ZPLControlEncoder: Sendable {
             // The explicitly selected setup mode. It is a printer-mode command,
             // not a cutter or peel command.
             break
-        case .value: throw ZPLControlEncodingError.unsupportedFinishing
+        case .value:
+            guard excludeFinishing && controls.profileSchemaVersion == 8 else { throw ZPLControlEncodingError.unsupportedFinishing }
         }
         var darknessBytes: Data?
         if case let .value(value) = controls.darkness {
@@ -164,7 +181,7 @@ public struct ZPLControlEncoder: Sendable {
                               backfeedSpeedChoicesIps: [backfeedSpeed]))
         }
         var output = Data()
-        if controls.profileSchemaVersion == 7 {
+        if controls.profileSchemaVersion >= 7 {
             guard case let .value(method) = controls.thermalMethod else {
                 throw ThermalControlQualification.Error.explicitMethodRequired
             }
@@ -172,7 +189,7 @@ public struct ZPLControlEncoder: Sendable {
             output.append(try ZPLDocumentedControlEncoder().encode([control],
                 qualification: [control.kind: .supported]))
         }
-        if controls.finishing == .value(.tearOff) { output.append(contentsOf: "^MMT\n".utf8) }
+        if !excludeFinishing && controls.finishing == .value(.tearOff) { output.append(contentsOf: "^MMT\n".utf8) }
         if let motorBytes { output.append(motorBytes) }
         else if case let .value(speed) = controls.printSpeedIps {
             output.append(contentsOf: "^PR\(speed)\n".utf8)
@@ -182,5 +199,19 @@ public struct ZPLControlEncoder: Sendable {
         output.append(offsetBytes)
         guard output.count <= maxOutputBytes else { throw ZPLControlEncodingError.outputLimit }
         return output
+    }
+}
+
+/// Validated offline normal-control bytes with their complete immutable context.
+/// There are deliberately no finishing commands or format/copy/cut triggers.
+public struct FinishingControlNormalization: Equatable, Sendable {
+    public let profile: PrinterProfile
+    public let plan: FinishingJobPlan
+    public let controls: ResolvedPrinterControls
+    public let bytes: Data
+
+    fileprivate init(profile: PrinterProfile, plan: FinishingJobPlan,
+                     controls: ResolvedPrinterControls, bytes: Data) {
+        self.profile = profile; self.plan = plan; self.controls = controls; self.bytes = bytes
     }
 }

@@ -79,6 +79,10 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
         XCTAssertEqual(result.controls.thermalMethod, .value(.directThermal))
         XCTAssertEqual(result.controls.darkness, .value(0))
         XCTAssertEqual(result.controls.printSpeedIps, .value(3))
+        XCTAssertEqual(result.normalization.profile, job.printer.profile)
+        XCTAssertEqual(result.normalization.plan, job.plan)
+        XCTAssertEqual(String(decoding: result.normalization.bytes, as: UTF8.self),
+            "^MTD\n^PR3\n^MD0\n~SD00\n^PW\(canvas.width)\n^LH1,0\n^LS1\n")
         XCTAssertEqual(result.controls.mediaGeometry, .value(try .init(widthDots: canvas.width,
             originXDot: 1, originYDot: 0)))
         XCTAssertEqual(result.controls.offsets, .value(.init(shiftLeftDots: 1)))
