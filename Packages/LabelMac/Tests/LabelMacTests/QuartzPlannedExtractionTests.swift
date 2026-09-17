@@ -93,20 +93,20 @@ final class QuartzPlannedExtractionTests: XCTestCase {
         )
     }
 
-    func testUnwiredMarginsRejectBothRenderPathsBeforeParsingOrWorkerLaunch() throws {
+    func testMarginStockMismatchRejectsBothRenderPathsBeforeParsingOrWorkerLaunch() throws {
         let stock = PhysicalSize(width: try Millimeters(10), height: try Millimeters(10))
         let label = try plannedLabel(region: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
             outputStock: stock, outputMargins: OutputMargins(left: 1, top: 1, right: 1, bottom: 1))
-        let canvas = try DotCanvas(physicalSize: stock,
+        let canvas = try DotCanvas(physicalSize: PhysicalSize(width: Millimeters(20), height: Millimeters(20)),
             resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
         let conversion = MonochromeConversion.textAndBarcodeThreshold(cutoff: 128)
         XCTAssertThrowsError(try QuartzPlannedExtraction.prepare(originalPDF: Data(), label: label,
             canvas: canvas, conversion: conversion)) {
-            XCTAssertEqual($0 as? QuartzPlannedExtraction.Error, .unsupportedOutputMargins)
+            XCTAssertEqual($0 as? QuartzPlannedExtraction.Error, .outputStockMismatch)
         }
         XCTAssertThrowsError(try OfflineExtractionWorker.render(originalPDF: Data(), label: label,
             canvas: canvas, conversion: conversion, workerExecutable: URL(fileURLWithPath: "/nonexistent-worker"))) {
-            XCTAssertEqual($0 as? OfflineExtractionWorker.Error, .unsupportedOutputMargins)
+            XCTAssertEqual($0 as? OfflineExtractionWorker.Error, .outputStockMismatch)
         }
     }
 

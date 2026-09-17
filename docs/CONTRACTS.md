@@ -426,6 +426,16 @@ Result schema1 may optionally carry workerMaximumResidentBytes: positive integer
 
 ## Private offline worker admission and artifact binding
 
+The private conversion ticket retains version1 full-page and version2 extraction
+behavior with zero margins. Version3 requires extraction plus an outputMargins
+object containing exactly left/top/right/bottom finite nonnegative millimeter
+values. Older JSON versions reject that field, including null. Definitions must
+leave a positive physical inset area; native placement also validates quantized
+area. The worker renders the original source using those margins and clips to
+the visible inset dot rectangle. Both extraction parents bind planned-label margins; zero-margin subprocess
+requests retain version2. Queue workflow-v3 reference admission remains disabled
+until its remaining integration is verified.
+
 This protocol serves unprivileged local analysis/rendering of the original PDF.
 It is not a public profile schema, printer command interface, scheduler admission
 or a grant of device authority. The parent stages immutable source/ticket bytes

@@ -39,6 +39,60 @@ final class OfflineRenderWorkerTests: XCTestCase {
         """.utf8)
     }
 
+    func testMarginTicketAdmissionAndRealWorkerMatchOriginalSourceRendering() throws {
+        let source = try Data(contentsOf: repositoryRoot().appending(path: "Fixtures/generated/native-vector.pdf"))
+        let box = try QuartzPDFRenderer.pageBox(originalPDF: source, pageNumber: 1)
+        let rect = box.sourceRect(for: try NormalizedRect(x: 0, y: 0, width: 1, height: 1))
+        var root = try XCTUnwrap(JSONSerialization.jsonObject(with: ticket) as? [String: Any])
+        root["schemaVersion"] = 3
+        root["extraction"] = ["region": ["x": 0, "y": 0, "width": 1, "height": 1],
+            "expectedSourceRect": ["x": rect.x, "y": rect.y, "width": rect.width, "height": rect.height],
+            "rotation": 0] as [String: Any]
+        root["outputMargins"] = ["left": 1, "top": 2, "right": 3, "bottom": 1]
+        let data = try JSONSerialization.data(withJSONObject: root)
+        let parsed = try OfflineConversionTicket(jsonData: data)
+        XCTAssertEqual(parsed.outputMargins, try OutputMargins(left: 1, top: 2, right: 3, bottom: 1))
+        let direct = try OfflineConversion.prepare(originalPDF: source, ticket: parsed)
+        let worker = try OfflineRenderWorkerProcess.run(originalPDF: source, ticketJSON: data,
+            workerExecutable: workerExecutable(), deadlineSeconds: 5)
+        XCTAssertEqual(worker.previewPBM, direct.previewPBM)
+        XCTAssertEqual(worker.zpl, direct.zpl)
+        let region = try NormalizedRect(x: 0, y: 0, width: 1, height: 1)
+        let profile = try WorkflowProfile(schemaVersion: 3, id: "margin-worker", revision: 1,
+            outputStockID: "test-stock", outputStock: parsed.physicalSize, outputMargins: parsed.outputMargins,
+            pageRules: [WorkflowPageRule(sourcePage: 1,
+                expectedInput: ExpectedInputPage(uprightPhysicalSize: box.effectivePhysicalSize()),
+                disposition: .extract([ExtractionRegion(id: "whole", normalizedRect: region,
+                    rotation: .degrees0, outputOrder: 0)]))])
+        let label = try XCTUnwrap(ExtractionPlanner.plan(sourcePages: [box], profile: profile).outputLabels.first)
+        let canvas = try DotCanvas(physicalSize: parsed.physicalSize, resolution: parsed.resolution)
+        let conversion = MonochromeConversion.textAndBarcodeThreshold(cutoff: 128)
+        let planned = try QuartzPlannedExtraction.prepare(originalPDF: source, label: label,
+            canvas: canvas, conversion: conversion)
+        let plannedWorker = try OfflineExtractionWorker.render(originalPDF: source, label: label,
+            canvas: canvas, conversion: conversion, workerExecutable: workerExecutable(), deadlineSeconds: 5)
+        XCTAssertEqual(planned.bitmap, direct.bitmap)
+        XCTAssertEqual(plannedWorker, direct.bitmap)
+        for y in 0..<10 {
+            for x in 0..<10 where x < 1 || x >= 7 || y < 2 || y >= 9 {
+                XCTAssertEqual(direct.bitmap.bytes[y * 2 + x / 8] & UInt8(0x80 >> (x % 8)), 0)
+            }
+        }
+        for invalid: Any in [NSNull(), ["left": -1, "top": 2, "right": 3, "bottom": 1],
+            ["left": true, "top": 2, "right": 3, "bottom": 1],
+            ["left": 1, "top": 2, "right": 3],
+            ["left": 1, "top": 2, "right": 3, "bottom": 1, "extra": 0],
+            ["left": 7, "top": 2, "right": 3, "bottom": 1]] {
+            var changed = root; changed["outputMargins"] = invalid
+            XCTAssertThrowsError(try OfflineConversionTicket(jsonData: JSONSerialization.data(withJSONObject: changed)))
+        }
+        var missing = root; missing.removeValue(forKey: "outputMargins")
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: JSONSerialization.data(withJSONObject: missing)))
+        root["schemaVersion"] = 2
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: JSONSerialization.data(withJSONObject: root)))
+        XCTAssertEqual(try OfflineConversionTicket(jsonData: ticket).outputMargins, .zero)
+    }
+
     func testWorkerPreparesBoundedArtifactsThroughPrivateProtocol() throws {
         let source = try Data(contentsOf: repositoryRoot().appending(path: "Fixtures/generated/native-vector.pdf"))
         let output = try OfflineRenderWorkerProcess.run(

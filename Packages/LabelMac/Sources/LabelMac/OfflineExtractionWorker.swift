@@ -5,7 +5,6 @@ import LabelCore
 /// remain in the parent, after validation of the exact returned packed bitmap.
 public enum OfflineExtractionWorker {
     public enum Error: Swift.Error, Equatable, Sendable {
-        case unsupportedOutputMargins
         case outputStockMismatch
         case invalidWorkerBitmap
     }
@@ -16,7 +15,6 @@ public enum OfflineExtractionWorker {
         deadlineSeconds: Double = OfflineRenderWorkerProcess.defaultDeadlineSeconds,
         cancellation: OfflineRenderWorkerCancellation = .init()
     ) throws -> MonochromeBitmap {
-        guard label.outputMargins == .zero else { throw Error.unsupportedOutputMargins }
         guard canvas.physicalSize == label.outputStock else { throw Error.outputStockMismatch }
         let conversionWire: [String: Any]
         switch conversion {
@@ -27,8 +25,8 @@ public enum OfflineExtractionWorker {
         }
         let region = label.normalizedRect
         let expected = label.sourceRect
-        let ticket = try JSONSerialization.data(withJSONObject: [
-            "schemaVersion": 2, "pageNumber": label.sourcePage,
+        var wire: [String: Any] = [
+            "schemaVersion": label.outputMargins == .zero ? 2 : 3, "pageNumber": label.sourcePage,
             "physicalSize": ["widthMillimeters": canvas.physicalSize.width.value,
                              "heightMillimeters": canvas.physicalSize.height.value],
             "resolution": ["xDotsPerMillimeter": canvas.resolution.xDotsPerMillimeter,
@@ -40,7 +38,13 @@ public enum OfflineExtractionWorker {
                                        "width": expected.width, "height": expected.height],
                 "rotation": label.rotation.rawValue,
             ],
-        ], options: [.sortedKeys])
+        ]
+        if label.outputMargins != .zero {
+            let margins = label.outputMargins
+            wire["outputMargins"] = ["left": margins.left, "top": margins.top,
+                "right": margins.right, "bottom": margins.bottom]
+        }
+        let ticket = try JSONSerialization.data(withJSONObject: wire, options: [.sortedKeys])
         let output = try OfflineRenderWorkerProcess.run(originalPDF: originalPDF,
             ticketJSON: ticket, workerExecutable: workerExecutable,
             deadlineSeconds: deadlineSeconds, cancellation: cancellation)

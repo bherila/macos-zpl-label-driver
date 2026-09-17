@@ -29,6 +29,7 @@ public struct OfflineConversionTicket: Equatable, Sendable {
     public let resolution: DotResolution
     public let conversion: Conversion
     public let placementPolicy: PagePlacementPolicy
+    public let outputMargins: OutputMargins
     public let sourceRegion: NormalizedRect?
     public let expectedSourceRect: PDFSourceRect?
     public let regionRotation: ExtractionRotation
@@ -40,11 +41,17 @@ public struct OfflineConversionTicket: Equatable, Sendable {
         resolution: DotResolution,
         conversion: Conversion,
         placementPolicy: PagePlacementPolicy = .fit,
+        outputMargins: OutputMargins = .zero,
         sourceRegion: NormalizedRect? = nil,
         expectedSourceRect: PDFSourceRect? = nil,
         regionRotation: ExtractionRotation = .degrees0
     ) throws {
-        guard schemaVersion == 1 || schemaVersion == 2 else { throw TicketError.unsupportedSchemaVersion(schemaVersion) }
+        guard (1...3).contains(schemaVersion) else { throw TicketError.unsupportedSchemaVersion(schemaVersion) }
+        guard schemaVersion == 3 || outputMargins == .zero else { throw TicketError.malformedJSON }
+        guard physicalSize.width.value - outputMargins.left - outputMargins.right > 0,
+              physicalSize.height.value - outputMargins.top - outputMargins.bottom > 0 else {
+            throw TicketError.malformedJSON
+        }
         if schemaVersion == 1 {
             guard sourceRegion == nil, expectedSourceRect == nil, regionRotation == .degrees0 else {
                 throw TicketError.malformedJSON
@@ -65,6 +72,7 @@ public struct OfflineConversionTicket: Equatable, Sendable {
         self.resolution = resolution
         self.conversion = conversion
         self.placementPolicy = placementPolicy
+        self.outputMargins = outputMargins
         self.sourceRegion = sourceRegion
         self.expectedSourceRect = expectedSourceRect
         self.regionRotation = regionRotation
@@ -72,6 +80,7 @@ public struct OfflineConversionTicket: Equatable, Sendable {
 
     /// Version 1 retains full-page conversion; version 2 requires a validated
     /// extraction region, expected source rectangle, and explicit rotation.
+    /// Version 3 adds required explicit output margins; older versions reject that field.
     public init(jsonData: Data) throws {
         let wire: WireTicket
         do {
@@ -79,8 +88,22 @@ public struct OfflineConversionTicket: Equatable, Sendable {
         } catch {
             throw TicketError.malformedJSON
         }
-        guard wire.schemaVersion == 1 || wire.schemaVersion == 2 else {
+        guard (1...3).contains(wire.schemaVersion) else {
             throw TicketError.unsupportedSchemaVersion(wire.schemaVersion)
+        }
+        guard let root = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+            throw TicketError.malformedJSON
+        }
+        let margins: OutputMargins
+        if wire.schemaVersion == 3 {
+            guard let fields = root["outputMargins"] as? [String: Any],
+                  Set(fields.keys) == Set(["left", "top", "right", "bottom"]),
+                  let decoded = wire.outputMargins else { throw TicketError.malformedJSON }
+            margins = try OutputMargins(left: decoded.left, top: decoded.top,
+                right: decoded.right, bottom: decoded.bottom)
+        } else {
+            guard root["outputMargins"] == nil else { throw TicketError.malformedJSON }
+            margins = .zero
         }
         let conversion: Conversion
         switch wire.conversion.mode {
@@ -129,7 +152,7 @@ public struct OfflineConversionTicket: Equatable, Sendable {
                 yDotsPerMillimeter: wire.resolution.yDotsPerMillimeter
             ),
             conversion: conversion,
-            placementPolicy: placementPolicy,
+            placementPolicy: placementPolicy, outputMargins: margins,
             sourceRegion: region, expectedSourceRect: expected, regionRotation: rotation
         )
     }
@@ -143,7 +166,8 @@ public struct OfflineConversionTicket: Equatable, Sendable {
 
         let placementPolicy: String?
         let extraction: WireExtraction?
-        private enum CodingKeys: String, CodingKey { case schemaVersion, pageNumber, physicalSize, resolution, conversion, placementPolicy, extraction }
+        let outputMargins: WireMargins?
+        private enum CodingKeys: String, CodingKey { case schemaVersion, pageNumber, physicalSize, resolution, conversion, placementPolicy, extraction, outputMargins }
         init(from decoder: Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
             schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
@@ -153,7 +177,15 @@ public struct OfflineConversionTicket: Equatable, Sendable {
             conversion = try values.decode(WireConversion.self, forKey: .conversion)
             placementPolicy = try values.decodeIfPresent(String.self, forKey: .placementPolicy)
             extraction = try values.decodeIfPresent(WireExtraction.self, forKey: .extraction)
+            outputMargins = try values.decodeIfPresent(WireMargins.self, forKey: .outputMargins)
         }
+    }
+
+    private struct WireMargins: Decodable {
+        let left: Double
+        let top: Double
+        let right: Double
+        let bottom: Double
     }
 
     private struct WireExtraction: Decodable {
@@ -223,6 +255,7 @@ public enum OfflineConversion {
             pageNumber: ticket.pageNumber,
             canvas: canvas,
             placementPolicy: ticket.placementPolicy,
+            outputMargins: ticket.outputMargins,
             sourceRegion: ticket.sourceRegion,
             regionRotation: ticket.regionRotation,
             expectedSourceRect: ticket.expectedSourceRect,
