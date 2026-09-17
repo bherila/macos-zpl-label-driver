@@ -21,7 +21,7 @@ rejection before creation and owned-stage cleanup. CLI export integration passed
 success and repeat-export refusal (exit73, empty stdout, no output path in stderr). An
 additional empty-directory case passed and preserved inode/contents. Pixel/overwrite/budget
 faults each failed exit1 through expected assertions; exact restored31 cases passed exit0.
-Full finite900-second Mac gate session53728 passed its own exit0:104 Python/281 Core/355 native tests in debug/release, independent strict/ASCII oracles, inert ABI/pipeline checks, ARM/minimum26 metadata, local ad-hoc signatures, Developer-ID negative and packaged-worker PBM/ZPL equality. Local artifact: artifacts/setup-app.8PsoaR. Source commit pending; nothing published.
+Full finite900-second Mac gate session53728 passed its own exit0:104 Python/281 Core/355 native tests in debug/release, independent strict/ASCII oracles, inert ABI/pipeline checks, ARM/minimum26 metadata, local ad-hoc signatures, Developer-ID negative and packaged-worker PBM/ZPL equality. Local artifact: artifacts/setup-app.8PsoaR. Implementation checkpoint `a91cd4d77edb8ff952292c62ebb70dfdc60b475a` committed locally; nothing published.
 
 Installed scheduler, identified unit correspondence/status, retail policy and physical printing
 remain NOT RUN. Frozen Part B unchanged. No printer I/O, administrator action, merge or

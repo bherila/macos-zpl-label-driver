@@ -233,7 +233,7 @@ for uncertainty/hardware/root guard/namespace creation failed expected assertion
 gate session70662 passed exit0:104Python/281Core/352Mac debug/release plus
 oracle/inert/signature/packaged checks; see
 [inspection evidence](validation/M3-FINISHING-INSPECTION-CLI-2026-09-17.md).
-Packed accepted preview export is now local: thirty focused native cases passed exit0,
+Packed accepted preview export implementation `a91cd4d77edb8ff952292c62ebb70dfdc60b475a` is committed locally and unpublished: thirty focused native cases passed exit0,
 including exact PBM/manifest equality, no ZPL assets, existing output preservation, byte
 budget and staged cleanup. CLI export integration passed31 focused cases exit0, including actual executable success
 and repeat-export refusal. Empty existing-directory inode preservation also passed. Pixel/
