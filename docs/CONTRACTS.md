@@ -413,3 +413,8 @@ PackedFinishingPreviewExport accepts only verified durable preparation and expor
 ordered packed PBMs plus identity/hash metadata. No resampling or printer payload is involved.
 Aggregate bounds include headers/manifest; output is staged privately and renamed exclusively.
 Existing output is never overwritten; uncertain final durability preserves the published tree.
+
+Saved finishing inspection UI verifies full accepted context after file selection; selection
+alone is lookup, never admission. Async UI publication belongs to the current request UUID.
+Export revalidates the exact reference and preserves output on uncertain durability; no
+saved-job UI action provides hardware completion, printing or automatic replay authority.

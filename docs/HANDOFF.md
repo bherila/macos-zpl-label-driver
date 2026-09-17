@@ -21,12 +21,16 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
   `3047f7880665e9550efb621fbfad2ceb328fff49`. Latest published software
   implementation `ccd7a9a`: immutable original-PDF acceptance and range/copy ownership.
   Earlier explicit A assessments remain historical; new source needs reassessment.
-- Latest completed finite900s `bash scripts/ci-swift.sh`, session53728, completed
-  `FULL_GATE_EXIT 0`:104 Python/281 Core/355 native tests in debug/release,
+- Latest completed finite900s `bash scripts/ci-swift.sh`, session14214, completed
+  `FULL_GATE_EXIT 0`:104 Python/281 Core/358 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.8PsoaR`; no printer accessed.
+  Local artifact: `artifacts/setup-app.gLgyA5`; no printer accessed.
+  This gate preceded the additional busy-state test and setup-error copy redaction;
+  their three focused model cases passed in debug/release separately in32129, with
+  an expected busy-ownership fault failure and final app/signature/packaged checks
+  exit0. Final local artifact: `artifacts/setup-app.KxC3wr`.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
@@ -240,7 +244,9 @@ and repeat-export refusal. Empty existing-directory inode preservation also pass
 overwrite/budget faults each failed expected assertions; exact restored31 cases passed
 exit0. Full finite900-second Mac gate session53728 passed exit0:104Python/281Core/355Mac debug/release plus oracle/inert/signature/packaged checks; see
 [export evidence](validation/M3-PACKED-FINISHING-PREVIEW-EXPORT-2026-09-17.md).
-Next: native utility integration for verified saved-job inspection and exact preview export; no recovery grants replay.
+Selected-record lookup is under local validation: shared bounded canonical parser, private existing catalog reads, filename identity and unchanged catalog inode/permissions; initial focused run failed directory-URL trailing-slash equality, corrected to filesystem-path equality; filename omission fault failed expected assertion, restored32 cases passed exit0; full gate32797 failed an existing release source-page-preview result; unchanged four-test release rerun77654 passed, scheduling cause unconfirmed. App integration under focused validation7113. See [selected record evidence](validation/M3-SELECTED-FINISHING-RECORD-2026-09-17.md).
+Saved finishing inspection/export model and native controls are wired into the setup app; corrected focused34-case session63707 passed exit0 after an async semaphore test-build correction; request-ownership omission fault failed expected assertion; exact restored34 cases passed exit0; full finite900-second gate14214 passed exit0,104Python/281Core/358Mac debug/release plus oracle/inert/signature/packaged checks. See [app slice evidence](validation/M5-SAVED-FINISHING-INSPECTION-2026-09-17.md).
+Four-path stale-completion regression is now integrated and setup initialization errors are redacted. Busy-ownership fault failed the expected assertion; restored three model cases passed debug/release and final app build32129 passed exit0. Final artifact artifacts/setup-app.KxC3wr. Next: record the local source checkpoint, then reproduce and fix the separate CLI cancellation finding. A separate CLI finding is queued: worker-admitted cancellation propagates OfflineRenderWorkerProcess.Error.cancelled, which both finishing command routes currently misclassify as input failure. Draft bounded subprocess regression covers both commands and SIGINT/SIGTERM; preserve export commitUncertain priority. Setup initialization now uses a generic local-storage failure message; final affected build passed exit0. No recovery grants replay.
 Actual identified unit correspondence remains open.
 
 ## Manual Part A and Part B

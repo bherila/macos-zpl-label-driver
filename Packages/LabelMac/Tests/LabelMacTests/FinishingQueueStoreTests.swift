@@ -801,4 +801,153 @@ final class FinishingQueueStoreTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf:directory.appendingPathComponent("label-00001.pbm")),original)
         XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath:workflows.root.path).contains{$0.hasPrefix(".packed-preview-")})
     }
+    func testSelectedAcceptedRecordDerivesReferenceAndRequiresFullContextReopen() throws {
+        let (framed,workflows,printers,queues,worker,_)=try cancellableFramedFixture()
+        let file=workflows.root.appendingPathComponent("accepted-finishing-jobs")
+            .appendingPathComponent(AcceptedFinishingJobStore.fileName(framed.reference))
+        let selected=try AcceptedFinishingJobStore.selectedRecord(at:file)
+        XCTAssertEqual(selected.catalogRoot.path,workflows.root.path)
+        XCTAssertEqual(selected.reference,framed.reference)
+        let reopened=try AcceptedFinishingJobStore(root:selected.catalogRoot).load(reference:selected.reference,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        XCTAssertEqual(reopened,framed.prepared.acceptance)
+        let wrong=file.deletingLastPathComponent().appendingPathComponent(String(repeating:"a",count:64)+".bin")
+        try FileManager.default.copyItem(at:file,to:wrong)
+        XCTAssertThrowsError(try AcceptedFinishingJobStore.selectedRecord(at:wrong)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.referenceMismatch)
+        }
+        let original=try Data(contentsOf:file)
+        var malformed=original
+        for i in 8..<16 { malformed[i]=255 }
+        try malformed.write(to:file)
+        XCTAssertThrowsError(try AcceptedFinishingJobStore.selectedRecord(at:file)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.invalidRecord)
+        }
+        try original.write(to:file)
+        try FileManager.default.removeItem(at:wrong)
+        try FileManager.default.createSymbolicLink(at:wrong,withDestinationURL:file)
+        XCTAssertThrowsError(try AcceptedFinishingJobStore.selectedRecord(at:wrong))
+        XCTAssertEqual(chmod(workflows.root.path,0o755),0)
+        defer { _=chmod(workflows.root.path,0o700) }
+        XCTAssertThrowsError(try AcceptedFinishingJobStore.selectedRecord(at:file)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.unsafeStore)
+        }
+    }
+
+    @MainActor
+    func testFinishingInspectionModelVerifiesExportsAndPreservesSummaryOnFailure() async throws {
+        let (framed,workflows,_,_,worker,_)=try cancellableFramedFixture()
+        let file=workflows.root.appendingPathComponent("accepted-finishing-jobs")
+            .appendingPathComponent(AcceptedFinishingJobStore.fileName(framed.reference))
+        let model=FinishingInspectionModel(workerExecutable:worker)
+        await model.open(file)
+        XCTAssertEqual(model.summary?.outputLabelCount,4)
+        XCTAssertEqual(model.summary?.hardwareCompletion,"unknown")
+        XCTAssertEqual(model.summary?.automaticReplayAuthorized,false)
+        XCTAssertFalse(model.isBusy)
+        let output=workflows.root.appendingPathComponent("synthetic-model-previews")
+        await model.exportPreviews(toNewDirectory:output)
+        XCTAssertEqual(try Data(contentsOf:output.appendingPathComponent("label-00001.pbm")),framed.prepared.preparation.rasters[0].pbmData())
+        let summary=model.summary
+        await model.exportPreviews(toNewDirectory:output)
+        XCTAssertEqual(model.summary,summary)
+        XCTAssertEqual(model.status,"Preview export did not complete. Existing output is preserved.")
+        await model.open(file.deletingLastPathComponent().appendingPathComponent("missing.bin"))
+        XCTAssertNil(model.summary)
+        XCTAssertFalse(model.isBusy)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath:workflows.root.path).contains{$0.hasPrefix(".packed-preview-")})
+    }
+
+    @MainActor
+    func testFinishingInspectionModelCancelledOldRequestCannotReplaceNewSelection() async throws {
+        let (framed,workflows,_,_,_,_)=try cancellableFramedFixture()
+        let file=workflows.root.appendingPathComponent("accepted-finishing-jobs")
+            .appendingPathComponent(AcceptedFinishingJobStore.fileName(framed.reference))
+        let selected=try AcceptedFinishingJobStore.selectedRecord(at:file)
+        func summary(_ count:Int) throws -> FinishingInspectionSummary {
+            let bytes=try JSONSerialization.data(withJSONObject:["outputLabelCount":count,"canvasWidthDots":813,
+                "canvasHeightDots":1219,"localIntent":"no-recorded-intent","cancellationRequested":false,
+                "hardwareCompletion":"unknown","automaticReplayAuthorized":false])
+            return try JSONDecoder().decode(FinishingInspectionSummary.self,from:bytes)
+        }
+        let older=try summary(4),newer=try summary(2)
+        let started=DispatchSemaphore(value:0),release=DispatchSemaphore(value:0)
+        let model=FinishingInspectionModel(inspect:{ url,_ in
+            if url.lastPathComponent=="first" {
+                started.signal()
+                guard release.wait(timeout:.now()+10) == .success else { throw AcceptedFinishingJob.Error.timedOut }
+                return (selected,older)
+            }
+            return (selected,newer)
+        },export:{ _,_,_ in throw PackedFinishingPreviewExport.Error.commitUncertain })
+        let oldTask=Task { await model.open(URL(fileURLWithPath:"/synthetic/first")) }
+        let waitForStart: @Sendable () -> Bool = { started.wait(timeout:.now()+10) == .success }
+        let didStart=await Task.detached { waitForStart() }.value
+        XCTAssertTrue(didStart)
+        model.cancel()
+        await model.open(URL(fileURLWithPath:"/synthetic/second"))
+        release.signal()
+        await oldTask.value
+        XCTAssertEqual(model.summary,newer)
+        XCTAssertFalse(model.isBusy)
+        await model.exportPreviews(toNewDirectory:workflows.root.appendingPathComponent("synthetic-uncertain"))
+        XCTAssertEqual(model.summary,newer)
+        XCTAssertEqual(model.status,"Export durability is uncertain. Preserve the output and review it before retrying.")
+    }
+
+    @MainActor
+    func testFinishingInspectionModelEveryStaleCompletionPreservesNewRequestOwnership() async throws {
+        let (framed,workflows,_,_,_,_)=try cancellableFramedFixture()
+        let file=workflows.root.appendingPathComponent("accepted-finishing-jobs")
+            .appendingPathComponent(AcceptedFinishingJobStore.fileName(framed.reference))
+        let selected=try AcceptedFinishingJobStore.selectedRecord(at:file)
+        let bytes=try JSONSerialization.data(withJSONObject:["outputLabelCount":2,"canvasWidthDots":813,
+            "canvasHeightDots":1219,"localIntent":"no-recorded-intent","cancellationRequested":false,
+            "hardwareCompletion":"unknown","automaticReplayAuthorized":false])
+        let summary=try JSONDecoder().decode(FinishingInspectionSummary.self,from:bytes)
+        for kind in ["open-success","open-failure","export-success","export-failure"] {
+            let oldStarted=DispatchSemaphore(value:0),oldRelease=DispatchSemaphore(value:0)
+            let newStarted=DispatchSemaphore(value:0),newRelease=DispatchSemaphore(value:0)
+            let failing=kind.hasSuffix("failure"),exporting=kind.hasPrefix("export")
+            let model=FinishingInspectionModel(inspect:{ url,_ in
+                if url.lastPathComponent=="old" {
+                    oldStarted.signal()
+                    guard oldRelease.wait(timeout:.now()+10) == .success else { throw AcceptedFinishingJob.Error.timedOut }
+                    if failing { throw AcceptedFinishingJobStore.Error.invalidRecord }
+                } else if url.lastPathComponent=="new" {
+                    newStarted.signal()
+                    guard newRelease.wait(timeout:.now()+10) == .success else { throw AcceptedFinishingJob.Error.timedOut }
+                }
+                return (selected,summary)
+            },export:{ _,_,_ in
+                oldStarted.signal()
+                guard oldRelease.wait(timeout:.now()+10) == .success else { throw AcceptedFinishingJob.Error.timedOut }
+                if failing { throw PackedFinishingPreviewExport.Error.commitUncertain }
+            })
+            if exporting { await model.open(URL(fileURLWithPath:"/synthetic/initial")) }
+            let oldTask=Task {
+                if exporting { await model.exportPreviews(toNewDirectory:workflows.root.appendingPathComponent("synthetic-old-export")) }
+                else { await model.open(URL(fileURLWithPath:"/synthetic/old")) }
+            }
+            let waitOld: @Sendable () -> Bool = { oldStarted.wait(timeout:.now()+10) == .success }
+            let arrivedOld=await Task.detached { waitOld() }.value
+            XCTAssertTrue(arrivedOld,kind)
+            model.cancel()
+            let newTask=Task { await model.open(URL(fileURLWithPath:"/synthetic/new")) }
+            let waitNew: @Sendable () -> Bool = { newStarted.wait(timeout:.now()+10) == .success }
+            let arrivedNew=await Task.detached { waitNew() }.value
+            XCTAssertTrue(arrivedNew,kind)
+            oldRelease.signal()
+            await oldTask.value
+            XCTAssertTrue(model.isBusy,kind)
+            XCTAssertNil(model.summary,kind)
+            XCTAssertNil(model.status,kind)
+            newRelease.signal()
+            await newTask.value
+            XCTAssertEqual(model.summary,summary,kind)
+            XCTAssertFalse(model.isBusy,kind)
+            XCTAssertEqual(model.status,"Saved job verified. Hardware completion is unknown.",kind)
+        }
+    }
+
 }

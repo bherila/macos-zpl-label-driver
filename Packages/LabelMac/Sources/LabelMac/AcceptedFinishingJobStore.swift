@@ -1,4 +1,5 @@
 import CryptoKit
+import Darwin
 import Foundation
 import LabelCore
 
@@ -62,19 +63,8 @@ public struct AcceptedFinishingJobStore: @unchecked Sendable {
         do { bytes = try storage.read(directory: "accepted-finishing-jobs", fileName: Self.fileName(reference), maximumBytes: Self.maximumBytes) }
         catch { throw Self.map(error) }
         guard Self.hash(bytes) == reference.sha256 else { throw Error.referenceMismatch }
-        guard bytes.count >= 16, bytes.prefix(8) == Self.magic else { throw Error.invalidRecord }
-        var length: UInt64 = 0
-        for (i, byte) in bytes[8..<16].enumerated() { length |= UInt64(byte) << (i * 8) }
-        guard length <= UInt64(Self.maximumMetadataBytes), length <= UInt64(bytes.count - 16) else { throw Error.invalidRecord }
-        let boundary = 16 + Int(length)
-        let sourceCount = bytes.count - boundary
-        guard (1...ResolvedJobTicket.maximumSourceBytes).contains(sourceCount) else { throw Error.invalidRecord }
-        let metadata = bytes.subdata(in: 16..<boundary)
-        let manifest: Manifest
-        do { manifest = try JSONDecoder().decode(Manifest.self, from: metadata) }
-        catch { throw Error.invalidRecord }
-        guard try Self.json(manifest) == metadata, manifest.version == 1,
-              manifest.acceptanceID == reference.acceptanceID else { throw Error.invalidRecord }
+        let (manifest, boundary) = try Self.parseRecord(bytes)
+        guard manifest.acceptanceID == reference.acceptanceID else { throw Error.invalidRecord }
         let printer = try printerStore.load(id: manifest.printerID, revision: manifest.printerRevision)
         guard printer.reference.sha256 == manifest.printerSHA256 else { throw Error.referenceMismatch }
         let geometry = try FinishingDeviceGeometry(printer: printer,
@@ -93,6 +83,22 @@ public struct AcceptedFinishingJobStore: @unchecked Sendable {
         guard !cancellation.isCancelled else { throw AcceptedFinishingJob.Error.cancelled }
         guard Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000_000 < deadlineSeconds else { throw AcceptedFinishingJob.Error.timedOut }
         return job
+    }
+
+    private static func parseRecord(_ bytes: Data) throws -> (Manifest, Int) {
+        guard bytes.count >= 16, bytes.prefix(8) == magic else { throw Error.invalidRecord }
+        var length: UInt64 = 0
+        for (i, byte) in bytes[8..<16].enumerated() { length |= UInt64(byte) << (i * 8) }
+        guard length <= UInt64(maximumMetadataBytes), length <= UInt64(bytes.count - 16) else { throw Error.invalidRecord }
+        let boundary = 16 + Int(length)
+        let sourceCount = bytes.count - boundary
+        guard (1...ResolvedJobTicket.maximumSourceBytes).contains(sourceCount) else { throw Error.invalidRecord }
+        let metadata = bytes.subdata(in: 16..<boundary)
+        let manifest: Manifest
+        do { manifest = try JSONDecoder().decode(Manifest.self, from: metadata) }
+        catch { throw Error.invalidRecord }
+        guard try json(manifest) == metadata, manifest.version == 1 else { throw Error.invalidRecord }
+        return (manifest, boundary)
     }
 
     static func fileName(_ ref: AcceptedFinishingReference) -> String { "\(hash(Data(ref.acceptanceID.utf8))).bin" }
@@ -222,5 +228,39 @@ public struct AcceptedFinishingJobStore: @unchecked Sendable {
                 printSpeedIps: printSpeed, feedSpeedIps: feedSpeed, backfeedSpeedIps: backfeedSpeed, darkness: darkness,
                 tracking: decode(tracking, MediaTracking.self), mediaGeometry: g, offsets: o)
         }
+    }
+}
+
+/// A lookup result, not accepted context or delivery permission.
+public struct SelectedAcceptedFinishingRecord: Equatable, Sendable {
+    public let catalogRoot: URL
+    public let reference: AcceptedFinishingReference
+    fileprivate init(catalogRoot: URL, reference: AcceptedFinishingReference) {
+        self.catalogRoot = catalogRoot; self.reference = reference
+    }
+}
+
+public extension AcceptedFinishingJobStore {
+    /// Full store reopen must follow selection before displaying validated state.
+    static func selectedRecord(at file: URL) throws -> SelectedAcceptedFinishingRecord {
+        guard file.isFileURL, file.deletingLastPathComponent().lastPathComponent == "accepted-finishing-jobs" else { throw Error.invalidRecord }
+        let root = file.deletingLastPathComponent().deletingLastPathComponent()
+        var before = stat()
+        guard lstat(root.path, &before) == 0, before.st_mode & S_IFMT == S_IFDIR,
+              before.st_uid == getuid(), before.st_mode & 0o777 == 0o700 else { throw Error.unsafeStore }
+        let store = try Self(root: root)
+        let bytes: Data
+        do {
+            bytes = try store.storage.read(directory: "accepted-finishing-jobs", fileName: file.lastPathComponent,
+                maximumBytes: maximumBytes, createDirectoryIfMissing: false)
+        } catch { throw Self.map(error) }
+        let (manifest, _) = try parseRecord(bytes)
+        let reference = try AcceptedFinishingReference(acceptanceID: manifest.acceptanceID, sha256: hash(bytes))
+        guard file.lastPathComponent == fileName(reference) else { throw Error.referenceMismatch }
+        var after = stat()
+        guard lstat(root.path, &after) == 0, before.st_dev == after.st_dev,
+              before.st_ino == after.st_ino, before.st_uid == after.st_uid,
+              before.st_mode == after.st_mode else { throw Error.unsafeStore }
+        return SelectedAcceptedFinishingRecord(catalogRoot: root, reference: reference)
     }
 }

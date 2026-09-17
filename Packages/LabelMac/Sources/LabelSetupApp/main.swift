@@ -15,11 +15,13 @@ final class SetupAppController: ObservableObject {
     let printerDefaults: PrinterDefaultsEditingModel?
     var printerSetup: ReferencePrinterSetupModel? { printerDefaults?.setup }
     let usbDiscovery = USBRegistryDiscoveryModel()
+    let finishingJobs: FinishingInspectionModel
     let previewWorkerExecutable = (Bundle.main.executableURL?.deletingLastPathComponent()
         ?? Bundle.main.bundleURL.appending(path: "Contents/MacOS"))
         .appending(path: "label-render-worker")
 
     init() {
+        finishingJobs = FinishingInspectionModel(workerExecutable: previewWorkerExecutable)
         scratchWarning = OfflineRenderWorkerProcess.scratchRecoveryWarning()
         do {
             let setup = try ReferencePrinterSetupModel.gc420dUSB()
@@ -42,7 +44,7 @@ final class SetupAppController: ObservableObject {
         } catch {
             documents = nil
             printerDefaults = nil
-            self.error = String(describing: error)
+            self.error = "Local setup storage could not be initialized. Check access to the app’s local data folder."
         }
     }
 
@@ -71,6 +73,7 @@ struct SetupRootView: View {
                     PrinterDefaultsEditingView(model: printerDefaults)
                 }
                 USBRegistryDiscoveryView(model: controller.usbDiscovery)
+                FinishingInspectionView(model: controller.finishingJobs)
                 GroupBox("Offline diagnostics") {
                     VStack(alignment: .leading) {
                         Button("Copy Offline Diagnostics") { controller.copyOfflineDiagnostics() }
