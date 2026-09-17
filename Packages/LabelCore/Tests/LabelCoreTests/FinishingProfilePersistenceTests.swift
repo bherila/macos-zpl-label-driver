@@ -19,6 +19,102 @@ final class FinishingProfilePersistenceTests: XCTestCase {
             installedHardware: base.installedHardware, media: base.media, connection: base.connection,
             finishingConfiguration: configuration)
     }
+    func testOfflineFinishingResolutionSharesEffectiveControlValidationAndKeepsOrdinaryGate() throws {
+        for method in [ThermalMethod.directThermal, .thermalTransfer] {
+            let base = try ThermalControlTestFixture.profile(method: method)
+            let configuration = configuration(base)
+            let stored = try PrinterProfile(schemaVersion: 8, revision: base.revision,
+                capabilities: base.capabilities, installedHardware: base.installedHardware,
+                media: base.media, connection: base.connection, configuredDefaults: base.configuredDefaults,
+                thermalMedia: base.thermalMedia, finishingConfiguration: configuration)
+            let plan = try FinishingJobPlan(mode: .tearOff, outputLabelCount: 2, media: stored.media,
+                stock: configuration.stock, finishing: configuration.finishing,
+                scheduleQualification: configuration.schedules)
+            let job = PrinterControlRequest(thermalMethod: method, finishing: .tearOff,
+                printSpeedIps: 3, darkness: 0, mediaGeometry: try .init(originXDot: 0),
+                offsets: .init(labelTopDots: 0))
+            let workflow = PrinterControlDefaults(darkness: 9,
+                mediaGeometry: try .init(originYDot: 1), offsets: .init(shiftLeftDots: 1))
+            let legacy = try base.resolveControls(job: job, workflowDefaults: workflow)
+            let expected = ResolvedPrinterControls(profileSchemaVersion: 8, profileRevision: legacy.profileRevision,
+                thermalMethod: legacy.thermalMethod, finishing: legacy.finishing,
+                printSpeedIps: legacy.printSpeedIps, feedSpeedIps: legacy.feedSpeedIps,
+                backfeedSpeedIps: legacy.backfeedSpeedIps, darkness: legacy.darkness,
+                tracking: legacy.tracking, mediaGeometry: legacy.mediaGeometry, offsets: legacy.offsets)
+            let resolved = try stored.resolveFinishingControls(plan: plan, job: job, workflowDefaults: workflow)
+            XCTAssertEqual(resolved, expected)
+            XCTAssertEqual(resolved.darkness, .value(0))
+            XCTAssertThrowsError(try stored.resolveControls(job: job))
+            XCTAssertThrowsError(try ZPLControlEncoder().encode(resolved))
+            XCTAssertThrowsError(try ZPLPreparedLabelEncoder().encode(
+                bitmap: MonochromeBitmap(width: 8, height: 1, bytes: [0]), controls: resolved))
+            XCTAssertThrowsError(try stored.resolveFinishingControls(plan: plan, job: .init(finishing: .cut))) {
+                XCTAssertEqual($0 as? FinishingControlResolutionError, .modeMismatch)
+            }
+            let other = method == .directThermal ? ThermalMethod.thermalTransfer : .directThermal
+            XCTAssertThrowsError(try stored.resolveFinishingControls(plan: plan,
+                job: .init(thermalMethod: other, finishing: .tearOff)))
+            XCTAssertThrowsError(try stored.resolveFinishingControls(plan: plan,
+                job: .init(finishing: .tearOff, printSpeedIps: 99)))
+            XCTAssertThrowsError(try stored.resolveFinishingControls(plan: plan,
+                job: .init(finishing: .tearOff, darkness: 31)))
+            XCTAssertThrowsError(try stored.resolveFinishingControls(plan: plan,
+                job: .init(finishing: .tearOff, tracking: .blackMark)))
+            XCTAssertThrowsError(try base.resolveFinishingControls(plan: plan, job: job))
+            let changedConfiguration = FinishingProfileConfiguration(finishing: configuration.finishing,
+                stock: configuration.stock, schedules: .init(everyLabel: fact, batch: fact,
+                    endOfJob: fact, maximumBatchSize: 4))
+            let changed = try PrinterProfile(schemaVersion: 8, revision: base.revision + 1,
+                capabilities: base.capabilities, installedHardware: base.installedHardware,
+                media: base.media, connection: base.connection, configuredDefaults: base.configuredDefaults,
+                thermalMedia: base.thermalMedia, finishingConfiguration: changedConfiguration)
+            XCTAssertThrowsError(try changed.resolveFinishingControls(plan: plan, job: job)) {
+                XCTAssertEqual($0 as? FinishingControlResolutionError, .planMismatch)
+            }
+        }
+    }
+
+    func testEveryQualifiedFinishingModeResolvesWithoutAdmittingMechanicalEncoding() throws {
+        let base = try ThermalControlTestFixture.profile(method: .directThermal), c = base.capabilities
+        let installation = CapabilityFact(state: .supported, evidence: .reportedInstallation)
+        let modes: [FinishingMode] = [.tearOff, .cut, .peel, .rewind]
+        let configuration = FinishingProfileConfiguration(finishing: .init(
+            modes: Dictionary(uniqueKeysWithValues: modes.map { ($0, fact) }), enabledModes: Set(modes),
+            installed: .init(cutter: .observed(true, evidence: .reportedInstallation),
+                peeler: .observed(true, evidence: .reportedInstallation),
+                rewinder: .observed(true, evidence: .reportedInstallation))),
+            stock: .init(media: base.media, compatibleModes: Dictionary(uniqueKeysWithValues: modes.map {
+                ($0, .observed(true, evidence: .reportedInstallation))
+            })), schedules: .init(everyLabel: fact, batch: fact, endOfJob: fact, maximumBatchSize: 5))
+        let profile = try PrinterProfile(schemaVersion: 8, revision: base.revision,
+            capabilities: .init(model: "synthetic-finishing-controls", thermalTransfer: c.thermalTransfer,
+                cutter: fact, peeler: fact, rewind: fact, tracking: c.tracking,
+                printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: c.darkness,
+                feedSpeeds: c.feedSpeeds, backfeedSpeeds: c.backfeedSpeeds,
+                physicalGeometry: c.physicalGeometry, offsets: c.offsets, directThermal: c.directThermal),
+            installedHardware: .init(transport: .usb, selectedFinishing: .tearOff,
+                cutter: installation, peeler: installation, observedSpeedIps: nil,
+                observedDarkness: nil, observedTracking: nil), media: base.media, connection: base.connection,
+            configuredDefaults: base.configuredDefaults, thermalMedia: base.thermalMedia,
+            finishingConfiguration: configuration)
+        for mode in modes {
+            let plan = try FinishingJobPlan(mode: mode, outputLabelCount: 7, media: profile.media,
+                stock: configuration.stock, finishing: configuration.finishing,
+                schedule: mode == .cut ? .batch(size: 3, cutRemainderAtJobEnd: true) : nil,
+                scheduleQualification: configuration.schedules)
+            let resolved = try profile.resolveFinishingControls(plan: plan,
+                job: .init(finishing: mode, darkness: 0))
+            XCTAssertEqual(resolved.finishing, .value(mode))
+            XCTAssertEqual(resolved.thermalMethod, .value(.directThermal))
+            XCTAssertEqual(resolved.darkness, .value(0))
+            XCTAssertEqual(plan.cutAfterOutputLabels, mode == .cut ? [3, 6, 7] : [])
+            XCTAssertThrowsError(try profile.resolveFinishingControls(plan: plan,
+                job: .init(finishing: mode, darkness: 31)))
+            XCTAssertThrowsError(try ZPLControlEncoder().encode(resolved))
+            XCTAssertThrowsError(try profile.resolveControls(job: .init(finishing: mode)))
+        }
+    }
+
     func testStorageOnlyProfileCannotResolveOrEncodeThroughEitherOrdinaryEntryPath() throws {
         let base = try ThermalControlTestFixture.profile(method: .directThermal)
         let stored = try PrinterProfile(schemaVersion: 8, revision: base.revision,

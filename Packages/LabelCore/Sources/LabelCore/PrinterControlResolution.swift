@@ -102,6 +102,29 @@ public extension PrinterProfile {
         workflowDefaults: PrinterControlDefaults = .init()
     ) throws -> ResolvedPrinterControls {
         try OrdinaryPrinterProfileAdmission.validate(schemaVersion)
+        return try resolveEffectiveControls(job: job, workflowDefaults: workflowDefaults, finishingPlan: nil)
+    }
+
+    /// Offline finishing resolution only. The exact stored policy must reproduce
+    /// the supplied plan; ordinary encoders still reject schema8 controls.
+    func resolveFinishingControls(
+        plan: FinishingJobPlan, job: PrinterControlRequest,
+        workflowDefaults: PrinterControlDefaults = .init()
+    ) throws -> ResolvedPrinterControls {
+        guard schemaVersion == 8, let configuration = finishingConfiguration else {
+            throw PrinterProfileError.invalidProfileVersion
+        }
+        let expected = try FinishingJobPlan(mode: plan.mode, outputLabelCount: plan.outputLabelCount,
+            media: media, stock: configuration.stock, finishing: configuration.finishing,
+            schedule: plan.schedule, scheduleQualification: configuration.schedules)
+        guard expected == plan else { throw FinishingControlResolutionError.planMismatch }
+        return try resolveEffectiveControls(job: job, workflowDefaults: workflowDefaults, finishingPlan: plan)
+    }
+
+    private func resolveEffectiveControls(
+        job: PrinterControlRequest, workflowDefaults: PrinterControlDefaults,
+        finishingPlan: FinishingJobPlan?
+    ) throws -> ResolvedPrinterControls {
         guard let thermal = job.thermalMethod ?? workflowDefaults.thermalMethod
             ?? configuredDefaults.thermalMethod ?? (schemaVersion < 7 ? .directThermal : nil) else {
             throw ThermalControlQualification.Error.explicitMethodRequired
@@ -137,7 +160,7 @@ public extension PrinterProfile {
                             labelTopDots: field(\.labelTopDots))
         } else { offsets = nil }
 
-        try validate(.init(
+        let effective = PrinterControlRequest(
             thermalMethod: thermal,
             finishing: finishing,
             printSpeedIps: speed,
@@ -146,7 +169,13 @@ public extension PrinterProfile {
             darkness: darkness,
             tracking: tracking,
             mediaGeometry: mediaGeometry, offsets: offsets
-        ))
+        )
+        if let finishingPlan {
+            guard finishing == finishingPlan.mode else { throw FinishingControlResolutionError.modeMismatch }
+            try validateNonFinishingControls(effective)
+        } else {
+            try validate(effective)
+        }
         return ResolvedPrinterControls(
             profileSchemaVersion: schemaVersion,
             profileRevision: revision,
@@ -161,4 +190,9 @@ public extension PrinterProfile {
             offsets: offsets.map(ResolvedSetting.value) ?? .leaveUnchanged
         )
     }
+}
+
+public enum FinishingControlResolutionError: Error, Equatable, Sendable {
+    case planMismatch
+    case modeMismatch
 }
