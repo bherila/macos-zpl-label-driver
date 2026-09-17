@@ -22,7 +22,7 @@ passed. Finite900s native full gate session76225 completed FULL_GATE_EXIT0:
 finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc
 signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL equality.
 Log /tmp/zpl-traceability-history-full.log; local artifact artifacts/setup-app.w0DWyo.
-No printer accessed. Source checkpoint pending.
+No printer accessed. Implementation source b4eb3bc8ef7bae8a63bd14f021c4502be0b097df, committed locally; push/hosted validation pending.
 
 Changing workflow/test inputs intentionally invalidates older source assessments. Reassess
 unchanged control behavior against the new evaluated source after the full gate; do not
@@ -32,3 +32,10 @@ history. Evidence-only descendants retain the existing strict reference/source r
 No installed/system-dialog/physical configuration is qualified. M6 per-ID backfill,
 independent semantic review and prescribed integration/H/R evidence remain open. Frozen B
 unchanged. No administrator, printer, merge or binary publication action.
+
+Fresh A-assessment reevaluation: after the full gate, every implementation/test hash in
+M3-AC01/04 was checked unchanged against its earlier assessment. The new full gate includes
+those control/stock/prepared-label cases. Their A declarations are reassessed at the new
+implementation source above and additionally reference this fresh gate evidence. Earlier
+source records remain historical; no integration, H or R declaration is added. Independent
+semantic maintainer approval remains required.
