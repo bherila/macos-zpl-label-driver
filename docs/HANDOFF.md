@@ -3222,8 +3222,8 @@ FinishingArtifactStore now publishes private bounded binary archives using the e
 immutable directory helper. Typed record-format capacity keeps four-record admission
 and idempotent full-store readback consistent.38combined focused/restored native cases
 passed; JSON-only capacity regression failed four assertions. Full finite900s session57062 passed ownexit0 with the current checks above;
-log /tmp/zpl-finishing-store-full.log. Next commit locally and hold push until
-published serialization-head CI finishes;
+log /tmp/zpl-finishing-store-full.log. Implementation 425e584c673d6316951be5a7e8c24b7791fd88ba is committed locally;
+hold push until published serialization-head CI finishes;
 see [store evidence](validation/M3-FINISHING-ARTIFACT-STORE-2026-09-17.md).
 This does not supply durable delivery lifecycle or post-crash replay authorization.
 
