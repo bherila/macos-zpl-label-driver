@@ -28,6 +28,11 @@ public struct ZPLControlProtocol: Equatable, Sendable {
         lifetime: .applicationUntilReissuedOrPowerOff,
         notes: "All three values explicit; feed/backfeed need separate profile qualification. Reference remains unknown.")
 
+    public static let qualifiedThermalMethod: ZPLControlProtocol = .init(
+        option: "thermalMethod", command: "^MTD/^MTT", sourceID: "R45",
+        lifetime: .modelSpecificOrUnverified,
+        notes: "Profile7 requires separate evidenced method support and matching declared loaded media/ribbon; reissued per label, not physical state-isolation proof.")
+
     public static let qualifiedAbsoluteDarkness: ZPLControlProtocol = .init(
         option: "darkness", command: "^MD0/~SD", sourceID: "R45",
         lifetime: .applicationUntilReissuedOrPowerOff,
@@ -54,9 +59,9 @@ public enum ZPLControlEncodingError: Error, Equatable, Sendable {
     case outputLimit
 }
 
-/// Encodes only the safe, provenance-backed subset of resolved GC420d controls.
-/// It has no raw-string input and cannot emit reset, calibration, save, erase,
-/// firmware, copy, media-dimension, or device-transport commands.
+/// Encodes the provenance-backed subset of resolved qualified controls. Resolution
+/// validates immutable model and installation declarations before creating controls.
+/// No raw strings, reset, calibration, save, erase, firmware, copies or transport.
 public struct ZPLControlEncoder: Sendable {
     public let maxOutputBytes: Int
 
@@ -68,7 +73,8 @@ public struct ZPLControlEncoder: Sendable {
     public func encode(_ controls: ResolvedPrinterControls) throws -> Data {
         switch controls.thermalMethod {
         case .leaveUnchanged, .value(.directThermal): break
-        case .value(.thermalTransfer): throw ZPLControlEncodingError.unsupportedThermalMethod
+        case .value(.thermalTransfer):
+            guard controls.profileSchemaVersion == 7 else { throw ZPLControlEncodingError.unsupportedThermalMethod }
         }
         switch controls.finishing {
         case .leaveUnchanged: break
@@ -98,7 +104,7 @@ public struct ZPLControlEncoder: Sendable {
                 length = value
                 physical.append(.continuousTracking(labelLengthDots: value))
             case .blackMark:
-                guard controls.profileSchemaVersion == 6, case let .value(offsets) = controls.offsets,
+                guard controls.profileSchemaVersion >= 6, case let .value(offsets) = controls.offsets,
                       offsets.blackMarkOffsetDots != nil else { throw ZPLControlEncodingError.unqualifiedTracking }
             }
         }
@@ -121,7 +127,7 @@ public struct ZPLControlEncoder: Sendable {
         var markRange: ClosedRange<Int>?
         var topRange: ClosedRange<Int>?
         if case let .value(offsets) = controls.offsets {
-            guard controls.profileSchemaVersion == 6 else { throw PrinterProfileError.invalidProfileVersion }
+            guard controls.profileSchemaVersion >= 6 else { throw PrinterProfileError.invalidProfileVersion }
             if let value = offsets.blackMarkOffsetDots {
                 guard controls.tracking == .value(.blackMark) else { throw OffsetControlQualification.Error.blackMarkModeRequired }
                 offsetControls.append(.blackMarkTracking(offsetDots: value)); markRange = value...value
@@ -157,6 +163,14 @@ public struct ZPLControlEncoder: Sendable {
                               backfeedSpeedChoicesIps: [backfeedSpeed]))
         }
         var output = Data()
+        if controls.profileSchemaVersion == 7 {
+            guard case let .value(method) = controls.thermalMethod else {
+                throw ThermalControlQualification.Error.explicitMethodRequired
+            }
+            let control = ZPLDocumentedControl.thermalMethod(method)
+            output.append(try ZPLDocumentedControlEncoder().encode([control],
+                qualification: [control.kind: .supported]))
+        }
         if controls.finishing == .value(.tearOff) { output.append(contentsOf: "^MMT\n".utf8) }
         if let motorBytes { output.append(motorBytes) }
         else if case let .value(speed) = controls.printSpeedIps {

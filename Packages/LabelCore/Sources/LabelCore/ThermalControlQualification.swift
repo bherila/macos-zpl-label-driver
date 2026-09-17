@@ -19,6 +19,7 @@ public struct ThermalMediaConfiguration: Equatable, Sendable {
 public struct ThermalControlQualification: Equatable, Sendable {
     public enum Error: Swift.Error, Equatable, Sendable {
         case unavailable(ThermalMethod, CapabilityState)
+        case explicitMethodRequired
         case missingModelEvidence
         case unverifiedMedia
         case incompatibleMedia

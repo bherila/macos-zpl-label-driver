@@ -29,11 +29,13 @@ public struct JobProfileSnapshot: Equatable, Sendable {
     public let schemaVersion: Int
     public let revision: Int
     public let media: MediaConfiguration
+    public let thermalMedia: ThermalMediaConfiguration
 
     public init(profile: PrinterProfile) {
         schemaVersion = profile.schemaVersion
         revision = profile.revision
         media = profile.media
+        thermalMedia = profile.thermalMedia
     }
 }
 

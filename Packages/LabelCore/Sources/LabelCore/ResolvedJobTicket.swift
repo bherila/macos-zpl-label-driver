@@ -124,10 +124,11 @@ public struct ResolvedJobTicket: Equatable, Sendable {
         do { controls = try printerProfile.resolveControls(job: explicitControls, workflowDefaults: defaults) }
         catch { throw ResolvedJobTicketError.invalidControls }
         return try ResolvedJobTicket(
-            schemaVersion: queueDefinition.schemaVersion == 5 || printerProfile.schemaVersion == 6 ? 6 :
+            schemaVersion: queueDefinition.schemaVersion == 6 || printerProfile.schemaVersion == 7 ? 7 :
+                (queueDefinition.schemaVersion == 5 || printerProfile.schemaVersion == 6 ? 6 :
                 (queueDefinition.schemaVersion == 4 || printerProfile.schemaVersion == 5 ? 5 :
                 (queueDefinition.schemaVersion == 3 || printerProfile.schemaVersion == 4 ? 4 :
-                (queueDefinition.schemaVersion == 2 || printerProfile.schemaVersion == 3 ? 3 : 2))),
+                (queueDefinition.schemaVersion == 2 || printerProfile.schemaVersion == 3 ? 3 : 2)))),
             acceptanceID: acceptanceID,
             cancellationSHA256: cancellationSHA256,
             activeSelectionGeneration: activeSelection.generation,
@@ -174,9 +175,13 @@ public struct ResolvedJobTicket: Equatable, Sendable {
         outputLabels: [ResolvedOutputLabel],
         skippedPages: [ResolvedSkippedPage]
     ) throws {
-        guard (2...6).contains(schemaVersion) else { throw ResolvedJobTicketError.unsupportedSchema }
-        guard (1...5).contains(queue.schemaVersion), (1...6).contains(printerProfile.schemaVersion) else {
+        guard (2...7).contains(schemaVersion) else { throw ResolvedJobTicketError.unsupportedSchema }
+        guard (1...6).contains(queue.schemaVersion), (1...7).contains(printerProfile.schemaVersion) else {
             throw ResolvedJobTicketError.invalidReference
+        }
+        guard schemaVersion == 7 || (printerProfile.schemaVersion <= 6 && queue.schemaVersion <= 5 &&
+            controls.thermalMethod != .value(.thermalTransfer)) else {
+            throw ResolvedJobTicketError.invalidControls
         }
         guard schemaVersion >= 3 || (printerProfile.schemaVersion <= 2 && queue.schemaVersion == 1 &&
               controls.feedSpeedIps == .notExplicitlyControlled && controls.backfeedSpeedIps == .notExplicitlyControlled) else {
@@ -190,14 +195,14 @@ public struct ResolvedJobTicket: Equatable, Sendable {
               controls.tracking == .leaveUnchanged && controls.mediaGeometry == .leaveUnchanged) else {
             throw ResolvedJobTicketError.invalidControls
         }
-        guard schemaVersion == 6 || (printerProfile.schemaVersion <= 5 && queue.schemaVersion <= 4 &&
+        guard schemaVersion >= 6 || (printerProfile.schemaVersion <= 5 && queue.schemaVersion <= 4 &&
               controls.offsets == .leaveUnchanged) else { throw ResolvedJobTicketError.invalidControls }
         guard VirtualQueueDefinition.isSelector(acceptanceID),
               VirtualQueueDefinition.isSHA256(cancellationSHA256)
         else { throw ResolvedJobTicketError.invalidIdentity }
         guard activeSelectionGeneration > 0,
-              workflowProfile.schemaVersion == 2, (1...5).contains(queue.schemaVersion),
-              (1...6).contains(printerProfile.schemaVersion),
+              workflowProfile.schemaVersion == 2, (1...6).contains(queue.schemaVersion),
+              (1...7).contains(printerProfile.schemaVersion),
               controls.profileSchemaVersion == printerProfile.schemaVersion,
               controls.profileRevision == printerProfile.revision else {
             throw ResolvedJobTicketError.invalidReference
@@ -414,7 +419,7 @@ public enum ResolvedJobTicketJSON {
                 "monochromeConversion", "controls", "outputLabels", "skippedPages",
             ])
             let version = try integer(root, "schemaVersion")
-            guard (2...6).contains(version) else {
+            guard (2...7).contains(version) else {
                 throw ResolvedJobTicketError.unsupportedSchema
             }
             let source = try object(try required(root, "source"), keys: [
@@ -601,7 +606,7 @@ public enum ResolvedJobTicketJSON {
             result["feedSpeedIps"] = encodeMotorSpeed(value.feedSpeedIps)
             result["backfeedSpeedIps"] = encodeMotorSpeed(value.backfeedSpeedIps)
         }
-        if version == 6 {
+        if version >= 6 {
             switch value.offsets {
             case .leaveUnchanged: result["offsets"] = ["mode": "leaveUnchanged", "value": NSNull()]
             case let .value(offsets): result["offsets"] = ["mode": "value", "value": PrivateOffsetJSON.encode(offsets)]
@@ -627,7 +632,7 @@ public enum ResolvedJobTicketJSON {
         var keys: Set<String> = ["profileSchemaVersion", "profileRevision", "thermalMethod", "finishing",
                                  "printSpeedIps", "darkness", "tracking", "mediaGeometry"]
         if version >= 3 { keys.formUnion(["feedSpeedIps", "backfeedSpeedIps"]) }
-        if version == 6 { keys.insert("offsets") }
+        if version >= 6 { keys.insert("offsets") }
         let value = try object(raw, keys: keys)
         return ResolvedPrinterControls(
             profileSchemaVersion: try integer(value, "profileSchemaVersion"),
@@ -640,7 +645,7 @@ public enum ResolvedJobTicketJSON {
             darkness: try decodeOptionalInt(value, "darkness"),
             tracking: try decodeOptional(value, "tracking", MediaTracking.init(rawValue:)),
             mediaGeometry: try decodeGeometry(try required(value, "mediaGeometry")),
-            offsets: version == 6 ? try decodeOffsets(required(value, "offsets")) : .leaveUnchanged
+            offsets: version >= 6 ? try decodeOffsets(required(value, "offsets")) : .leaveUnchanged
         )
     }
 

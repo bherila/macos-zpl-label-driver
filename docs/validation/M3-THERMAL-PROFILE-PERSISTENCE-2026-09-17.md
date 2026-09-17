@@ -65,3 +65,9 @@ pushed. Preceding policy checkpoint4970335b509e30dbe3558f947c9e8c1cd385ef6e
 remote/PR81 confirmed equal; exact hosted35217368100 observed in progress.
 No hosted profile7 pass is claimed. Next: queue/ticket and ordinary encoding
 integration with original-PDF inert validation; no physical gate substituted.
+
+## Published checkpoint
+
+Profile sourceb24a618 and documentation checkpointbe681ca7c37c08ca2687a9a33f2216cffd0427ec
+pushed; remote/PR81 head read back equal tobe681ca. Exact hosted35218292332
+observed live, not pass evidence. Preceding4970335 run35217368100 passed.

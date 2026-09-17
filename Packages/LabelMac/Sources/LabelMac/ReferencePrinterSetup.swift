@@ -65,7 +65,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
     public var trackingChoices: [MediaTracking] {
         guard profile.schemaVersion >= 5 else { return [] }
         var modes: [MediaTracking] = [.gap, .continuous]
-        if profile.schemaVersion == 6, profile.capabilities.offsets.blackMark.fact.state == .supported,
+        if profile.schemaVersion >= 6, profile.capabilities.offsets.blackMark.fact.state == .supported,
            profile.capabilities.offsets.blackMark.fact.evidence != .unobserved { modes.append(.blackMark) }
         return modes.filter {
             guard let fact = profile.capabilities.tracking[$0] else { return false }
@@ -134,7 +134,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
 
     public func offsetRange(for field: OffsetField) -> ClosedRange<Int>? {
         let limit = offsetLimit(for: field)
-        guard profile.schemaVersion == 6, limit.fact.state == .supported,
+        guard profile.schemaVersion >= 6, limit.fact.state == .supported,
               limit.fact.evidence != .unobserved else { return nil }
         return limit.range
     }

@@ -65,7 +65,7 @@ public struct VirtualQueueDefinition: Equatable, Sendable {
         workflowDefaults: PrinterControlRequest,
         validatingAgainst profile: PrinterProfile
     ) throws {
-        guard (1...5).contains(schemaVersion), revision > 0 else { throw VirtualQueueError.invalidRevision }
+        guard (1...6).contains(schemaVersion), revision > 0 else { throw VirtualQueueError.invalidRevision }
         guard Self.isSelector(id) else { throw VirtualQueueError.invalidSelector(id) }
         guard !displayName.isEmpty, displayName.utf8.count <= 128,
               displayName.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else {
@@ -79,14 +79,14 @@ public struct VirtualQueueDefinition: Equatable, Sendable {
               workflowDefaults.feedSpeedIps == nil && workflowDefaults.backfeedSpeedIps == nil) else {
             throw VirtualQueueError.invalidDefaults
         }
-        guard profile.schemaVersion <= 6 else { throw VirtualQueueError.invalidDefaults }
+        guard (schemaVersion == 6 ? profile.schemaVersion <= 7 : profile.schemaVersion <= 6) else { throw VirtualQueueError.invalidDefaults }
         _ = try profile.resolveControls(job: workflowDefaults)
-        guard schemaVersion == 5 || (profile.schemaVersion <= 5 && workflowDefaults.offsets == nil) else { throw VirtualQueueError.invalidDefaults }
+        guard schemaVersion >= 5 || (profile.schemaVersion <= 5 && workflowDefaults.offsets == nil) else { throw VirtualQueueError.invalidDefaults }
         guard schemaVersion >= 4 || profile.schemaVersion <= 4 else { throw VirtualQueueError.invalidDefaults }
         guard schemaVersion >= 3 || (profile.schemaVersion <= 3 && workflowDefaults.darkness == nil) else {
             throw VirtualQueueError.invalidDefaults
         }
-        guard workflowDefaults.thermalMethod == .directThermal,
+        guard (schemaVersion == 6 || workflowDefaults.thermalMethod == .directThermal),
               workflowDefaults.finishing == .tearOff,
               (schemaVersion >= 3 || workflowDefaults.darkness == nil),
               (schemaVersion >= 4 || workflowDefaults.tracking == nil),
@@ -174,7 +174,9 @@ public enum VirtualQueueJSON {
             "workflowProfile": encodeReference(queue.workflowProfile),
             "printerProfile": encodeReference(queue.printerProfile),
             "defaults": [
-                "thermalMethod": "directThermal",
+                "thermalMethod": queue.schemaVersion == 6
+                    ? (queue.workflowDefaults.thermalMethod.map { $0.rawValue as Any } ?? NSNull())
+                    : "directThermal",
                 "finishing": "tearOff",
                 "printSpeedIps": speed,
             ],
@@ -190,7 +192,7 @@ public enum VirtualQueueJSON {
                 defaults["tracking"] = queue.workflowDefaults.tracking.map { $0.rawValue as Any } ?? NSNull()
                 defaults["mediaGeometry"] = PrivatePhysicalGeometryJSON.encode(queue.workflowDefaults.mediaGeometry)
             }
-            if queue.schemaVersion == 5 { defaults["offsets"] = PrivateOffsetJSON.encode(queue.workflowDefaults.offsets) }
+            if queue.schemaVersion >= 5 { defaults["offsets"] = PrivateOffsetJSON.encode(queue.workflowDefaults.offsets) }
             root["defaults"] = defaults
         }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
@@ -216,17 +218,26 @@ public enum VirtualQueueJSON {
                 "workflowProfile", "printerProfile", "defaults",
             ])
             let version = try integer(root, "schemaVersion")
-            guard (1...5).contains(version) else {
+            guard (1...6).contains(version) else {
                 throw VirtualQueueJSONError.unsupportedSchema
             }
             var keys: Set<String> = ["thermalMethod", "finishing", "printSpeedIps"]
             if version >= 2 { keys.formUnion(["feedSpeedIps", "backfeedSpeedIps"]) }
             if version >= 3 { keys.insert("darkness") }
             if version >= 4 { keys.formUnion(["tracking", "mediaGeometry"]) }
-            if version == 5 { keys.insert("offsets") }
+            if version >= 5 { keys.insert("offsets") }
             let defaults = try object(try required(root, "defaults"), allowed: keys)
-            guard try string(defaults, "thermalMethod") == "directThermal",
-                  try string(defaults, "finishing") == "tearOff" else {
+            let thermal: ThermalMethod?
+            let thermalRaw = try required(defaults, "thermalMethod")
+            if version == 6 && thermalRaw is NSNull { thermal = nil }
+            else {
+                guard let method = ThermalMethod(rawValue: try string(defaults, "thermalMethod")),
+                      version == 6 || method == .directThermal else {
+                    throw VirtualQueueJSONError.invalidValue("thermalMethod")
+                }
+                thermal = method
+            }
+            guard try string(defaults, "finishing") == "tearOff" else {
                 throw VirtualQueueJSONError.invalidValue("defaults")
             }
             let speed: Int?
@@ -245,13 +256,13 @@ public enum VirtualQueueJSON {
                 workflowProfile: decodeReference(try required(root, "workflowProfile")),
                 printerProfile: decodeReference(try required(root, "printerProfile")),
                 workflowDefaults: PrinterControlRequest(
-                    thermalMethod: .directThermal, finishing: .tearOff, printSpeedIps: speed,
+                    thermalMethod: thermal, finishing: .tearOff, printSpeedIps: speed,
                     feedSpeedIps: feed, backfeedSpeedIps: backfeed,
                     darkness: version >= 3 ? try optionalSpeed(defaults, "darkness") : nil,
                     tracking: version >= 4 && !(try required(defaults, "tracking") is NSNull)
                         ? try decodeTracking(defaults) : nil,
                     mediaGeometry: version >= 4 ? try PrivatePhysicalGeometryJSON.decode(required(defaults, "mediaGeometry")) : nil,
-                    offsets: version == 5 ? try PrivateOffsetJSON.decode(required(defaults, "offsets")) : nil
+                    offsets: version >= 5 ? try PrivateOffsetJSON.decode(required(defaults, "offsets")) : nil
                 ),
                 validatingAgainst: profile
             )
@@ -277,7 +288,7 @@ public enum VirtualQueueJSON {
             "schemaVersion", "id", "revision", "displayName", "physicalDeviceSHA256",
             "workflowProfile", "printerProfile", "defaults",
         ])
-        guard (1...5).contains(try integer(root, "schemaVersion")) else {
+        guard (1...6).contains(try integer(root, "schemaVersion")) else {
             throw VirtualQueueJSONError.unsupportedSchema
         }
         do { return try decodeReference(required(root, "printerProfile")) }

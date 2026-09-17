@@ -93,8 +93,10 @@ public extension PrinterProfile {
         job: PrinterControlRequest,
         workflowDefaults: PrinterControlDefaults = .init()
     ) throws -> ResolvedPrinterControls {
-        let thermal = job.thermalMethod ?? workflowDefaults.thermalMethod
-            ?? configuredDefaults.thermalMethod ?? .directThermal
+        guard let thermal = job.thermalMethod ?? workflowDefaults.thermalMethod
+            ?? configuredDefaults.thermalMethod ?? (schemaVersion < 7 ? .directThermal : nil) else {
+            throw ThermalControlQualification.Error.explicitMethodRequired
+        }
         let finishing = job.finishing ?? workflowDefaults.finishing
             ?? configuredDefaults.finishing ?? installedHardware.selectedFinishing
         // Read-only observations are deliberately absent from this precedence
