@@ -139,6 +139,15 @@ Preflight/diffcheck passed. See [inventory evidence](validation/M6-COMPATIBILITY
 Documentation checkpoint 523fa6b committed locally; push pending.
 Per-ID assessments and semantic review remain open.
 
+## Explicit per-ID automated assessments
+
+The ledger now records reviewed A-level assessments for M3-AC01 capability truthfulness
+and M3-AC04 no implicit persistent mutation. Exact implementation/test/evidence bytes and
+evaluated source bind these two declarations. Focused26Core tests passed exit0 and executable
+inputs match the previous passing full gate. No integration/H/R criterion is promoted.
+See [assessments](validation/M3-PER-ID-AUTOMATED-ASSESSMENTS-2026-09-17.md).
+Global qualification remains incomplete and semantic review remains required.
+
 ## Manual Part A and Part B
 
 The maintainer reported issue80 Part A passed with the corrected local editor artifact
