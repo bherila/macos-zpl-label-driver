@@ -1,3 +1,21 @@
+Finishing framing full gate session6593 completed ownexit0: 89 Python/272 Core/324
+native debug/release, independent oracle, inert ABI/pipeline, metadata/signature and
+packaged-worker equality checks passed. Artifact artifacts/setup-app.P5wHzx.
+Previous published 07ef316 exact hosted run35229621380 passed; new slice hosted pending.
+
+# In-memory qualified finishing output framing — 2026-09-17
+
+Local framed candidates now preserve actual original-source graphics, exact profile/
+normal controls, quantity1 expanded labels, delayed-cut files and required status waits.
+Additional qualification binds the complete profile and independently gates delayed
+mode/readiness/completion, file delivery, peel removal/prepeel syntax and non-RFID scope.
+Six Core/nine native focused and restored cases passed; quantity2, ^MMC substitution and
+same-model profile-binding omissions failed independently then byte-restored. See
+validation/M3-FINISHING-OUTPUT-FRAMING-2026-09-17.md. Full gate and source/disclosure
+review passed; next same-PR source commit/readback. No delivery adapter consumes these
+steps; actual status/file/lease/uncertainty, accepted queue/ticket/device/pitch/persistence
+and manual/hardware qualification remain open. Ordinary8 remains gated. Frozen B unchanged.
+
 # Bound normal-control encoding source checkpoint — 2026-09-17
 
 Implementation 7481e23c1deb63252b70f76ec9775fbd8233e098 passed the recorded local finite gate.

@@ -262,3 +262,13 @@ retains that context before rendering. Schema8 thermal commands remain explicit.
 The normal prefix excludes all finishing, format, graphic, quantity and cut-trigger
 commands; output policy must own these separately. Ordinary schema8 admission is
 unchanged and a prefix cannot substitute for a complete accepted job payload.
+
+### In-memory finishing output steps
+
+FinishingOutputQualification requires additional complete-profile-bound model/status/
+adapter facts. Framed candidates keep each quantity1 format, correlated printed-label
+requirement, separate delayed-cut file/readiness/completion and peel-removal requirements
+in explicit order. They expose no concatenated payload or delivery authority. A future
+sender must independently validate its actual file/status implementation and retain the
+physical-device coordination lease through required waits. Unknown status is never
+completion. Ordinary schema8 queue/ticket/encoder admission remains unchanged.

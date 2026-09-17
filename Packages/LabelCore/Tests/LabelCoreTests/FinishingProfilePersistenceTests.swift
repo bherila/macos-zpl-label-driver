@@ -119,6 +119,76 @@ final class FinishingProfilePersistenceTests: XCTestCase {
             let normalization = try ZPLControlEncoder().prepareFinishingNormalization(profile: profile,
                 plan: plan, job: .init(finishing: mode, darkness: 0))
             XCTAssertEqual(normalization.controls, resolved)
+            let nonRFID = CapabilityFact(state: .unsupported,
+                evidence: .documentedModel(sourceID: "synthetic-non-rfid"))
+            func wire(model: String = profile.capabilities.model,
+                      delayed: CapabilityFact? = nil, readiness: CapabilityFact? = nil,
+                      files: Observation<Bool> = .observed(true, evidence: .reportedInstallation),
+                      taken: CapabilityFact? = nil, prepeel: CapabilityFact? = nil,
+                      rfid: CapabilityFact? = nil, quantity: CapabilityFact? = nil,
+                      completion: CapabilityFact? = nil, cutDone: CapabilityFact? = nil,
+                      boundProfile: PrinterProfile? = nil) -> FinishingOutputQualification {
+                .init(profile: boundProfile ?? profile, model: model, quantityOne: quantity ?? fact, labelCompletion: completion ?? fact, rfid: rfid ?? nonRFID,
+                    delayedCutter: delayed ?? fact, delayedCutReadiness: readiness ?? fact, cutCompletion: cutDone ?? fact,
+                    completeFileDelivery: files, peelLabelTaken: taken ?? fact, prepeel: prepeel ?? fact)
+            }
+            let expectedPolicy: FinishingOutputQualification.ModePolicy
+            switch mode {
+            case .tearOff: expectedPolicy = .tearOff
+            case .rewind: expectedPolicy = .rewind
+            case .cut: expectedPolicy = .delayedCutSeparateFiles
+            case .peel: expectedPolicy = .peelExplicitNoPrepeel
+            }
+            XCTAssertEqual(try wire().validate(normalization), expectedPolicy)
+            XCTAssertThrowsError(try wire(model: "synthetic-other-model").validate(normalization))
+            let changedUnitSnapshot = try PrinterProfile(schemaVersion: 8, revision: profile.revision + 1,
+                capabilities: profile.capabilities, installedHardware: profile.installedHardware,
+                media: profile.media, connection: profile.connection, configuredDefaults: profile.configuredDefaults,
+                thermalMedia: profile.thermalMedia, finishingConfiguration: profile.finishingConfiguration)
+            XCTAssertEqual(changedUnitSnapshot.capabilities.model, profile.capabilities.model)
+            XCTAssertThrowsError(try wire(boundProfile: changedUnitSnapshot).validate(normalization)) {
+                XCTAssertEqual($0 as? FinishingOutputQualification.Error, .profileMismatch)
+            }
+            XCTAssertThrowsError(try wire(rfid: .init(state: .unknown, evidence: .unobserved)).validate(normalization))
+            XCTAssertThrowsError(try wire(rfid: fact).validate(normalization)) {
+                XCTAssertEqual($0 as? FinishingOutputQualification.Error, .unsupportedRFID)
+            }
+            let unknown = CapabilityFact(state: .unknown, evidence: .unobserved)
+            let reported = CapabilityFact(state: .supported, evidence: .reportedInstallation)
+            XCTAssertThrowsError(try wire(quantity: unknown).validate(normalization))
+            XCTAssertThrowsError(try wire(completion: unknown).validate(normalization))
+            XCTAssertThrowsError(try wire(quantity: reported).validate(normalization))
+            XCTAssertThrowsError(try wire(completion: reported).validate(normalization))
+            XCTAssertThrowsError(try wire(rfid: .init(state: .unsupported, evidence: .unobserved)).validate(normalization))
+            for invalidModel in ["", String(repeating: "x", count: 257), "synthetic\nmodel"] {
+                XCTAssertThrowsError(try wire(model: invalidModel).validate(normalization)) {
+                    XCTAssertEqual($0 as? FinishingOutputQualification.Error, .invalidModel)
+                }
+            }
+            if mode == .cut {
+                XCTAssertThrowsError(try wire(delayed: unknown).validate(normalization))
+                XCTAssertThrowsError(try wire(delayed: reported).validate(normalization))
+                XCTAssertThrowsError(try wire(readiness: unknown).validate(normalization))
+                XCTAssertThrowsError(try wire(cutDone: unknown).validate(normalization))
+                XCTAssertThrowsError(try wire(files: .unobserved).validate(normalization)) {
+                    XCTAssertEqual($0 as? FinishingOutputQualification.Error, .unverifiedFileBoundaries)
+                }
+                XCTAssertThrowsError(try wire(files: .observed(false, evidence: .reportedInstallation)).validate(normalization)) {
+                    XCTAssertEqual($0 as? FinishingOutputQualification.Error, .absentFileBoundaries)
+                }
+                XCTAssertThrowsError(try wire(files: .observed(true, evidence: .documentedModel(sourceID: "synthetic-file-model"))).validate(normalization))
+            } else if mode == .peel {
+                XCTAssertThrowsError(try wire(taken: unknown).validate(normalization))
+                XCTAssertThrowsError(try wire(prepeel: unknown).validate(normalization))
+                XCTAssertThrowsError(try wire(prepeel: reported).validate(normalization))
+                XCTAssertEqual(try wire(prepeel: .init(state: .unsupported,
+                    evidence: .documentedModel(sourceID: "synthetic-prepeel-not-applicable")))
+                    .validate(normalization), .peelPrepeelNotApplicable)
+            } else {
+                XCTAssertEqual(try wire(delayed: unknown, readiness: unknown, files: .unobserved,
+                    taken: unknown, prepeel: unknown).validate(normalization), expectedPolicy)
+            }
+            XCTAssertThrowsError(try FinishingOutputQualification(profile: profile, model: profile.capabilities.model).validate(normalization))
             let prefix = String(decoding: normalization.bytes, as: UTF8.self)
             XCTAssertTrue(prefix.hasPrefix("^MTD\n"))
             XCTAssertTrue(prefix.contains("^MD0\n~SD00\n"))
