@@ -150,6 +150,102 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testFramedFinishingOutputPreservesCutFilesPeelWaitsAndOneExpandedQuantity() async throws {
+        var root = URL(fileURLWithPath: #filePath)
+        for _ in 0..<5 { root.deleteLastPathComponent() }
+        let source = try Data(contentsOf: root.appending(path: "Fixtures/generated/native-vector.pdf"))
+        #if DEBUG
+        let configuration = "debug"
+        #else
+        let configuration = "release"
+        #endif
+        let worker = root.appending(path: "Packages/LabelMac/.build/\(configuration)/label-render-worker")
+        let directory = FileManager.default.temporaryDirectory.appending(path: "FinishingFrames-\(UUID().uuidString)")
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let model = try WorkflowEditorBootstrap.makeModel(originalPDF: source,
+            store: WorkflowProfileStore(root: directory))
+        let pages = try QuartzPDFRenderer.documentPageBoxes(originalPDF: source)
+        let canvas = try DotCanvas(physicalSize: model.profile.outputStock,
+            resolution: DotResolution(xDotsPerMillimeter: 1, yDotsPerMillimeter: 1))
+        let store = try store(), reference = try store.save(id: "synthetic-framed-output", profile: profile())
+        for mode in modes {
+            let count = mode == .cut ? 7 : 2
+            let plan = try ExtractionPlanner.plan(sourcePages: pages, profile: model.profile,
+                copyPolicy: .engine(copies: count, collated: true))
+            let job = try store.finishingPlan(reference: reference, mode: mode, outputLabelCount: count,
+                schedule: mode == .cut ? .batch(size: 3, cutRemainderAtJobEnd: true) : nil)
+            let preparation = try FinishingRasterPreparation.prepare(job: job,
+                controlRequest: .init(finishing: mode, printSpeedIps: 3, darkness: 0), originalPDF: source,
+                extraction: plan, canvas: canvas, conversion: .textAndBarcodeThreshold(cutoff: 128), workerExecutable: worker)
+            let nonRFID = CapabilityFact(state: .unsupported,
+                evidence: .documentedModel(sourceID: "synthetic-output-non-rfid"))
+            let qualification = FinishingOutputQualification(profile: job.printer.profile, model: job.printer.profile.capabilities.model,
+                quantityOne: documented, labelCompletion: documented, rfid: nonRFID,
+                delayedCutter: documented, delayedCutReadiness: documented, cutCompletion: documented,
+                completeFileDelivery: .observed(true, evidence: .reportedInstallation),
+                peelLabelTaken: documented, prepeel: documented)
+            let framed = try FinishingFramedOutput.prepare(preparation, qualification: qualification)
+            XCTAssertEqual(framed.preparation, preparation)
+            XCTAssertEqual(framed.qualification, qualification)
+            var expected: [FinishingOutputStep] = [], total = 0
+            let modeText: String
+            switch mode {
+            case .tearOff: modeText = "^MMT\n"
+            case .rewind: modeText = "^MMR\n"
+            case .peel: modeText = "^MMP,N\n"
+            case .cut: modeText = "^MMD\n"
+            }
+            for (index, bitmap) in preparation.rasters.enumerated() {
+                let ordinal = index + 1
+                let diagnostic = String(decoding: try ZPLGraphicEncoder().diagnosticFormat(bitmap), as: UTF8.self)
+                let graphic = diagnostic.replacingOccurrences(of: "^XA\n", with: "")
+                    .replacingOccurrences(of: "^XZ\n", with: "")
+                let bytes = Data(("^XA\n" + String(decoding: preparation.normalization.bytes, as: UTF8.self)
+                    + modeText + graphic + "^PQ1\n^XZ\n").utf8)
+                XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("~JK"))
+                XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("^MMC"))
+                expected.append(.formatFile(outputLabel: ordinal, bytes: bytes))
+                expected.append(.awaitLabelPrinted(outputLabel: ordinal)); total += bytes.count
+                if mode == .cut && [3, 6, 7].contains(ordinal) {
+                    expected.append(.awaitDelayedCutReady(afterOutputLabel: ordinal))
+                    expected.append(.delayedCutFile(afterOutputLabel: ordinal, bytes: Data("~JK\n".utf8)))
+                    expected.append(.awaitCutCompleted(afterOutputLabel: ordinal)); total += 4
+                }
+                if mode == .peel { expected.append(.awaitLabelTaken(outputLabel: ordinal)) }
+            }
+            XCTAssertEqual(framed.steps, expected)
+            if mode == .peel {
+                let withoutPrepeel = FinishingOutputQualification(profile: job.printer.profile, model: qualification.model,
+                    quantityOne: documented, labelCompletion: documented, rfid: nonRFID,
+                    peelLabelTaken: documented, prepeel: .init(state: .unsupported,
+                        evidence: .documentedModel(sourceID: "synthetic-prepeel-not-applicable")))
+                let modeOnly = try FinishingFramedOutput.prepare(preparation, qualification: withoutPrepeel)
+                let expectedModeOnly = expected.map { step -> FinishingOutputStep in
+                    if case let .formatFile(ordinal, bytes) = step {
+                        return .formatFile(outputLabel: ordinal, bytes: Data(String(decoding: bytes, as: UTF8.self)
+                            .replacingOccurrences(of: "^MMP,N\n", with: "^MMP\n").utf8))
+                    }
+                    return step
+                }
+                XCTAssertEqual(modeOnly.steps, expectedModeOnly)
+            }
+            XCTAssertEqual(framed.totalEncodedBytes, total)
+            XCTAssertNoThrow(try FinishingFramedOutput.prepare(preparation, qualification: qualification, maximumBytes: total))
+            XCTAssertThrowsError(try FinishingFramedOutput.prepare(preparation, qualification: qualification, maximumBytes: total - 1))
+            XCTAssertThrowsError(try FinishingFramedOutput.prepare(preparation, qualification: qualification, maximumBytes: 0))
+            let cancellation = OfflineRenderWorkerCancellation(); cancellation.cancel()
+            XCTAssertThrowsError(try FinishingFramedOutput.prepare(preparation, qualification: qualification, cancellation: cancellation)) {
+                XCTAssertEqual($0 as? FinishingFramedOutput.Error, .cancelled)
+            }
+            XCTAssertThrowsError(try FinishingFramedOutput.prepare(preparation, qualification: qualification, deadlineSeconds: 0))
+            XCTAssertThrowsError(try FinishingFramedOutput.prepare(preparation, qualification: qualification,
+                deadlineSeconds: Double.leastNonzeroMagnitude)) {
+                XCTAssertEqual($0 as? FinishingFramedOutput.Error, .timedOut)
+            }
+        }
+    }
+
     func testRasterBindingRejectsReorderingReplacementAndDimensionsWithIdenticalBytes() throws {
         let job = try job()
         let a = try MonochromeBitmap(width: 8, height: 2, bytes: [0x80, 0])
