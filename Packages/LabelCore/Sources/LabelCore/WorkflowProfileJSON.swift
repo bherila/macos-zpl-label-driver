@@ -29,7 +29,7 @@ public enum WorkflowProfileJSON {
         }
         let raw: Any
         do {
-            raw = try JSONSerialization.jsonObject(with: data, options: [])
+            raw = try TokenPreservingJSON.decode(data)
         } catch {
             throw WorkflowProfileJSONError.malformedJSON
         }
@@ -310,26 +310,14 @@ public enum WorkflowProfileJSON {
     }
 
     private static func number(_ object: [String: Any], _ key: String) throws -> Double {
-        guard let value = try required(object, key) as? NSNumber,
-              CFGetTypeID(value) != CFBooleanGetTypeID() else {
-            throw WorkflowProfileJSONError.invalidType(key)
-        }
-        // Foundation may retain a JSON decimal as NSDecimalNumber. Its
-        // doubleValue conversion can differ by one ULP from correctly rounded
-        // parsing, breaking exact immutable profile identity after reload.
-        // Ordinary binary NSNumber already holds the correct bits; stringValue
-        // can shorten those, so only convert retained decimal numbers this way.
-        let parsed = value is NSDecimalNumber ? (Double(value.stringValue) ?? .nan) : value.doubleValue
-        guard parsed.isFinite else { throw WorkflowProfileJSONError.invalidType(key) }
+        guard let value = try required(object, key) as? TokenPreservingJSON.Number,
+              let parsed = value.doubleValue else { throw WorkflowProfileJSONError.invalidType(key) }
         return parsed
     }
 
     private static func integer(_ object: [String: Any], _ key: String) throws -> Int {
-        let value = try number(object, key)
-        guard value.rounded(.towardZero) == value,
-              value >= Double(Int.min), value < Double(Int.max) else {
-            throw WorkflowProfileJSONError.invalidType(key)
-        }
-        return Int(value)
+        guard let value = try required(object, key) as? TokenPreservingJSON.Number,
+              let exact = value.integerValue else { throw WorkflowProfileJSONError.invalidType(key) }
+        return exact
     }
 }

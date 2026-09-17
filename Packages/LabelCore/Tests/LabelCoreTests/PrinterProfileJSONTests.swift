@@ -3,6 +3,13 @@ import XCTest
 @testable import LabelCore
 
 final class PrinterProfileJSONTests: XCTestCase {
+    func testExactIntegerIdentityAcrossLargePrinterRevisions() throws {
+        for value in [9_007_199_254_740_993, Int.max] {
+            let expected = try PrinterProfile.gc420dUSBReference(revision: value)
+            XCTAssertEqual(try PrinterProfileJSON.decode(PrinterProfileJSON.encode(expected)), expected)
+        }
+    }
+
     private func completeProfile() throws -> PrinterProfile {
         let documented = CapabilityEvidence.documentedModel(sourceID: "R26")
         return try PrinterProfile(

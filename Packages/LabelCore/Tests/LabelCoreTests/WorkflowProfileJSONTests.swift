@@ -3,6 +3,28 @@ import XCTest
 @testable import LabelCore
 
 final class WorkflowProfileJSONTests: XCTestCase {
+    func testExactIntegerIdentityAcrossLargeRevisionAndOrder() throws {
+        let original = try profile()
+        for value in [9_007_199_254_740_993, Int.max] {
+            let expected = try WorkflowProfile(id: original.id, revision: value,
+                outputStockID: original.outputStockID, outputStock: original.outputStock,
+                pageRules: [try WorkflowPageRule(sourcePage: 1,
+                    expectedInput: original.pageRules[0].expectedInput,
+                    disposition: .extract([try ExtractionRegion(id: "large-order",
+                        normalizedRect: NormalizedRect(x: 0, y: 0, width: 1, height: 1), outputOrder: value)]))])
+            XCTAssertEqual(try WorkflowProfileJSON.decode(WorkflowProfileJSON.encode(expected)), expected)
+        }
+        let template = String(decoding: try WorkflowProfileJSON.encode(original), as: UTF8.self)
+        for token in ["9007199254740993.5", "7.000000000000000000000000001", "9223372036854775808", "true"] {
+            XCTAssertThrowsError(try WorkflowProfileJSON.decode(Data(template.replacingOccurrences(
+                of: "\"revision\":7", with: "\"revision\":" + token).utf8)))
+        }
+        for token in ["7.0", "7e0", "700e-2"] {
+            XCTAssertEqual(try WorkflowProfileJSON.decode(Data(template.replacingOccurrences(
+                of: "\"revision\":7", with: "\"revision\":" + token).utf8)), original)
+        }
+    }
+
     func testEditedFractionalCoordinatesPreserveExactIdentityAcrossReload() throws {
         let original = try profile()
         let fraction = 20.0 / (612.0 * 25.4 / 72.0)

@@ -1,16 +1,43 @@
 import Foundation
 
-/// Internal bounded UTF-8 traversal. Numeric spellings survive until typed admission.
-enum TokenPreservingJSON {
-    struct Number: Equatable { let token: String }
+/// Shared bounded JSON traversal. Numeric spellings survive until typed admission.
+public enum TokenPreservingJSON {
+    public struct Number: Equatable {
+        public let token: String
+        public var integerValue: Int? { ExactJSONInteger.parse(token) }
+        public var doubleValue: Double? {
+            guard let value = Double(token), value.isFinite else { return nil }
+            return value
+        }
+    }
     enum Error: Swift.Error, Equatable { case malformed, limit }
     static let maximumBytes = 4 * 1024 * 1024
     static let maximumDepth = 64
     static let maximumNodes = 100_000
 
-    static func decode(_ data: Data) throws -> Any {
+    public static func decode(_ data: Data) throws -> Any {
         guard data.count <= maximumBytes else { throw Error.limit }
-        var parser = Parser(bytes: Array(data))
+        // Preserve Foundation's BOM-encoded UTF-16/32 admission without ever
+        // coercing numeric values. Codec byte limits apply before this call.
+        let prefix = Array(data.prefix(4))
+        var normalized = data
+        let encoding: String.Encoding?
+        if prefix.starts(with: [0,0,254,255]) { encoding = .utf32BigEndian }
+        else if prefix.starts(with: [255,254,0,0]) { encoding = .utf32LittleEndian }
+        else if prefix.starts(with: [254,255]) { encoding = .utf16BigEndian }
+        else if prefix.starts(with: [255,254]) { encoding = .utf16LittleEndian }
+        else if prefix.count == 4, prefix[0...2].allSatisfy({ $0 == 0 }) { encoding = .utf32BigEndian }
+        else if prefix.count == 4, prefix[1...3].allSatisfy({ $0 == 0 }) { encoding = .utf32LittleEndian }
+        else if prefix.count == 4, prefix[0] == 0, prefix[2] == 0 { encoding = .utf16BigEndian }
+        else if prefix.count == 4, prefix[1] == 0, prefix[3] == 0 { encoding = .utf16LittleEndian }
+        else { encoding = nil }
+        if let encoding {
+            guard let text = String(data: data, encoding: encoding) else { throw Error.malformed }
+            normalized = Data(text.utf8)
+        }
+        guard normalized.count <= maximumBytes else { throw Error.limit }
+        var parser = Parser(bytes: Array(normalized))
+        if parser.bytes.starts(with: [239,187,191]) { parser.cursor = 3 }
         let value = try parser.value(depth: 0)
         parser.space()
         guard parser.cursor == parser.bytes.count,

@@ -3,6 +3,22 @@ import XCTest
 @testable import LabelCore
 
 final class ResolvedJobTicketTests: XCTestCase {
+    func testExactIntegerIdentityAcrossLargeTicketQueueReferences() throws {
+        for value in [9_007_199_254_740_993, Int.max] {
+            let (active, reference, queue, workflow, printer, plan) = try fixture(queueRevision: value)
+            let expected = try ResolvedJobTicket.accept(acceptanceID: "large-reference",
+                cancellationSHA256: cancellationDigest, activeSelection: active, queueReference: reference,
+                queueDefinition: queue, workflowProfile: workflow, printerProfile: printer,
+                sourceDocumentSHA256: sourceDigest, sourceByteCount: 4096, intakeProvenance: .cupsScheduler,
+                plan: plan, copyOwnership: .engine(copies: 2, collated: true),
+                pageRangeOwnership: .engine(selectedSourcePages: [1, 2]), explicitControls: .init())
+            let bytes = try ResolvedJobTicketJSON.encode(expected)
+            XCTAssertEqual(try ResolvedJobTicketJSON.queueReference(bytes), reference)
+            XCTAssertEqual(try ResolvedJobTicketJSON.decode(bytes, queueReference: reference,
+                queueDefinition: queue, workflowProfile: workflow, printerProfile: printer), expected)
+        }
+    }
+
     private let queueDigest = String(repeating: "a", count: 64)
     private let workflowDigest = String(repeating: "b", count: 64)
     private let printerDigest = String(repeating: "c", count: 64)

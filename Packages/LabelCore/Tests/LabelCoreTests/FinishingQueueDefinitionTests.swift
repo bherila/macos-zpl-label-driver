@@ -3,6 +3,17 @@ import XCTest
 @testable import LabelCore
 
 final class FinishingQueueDefinitionTests: XCTestCase {
+    func testExactIntegerIdentityAcrossLargeFinishingQueueRevisions() throws {
+        let p = try profile(), w = try workflow()
+        for value in [9_007_199_254_740_993, Int.max] {
+            var root = try XCTUnwrap(JSONSerialization.jsonObject(with: FinishingQueueJSON.encode(
+                queue(printer: p, workflow: w))) as? [String: Any])
+            root["revision"] = value
+            let bytes = try JSONSerialization.data(withJSONObject: root, options: .sortedKeys)
+            XCTAssertEqual(try FinishingQueueJSON.decode(bytes, workflow: w, printer: p).revision, value)
+        }
+    }
+
     private let documented = CapabilityFact(state: .supported,
         evidence: .documentedModel(sourceID: "synthetic-finishing-queue"))
     private func profile(maximumBatch: Int = 3, stock: Observation<Bool> = .observed(true, evidence: .reportedInstallation)) throws -> PrinterProfile {

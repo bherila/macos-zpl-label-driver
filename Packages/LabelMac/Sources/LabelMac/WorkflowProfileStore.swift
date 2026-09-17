@@ -165,22 +165,20 @@ public struct WorkflowProfileStore: @unchecked Sendable {
             throw Self.mapStorage(error)
         }
         let raw: Any
-        do { raw = try JSONSerialization.jsonObject(with: bytes) }
+        do { raw = try TokenPreservingJSON.decode(bytes) }
         catch { throw Error.malformedQualification }
         guard let object = raw as? [String: Any],
               Set(object.keys) == ["schemaVersion", "profileID", "profileRevision", "profileSHA256"],
-              let schema = object["schemaVersion"] as? NSNumber,
-              CFGetTypeID(schema) != CFBooleanGetTypeID(), schema.intValue == 1,
+              let schema = object["schemaVersion"] as? TokenPreservingJSON.Number,
+              schema.integerValue == 1,
               let profileID = object["profileID"] as? String,
-              let revision = object["profileRevision"] as? NSNumber,
-              CFGetTypeID(revision) != CFBooleanGetTypeID(),
-              revision.doubleValue >= 1, revision.doubleValue < Double(Int.max),
-              revision.doubleValue == Double(revision.intValue),
+              let revisionToken = object["profileRevision"] as? TokenPreservingJSON.Number,
+              let revision = revisionToken.integerValue, revision >= 1,
               let expectedDigest = object["profileSHA256"] as? String else {
             throw Error.malformedQualification
         }
         let actualDigest = Self.digest(try WorkflowProfileJSON.encode(profile))
-        guard profileID == profile.id, revision.intValue == profile.revision,
+        guard profileID == profile.id, revision == profile.revision,
               expectedDigest == actualDigest else {
             throw Error.qualificationMismatch
         }

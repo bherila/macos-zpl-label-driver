@@ -238,7 +238,8 @@
         "8dcc24141aaa8dbb6ca6aa27aecba0ba9193267b (local unpublished width-subset fix; tested code/regression digests match;282Core debug/release,106Python, release app build, debug accelerator passed; no current full-native/hosted/hardware claim)",
         "docs/validation/M3-ENDPOINT-UTF8-BUDGET-2026-09-17.md (encoded host byte-budget regression; 16 TCP tests debug/release, 106 Python tests and release setup-app build passed; earlier source-bound acceptance remains historical)",
         "docs/validation/M3-STATUS-FUNCTION-BUDGET-2026-09-17.md (discarded function-setting fields enforce eight-bit grammar; reproduced three invalid acceptances; 283 Core tests debug/release, accelerator and release app build passed)",
-        "docs/validation/M3-TCP-LATE-CALLBACKS-2026-09-17.md (terminal-result immutability after late TCP callbacks; three failure outcomes, finite queue-drain assertions, 17 TCP tests debug/release; partial M3-AC05 only)"
+        "docs/validation/M3-TCP-LATE-CALLBACKS-2026-09-17.md (terminal-result immutability after late TCP callbacks; three failure outcomes, finite queue-drain assertions, 17 TCP tests debug/release; partial M3-AC05 only)",
+        "docs/validation/EXACT-JSON-INTEGER-CODECS-2026-09-17.md (exact numeric token admission across seven manual codecs, private geometry/offset readers and native qualification manifest; 299 Core and 21 native store tests debug/release passed; complete native baseline pending)"
       ],
       "blockers": []
     },
@@ -287,7 +288,8 @@
         "docs/validation/M4-TYPED-REGION-LIMIT-2026-09-17.md (typed/import/editor per-page region budget aligned at 256; exact boundary round trip and rejected 257; 284 Core and 31 native editor tests debug/release plus accelerator passed)",
         "docs/validation/JSON-INTEGER-IDENTITY-INVESTIGATION-2026-09-17.md (open large integer identity defect reproduced; tentative partial fix restored; shared codec parsing remains next independent implementation slice)",
         "docs/validation/EXACT-JSON-INTEGER-TOKENS-2026-09-17.md (internal exact numeric-token converter; 287 Core tests debug/release and accelerator passed; codecs not integrated and identity defect remains open)",
-        "docs/validation/TOKEN-PRESERVING-JSON-2026-09-17.md (internal bounded JSON traversal retaining numeric lexemes; 291 Core tests debug/release; product codec integration and original identity repair still open)"
+        "docs/validation/TOKEN-PRESERVING-JSON-2026-09-17.md (internal bounded JSON traversal retaining numeric lexemes; 291 Core tests debug/release; product codec integration and original identity repair still open)",
+        "docs/validation/EXACT-JSON-INTEGER-CODECS-2026-09-17.md (exact numeric token admission across seven manual codecs, private geometry/offset readers and native qualification manifest; 299 Core and 21 native store tests debug/release passed; complete native baseline pending)"
       ],
       "blockers": []
     },

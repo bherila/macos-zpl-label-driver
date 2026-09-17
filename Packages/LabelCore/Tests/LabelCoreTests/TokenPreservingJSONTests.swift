@@ -3,6 +3,18 @@ import XCTest
 @testable import LabelCore
 
 final class TokenPreservingJSONTests: XCTestCase {
+    func testBOMAndDetectedUnicodeEncodingsRetainNumberTokens() throws {
+        let text = "{\"revision\":9007199254740993}"
+        for encoding in [String.Encoding.utf8, .utf16, .utf16BigEndian, .utf16LittleEndian,
+                         .utf32, .utf32BigEndian, .utf32LittleEndian] {
+            let bytes = try XCTUnwrap(text.data(using: encoding))
+            let root = try XCTUnwrap(TokenPreservingJSON.decode(bytes) as? [String: Any])
+            XCTAssertEqual((root["revision"] as? TokenPreservingJSON.Number)?.integerValue, 9_007_199_254_740_993)
+        }
+        let bytes = Data([239,187,191]) + Data(text.utf8)
+        XCTAssertNoThrow(try TokenPreservingJSON.decode(bytes))
+    }
+
     func testNestedNumericTokensRemainExactAndStringsAreNotNumbers() throws {
         let data = Data(#"{"revision":9007199254740993,"values":[9007199254740993.5,7e0,-9223372036854775808],"text":"9007199254740993.5","yes":true,"none":null}"#.utf8)
         let root = try XCTUnwrap(TokenPreservingJSON.decode(data) as? [String: Any])

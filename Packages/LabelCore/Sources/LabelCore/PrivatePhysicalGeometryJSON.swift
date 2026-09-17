@@ -19,12 +19,9 @@ enum PrivatePhysicalGeometryJSON {
         func value(_ key: String) throws -> Int? {
             guard let raw = object[key] else { throw Error.invalidGeometry }
             if raw is NSNull { return nil }
-            guard let number = raw as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
-                  number.doubleValue.isFinite, number.doubleValue >= -32_000,
-                  number.doubleValue <= 32_000, number.doubleValue == Double(number.intValue) else {
-                throw Error.invalidGeometry
-            }
-            return number.intValue
+            guard let number = raw as? TokenPreservingJSON.Number,
+                  let exact = number.integerValue, (-32_000...32_000).contains(exact) else { throw Error.invalidGeometry }
+            return exact
         }
         return try .init(widthDots: value("widthDots"), lengthDots: value("lengthDots"),
                          originXDot: value("originXDot"), originYDot: value("originYDot"))

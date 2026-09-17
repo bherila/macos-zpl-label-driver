@@ -384,3 +384,7 @@ Unpublished width-subset implementation checkpoint `8dcc24141aaa8dbb6ca6aa27aecb
 [Traversal evidence](validation/TOKEN-PRESERVING-JSON-2026-09-17.md) records the internal bounded object/array parser, numeric lexeme retention and adversarial grammar/resource tests. All 291 Core tests passed debug/release. Product codecs are unchanged: the integer identity defect remains open. Next is integration across the enumerated codec sites with original regressions and explicit compatibility/error-contract checks. Manual gates are unchanged.
 
 Unpublished token-traversal implementation checkpoint: `37977fdb1912ece63784ac4af79b6f31b28062b2`. Codec integration remains the next required slice.
+
+## Exact JSON identity codec integration
+
+[Codec integration evidence](validation/EXACT-JSON-INTEGER-CODECS-2026-09-17.md) repairs the identified manual codec sites together, including private defaults readers and native qualification manifests. All 299 Core and 21 native workflow-store tests passed debug/release; restoring floating integer conversion caused 18 failures across seven codec regressions. Source is restored. Full native CI-equivalent validation is pending; older whole-system baselines are historical. No manual or physical gate changed.

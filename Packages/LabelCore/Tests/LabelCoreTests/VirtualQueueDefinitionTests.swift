@@ -3,6 +3,16 @@ import XCTest
 @testable import LabelCore
 
 final class VirtualQueueDefinitionTests: XCTestCase {
+    func testExactIntegerIdentityAcrossLargeQueueRevisions() throws {
+        let p = try PrinterProfile.gc420dUSBReference(revision: 7)
+        for value in [9_007_199_254_740_993, Int.max] {
+            var root = try XCTUnwrap(JSONSerialization.jsonObject(with: VirtualQueueJSON.encode(queue())) as? [String: Any])
+            root["revision"] = value
+            let bytes = try JSONSerialization.data(withJSONObject: root, options: .sortedKeys)
+            XCTAssertEqual(try VirtualQueueJSON.decode(bytes, validatingAgainst: p).revision, value)
+        }
+    }
+
     private let digestA = String(repeating: "a", count: 64)
     private let digestB = String(repeating: "b", count: 64)
     private let deviceDigest = String(repeating: "c", count: 64)
