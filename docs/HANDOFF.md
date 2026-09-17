@@ -346,3 +346,5 @@ Worker-memory instrumentation: [M2-WORKER-MEMORY-INSTRUMENTATION-ATTEMPT-2026-09
 Clean committed-source telemetry measurement passed exit0 with default benchmark path; raw evidence docs/validation/M2-IN-WORKER-MEMORY-BASELINE-2026-09-17.json binds CLI and worker hashes. Separate CLI/worker RSS only; no new acceptance claim.
 
 Latest integrated telemetry baseline: [M2-M5-TELEMETRY-INTEGRATED-BASELINE-2026-09-17.md](validation/M2-M5-TELEMETRY-INTEGRATED-BASELINE-2026-09-17.md), terminal exit0:106Python/281Core/361Mac debug/release plus independent/inert/signature/packaged checks. Local app artifacts/setup-app.HZUdFj; no publication or per-ID acceptance refresh. Next: deliberate remaining evidence/integration assessment; do not repeat identical full gate without a new change/failure.
+
+Current M3-AC01 automated assessment: [M3-CAPABILITY-TRUTHFULNESS-ASSESSMENT-2026-09-17.md](validation/M3-CAPABILITY-TRUTHFULNESS-ASSESSMENT-2026-09-17.md), deliberately bound to tested source and16 immutable references. Unknown/absent/unsupported/configuration remain distinct; no physical support claim or other criterion refresh.
