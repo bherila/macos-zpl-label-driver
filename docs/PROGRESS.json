@@ -112,7 +112,8 @@
         "docs/validation/M2-PAGE-BOX-FINITE-EXTENTS-2026-09-17.md (finite input corner admission; 302 Core and38 focused native tests debug/release plus accelerator passed locally; no acceptance refresh)",
         "docs/validation/M2-LAB-FAILURE-PRIVACY-2026-09-17.md (real blocked/existing destination diagnostics redact caller paths, preserve exit2/no-clobber;106Python/303Core/all accelerator checks debug/release passed locally; no acceptance refresh)",
         "docs/validation/M2-M5-PRIVACY-INTEGRATED-BASELINE-2026-09-17.md (clean local unpublishedd41f091681e8986691107419e1667c6b01cc4559; finite full native CI exit0:106Python/303Core/374Mac both modes, oracles/inert checks, ARM/min26 metadata, ad-hoc/nested signatures, Developer-ID fail-closed and packaged worker equality; GUI/scheduler/physical/release gates unchanged)",
-        "docs/validation/M2-CANVAS-STOCK-RESIZING-2026-09-17.md (local unpublished8749143; immutable canvas stock resize retains independent pitch and width/height/byte budgets, preserves geometry equality; preliminary305Core both/accelerator passed,final9geometry tests both passed; native stock UI and prescribed integration/hardware remain open)"
+        "docs/validation/M2-CANVAS-STOCK-RESIZING-2026-09-17.md (local unpublished8749143; immutable canvas stock resize retains independent pitch and width/height/byte budgets, preserves geometry equality; preliminary305Core both/accelerator passed,final9geometry tests both passed; native stock UI and prescribed integration/hardware remain open)",
+        "docs/validation/M4-STOCK-POLICY-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished77de47c; explicit configured/offline stock policy restructure; finite full native ownexit0:106Python/305Core/380Mac debug+release, oracles/inert/metadata/ad-hoc/nested/packaged checks; current software baseline only, all manual/physical/release gates open)"
       ],
       "blockers": []
     },
@@ -260,7 +261,8 @@
         "docs/CONTRACTS.md private offline worker admission/artifact sections (local unpublished d86206a2bb5721c36569f5f7100c5b58c3facb66; source-inspected 17 integer paths, bitmap and immutable canvas binding, layout limits; preflight/diff passed; documentation only, no M3-AC12 acceptance refresh)",
         "docs/validation/M3-IDENTIFIER-ERROR-REDACTION-2026-09-17.md (six caller-identifier error cases redact routine descriptions/reflection/dumps while preserving typed payloads;303Core both modes/final20native debug/accelerator passed; M3-AC12 remains open)",
         "docs/validation/M2-M5-PRIVACY-INTEGRATED-BASELINE-2026-09-17.md (clean local unpublishedd41f091681e8986691107419e1667c6b01cc4559; finite full native CI exit0:106Python/303Core/374Mac both modes, oracles/inert checks, ARM/min26 metadata, ad-hoc/nested signatures, Developer-ID fail-closed and packaged worker equality; GUI/scheduler/physical/release gates unchanged)",
-        "docs/validation/M5-PUBLICATION-DIAGNOSTIC-REDACTION-2026-09-17.md (local unpublisheda5ee0f7eef8bb1f29de85e41a5f3f9fc5189deb4; shared four-value/six-wrapper diagnostic redaction preserves typed recovery references;60 failures before,105 distinct native tests both modes/106Python/preflight passed; no whole privacy/installed acceptance refresh)"
+        "docs/validation/M5-PUBLICATION-DIAGNOSTIC-REDACTION-2026-09-17.md (local unpublisheda5ee0f7eef8bb1f29de85e41a5f3f9fc5189deb4; shared four-value/six-wrapper diagnostic redaction preserves typed recovery references;60 failures before,105 distinct native tests both modes/106Python/preflight passed; no whole privacy/installed acceptance refresh)",
+        "docs/validation/M4-STOCK-POLICY-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished77de47c; explicit configured/offline stock policy restructure; finite full native ownexit0:106Python/305Core/380Mac debug+release, oracles/inert/metadata/ad-hoc/nested/packaged checks; current software baseline only, all manual/physical/release gates open)"
       ],
       "blockers": []
     },
@@ -318,11 +320,10 @@
         "docs/validation/M2-CANVAS-STOCK-RESIZING-2026-09-17.md (local unpublished8749143; immutable canvas stock resize retains independent pitch and width/height/byte budgets, preserves geometry equality; preliminary305Core both/accelerator passed,final9geometry tests both passed; native stock UI and prescribed integration/hardware remain open)",
         "docs/validation/M4-EDITOR-STOCK-CANVAS-2026-09-17.md (unpublished86ed052; atomic stock/canvas editor binding, immutable correction revisions and reload geometry, stale/invalid preservation and real-worker obsolete stock completion;21native editor tests both modes passed; stock UI/bootstrap policy and manual/physical gates remain pending)",
         "docs/validation/M4-STOCK-CONTROLS-REOPENING-2026-09-17.md (unpublisheded50407; explicit-mm stock controls and bounded changed-stock reopening as unreviewed immutable correction; before1failure,final35native both/106Python/preflight and signed local app/packaged fidelity passed; visual/VoiceOver/installed/physical gates open)",
-        "docs/validation/M4-STOCK-INTEGRATED-REGRESSION-2026-09-17.md (unpublished00d1026; full native debug379tests/4assertions failed in2configured-stock opening tests; accelerator106Python/305Core both passed; native release/later gate stages not run; stop and explicit configured/offline stock-policy restructure required)"
+        "docs/validation/M4-STOCK-INTEGRATED-REGRESSION-2026-09-17.md (unpublished00d1026; full native debug379tests/4assertions failed in2configured-stock opening tests; accelerator106Python/305Core both passed; native release/later gate stages not run; stop and explicit configured/offline stock-policy restructure required)",
+        "docs/validation/M4-STOCK-POLICY-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished77de47c; explicit configured/offline stock policy restructure; finite full native ownexit0:106Python/305Core/380Mac debug+release, oracles/inert/metadata/ad-hoc/nested/packaged checks; current software baseline only, all manual/physical/release gates open)"
       ],
-      "blockers": [
-        "Current stock-opening change regresses default configured-stock identity/dimension admission; full native debug failed two document-opening tests. Separate configured-setup and explicit offline-candidate policies before integrated acceptance."
-      ]
+      "blockers": []
     },
     {
       "id": "M5",
@@ -372,7 +373,8 @@
         "docs/validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished b12e65a63cfebcce3625a249975e837dbb0bc2ee; full native CI sequence exit 0; 106 Python/299 Core/364 native debug/release, oracle/ABI/signature/packaged fidelity; manual and physical gates unchanged)",
         "docs/validation/M2-M5-WORKER-ADMISSION-INTEGRATED-BASELINE-2026-09-17.md (clean local unpublished 4ddffeb40e1866629972f131df1048c26cac75e3; full native sequence own exit 0: 106 Python/301 Core/370 native debug and release, independent/inert/signature/packaged checks; artifact setup-app.GeEvs8; no manual/hardware/hosted or ledger refresh)",
         "docs/validation/M2-M5-PRIVACY-INTEGRATED-BASELINE-2026-09-17.md (clean local unpublishedd41f091681e8986691107419e1667c6b01cc4559; finite full native CI exit0:106Python/303Core/374Mac both modes, oracles/inert checks, ARM/min26 metadata, ad-hoc/nested signatures, Developer-ID fail-closed and packaged worker equality; GUI/scheduler/physical/release gates unchanged)",
-        "docs/validation/M5-PUBLICATION-DIAGNOSTIC-REDACTION-2026-09-17.md (local unpublisheda5ee0f7eef8bb1f29de85e41a5f3f9fc5189deb4; shared four-value/six-wrapper diagnostic redaction preserves typed recovery references;60 failures before,105 distinct native tests both modes/106Python/preflight passed; no whole privacy/installed acceptance refresh)"
+        "docs/validation/M5-PUBLICATION-DIAGNOSTIC-REDACTION-2026-09-17.md (local unpublisheda5ee0f7eef8bb1f29de85e41a5f3f9fc5189deb4; shared four-value/six-wrapper diagnostic redaction preserves typed recovery references;60 failures before,105 distinct native tests both modes/106Python/preflight passed; no whole privacy/installed acceptance refresh)",
+        "docs/validation/M4-STOCK-POLICY-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished77de47c; explicit configured/offline stock policy restructure; finite full native ownexit0:106Python/305Core/380Mac debug+release, oracles/inert/metadata/ad-hoc/nested/packaged checks; current software baseline only, all manual/physical/release gates open)"
       ],
       "blockers": []
     },
@@ -389,7 +391,8 @@
         "docs/validation/M6-COMPATIBILITY-INVENTORY-2026-09-17.md (partial truthful runtime/app/device/distribution inventory; exact local27.0/26A428 arm64 and hosted26.6.2/25G83 arm64 verified; preflight/diffcheck passed; no installed/physical qualification; per-ID semantic review and prescribed evidence remain open)",
         "docs/validation/M6-TRACEABILITY-CI-HISTORY-2026-09-17.md (partial qualifying CI ancestry inputs; all four checkout sites exercised via real synthetic Git clones; missing history unready, Intel-only shallow fault detected exit1; restored15/full104Python ownexit0; native full gate session76225 exit0:104Python/272Core/324Mac debug/release plus oracle/inert pipeline/signature/packaged-worker checks; fresh M3-AC01/04 A records reassessed against new source with unchanged implementation/test hashes and new gate evidence, old records retained historically; no integration/H/R promotion)",
         "docs/validation/M2-M5-WORKER-ADMISSION-INTEGRATED-BASELINE-2026-09-17.md (clean local unpublished 4ddffeb40e1866629972f131df1048c26cac75e3; full native sequence own exit 0: 106 Python/301 Core/370 native debug and release, independent/inert/signature/packaged checks; artifact setup-app.GeEvs8; no manual/hardware/hosted or ledger refresh)",
-        "docs/validation/M6-DIRECT-DEPENDENCY-PROVENANCE-2026-09-17.md (existing direct fixture/action pins and licenses verified; declaration versus inspection mapping and non-bundling documented; transitive/optional/artifact/legal release audit still open; docs only)"
+        "docs/validation/M6-DIRECT-DEPENDENCY-PROVENANCE-2026-09-17.md (existing direct fixture/action pins and licenses verified; declaration versus inspection mapping and non-bundling documented; transitive/optional/artifact/legal release audit still open; docs only)",
+        "docs/validation/M4-STOCK-POLICY-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished77de47c; explicit configured/offline stock policy restructure; finite full native ownexit0:106Python/305Core/380Mac debug+release, oracles/inert/metadata/ad-hoc/nested/packaged checks; current software baseline only, all manual/physical/release gates open)"
       ],
       "blockers": []
     }
