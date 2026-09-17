@@ -1,3 +1,9 @@
+# Historical checkpoint log through 2026-09-17
+
+This is archived chronology, not current execution instructions. Later terminal
+results supersede older pending/live statements. Use [HANDOFF.md](HANDOFF.md)
+for the current state. Original checkpoint text follows unchanged.
+
 # Inert finishing lease source checkpoint — 2026-09-17
 
 Implementation 3a5b79a6d543c749fb6998379af594c70582d84f passed local89/272/324 full gate.
@@ -919,32 +925,6 @@ unperformed; the specific corrected local offline section A passed.
 
 # Current implementation handoff — revision 3
 
-
-PR #58 second-pass finding 4025638071 exposed review resurrection after an
-unsaved edit/undo. The current correction clears acknowledgements on every
-successful draft mutation/reload and binds displayed review to a checked edit
-generation, rejecting old callbacks even when profile/bitmap values match again.
-40 focused native tests passed, including the real-worker undo regression.
-At `501cdf1`, full local validation passed exit 0 with 67/173/213 debug/release,
-accelerator/independent/inert/signature and packaged-worker equality checks.
-Corrected hosted CI is pending. Hosted 35091595114 passed the preceding
-`a1e1f58`, not this correction. No third review request or merge is authorized.
-The dependent profile-transfer slice remains held until this fix is integrated.
-
-PR #59 capacity correction `a1cf439` passed the full local gate exit 0 with
-67/173/223 debug/release, accelerator/independent/inert/signature and packaged
-worker equality checks. This supersedes corrected-local-gate pending statements
-below. Corrected hosted/second review pending; no installed/GUI/hardware result.
-
-PR #59 first finding 4025900013 is corrected locally with atomic bounded-category
-capacity admission: public workflow saves hold a validated directory-relative
-nonblocking flock through count/rename and preserve the unchanged 256-record cap.
-Exact retries remain reconcilable at capacity; contention and capacity errors
-are distinct, with no automatic retry or destructive repair. 39 focused native
-tests passed; full corrected local gate/hosted/second review pending. See
-`validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
-but has no PR; integrate this correction and run its combined gate before promotion.
-
 Issue #78 speed-boundary fix is in progress on `codex/m3-control-speed-boundary`,
 based on PR77 `7d54fe3`. A public-profile/resolution old-code regression reproduced
 three rejected-speed assertion failures; the baseline encoder now independently
@@ -1106,24 +1086,12 @@ effective-coordinate selection, non-square partial overlap and disjoint rejectio
 All 49 focused native renderer/extraction/pipeline tests passed exit 0. Corrected
 full local gate at `68264a6` passed exit 0: 67 Python, 178 Core and 253 Mac
 debug/release, accelerator/independent/inert checks, local signatures and packaged
-worker equality. Corrected hosted/second review await publication.
-
 worker equality. Corrected exact `c0619e4` hosted 35109064959 is live; second
 review is clean at unchanged base `4a857a4`. Finding 4027048607 is replied to,
 usefully voted and resolved; no merge.
 Original exact `03ea2fc` hosted 35106871876
 passed 178 Core/250 Mac debug/release and signature/packaged checks, but did not
 cover this edge case. See `validation/M4-CROP-INTERSECTION-REVIEW-2026-09-16.md`.
-
-The current test-only TCP slice adds explicitly loopback-bound native peers for
-real stopped-reader backpressure, reset after observed prefix, exact prepared
-format reassembly across variable reads, and owned non-listening-port failure.
-The production adapter/state machine are unchanged. Twelve focused tests and the
-final descriptor-hygiene repeat passed; full gate awaits the parent PR #69
-crop/media review correction. This local work is preserved, not published ready.
-M3-AC05 stays open and no
-network-printer/scheduler/USB support is inferred. See
-`validation/M3-REAL-LOOPBACK-FAULTS-2026-09-16.md`.
 
 The current automated extraction slice exercises the supplied native, Letter and
 A4 originals through separate immutable workflow bindings and the complete
@@ -1310,6 +1278,20 @@ Parent #58 corrected hosted 35093979617 passed exact `730d65b`; logs confirm
 213 native debug/release tests, signatures and packaged-worker equality.
 Own #59 hosted 35094427805 and first review remain live at `04202d9`.
 
+PR #59 capacity correction `a1cf439` passed the full local gate exit 0 with
+67/173/223 debug/release, accelerator/independent/inert/signature and packaged
+worker equality checks. This supersedes corrected-local-gate pending statements
+below. Corrected hosted/second review pending; no installed/GUI/hardware result.
+
+PR #59 first finding 4025900013 is corrected locally with atomic bounded-category
+capacity admission: public workflow saves hold a validated directory-relative
+nonblocking flock through count/rename and preserve the unchanged 256-record cap.
+Exact retries remain reconcilable at capacity; contention and capacity errors
+are distinct, with no automatic retry or destructive repair. 39 focused native
+tests passed; full corrected local gate/hosted/second review pending. See
+`validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
+but has no PR; integrate this correction and run its combined gate before promotion.
+
 Latest combined transfer checkpoint `f60d11a` integrates parent review correction
 `730d65b` and passed the full local gate exit 0: 67/173/219 debug/release,
 accelerator/independent/inert/signature and packaged-worker equality checks.
@@ -1336,7 +1318,6 @@ WindowServer window and no remaining live instance; cause remains unresolved. Se
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. No queue,
 privilege or device I/O. Noninteractive administrator authorization remains absent.
 
-
 PR #58 second-pass finding 4025638071 exposed review resurrection after an
 unsaved edit/undo. The current correction clears acknowledgements on every
 successful draft mutation/reload and binds displayed review to a checked edit
@@ -1362,18 +1343,6 @@ Corrected hosted/second review pending. See
 `validation/M4-EXPLICIT-PAGE-REVIEW-2026-09-16.md`. Original hosted run 35089709098
 passed exact `39b2936`; it does not validate the correction. Parent #57 latest
 35089708869 passed exact `626122d`; its source first review was clean at `5d9c2c2`.
-
-Latest local slice connects capped canonical workflow JSON import/export through
-native dialog adapters. Imports get a fresh unqualified identity; exports verify
-the exact own-store saved snapshot. Publication uncertainty retains/reconciles
-the same candidate, not a duplicate import. Nineteen focused native tests passed,
-including real-worker preservation of the current editor/preview/local approval.
-At `8067779`, full local 67/173/216 debug/release gate passed exit 0 with independent,
-inert, signature and packaged-worker checks. Publication held on PR #58's first
-review finding 4025449342: native-UI approval needs exact-profile region bounds/
-preview review, including restoration/reopening. Fix on #58 and integrate before
-publishing this dependent slice. See `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. No queue,
-privilege or device I/O. Noninteractive administrator authorization remains absent.
 
 Latest local slice connects explicit non-label page confirmation and full-page
 restoration to the editor's existing typed planner. Page geometry/anchors remain
@@ -1422,17 +1391,6 @@ Corrected hosted run 35088390875 subsequently passed exact `e00a630`, with
 second review is clean. No installation or physical result follows from that.
 Original hosted run 35085759520 passed exact `ef26682`; it does not validate these fixes.
 
-Latest local slice separates offline editor availability from physical readiness.
-Hardware confirmations remain false; installation independently requires both
-stock/tear-off confirmations plus discovered identity. Five focused setup tests
-passed, including a synthetic identity's four confirmation combinations. Full
-gate pending. See `validation/M5-OFFLINE-EDITOR-READINESS-2026-09-16.md`.
-Important correction: the earlier nonempty AXWindows result had AXApplication
-role and exposed menus, not a verified AXWindow. Both direct and new-instance
-Launch Services probes failed the stronger window check. No GUI pass is claimed;
-the exact test app namespace has no live instances. Parent PR #56 hosted run
-35085759520 passed exact `ef26682`; independent review remains live.
-
 Latest local slice connects saved-revision listing and Reopen with PDF in setup.
 It validates the selected immutable snapshot and all original source pages/layout
 through the real worker/planner before creating an unsaved correction revision.
@@ -1445,8 +1403,9 @@ signature and packaged-worker checks. Own hosted/review pending. See
 `validation/M4-SAVED-WORKFLOW-REOPENING-2026-09-16.md` for limits and finite unrun
 GUI procedure. Parent PR #55 run 35084288575 passed exact `55dd7d2`, and its first
 independent review is clean. No scheduler, installation or physical result added.
-Native AX trust is available. A finite direct-executable GUI probe observed our
-an AXApplication/menu element, not a verified AXWindow; expected-control lookup failed. All owned instances were
+Native AX trust is available. A finite direct-executable GUI probe observed
+an AXApplication/menu element, not a verified AXWindow; expected-control lookup
+failed. All owned instances were
 closed/reaped, with no button actions or hardware assertions. GUI acceptance is
 unproven. Next: separate offline editing from actual stock/tear-off confirmation
 and resolve the bounded accessibility traversal rather than fake hardware facts.
@@ -1492,15 +1451,6 @@ release acceptance.
 The finite M1 discard-queue experiment is authorized, but it has not run because
 noninteractive administrator authorization is unavailable on the observed host.
 No queue, protected path, global scheduler setting, or printer was changed.
-
-M1 preflight on Tahoe ARM is recorded in
-[M1-TAHOE-CAPTURE-2026-09-15.md](validation/M1-TAHOE-CAPTURE-2026-09-15.md).
-The candidate PPDs now pass native `cupstestppd -v` with standard full-bleed
-media names, and the inert probe's release build/signature were verified. The
-only attempted installation action was a non-interactive authorization check,
-which was denied; no backend, queue, printer operation, or global CUPS change
-occurred. M1 installed-scheduler evidence remains blocked until the local
-supported administrator authorization path is completed.
 
 Reusable components now exist: canonical monochrome packing/threshold/PBM, bounded
 uncompressed graphic fields, copy ordering, an offline vector CLI, an inert CUPS
@@ -2662,16 +2612,6 @@ M1 transaction safety evidence only. No administrator authorization, queue,
 protected path, scheduler job, system setting, or printer was changed; all M1
 integration acceptance remains open.
 
-At `9019eb6`, the final PR #30 review findings were addressed conservatively.
-Because the scheduler create operation can also modify an existing destination,
-neither command success nor matching URI readback is treated as exclusive queue
-acquisition. Automatic rollback now retains any present queue and its protected
-recovery evidence; only explicit record-validated recovery may remove it. New
-regressions cover a successful create-or-modify race and TERM during queue
-readback, with zero destructive action against the ambiguous queue. The Python
-suite now has 64 passing tests. No administrator authorization, queue, protected
-path, scheduler job, system setting, or printer was changed.
-
 At `88fb87e`, bounded ingestion closes review finding R14. All prospective
 regular-file reads use one shared nonblocking, no-follow descriptor-open rule
 before validating type, owner, link count, permissions, size, and stable
@@ -2684,7 +2624,6 @@ ticket rejection before worker startup. Local validation passes with 60 Python,
 suite. This is partial automated M2-AC09/10 and M3-AC09/12 evidence only. It is
 not scheduler intake, installed-spooler, transport, or physical-printer
 evidence, and no system or printer state changed.
-
 
 At `9019eb6`, the final PR #30 review findings were addressed conservatively.
 Because the scheduler create operation can also modify an existing destination,
@@ -3026,7 +2965,6 @@ Hosted/review and all GUI evidence remain pending in
 `M4-ISOLATED-EDITOR-PREVIEW-2026-09-16.md`. PDF opening/bootstrap remains
 in-process; no scheduler or physical acceptance follows.
 
-
 Setup document opening now moves bounded reading and original-PDF analysis off
 the main actor, preserving failed/cancelled replacement drafts and rejecting
 obsolete editor installation. The existing layout worker adds explicit capped
@@ -3059,16 +2997,6 @@ validation of this follow-up passed 67/166/178 debug/release with independent
 checks, signatures and packaged-worker equality. The existing hosted run remains live;
 it is not restarted or claimed terminal. No third review is requested.
 
-Setup document opening now moves bounded reading and original-PDF analysis off
-the main actor, preserving failed/cancelled replacement drafts and rejecting
-obsolete editor installation. The existing layout worker adds explicit capped
-all-page analysis, and unchanged bootstrap builds unsaved profiles from checked
-facts. Eighteen focused tests and the full local 67/166/178 debug/release gate
-passed. Publication is deferred pending PR #50's genuine parent-death worker
-supervision finding; its hosted CI is green but review is not clean. Evidence is in
-`M4-ISOLATED-DOCUMENT-OPENING-2026-09-16.md`. GUI, security-scope policy and all
-scheduler/privilege/device acceptance remain unverified.
-
 Document-opening local combined `bf9d21c` incorporates correction `5830f5b`.
 The final full local gate passes 67/166/184 debug/release, all independent/ABI/
 inert checks, ad-hoc signatures and packaged-worker equality. PR #50's two
@@ -3094,7 +3022,6 @@ PR #51 first review completed cleanly at exact `ee36a34`; run `35080396474`
 passed that head with 67/166/184 debug/release and all independent/signing checks.
 No repeat review or merge follows. GUI and installed acceptance remain open.
 
-
 The source-page-reference slice is connected locally to the editor. It reuses the
 bounded original-PDF child and strict packed-output validator, labels display
 pixels separately from exact print output, and overlays normalized bounds for
@@ -3115,140 +3042,6 @@ pending. Source-reference work is checkpointed locally
 at `f1adeeb`; its full gate passed 67/167/191 debug/release with all independent
 and signing checks, but publication waits for this dependency correction.
 
-The source-page-reference slice is connected locally to the editor. It reuses the
-bounded original-PDF child and strict packed-output validator, labels display
-pixels separately from exact print output, and overlays normalized bounds for
-numerical/keyboard editing. Independent UUID/cancellation protects stale source
-results and replacement opening. Four real-worker tests pass; full validation
-is pending. `M4-SOURCE-PAGE-REFERENCE-2026-09-16.md` records remaining GUI,
-zoom and direct-selection gates. No installed or physical acceptance follows.
-
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
-
-## PR2 merge preparation — finite extents
-
-Source 2e56f2e3a38f80555cd6a81170adbfac97fe1f7a; [receipt](validation/M2-PR2-FINITE-EXTENTS-2026-09-17.md). Eight before-fix overflow acceptances reproduced; corner checks preserve negative origins across rotations/UserUnit.57Core both/native scaffold both/accelerator both/local-ad-hoc diagnostic and34Python/preflight passed. No scheduler/printer claim. Maintainer authorized merges through38; PR1 merged separately, native stack82 registered2–59. Next cascading rebase and exact-head hosted CI before further merges.
-
-# Current implementation handoff — 2026-09-17
-
-## Scope and authorization
-
-The active goal is the full system in [EPIC.md](../EPIC.md), completing independent
-implementation without inventing manual scheduler, GUI, administrator or physical
-printer evidence. No merge or binary publication is authorized. Source changes stay
-on the existing branch and PR. No printer I/O is the default. Preserve the frozen
-Part B candidate; newer software artifacts are separate checkpoints.
-
-Read the project [agent instructions](../AGENTS.md), [contracts](CONTRACTS.md),
-[execution protocol](EXECUTION.md), and four active milestone files before work.
-Historical checkpoints are preserved in [HANDOFF-HISTORY-2026-09-17.md](HANDOFF-HISTORY-2026-09-17.md).
-Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and validation files.
-
-## Verified source and checks
-
-- Branch: `codex/m2-ascii-graphic-compression`; open PR81, base
-  `codex/m3-control-speed-boundary`. This is stacked unmerged work, not main.
-- Published source/remote/PR equality verified at
-  `eafb5644df2073ce859f98c540ccbb5128325f6a`. Latest implementation commit
-  `3a5b79a`: finite inert finishing coordinator and lease-lifetime tests.
-- Latest finite900s `bash scripts/ci-swift.sh`, session42783, completed
-  `FULL_GATE_EXIT 0`:89 Python/272 Core/324 native tests in debug/release,
-  132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
-  ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
-  unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.DeJXCW`; no printer accessed.
-- Restored focused tests passed after independent fault checks. Early lease release
-  before status waits failed45assertions. Previous framing faults detected quantity2,
-  ordinary cutter-mode substitution and omitted complete-profile binding; delivery
-  accounting detected treating zero known accepted bytes as a retryable send attempt.
-- Hosted run35233437806 for the published head is in progress; repository
-  validation and change-scope classification passed. No terminal hosted pass yet.
-  Previous run35232614294 at `d64ee84` is still in progress. Poll these existing
-  handles; do not restart on an observation timeout. Last verified successful hosted
-  checkpoint:run35229621380 at `07ef316`, which does not qualify newer changes.
-- The two earlier cloud review passes apply to older base/head pairs. No third pass
-  was requested, and these passes are not a verdict on subsequent changes.
-- Local host evidence is macOS27 ARM; minimum-runtime26 and hosted checks are
-  separate. No local compile or signature result proves retail installation policy.
-
-## Implemented software boundaries
-
-Original PDFs feed isolated Quartz rendering. Geometry, PDF boxes/rotation/UserUnit,
-extraction/copy order and monochrome conversion are explicit. Packed previews and
-canonical graphic encoding share actual bitmap inputs; the independent oracle stays
-separate. Resource caps, finite worker budgets and cancellation are enforced.
-
-Ordinary qualified controls cover motor speeds, darkness, tracking, geometry, signed
-offsets and thermal method with immutable profile/queue/ticket snapshots and configured
-defaults. Native utility drafts save/reopen exact bounded private-store revisions.
-This private catalog does not manage installed product queues. Reference GC420d facts
-remain constrained:USB, native8dots/mm, direct thermal, tear-off,2/3/4ips model choices;
-unit sensing, current settings and identity remain unobserved.
-
-Finishing schema8 storage binds independently qualified mode/accessory/stock and cut
-intentions. Private-store plans, ordered raster hashes and original-source preparation
-retain complete immutable context and shared validated normal-control bytes. Additional
-output facts bind the exact full profile. Bounded framed candidates preserve quantity1
-per expanded label, separate delayed-cut files and explicit completion/removal waits.
-The delivery tracker preserves uncertainty after every attempted file. The inert
-coordinator holds the kernel lease through all files and waits, then releases on scope
-exit. Its bytes are discarded and all status is synthetic. Caller-provided simulator
-coordination is not accepted device admission. Ordinary schema8 queue/ticket/encoder
-admission remains gated.
-
-Read the current finishing evidence in
-[framing](validation/M3-FINISHING-OUTPUT-FRAMING-2026-09-17.md),
-[delivery accounting](validation/M3-FINISHING-DELIVERY-ACCOUNTING-2026-09-17.md), and
-[inert lease execution](validation/M3-INERT-FINISHING-LEASE-2026-09-17.md).
-
-## Manual Part A and Part B
-
-The maintainer reported issue80 Part A passed with the corrected local editor artifact
-on the same macOS27 Mac. This is narrow reported GUI evidence; keyboard/VoiceOver,
-minimum-runtime26 and the full GUI matrix remain open. See
-[editor layout](validation/M5-EDITOR-LAYOUT-2026-09-17.md).
-
-Part B has no result yet. The separately frozen local candidate is from source52ba93f;
-the private pointer `/tmp/zpl-current-m1-candidate-path.txt` identifies its directory.
-Do not replace those bytes with newer builds. The maintainer has been given the frozen
-script's interactive `--apply` command. Await its output and stop on failure without
-retry. The script prompts through OS authentication; agents never collect passwords
-or invoke privileged installation.
-
-The approved finite experiment is one discard queue transaction, one held synthetic
-single-page PDF/one copy, one release, at most60seconds of observation and guarded
-cleanup. Zero physical labels/device commands. No Zebra printer is required.
-After successful apply, follow [single-job admission](validation/M1-SINGLE-JOB-ADMISSION.md):
-strict final PPD and planned filter-chain checks; exact stopped/rejecting/unshared
-`file:///dev/null` queue/default readback; held-job attributes; one resume; correlated
-schema2 filter metadata and finite discard completion; then owned-job/queue cleanup.
-Missing metadata is inconclusive, not a pass or reason to enable global verbose logging.
-Use the fixed verified local scheduler endpoint and controlled client environment.
-Recovery and readback details:
-[transaction recovery](validation/M1-TRANSACTION-RECOVERY.md),
-[IPP readback](validation/M1-READONLY-IPP-READBACK-2026-09-16.md).
-Part B alone does not accept the production adapter or complete M1.
-
-## Remaining implementation and evidence
-
-Next independent software work: durable framed-artifact binding and conservative
-restart recovery; persistent exact-profile output qualifications; accepted finishing
-queue/ticket/device and qualified-pitch binding; actual bounded file/status provider
-integration retaining ownership throughout waits. These must reuse established
-immutable stores and coordination invariants, not manufacture accepted-device authority
-from the private utility catalog or flatten finishing files into raw TCP bytes.
-
-Manual M1 must establish actual scheduler fidelity/options, sandbox/helper identity,
-backend lifetime and retry behavior before production adapter assumptions. Installed
-queue management, privileged authorization/lifecycle, restart repair and system-dialog
-visibility remain open. GUI/accessibility and compatibility/release matrices also remain
-open. M6 is not implemented/accepted simply because local builds pass.
-
-Physical qualification requires separately authorized named hardware and finite label/
-command budget. GC420d USB4×6pre-cut tear-off/no cutter is the primary target; retain
-separate S2 accessory/model evidence. USB unplug/replug, output quality/count/order,
-physical status/faults, actual cross-queue serialization and finishing remain unobserved.
-Never promote compiled, inert, reported GUI or hosted checks into printed evidence.
-Do not automatically calibrate/reset/save/upgrade firmware/erase or replay ambiguity.
