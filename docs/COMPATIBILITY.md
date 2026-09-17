@@ -67,8 +67,8 @@ Record the exact app/OS/build/architecture, model/resolution/firmware, connectio
 stock/sensing/accessories, settings/profile/layout revisions, source SHA, prescribed evidence
 level and observed result. Missing firmware, unit identity or runtime evidence stays unknown.
 Qualify only the tested combination. A checked declaration or reference digest is not an
-independent semantic/hardware review; [traceability](TRACEABILITY.md) currently has an empty
-per-ID evidence ledger and correctly reports no complete mandatory qualification.
+independent semantic/hardware review; [traceability](TRACEABILITY.md) requires reviewed
+per-ID evidence assessments and currently reports no complete mandatory qualification.
 
 Preserve the existing raw-print queue: its reported success is a comparison baseline,
 not evidence for this project's filter/renderer/backend or shared coordination. See the
