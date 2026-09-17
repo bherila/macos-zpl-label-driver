@@ -288,9 +288,10 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
     }
 
     func testBarcodeLocationValidationFeedsOriginalPreparedBytesAndRejectsChangedAnchor() throws {
+        // Correctness uses the production bound; dedicated tests exercise short deadlines.
         let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
         let analyzed = try OfflineLayoutWorker.analyze(originalPDF: original,
-            structuralPages: [1], workerExecutable: renderWorkerExecutable(), barcodePages: [1], deadlineSeconds: 5)
+            structuralPages: [1], workerExecutable: renderWorkerExecutable(), barcodePages: [1], deadlineSeconds: OfflineRenderWorkerProcess.defaultDeadlineSeconds)
         let barcode = try XCTUnwrap(analyzed[0].anchors?.first { $0.kind == .barcodeLike })
         var outputs: [Data] = []
         let expectations: [ObservedPageAnchor?] = [nil, barcode]
@@ -304,7 +305,7 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
             let result = try fixture.pipeline.run(queueID: "shipping-native",
                 sourcePDFDescriptor: descriptor, acceptanceID: "synthetic-barcode-bound",
                 cancellationToken: Data("synthetic cancellation capability".utf8),
-                scenario: try InertDeliveryScenario(), preparationDeadlineSeconds: 5)
+                scenario: try InertDeliveryScenario(), preparationDeadlineSeconds: OfflineRenderWorkerProcess.defaultDeadlineSeconds)
             XCTAssertEqual(result.outputLabelCount, 1)
             XCTAssertEqual(result.delivery, .transmitted(byteCount: result.preparedByteCount))
             let prepared = try AcceptedJobStateStore(acceptedJobStore: fixture.jobs).loadPrepared(
@@ -328,7 +329,7 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         XCTAssertThrowsError(try rejected.pipeline.run(queueID: "shipping-native",
             sourcePDFDescriptor: descriptor, acceptanceID: "synthetic-barcode-rejected",
             cancellationToken: Data("synthetic cancellation capability".utf8),
-            scenario: try InertDeliveryScenario(), preparationDeadlineSeconds: 5)) {
+            scenario: try InertDeliveryScenario(), preparationDeadlineSeconds: OfflineRenderWorkerProcess.defaultDeadlineSeconds)) {
             XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, .layoutRejected)
         }
         XCTAssertThrowsError(try rejected.jobs.load(acceptanceID: "synthetic-barcode-rejected",
