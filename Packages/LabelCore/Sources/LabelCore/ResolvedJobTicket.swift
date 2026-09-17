@@ -124,8 +124,9 @@ public struct ResolvedJobTicket: Equatable, Sendable {
         do { controls = try printerProfile.resolveControls(job: explicitControls, workflowDefaults: defaults) }
         catch { throw ResolvedJobTicketError.invalidControls }
         return try ResolvedJobTicket(
-            schemaVersion: queueDefinition.schemaVersion == 3 || printerProfile.schemaVersion == 4 ? 4 :
-                (queueDefinition.schemaVersion == 2 || printerProfile.schemaVersion == 3 ? 3 : 2),
+            schemaVersion: queueDefinition.schemaVersion == 4 || printerProfile.schemaVersion == 5 ? 5 :
+                (queueDefinition.schemaVersion == 3 || printerProfile.schemaVersion == 4 ? 4 :
+                (queueDefinition.schemaVersion == 2 || printerProfile.schemaVersion == 3 ? 3 : 2)),
             acceptanceID: acceptanceID,
             cancellationSHA256: cancellationSHA256,
             activeSelectionGeneration: activeSelection.generation,
@@ -172,20 +173,25 @@ public struct ResolvedJobTicket: Equatable, Sendable {
         outputLabels: [ResolvedOutputLabel],
         skippedPages: [ResolvedSkippedPage]
     ) throws {
-        guard (2...4).contains(schemaVersion) else { throw ResolvedJobTicketError.unsupportedSchema }
+        guard (2...5).contains(schemaVersion) else { throw ResolvedJobTicketError.unsupportedSchema }
         guard schemaVersion >= 3 || (printerProfile.schemaVersion <= 2 && queue.schemaVersion == 1 &&
               controls.feedSpeedIps == .notExplicitlyControlled && controls.backfeedSpeedIps == .notExplicitlyControlled) else {
             throw ResolvedJobTicketError.invalidControls
         }
-        guard schemaVersion == 4 || (printerProfile.schemaVersion <= 3 && queue.schemaVersion <= 2 &&
+        guard schemaVersion >= 4 || (printerProfile.schemaVersion <= 3 && queue.schemaVersion <= 2 &&
               controls.darkness == .leaveUnchanged) else {
+            throw ResolvedJobTicketError.invalidControls
+        }
+        guard schemaVersion == 5 || (printerProfile.schemaVersion <= 4 && queue.schemaVersion <= 3 &&
+              controls.tracking == .leaveUnchanged && controls.mediaGeometry == .leaveUnchanged) else {
             throw ResolvedJobTicketError.invalidControls
         }
         guard VirtualQueueDefinition.isSelector(acceptanceID),
               VirtualQueueDefinition.isSHA256(cancellationSHA256)
         else { throw ResolvedJobTicketError.invalidIdentity }
         guard activeSelectionGeneration > 0,
-              workflowProfile.schemaVersion == 2, (1...4).contains(printerProfile.schemaVersion),
+              workflowProfile.schemaVersion == 2, (1...4).contains(queue.schemaVersion),
+              (1...5).contains(printerProfile.schemaVersion),
               controls.profileSchemaVersion == printerProfile.schemaVersion,
               controls.profileRevision == printerProfile.revision else {
             throw ResolvedJobTicketError.invalidReference
@@ -402,7 +408,7 @@ public enum ResolvedJobTicketJSON {
                 "monochromeConversion", "controls", "outputLabels", "skippedPages",
             ])
             let version = try integer(root, "schemaVersion")
-            guard (2...4).contains(version) else {
+            guard (2...5).contains(version) else {
                 throw ResolvedJobTicketError.unsupportedSchema
             }
             let source = try object(try required(root, "source"), keys: [

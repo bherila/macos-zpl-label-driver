@@ -1,3 +1,24 @@
+# Immutable physical geometry/tracking implementation — 2026-09-17
+
+Current unpublished source binds separately qualified physical limits and defaults
+in profile5/queue4/ticket5, resolves each field independently and rejects incomplete
+home/mode/length/conflicting defaults. Gap and continuous mappings are explicit;
+black-mark offset and sensed-stock length remain unavailable. Known containment
+runs on both encoding entry points before original graphics; width/home/mode/length
+controls precede first field separator. Legacy formats and reference remain unchanged.
+Setup edits retain geometry/tracking/darkness; configured tracking is not current state.
+
+231Core and15focused native/setup cases pass, including two original-PDF synthetic
+regions whose complete stored/prepared/inert controls agree. Whole-object precedence
+fault reproduced1 failure; restored per-field resolution passes. A profile5 version
+in a queue slot reproduced1 missing rejection, now guarded by slot-specific limits.
+Full CI-equivalent gate passed exit0: 89 Python/231 Core/285 Mac debug/release, independent/inert checks, ad-hoc signatures and packaged-worker equality. See
+`validation/M3-PERSISTED-PHYSICAL-GEOMETRY-2026-09-17.md` for exact limits,
+remaining black-mark/shift/top/thermal/finishing/UI implementation and installed/
+USB/physical gates. Partial M3-AC02/03/11,M2-AC08,M4-AC12,M5-AC04 only. No
+printer/admin/merge/binary release. B stays frozen. Precedingb9c6e5c hosted35211447478
+passed at its exact source; it does not cover this new implementation.
+
 # Physical geometry qualification policy — 2026-09-17
 
 Published source `b9c6e5c7e93f029e60916a6b91fab772018eff66` on PR #81. Remote branch and PR

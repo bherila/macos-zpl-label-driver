@@ -254,4 +254,30 @@ final class ReferencePrinterSetupTests: XCTestCase {
         XCTAssertEqual(profile.configuredDefaults.darkness, 15)
     }
 
+    func testProfileFiveOfflineSpeedEditRetainsGeometryTrackingAndDarkness() throws {
+        let b = try darknessProfile(defaultValue: 15)
+        let c = b.capabilities
+        let fact = CapabilityFact(state: .supported, evidence: .documentedModel(sourceID: "synthetic-geometry-fixture"))
+        var tracking = c.tracking; tracking[.continuous] = fact
+        func limit(_ value: Int) -> QualifiedDotLimit { .init(fact: fact, maximumDots: value) }
+        let geometry = try MediaGeometryRequest(widthDots: 20, lengthDots: 10, originXDot: 1, originYDot: 1)
+        let p = try PrinterProfile(schemaVersion: 5, revision: b.revision,
+            capabilities: .init(model: c.model, thermalTransfer: c.thermalTransfer, cutter: c.cutter, peeler: c.peeler,
+                rewind: c.rewind, tracking: tracking, printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: c.darkness,
+                physicalGeometry: .init(width: limit(832), continuousLength: limit(1500), homeX: limit(100), homeY: limit(200))),
+            installedHardware: b.installedHardware, media: b.media, connection: b.connection,
+            configuredDefaults: .init(printSpeedIps: 3, darkness: 15, tracking: .continuous, mediaGeometry: geometry))
+        let model = ReferencePrinterSetupModel(profile: p)
+        XCTAssertEqual(model.darknessChoices, Array(0...30))
+        XCTAssertEqual(model.facts.first { $0.id == "tracking" }?.status, .configured)
+        XCTAssertTrue(model.facts.first { $0.id == "tracking" }?.value.contains("current setting unknown") == true)
+        try model.selectSpeed(4)
+        let defaults = try model.workflowDefaults()
+        XCTAssertEqual(defaults.printSpeedIps, 4)
+        XCTAssertEqual(defaults.darkness, 15)
+        XCTAssertEqual(defaults.tracking, .continuous)
+        XCTAssertEqual(defaults.mediaGeometry, geometry)
+        XCTAssertEqual(p.configuredDefaults.printSpeedIps, 3)
+    }
+
 }

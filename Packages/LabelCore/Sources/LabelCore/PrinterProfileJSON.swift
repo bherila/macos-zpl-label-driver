@@ -47,7 +47,11 @@ public enum PrinterProfileJSON {
             }
             defaults["feedSpeedIps"] = profile.configuredDefaults.feedSpeedIps.map { $0 as Any } ?? NSNull()
             defaults["backfeedSpeedIps"] = profile.configuredDefaults.backfeedSpeedIps.map { $0 as Any } ?? NSNull()
-            if profile.schemaVersion == 4 { defaults["darkness"] = profile.configuredDefaults.darkness.map { $0 as Any } ?? NSNull() }
+            if profile.schemaVersion >= 4 { defaults["darkness"] = profile.configuredDefaults.darkness.map { $0 as Any } ?? NSNull() }
+            if profile.schemaVersion == 5 {
+                defaults["tracking"] = profile.configuredDefaults.tracking.map { $0.rawValue as Any } ?? NSNull()
+                defaults["mediaGeometry"] = PrivatePhysicalGeometryJSON.encode(profile.configuredDefaults.mediaGeometry)
+            }
             root["configuredDefaults"] = defaults
         }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
@@ -71,7 +75,7 @@ public enum PrinterProfileJSON {
                 throw PrinterProfileJSONError.invalidType("object")
             }
             let version = try integer(dictionary, "schemaVersion")
-            guard (1...4).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
+            guard (1...5).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
             var keys: Set<String> = [
                 "schemaVersion", "revision", "capabilities", "installedHardware",
                 "media", "connection",
@@ -82,7 +86,8 @@ public enum PrinterProfileJSON {
             if version >= 2 {
                 var defaultKeys: Set<String> = ["thermalMethod", "finishing", "printSpeedIps"]
                 if version >= 3 { defaultKeys.formUnion(["feedSpeedIps", "backfeedSpeedIps"]) }
-                if version == 4 { defaultKeys.insert("darkness") }
+                if version >= 4 { defaultKeys.insert("darkness") }
+                if version == 5 { defaultKeys.formUnion(["tracking", "mediaGeometry"]) }
                 let value = try object(required(root, "configuredDefaults"), allowed: defaultKeys)
                 if !(try required(value, "thermalMethod") is NSNull) {
                     defaults.thermalMethod = try enumeration(value, "thermalMethod", ThermalMethod.self)
@@ -91,7 +96,11 @@ public enum PrinterProfileJSON {
                     defaults.finishing = try enumeration(value, "finishing", FinishingMode.self)
                 }
                 defaults.printSpeedIps = try optionalInteger(value, "printSpeedIps")
-                if version == 4 { defaults.darkness = try optionalInteger(value, "darkness") }
+                if version >= 4 { defaults.darkness = try optionalInteger(value, "darkness") }
+                if version == 5 {
+                    if !(try required(value, "tracking") is NSNull) { defaults.tracking = try enumeration(value, "tracking", MediaTracking.self) }
+                    defaults.mediaGeometry = try PrivatePhysicalGeometryJSON.decode(required(value, "mediaGeometry"))
+                }
                 if version >= 3 {
                     defaults.feedSpeedIps = try optionalInteger(value, "feedSpeedIps")
                     defaults.backfeedSpeedIps = try optionalInteger(value, "backfeedSpeedIps")
@@ -129,7 +138,24 @@ public enum PrinterProfileJSON {
             result["feedSpeeds"] = encodeSpeedChoices(value.feedSpeeds)
             result["backfeedSpeeds"] = encodeSpeedChoices(value.backfeedSpeeds)
         }
+        if version == 5 {
+            let p = value.physicalGeometry
+            func limit(_ value: QualifiedDotLimit) -> Any {
+                ["fact": encodeFact(value.fact), "maximumDots": value.maximumDots.map { $0 as Any } ?? NSNull()]
+            }
+            result["physicalGeometry"] = ["width": limit(p.width), "continuousLength": limit(p.continuousLength),
+                                          "homeX": limit(p.homeX), "homeY": limit(p.homeY)]
+        }
         return result
+    }
+
+    private static func decodePhysicalGeometry(_ raw: Any) throws -> PhysicalGeometryQualification {
+        let object = try object(raw, allowed: ["width", "continuousLength", "homeX", "homeY"])
+        func limit(_ key: String) throws -> QualifiedDotLimit {
+            let value = try self.object(required(object, key), allowed: ["fact", "maximumDots"])
+            return try .init(fact: decodeFact(required(value, "fact")), maximumDots: optionalInteger(value, "maximumDots"))
+        }
+        return try .init(width: limit("width"), continuousLength: limit("continuousLength"), homeX: limit("homeX"), homeY: limit("homeY"))
     }
 
     private static func encodeSpeedChoices(_ value: QualifiedSpeedChoices) -> [String: Any] {
@@ -153,7 +179,9 @@ public enum PrinterProfileJSON {
         for fact in [
             capabilities.thermalTransfer, capabilities.cutter, capabilities.peeler,
             capabilities.rewind, capabilities.darkness, capabilities.feedSpeeds.fact,
-            capabilities.backfeedSpeeds.fact,
+            capabilities.backfeedSpeeds.fact, capabilities.physicalGeometry.width.fact,
+            capabilities.physicalGeometry.continuousLength.fact, capabilities.physicalGeometry.homeX.fact,
+            capabilities.physicalGeometry.homeY.fact,
         ] + Array(capabilities.tracking.values) {
             try validateEvidence(fact.evidence)
         }
@@ -189,6 +217,7 @@ public enum PrinterProfileJSON {
         var keys: Set<String> = ["model", "thermalTransfer", "cutter", "peeler", "rewind", "tracking",
                                  "printSpeedChoicesIps", "darkness"]
         if version >= 3 { keys.formUnion(["feedSpeeds", "backfeedSpeeds"]) }
+        if version == 5 { keys.insert("physicalGeometry") }
         let value = try object(raw, allowed: keys)
         let trackingObject = try object(try required(value, "tracking"), allowed: [
             MediaTracking.gap.rawValue, MediaTracking.blackMark.rawValue,
@@ -217,7 +246,8 @@ public enum PrinterProfileJSON {
             printSpeedChoicesIps: Set(speeds),
             darkness: try decodeFact(required(value, "darkness")),
             feedSpeeds: version >= 3 ? try decodeSpeedChoices(required(value, "feedSpeeds")) : .unverified,
-            backfeedSpeeds: version >= 3 ? try decodeSpeedChoices(required(value, "backfeedSpeeds")) : .unverified
+            backfeedSpeeds: version >= 3 ? try decodeSpeedChoices(required(value, "backfeedSpeeds")) : .unverified,
+            physicalGeometry: version == 5 ? try decodePhysicalGeometry(required(value, "physicalGeometry")) : .unverified
         )
     }
 
