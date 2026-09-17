@@ -1,3 +1,8 @@
+# Original-source preparation source checkpoint — 2026-09-17
+
+Implementation 181cf15534dd60c98e3b7c1978accbeaa6d2e575 passed the local finite gate documented below.
+Source publication/readback and hosted verification follow; no binary release or merge.
+
 # Original-source finishing preparation terminal gate — 2026-09-17
 
 Full finite900s session77319 completed ownexit0:89Python/270Core/323Mac debug/release, independent strict and ASCII oracles, finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.0bWZBw. No printer accessed.
