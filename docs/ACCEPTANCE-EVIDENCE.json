@@ -476,6 +476,80 @@
           "sha256": "50053ff9274b2c2c3cab6a2036a0e4fda8cabb05597fded3fc7478282962e7d8"
         }
       ]
+    },
+    {
+      "acceptanceID": "M3-AC02",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "3be5feca11d89c0987f4106ffaea5760b07df4df",
+      "implementation": [
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/PrinterProfile.swift",
+          "sha256": "9dae83691c47950fec1db1e00d5dc66525b7e2a2b6faad487d2760f8eb3c96ca"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/PrinterControlResolution.swift",
+          "sha256": "655da604915d195b56de495042a9402306ba358345680c999027e9b0a52ec0ac"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLControlEncoder.swift",
+          "sha256": "909cc3e14465b24aa36655ec45ba2793eac7c5df877be000a2409b9bcdce1b82"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLDocumentedControlEncoder.swift",
+          "sha256": "e8e84e66eba34ab0c11d9575c17e704b8298c943517eeaeff289dad462c1e56a"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometryQualification.swift",
+          "sha256": "b29333ea2a299d67ffbf0c4eb8b9f7e3a2b0b75341e4c835e46b4463cc013271"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/OffsetControlQualification.swift",
+          "sha256": "4dd16334d42f59cbc4e1fa0ad249c60e387add05545957450bfae36484b9142a"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ThermalControlQualification.swift",
+          "sha256": "4022bd8bc89e43cc4e5397e3d1c848ed564db26397cb929f86b8068b38607b0f"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ConfiguredPrinterDefaultsTests.swift",
+          "sha256": "3f1227b1bfe4f36749a773c5d023ee0df1122128f89bfe9359f5c88da97fbf90"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/MotorSpeedIntegrationTests.swift",
+          "sha256": "1ac6a652127e27ac355714d105c329d4469b96defeada6305280580eaa9dfd52"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/DarknessIntegrationTests.swift",
+          "sha256": "b13a06b5dcea2578788d7eb3650c704bbb5cb11dac395ecb32291979b84b53cc"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/GeometryControlIntegrationTests.swift",
+          "sha256": "7f342cd61978a2e4af4badb3ca3783d2cd46cd020869982f74d3a88688558238"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/OffsetControlIntegrationTests.swift",
+          "sha256": "4d68c9cbf0dbc2ec5b876e42ebdbf2e0c01d35ef3aceedd164acb8d7f04dbc8a"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ThermalControlIntegrationTests.swift",
+          "sha256": "8721fa493a0c55d443b2532f89793df93c191d57ec11e9c98b7e3291fc9b330e"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingControlQualificationTests.swift",
+          "sha256": "68ef9434513470ef7fd1d67435b0f20cdfb1e8f81bbcb5ae0540009fbad9f968"
+        },
+        {
+          "path": "docs/validation/M3-SETTINGS-VALIDATION-ASSESSMENT-2026-09-17.md",
+          "sha256": "5db598db9038a74e04122e5a4f150722ec414aa1a4a63254245556b5e861ec68"
+        },
+        {
+          "path": "docs/validation/M2-M5-TELEMETRY-INTEGRATED-BASELINE-2026-09-17.md",
+          "sha256": "50053ff9274b2c2c3cab6a2036a0e4fda8cabb05597fded3fc7478282962e7d8"
+        }
+      ]
     }
   ]
 }
