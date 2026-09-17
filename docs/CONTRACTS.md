@@ -253,3 +253,12 @@ worker admission, beside its exact profile-bound plan, original-source provenanc
 and packed inputs. Revalidation against the retained profile rejects changed
 effective controls; qualified geometry containment includes known home/shift/top
 combinations. Unknown device geometry and physical stock fit remain unproven.
+
+### Bound finishing normal-control prefix
+
+ZPLControlEncoder.prepareFinishingNormalization returns a sealed profile/plan/
+effective-controls/bytes context using shared ordinary normal encoding. Preparation
+retains that context before rendering. Schema8 thermal commands remain explicit.
+The normal prefix excludes all finishing, format, graphic, quantity and cut-trigger
+commands; output policy must own these separately. Ordinary schema8 admission is
+unchanged and a prefix cannot substitute for a complete accepted job payload.

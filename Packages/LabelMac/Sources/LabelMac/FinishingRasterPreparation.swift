@@ -17,7 +17,8 @@ public struct FinishingRasterPreparation: Equatable, Sendable {
     public let conversion: MonochromeConversion
     public let rasters: [MonochromeBitmap]
     public let binding: FinishingRasterBinding
-    public let controls: ResolvedPrinterControls
+    public let normalization: FinishingControlNormalization
+    public var controls: ResolvedPrinterControls { normalization.controls }
 
     public static func prepare(
         job: ProfileBoundFinishingJobPlan, controlRequest: PrinterControlRequest = .init(),
@@ -45,8 +46,9 @@ public struct FinishingRasterPreparation: Equatable, Sendable {
         let (bytes, byteOverflow) = canvas.bitmapLayout.byteCount.multipliedReportingOverflow(
             by: extraction.outputLabels.count)
         guard !byteOverflow, bytes <= maximumPackedBytes else { throw Error.byteLimit }
-        let controls = try job.printer.profile.resolveFinishingControls(plan: job.plan,
-            job: controlRequest, workflowDefaults: workflowDefaults)
+        let normalization = try ZPLControlEncoder().prepareFinishingNormalization(profile: job.printer.profile,
+            plan: job.plan, job: controlRequest, workflowDefaults: workflowDefaults)
+        let controls = normalization.controls
         let start = DispatchTime.now().uptimeNanoseconds
         func remaining() throws -> Double {
             guard !cancellation.isCancelled else { throw Error.cancelled }
@@ -82,7 +84,7 @@ public struct FinishingRasterPreparation: Equatable, Sendable {
         let sourceHash = hash(originalPDF)
         _ = try remaining()
         return Self(sourceSHA256: sourceHash, sourceByteCount: originalPDF.count,
-            extraction: extraction, canvas: canvas, conversion: conversion, rasters: rasters, binding: binding, controls: controls)
+            extraction: extraction, canvas: canvas, conversion: conversion, rasters: rasters, binding: binding, normalization: normalization)
     }
 
     public func validateSource(originalPDF: Data, extraction: ExtractionPlan,

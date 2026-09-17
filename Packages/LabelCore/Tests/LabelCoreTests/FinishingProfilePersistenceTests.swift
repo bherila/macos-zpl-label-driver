@@ -43,6 +43,17 @@ final class FinishingProfilePersistenceTests: XCTestCase {
                 tracking: legacy.tracking, mediaGeometry: legacy.mediaGeometry, offsets: legacy.offsets)
             let resolved = try stored.resolveFinishingControls(plan: plan, job: job, workflowDefaults: workflow)
             XCTAssertEqual(resolved, expected)
+            let normalization = try ZPLControlEncoder().prepareFinishingNormalization(
+                profile: stored, plan: plan, job: job, workflowDefaults: workflow)
+            XCTAssertEqual(normalization.profile, stored)
+            XCTAssertEqual(normalization.plan, plan)
+            XCTAssertEqual(normalization.controls, resolved)
+            let expectedText = String(decoding: try ZPLControlEncoder().encode(legacy), as: UTF8.self)
+                .replacingOccurrences(of: "^MMT\n", with: "")
+            XCTAssertEqual(String(decoding: normalization.bytes, as: UTF8.self), expectedText)
+            XCTAssertTrue(expectedText.hasPrefix(method == .directThermal ? "^MTD\n" : "^MTT\n"))
+            XCTAssertThrowsError(try ZPLControlEncoder(maxOutputBytes: normalization.bytes.count - 1)
+                .prepareFinishingNormalization(profile: stored, plan: plan, job: job, workflowDefaults: workflow))
             XCTAssertEqual(resolved.darkness, .value(0))
             XCTAssertThrowsError(try stored.resolveControls(job: job))
             XCTAssertThrowsError(try ZPLControlEncoder().encode(resolved))
@@ -105,6 +116,15 @@ final class FinishingProfilePersistenceTests: XCTestCase {
             let resolved = try profile.resolveFinishingControls(plan: plan,
                 job: .init(finishing: mode, darkness: 0))
             XCTAssertEqual(resolved.finishing, .value(mode))
+            let normalization = try ZPLControlEncoder().prepareFinishingNormalization(profile: profile,
+                plan: plan, job: .init(finishing: mode, darkness: 0))
+            XCTAssertEqual(normalization.controls, resolved)
+            let prefix = String(decoding: normalization.bytes, as: UTF8.self)
+            XCTAssertTrue(prefix.hasPrefix("^MTD\n"))
+            XCTAssertTrue(prefix.contains("^MD0\n~SD00\n"))
+            for forbidden in ["^MM", "^PQ", "~JK", "^XA", "^XZ", "^GF"] {
+                XCTAssertFalse(prefix.contains(forbidden))
+            }
             XCTAssertEqual(resolved.thermalMethod, .value(.directThermal))
             XCTAssertEqual(resolved.darkness, .value(0))
             XCTAssertEqual(plan.cutAfterOutputLabels, mode == .cut ? [3, 6, 7] : [])
