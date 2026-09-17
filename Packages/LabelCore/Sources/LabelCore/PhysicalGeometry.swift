@@ -67,6 +67,9 @@ public struct DotCanvas: Equatable, Sendable {
     public let width: Int
     public let height: Int
     public let bitmapLayout: BitmapLayout
+    private let maximumWidth: Int
+    private let maximumHeight: Int
+    private let maximumByteCount: Int
 
     public init(
         physicalSize: PhysicalSize,
@@ -86,11 +89,34 @@ public struct DotCanvas: Equatable, Sendable {
         guard height <= maximumHeight else {
             throw PhysicalGeometryError.exceedsDotLimit(actual: height, limit: maximumHeight)
         }
+        self.maximumWidth = maximumWidth
+        self.maximumHeight = maximumHeight
+        self.maximumByteCount = maximumByteCount
         self.physicalSize = physicalSize
         self.resolution = resolution
         self.width = width
         self.height = height
         self.bitmapLayout = try BitmapLayout(width: width, height: height, maxByteCount: maximumByteCount)
+    }
+
+    /// Equality binds rendered geometry, retaining the existing canvas identity contract.
+    /// Admission budgets govern future resizing and are not raster geometry.
+    public static func == (lhs: DotCanvas, rhs: DotCanvas) -> Bool {
+        lhs.physicalSize == rhs.physicalSize && lhs.resolution == rhs.resolution
+            && lhs.width == rhs.width && lhs.height == rhs.height
+            && lhs.bitmapLayout == rhs.bitmapLayout
+    }
+
+    /// Rebuilds destination geometry using the original pitch and admission budgets.
+    /// A stock change never grants a larger rendering allocation or device limit.
+    public func replacingPhysicalSize(_ size: PhysicalSize) throws -> DotCanvas {
+        try DotCanvas(
+            physicalSize: size,
+            resolution: resolution,
+            maximumWidth: maximumWidth,
+            maximumHeight: maximumHeight,
+            maximumByteCount: maximumByteCount
+        )
     }
 }
 

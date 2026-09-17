@@ -2,6 +2,37 @@ import XCTest
 @testable import LabelCore
 
 final class PhysicalGeometryTests: XCTestCase {
+    func testStockReplacementRetainsIndependentPitchAndAdmissionBudgets() throws {
+        func size(_ width: Double, _ height: Double) throws -> PhysicalSize {
+            PhysicalSize(width: try Millimeters(width), height: try Millimeters(height))
+        }
+        let original = try DotCanvas(
+            physicalSize: size(10, 10),
+            resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 12),
+            maximumWidth: 96, maximumHeight: 144, maximumByteCount: 1_500
+        )
+        let unrestricted = try DotCanvas(physicalSize: size(10, 10), resolution: original.resolution)
+        XCTAssertEqual(original, unrestricted)
+        XCTAssertNoThrow(try unrestricted.replacingPhysicalSize(size(12, 12)))
+        let smaller = try original.replacingPhysicalSize(size(5, 5))
+        XCTAssertEqual(smaller.width, 40)
+        XCTAssertEqual(smaller.height, 60)
+        XCTAssertEqual(smaller.resolution, original.resolution)
+        XCTAssertEqual(try smaller.replacingPhysicalSize(size(10, 10)), original)
+        XCTAssertThrowsError(try smaller.replacingPhysicalSize(size(13, 5))) {
+            XCTAssertEqual($0 as? PhysicalGeometryError, .exceedsDotLimit(actual: 104, limit: 96))
+        }
+        XCTAssertThrowsError(try smaller.replacingPhysicalSize(size(5, 13))) {
+            XCTAssertEqual($0 as? PhysicalGeometryError, .exceedsDotLimit(actual: 156, limit: 144))
+        }
+        // Both dimensions fit their limits; their combination exceeds the byte budget.
+        XCTAssertThrowsError(try smaller.replacingPhysicalSize(size(12, 12))) {
+            XCTAssertEqual($0 as? BitmapLayout.ValidationError, .exceedsLimit(actual: 1_728, limit: 1_500))
+        }
+        XCTAssertEqual(original.width, 80)
+        XCTAssertEqual(original.height, 120)
+    }
+
     func testGC420dPhysicalPitchOracle() throws {
         let stock = PhysicalSize(width: try .inches(4), height: try .inches(6))
         let canvas = try DotCanvas(
