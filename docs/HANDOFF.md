@@ -1,3 +1,22 @@
+# Current encoding benchmark slice — 2026-09-17
+
+Exact-head hosted run 35200866409 passed at preceding `8c041aa`; its retained
+log confirms native 269-test suites, both oracles and packaged worker equality.
+The validated lease commit is still local, waiting to publish with this coherent
+benchmark follow-on. A finite lab command measures plain/ASCII encoding on three
+synthetic 4x6 patterns, checking full byte equality outside each timed interval.
+Twelve release CLI cases and three Python schema tests pass. Twenty-iteration
+reference report shows very large savings for repeated content, but only about
+5% bytes and roughly13x slower encoding on the analytic pattern. Production
+selection remains plain hex; no hardware/firmware throughput claim.
+See `validation/M2-ENCODING-BENCHMARK-2026-09-17.md` and its exact raw report.
+Full local checks passed exit 0: 89 Python / 190 Core / 273 Mac debug/release,
+both independent/inert/signature/packaged checks and twelve CLI benchmark cases
+per configuration. Both coherent commits are ready to push. The preceding
+hosted pass does not validate the
+later lease/benchmark source; second cloud review covers only a370e05/base77c29ff.
+B remains unchanged and separately frozen. No merge/release.
+
 # Current lease namespace admission slice — 2026-09-17
 
 Previous diagnostic fix was pushed as `8c041aa` on PR #81. Exact-head hosted
