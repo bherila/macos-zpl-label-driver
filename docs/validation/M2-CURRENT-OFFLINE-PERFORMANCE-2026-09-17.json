@@ -1,0 +1,72 @@
+{
+  "cold": {
+    "maximumResidentBytes": 17891328,
+    "milliseconds": 515.9366669977317
+  },
+  "coldDefinition": "first timed invocation after an untimed release build; filesystem caches are not purged",
+  "environment": {
+    "architecture": "arm64",
+    "macOSBuild": "26A428",
+    "macOSVersion": "27.0",
+    "referenceMachine": "Apple Silicon MacBookPro18,3",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "xcode": "Xcode 27.0 / Build version 27A266a"
+  },
+  "gitDirty": false,
+  "gitHead": "4519289746ea809f771dfd53fce32ba47cf33ea2",
+  "inputs": {
+    "executable": "artifacts/local-adhoc.T0kngf/label-driver",
+    "executableSHA256": "497abbf1b1511db358ac821830f23f4575dafdf674849a741e5ff0367c3ad13c",
+    "fixture": "Fixtures/generated/native-vector.pdf",
+    "fixtureSHA256": "24af4c33cd98b4373048c3fdf88085a1da098e7cebc97b147d051fd99ecf5c61",
+    "ticket": "Examples/offline-ticket-v1.json",
+    "ticketSHA256": "d6a74471a2e062f1c048a82c3eaa691914afd3452a2fab1d5fcc6535204df9d3"
+  },
+  "limitations": [
+    "No scheduler, USB transport, printer mechanics, first-label time, or sustained physical rate is measured.",
+    "This local baseline is not a shared-runner performance threshold."
+  ],
+  "measurementTool": "Python monotonic wall clock around /usr/bin/time -l and label-driver validate; RSS is the command value reported by macOS",
+  "prepared": {
+    "formatScope": "offline-graphics-envelope-not-state-normalized",
+    "heightDots": 1219,
+    "pixels": 991047,
+    "widthDots": 813,
+    "zplBytes": 248814
+  },
+  "rawWarm": [
+    {
+      "maximumResidentBytes": 18153472,
+      "milliseconds": 131.12116701086052
+    },
+    {
+      "maximumResidentBytes": 18104320,
+      "milliseconds": 129.89195900445338
+    },
+    {
+      "maximumResidentBytes": 17858560,
+      "milliseconds": 129.96812499477528
+    },
+    {
+      "maximumResidentBytes": 18186240,
+      "milliseconds": 123.14650000189431
+    },
+    {
+      "maximumResidentBytes": 17825792,
+      "milliseconds": 138.33091600099578
+    }
+  ],
+  "schemaVersion": 1,
+  "scope": "offline-release-render-and-encode-no-transport",
+  "warm": {
+    "maximumMilliseconds": 138.33091600099578,
+    "maximumResidentBytes": 18186240,
+    "medianMilliseconds": 129.96812499477528,
+    "minimumMilliseconds": 123.14650000189431,
+    "p95Milliseconds": 138.33091600099578,
+    "pixelsPerSecondAtP95": 7164320.375011945,
+    "preparedBytesPerSecondAtP95": 1798686.8531847855,
+    "runs": 5
+  },
+  "warmDefinition": "subsequent separate CLI invocations using identical fixture and ticket bytes"
+}

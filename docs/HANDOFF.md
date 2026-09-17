@@ -324,3 +324,5 @@ cgWindowNotFound twice for the local app; no window was observed, so GUI remains
 Seven explicit source-bound assessments are now recorded: M0-AC03/07/08/11, M2-AC07,
 M5-AC12 at A; M0-AC04 at I for actual local native build/CGContext smoke only.
 Next: validate the clean ledger readback, then continue remaining software gap review. All manual/hardware/release gates remain unchanged.
+
+Current offline performance refresh: [M2-CURRENT-OFFLINE-PERFORMANCE-2026-09-17](validation/M2-CURRENT-OFFLINE-PERFORMANCE-2026-09-17.md), finite six invocations exit0; repeat p95 138.331ms, first515.937ms. Command RSS only; aggregate worker peak not instrumented. No acceptance promotion.
