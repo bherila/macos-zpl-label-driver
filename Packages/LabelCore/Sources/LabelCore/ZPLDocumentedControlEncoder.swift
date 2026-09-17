@@ -8,6 +8,7 @@ public enum ZPLDocumentedControl: Equatable, Sendable {
     case absoluteDarkness(Int)
     case thermalMethod(ThermalMethod)
     case gapTracking
+    case continuousTracking(labelLengthDots: Int)
     case blackMarkTracking(offsetDots: Int)
     case labelHome(xDots: Int, yDots: Int)
     case labelShiftLeft(dots: Int)
@@ -17,7 +18,7 @@ public enum ZPLDocumentedControl: Equatable, Sendable {
 
     public enum Kind: String, CaseIterable, Hashable, Sendable {
         case printRate, absoluteDarkness, directThermal, thermalTransfer
-        case gapTracking, blackMarkTracking, labelHome, labelShiftLeft
+        case gapTracking, blackMarkTracking, continuousTracking, labelHome, labelShiftLeft
         case labelTop, printWidth, tearOff
     }
 
@@ -28,6 +29,7 @@ public enum ZPLDocumentedControl: Equatable, Sendable {
         case .thermalMethod(.directThermal): return .directThermal
         case .thermalMethod(.thermalTransfer): return .thermalTransfer
         case .gapTracking: return .gapTracking
+        case .continuousTracking: return .continuousTracking
         case .blackMarkTracking: return .blackMarkTracking
         case .labelHome: return .labelHome
         case .labelShiftLeft: return .labelShiftLeft
@@ -46,6 +48,7 @@ public struct ZPLDocumentedControlLimits: Equatable, Sendable {
     public let feedSpeedChoicesIps: Set<Int>
     public let backfeedSpeedChoicesIps: Set<Int>
     public let blackMarkOffsetDots: ClosedRange<Int>?
+    public let maximumContinuousLabelLengthDots: Int?
     public let maximumPrintWidthDots: Int?
     public let labelTopDots: ClosedRange<Int>?
 
@@ -53,12 +56,14 @@ public struct ZPLDocumentedControlLimits: Equatable, Sendable {
         printSpeedChoicesIps: Set<Int> = [], feedSpeedChoicesIps: Set<Int> = [],
         backfeedSpeedChoicesIps: Set<Int> = [],
         blackMarkOffsetDots: ClosedRange<Int>? = nil,
-        maximumPrintWidthDots: Int? = nil, labelTopDots: ClosedRange<Int>? = nil
+        maximumPrintWidthDots: Int? = nil, labelTopDots: ClosedRange<Int>? = nil,
+        maximumContinuousLabelLengthDots: Int? = nil
     ) {
         self.printSpeedChoicesIps = printSpeedChoicesIps
         self.feedSpeedChoicesIps = feedSpeedChoicesIps
         self.backfeedSpeedChoicesIps = backfeedSpeedChoicesIps
         self.blackMarkOffsetDots = blackMarkOffsetDots
+        self.maximumContinuousLabelLengthDots = maximumContinuousLabelLengthDots
         self.maximumPrintWidthDots = maximumPrintWidthDots
         self.labelTopDots = labelTopDots
     }
@@ -107,7 +112,7 @@ public struct ZPLDocumentedControlEncoder: Sendable {
         guard !kinds.isSuperset(of: [.directThermal, .thermalTransfer]) else {
             throw Error.conflictingThermalMethods
         }
-        guard !kinds.isSuperset(of: [.gapTracking, .blackMarkTracking]) else {
+        guard kinds.intersection([.gapTracking, .blackMarkTracking, .continuousTracking]).count <= 1 else {
             throw Error.conflictingTracking
         }
         var output = Data()
@@ -131,6 +136,17 @@ public struct ZPLDocumentedControlEncoder: Sendable {
             case .thermalMethod(.directThermal): command = "^MTD\n"
             case .thermalMethod(.thermalTransfer): command = "^MTT\n"
             case .gapTracking: command = "^MNY\n"
+            case let .continuousTracking(length):
+                guard (1...32_000).contains(length),
+                      let maximum = limits.maximumContinuousLabelLengthDots,
+                      (1...32_000).contains(maximum), length <= maximum else {
+                    throw Error.invalidValue(control.kind)
+                }
+                // R46: fix continuous mode before length. The optional modern
+                // ^LL media-scope flag can be Y or N without changing this
+                // explicitly continuous format. Do not guess its delimiter or
+                // claim that a later gap/mark format has been normalized.
+                command = "^MNN\n^LL\(length)\n"
             case let .blackMarkTracking(offset):
                 // Conservative intersection valid across the documented model
                 // categories; wider model-specific offsets are not implemented.

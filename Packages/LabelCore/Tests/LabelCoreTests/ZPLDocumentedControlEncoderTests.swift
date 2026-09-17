@@ -25,6 +25,7 @@ final class ZPLDocumentedControlEncoderTests: XCTestCase {
         let controls: [ZPLDocumentedControl] = [
             .printRate(printIps: 3, feedIps: 4, backfeedIps: 2), .absoluteDarkness(0),
             .thermalMethod(.directThermal), .thermalMethod(.thermalTransfer), .gapTracking,
+            .continuousTracking(labelLengthDots: 64),
             .blackMarkTracking(offsetDots: 0), .labelHome(xDots: 0, yDots: 0),
             .labelShiftLeft(dots: 0), .labelTop(dots: 0), .printWidth(dots: 2), .tearOff]
         XCTAssertEqual(Set(controls.map(\.kind)), Set(ZPLDocumentedControl.Kind.allCases))
@@ -101,4 +102,49 @@ final class ZPLDocumentedControlEncoderTests: XCTestCase {
         XCTAssertThrowsError(try ordinary.resolveControls(job: .init(tracking: .gap)))
         XCTAssertThrowsError(try ordinary.resolveControls(job: .init(thermalMethod: .thermalTransfer)))
     }
+    func testContinuousTrackingAndLengthAreOneExplicitQualifiedOperation() throws {
+        for length in [1, 1_219, 32_000] {
+            let control = ZPLDocumentedControl.continuousTracking(labelLengthDots: length)
+            let expected = Data("^MNN\n^LL\(length)\n".utf8)
+            let bounds = ZPLDocumentedControlLimits(maximumContinuousLabelLengthDots: length)
+            XCTAssertEqual(try ZPLDocumentedControlEncoder(maximumOutputBytes: expected.count).encode(
+                [control], qualification: [.continuousTracking: .supported], limits: bounds), expected)
+            XCTAssertThrowsError(try ZPLDocumentedControlEncoder(maximumOutputBytes: expected.count - 1).encode(
+                [control], qualification: [.continuousTracking: .supported], limits: bounds)) {
+                XCTAssertEqual($0 as? ZPLDocumentedControlEncoder.Error, .outputLimit)
+            }
+            for state in [CapabilityState.unknown, .unsupported] {
+                XCTAssertThrowsError(try ZPLDocumentedControlEncoder().encode(
+                    [control], qualification: [.continuousTracking: state], limits: bounds)) {
+                    XCTAssertEqual($0 as? ZPLDocumentedControlEncoder.Error, .unavailable(.continuousTracking))
+                }
+            }
+        }
+    }
+
+    func testContinuousLengthRequiresModelMemoryBoundAndRejectsOtherTracking() throws {
+        let encoder = try ZPLDocumentedControlEncoder()
+        for length in [Int.min, 0, 65, 32_001, Int.max] {
+            XCTAssertThrowsError(try encoder.encode([.continuousTracking(labelLengthDots: length)],
+                qualification: [.continuousTracking: .supported],
+                limits: .init(maximumContinuousLabelLengthDots: 64))) {
+                XCTAssertEqual($0 as? ZPLDocumentedControlEncoder.Error, .invalidValue(.continuousTracking))
+            }
+        }
+        for maximum: Int? in [nil, 0, 32_001, Int.max] {
+            XCTAssertThrowsError(try encoder.encode([.continuousTracking(labelLengthDots: 1)],
+                qualification: [.continuousTracking: .supported],
+                limits: .init(maximumContinuousLabelLengthDots: maximum)))
+        }
+        for other in [ZPLDocumentedControl.gapTracking, .blackMarkTracking(offsetDots: 0)] {
+            XCTAssertThrowsError(try encoder.encode([.continuousTracking(labelLengthDots: 64), other],
+                qualification: qualified, limits: .init(maximumContinuousLabelLengthDots: 64))) {
+                XCTAssertEqual($0 as? ZPLDocumentedControlEncoder.Error, .conflictingTracking)
+            }
+        }
+        XCTAssertThrowsError(try encoder.encode(Array(repeating: .tearOff, count: 13), qualification: qualified)) {
+            XCTAssertEqual($0 as? ZPLDocumentedControlEncoder.Error, .tooManyControls)
+        }
+    }
+
 }
