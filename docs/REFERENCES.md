@@ -393,3 +393,19 @@ silence, or turn general status into a job-specific receipt. Actual GC420d USB
 status transport and firmware support remain unobserved. Its 64KiB input cap is
 project policy, not a vendor claim. Source tables describe observations rather
 than permissions to configure hardware.
+
+
+<a id="r45"></a>
+## R45 — Public Zebra ordinary control command tables
+
+[Zebra Programming Guide P1134473-11EN Rev A](https://www.zebra.com/content/dam/support-dam/en/documentation/unrestricted/guide/software/zpl-zbi2-pg-en.pdf)
+
+Checked 2026-09-17; document dated 2026-07-05; temporary fetched PDF SHA256
+`b1f83b0822f176bb20b7cfe14a37ea33fb552c3d6bcf05da1b4c2704ad3aaa0c`.
+Public protocol specification only, not proprietary driver material; not bundled.
+Printed pages293 (^LH),296 (^LS),297 (^LT),301 (^MD),307–308 (^MN),311
+(^MT),305 (^MM),326–327 (^PR),329 (^PW),333 (~SD). Text tables inspected; page294
+rendered to resolve a delimiter ambiguity for ^LL, which is not implemented
+in this slice. Speeds are independent parameters with model restrictions;
+relative ^MD is added to ~SD. Model-specific accepted ranges, installed defaults
+and physical behavior remain separately qualified. No device command sent.
