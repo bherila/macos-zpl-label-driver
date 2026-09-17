@@ -1,3 +1,20 @@
+# Exact thermal profile7 persistence — 2026-09-17
+
+Current locally validated source adds required private thermal observations and independent
+direct-thermal fact, configured-default consumable validation, strict boolean/evidence
+JSON, legacy exactness and utility save/restart preservation. Five initial focused
+Core and8 native editing cases passed ownexit0; sixth Core case adds generic-reference
+versus legacy-queue admission combination. Full finite CI-equivalent gate passed ownexit0:89Python/252Core/307Mac
+debug/release plus independent/inert/signature/packaged checks. Omitted-save
+thermal snapshot fault failed ownexit1, source byte-for-byte restored and all8
+editing cases passed ownexit0.
+See `validation/M3-THERMAL-PROFILE-PERSISTENCE-2026-09-17.md`. Profile7 is deliberately
+not admitted to queue1..5/ticket2..6; ordinary thermal integration is next. Reference
+GC420d and frozen B unchanged; no physical/admin/merge/binary action.
+Previous policy62dd3c5/checkpoint4970335 pushed, remote/PR81 exact readback
+confirmed. Exact hosted35217368100 live, not pass evidence; persistencecacca16
+hosted35216715041 passed at its exact source.
+
 # Qualified thermal consumable policy — 2026-09-17
 
 Local unpushed62dd3c5000ac746e79c2e28c9157eb19d5c1d09a source adds independent model/matching loaded-media/ribbon

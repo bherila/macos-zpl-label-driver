@@ -34,6 +34,12 @@ public enum PrinterProfileJSON {
             "media": encodeMedia(profile.media),
             "connection": encodeConnection(profile.connection),
         ]
+        if profile.schemaVersion == 7 {
+            root["thermalMedia"] = [
+                "method": encodeObservation(profile.thermalMedia.method) { $0.rawValue },
+                "ribbonPresent": encodeObservation(profile.thermalMedia.ribbonPresent) { $0 },
+            ]
+        }
         if profile.schemaVersion >= 2 {
             root["configuredDefaults"] = [
                 "thermalMethod": profile.configuredDefaults.thermalMethod.map { $0.rawValue as Any } ?? NSNull(),
@@ -52,7 +58,7 @@ public enum PrinterProfileJSON {
                 defaults["tracking"] = profile.configuredDefaults.tracking.map { $0.rawValue as Any } ?? NSNull()
                 defaults["mediaGeometry"] = PrivatePhysicalGeometryJSON.encode(profile.configuredDefaults.mediaGeometry)
             }
-            if profile.schemaVersion == 6 { defaults["offsets"] = PrivateOffsetJSON.encode(profile.configuredDefaults.offsets) }
+            if profile.schemaVersion >= 6 { defaults["offsets"] = PrivateOffsetJSON.encode(profile.configuredDefaults.offsets) }
             root["configuredDefaults"] = defaults
         }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
@@ -76,12 +82,13 @@ public enum PrinterProfileJSON {
                 throw PrinterProfileJSONError.invalidType("object")
             }
             let version = try integer(dictionary, "schemaVersion")
-            guard (1...6).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
+            guard (1...7).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
             var keys: Set<String> = [
                 "schemaVersion", "revision", "capabilities", "installedHardware",
                 "media", "connection",
             ]
             if version >= 2 { keys.insert("configuredDefaults") }
+            if version == 7 { keys.insert("thermalMedia") }
             let root = try object(raw, allowed: keys)
             var defaults = PrinterControlDefaults()
             if version >= 2 {
@@ -89,7 +96,7 @@ public enum PrinterProfileJSON {
                 if version >= 3 { defaultKeys.formUnion(["feedSpeedIps", "backfeedSpeedIps"]) }
                 if version >= 4 { defaultKeys.insert("darkness") }
                 if version >= 5 { defaultKeys.formUnion(["tracking", "mediaGeometry"]) }
-                if version == 6 { defaultKeys.insert("offsets") }
+                if version >= 6 { defaultKeys.insert("offsets") }
                 let value = try object(required(root, "configuredDefaults"), allowed: defaultKeys)
                 if !(try required(value, "thermalMethod") is NSNull) {
                     defaults.thermalMethod = try enumeration(value, "thermalMethod", ThermalMethod.self)
@@ -97,7 +104,7 @@ public enum PrinterProfileJSON {
                 if !(try required(value, "finishing") is NSNull) {
                     defaults.finishing = try enumeration(value, "finishing", FinishingMode.self)
                 }
-                if version == 6 { defaults.offsets = try PrivateOffsetJSON.decode(required(value, "offsets")) }
+                if version >= 6 { defaults.offsets = try PrivateOffsetJSON.decode(required(value, "offsets")) }
                 defaults.printSpeedIps = try optionalInteger(value, "printSpeedIps")
                 if version >= 4 { defaults.darkness = try optionalInteger(value, "darkness") }
                 if version >= 5 {
@@ -116,7 +123,8 @@ public enum PrinterProfileJSON {
                 installedHardware: decodeInstalled(try required(root, "installedHardware")),
                 media: decodeMedia(try required(root, "media")),
                 connection: decodeConnection(try required(root, "connection")),
-                configuredDefaults: defaults
+                configuredDefaults: defaults,
+                thermalMedia: version == 7 ? try decodeThermalMedia(required(root, "thermalMedia")) : .unobserved
             )
         } catch let error as PrinterProfileJSONError { throw error }
         catch { throw PrinterProfileJSONError.invalidValue("profile") }
@@ -137,6 +145,7 @@ public enum PrinterProfileJSON {
             "printSpeedChoicesIps": value.printSpeedChoicesIps.sorted(),
             "darkness": encodeFact(value.darkness),
         ]
+        if version == 7 { result["directThermal"] = encodeFact(value.directThermal) }
         if version >= 3 {
             result["feedSpeeds"] = encodeSpeedChoices(value.feedSpeeds)
             result["backfeedSpeeds"] = encodeSpeedChoices(value.backfeedSpeeds)
@@ -149,7 +158,7 @@ public enum PrinterProfileJSON {
             result["physicalGeometry"] = ["width": limit(p.width), "continuousLength": limit(p.continuousLength),
                                           "homeX": limit(p.homeX), "homeY": limit(p.homeY)]
         }
-        if version == 6 {
+        if version >= 6 {
             func limit(_ value: QualifiedDotRange) -> Any {
                 ["fact": encodeFact(value.fact), "minimumDots": value.range.map { $0.lowerBound as Any } ?? NSNull(),
                  "maximumDots": value.range.map { $0.upperBound as Any } ?? NSNull()]
@@ -204,7 +213,7 @@ public enum PrinterProfileJSON {
     private static func validateForEncoding(_ profile: PrinterProfile) throws {
         let capabilities = profile.capabilities
         for fact in [
-            capabilities.thermalTransfer, capabilities.cutter, capabilities.peeler,
+            capabilities.directThermal, capabilities.thermalTransfer, capabilities.cutter, capabilities.peeler,
             capabilities.rewind, capabilities.darkness, capabilities.feedSpeeds.fact,
             capabilities.backfeedSpeeds.fact, capabilities.physicalGeometry.width.fact,
             capabilities.physicalGeometry.continuousLength.fact, capabilities.physicalGeometry.homeX.fact,
@@ -215,6 +224,8 @@ public enum PrinterProfileJSON {
         }
         try validateEvidence(profile.installedHardware.cutter.evidence)
         try validateEvidence(profile.installedHardware.peeler.evidence)
+        try validateObservationEvidence(profile.thermalMedia.method)
+        try validateObservationEvidence(profile.thermalMedia.ribbonPresent)
         try validateObservationEvidence(profile.media.form)
         try validateObservationEvidence(profile.media.nominalLabelFace)
         try validateObservationEvidence(profile.media.configuredTracking)
@@ -244,9 +255,10 @@ public enum PrinterProfileJSON {
     private static func decodeCapabilities(_ raw: Any, version: Int) throws -> PrinterCapabilities {
         var keys: Set<String> = ["model", "thermalTransfer", "cutter", "peeler", "rewind", "tracking",
                                  "printSpeedChoicesIps", "darkness"]
+        if version == 7 { keys.insert("directThermal") }
         if version >= 3 { keys.formUnion(["feedSpeeds", "backfeedSpeeds"]) }
         if version >= 5 { keys.insert("physicalGeometry") }
-        if version == 6 { keys.insert("offsets") }
+        if version >= 6 { keys.insert("offsets") }
         let value = try object(raw, allowed: keys)
         let trackingObject = try object(try required(value, "tracking"), allowed: [
             MediaTracking.gap.rawValue, MediaTracking.blackMark.rawValue,
@@ -277,7 +289,8 @@ public enum PrinterProfileJSON {
             feedSpeeds: version >= 3 ? try decodeSpeedChoices(required(value, "feedSpeeds")) : .unverified,
             backfeedSpeeds: version >= 3 ? try decodeSpeedChoices(required(value, "backfeedSpeeds")) : .unverified,
             physicalGeometry: version >= 5 ? try decodePhysicalGeometry(required(value, "physicalGeometry")) : .unverified,
-            offsets: version == 6 ? try decodeOffsets(required(value, "offsets")) : .unverified
+            offsets: version >= 6 ? try decodeOffsets(required(value, "offsets")) : .unverified,
+            directThermal: version == 7 ? try decodeFact(required(value, "directThermal")) : .init(state: .unknown, evidence: .unobserved)
         )
     }
 
@@ -431,6 +444,24 @@ public enum PrinterProfileJSON {
         default:
             throw PrinterProfileJSONError.invalidValue("evidence")
         }
+    }
+
+    private static func decodeThermalMedia(_ raw: Any) throws -> ThermalMediaConfiguration {
+        let value = try object(raw, allowed: ["method", "ribbonPresent"])
+        let method: Observation<ThermalMethod> = try decodeObservation(required(value, "method")) {
+            guard let name = $0 as? String, let method = ThermalMethod(rawValue: name) else {
+                throw PrinterProfileJSONError.invalidType("thermalMethod")
+            }
+            return method
+        }
+        let ribbon: Observation<Bool> = try decodeObservation(required(value, "ribbonPresent")) {
+            guard let number = $0 as? NSNumber,
+                  CFGetTypeID(number) == CFBooleanGetTypeID() else {
+                throw PrinterProfileJSONError.invalidType("ribbonPresent")
+            }
+            return number.boolValue
+        }
+        return .init(method: method, ribbonPresent: ribbon)
     }
 
     private static func encodeObservation<T>(

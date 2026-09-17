@@ -160,6 +160,7 @@ public struct QualifiedSpeedChoices: Equatable, Sendable {
 
 public struct PrinterCapabilities: Equatable, Sendable {
     public let model: String
+    public let directThermal: CapabilityFact
     public let thermalTransfer: CapabilityFact
     public let cutter: CapabilityFact
     public let peeler: CapabilityFact
@@ -184,9 +185,11 @@ public struct PrinterCapabilities: Equatable, Sendable {
         feedSpeeds: QualifiedSpeedChoices = .unverified,
         backfeedSpeeds: QualifiedSpeedChoices = .unverified,
         physicalGeometry: PhysicalGeometryQualification = .unverified,
-        offsets: OffsetControlQualification = .unverified
+        offsets: OffsetControlQualification = .unverified,
+        directThermal: CapabilityFact = .init(state: .unknown, evidence: .unobserved)
     ) {
         self.model = model
+        self.directThermal = directThermal
         self.thermalTransfer = thermalTransfer
         self.cutter = cutter
         self.peeler = peeler
@@ -242,6 +245,7 @@ public struct PrinterProfile: Equatable, Sendable {
     /// Explicit immutable defaults, never read-only observations. Version 1
     /// has none; version 2 stores only controls already accepted by validation.
     public let configuredDefaults: PrinterControlDefaults
+    public let thermalMedia: ThermalMediaConfiguration
 
     public init(
         schemaVersion: Int,
@@ -250,9 +254,10 @@ public struct PrinterProfile: Equatable, Sendable {
         installedHardware: InstalledHardware,
         media: MediaConfiguration,
         connection: ConnectionConfiguration,
-        configuredDefaults: PrinterControlDefaults = .init()
+        configuredDefaults: PrinterControlDefaults = .init(),
+        thermalMedia: ThermalMediaConfiguration = .unobserved
     ) throws {
-        guard (1...6).contains(schemaVersion), revision > 0,
+        guard (1...7).contains(schemaVersion), revision > 0,
               schemaVersion >= 2 || configuredDefaults == .init() else {
             throw PrinterProfileError.invalidProfileVersion
         }
@@ -271,10 +276,14 @@ public struct PrinterProfile: Equatable, Sendable {
             throw PrinterProfileError.invalidProfileVersion
         }
         try capabilities.physicalGeometry.validateDeclaration()
-        guard schemaVersion == 6 || (capabilities.offsets == .unverified && configuredDefaults.offsets == nil) else {
+        guard schemaVersion >= 6 || (capabilities.offsets == .unverified && configuredDefaults.offsets == nil) else {
             throw PrinterProfileError.invalidProfileVersion
         }
         try capabilities.offsets.validateDeclaration()
+        guard schemaVersion == 7 || (thermalMedia == .unobserved &&
+            capabilities.directThermal == .init(state: .unknown, evidence: .unobserved)) else {
+            throw PrinterProfileError.invalidProfileVersion
+        }
         for speeds in [capabilities.feedSpeeds, capabilities.backfeedSpeeds] {
             guard speeds.choicesIps.count <= 11,
                   speeds.choicesIps.allSatisfy({ (2...12).contains($0) }),
@@ -297,6 +306,7 @@ public struct PrinterProfile: Equatable, Sendable {
         self.media = media
         self.connection = connection
         self.configuredDefaults = configuredDefaults
+        self.thermalMedia = thermalMedia
         try validate(.init(thermalMethod: configuredDefaults.thermalMethod,
             finishing: configuredDefaults.finishing,
             printSpeedIps: configuredDefaults.printSpeedIps,
@@ -399,8 +409,14 @@ public extension PrinterProfile {
     /// involved. An absent field means leave the corresponding device setting
     /// unchanged; it is never converted to a guessed current value.
     func validate(_ request: PrinterControlRequest) throws {
-        if let method = request.thermalMethod, method == .thermalTransfer {
-            throw PrinterProfileError.unsupportedThermalMethod(method)
+        if let method = request.thermalMethod {
+            if schemaVersion == 7 {
+                _ = try ThermalControlQualification(directThermal: capabilities.directThermal,
+                    thermalTransfer: capabilities.thermalTransfer).control(for: method,
+                        media: thermalMedia.method, ribbonPresent: thermalMedia.ribbonPresent)
+            } else if method == .thermalTransfer {
+                throw PrinterProfileError.unsupportedThermalMethod(method)
+            }
         }
         if let finishing = request.finishing, finishing != .tearOff {
             throw PrinterProfileError.unsupportedFinishing(finishing)
@@ -440,7 +456,7 @@ public extension PrinterProfile {
             }
         }
         if let tracking = request.tracking {
-            guard schemaVersion >= 5, (tracking != .blackMark || schemaVersion == 6),
+            guard schemaVersion >= 5, (tracking != .blackMark || schemaVersion >= 6),
                   let fact = capabilities.tracking[tracking], fact.state == .supported,
                   fact.evidence != .unobserved else { throw PrinterProfileError.unavailableTracking(tracking) }
             if tracking == .continuous && request.mediaGeometry?.lengthDots == nil {
@@ -451,7 +467,7 @@ public extension PrinterProfile {
             throw OffsetControlQualification.Error.blackMarkOffsetRequired
         }
         if let offsets = request.offsets {
-            guard schemaVersion == 6 else { throw PrinterProfileError.invalidProfileVersion }
+            guard schemaVersion >= 6 else { throw PrinterProfileError.invalidProfileVersion }
             _ = try capabilities.offsets.controls(for: offsets, tracking: request.tracking,
                 trackingFact: capabilities.tracking[.blackMark] ?? .init(state: .unknown, evidence: .unobserved))
         }

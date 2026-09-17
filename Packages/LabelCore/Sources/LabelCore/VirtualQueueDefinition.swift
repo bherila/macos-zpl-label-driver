@@ -22,7 +22,7 @@ public struct ImmutableProfileReference: Equatable, Sendable {
         guard VirtualQueueDefinition.isSelector(id) else {
             throw VirtualQueueError.invalidSelector(id)
         }
-        guard (1...6).contains(schemaVersion), revision > 0 else {
+        guard (1...7).contains(schemaVersion), revision > 0 else {
             throw VirtualQueueError.invalidRevision
         }
         guard VirtualQueueDefinition.isSHA256(sha256) else { throw VirtualQueueError.invalidDigest }
@@ -79,6 +79,7 @@ public struct VirtualQueueDefinition: Equatable, Sendable {
               workflowDefaults.feedSpeedIps == nil && workflowDefaults.backfeedSpeedIps == nil) else {
             throw VirtualQueueError.invalidDefaults
         }
+        guard profile.schemaVersion <= 6 else { throw VirtualQueueError.invalidDefaults }
         _ = try profile.resolveControls(job: workflowDefaults)
         guard schemaVersion == 5 || (profile.schemaVersion <= 5 && workflowDefaults.offsets == nil) else { throw VirtualQueueError.invalidDefaults }
         guard schemaVersion >= 4 || profile.schemaVersion <= 4 else { throw VirtualQueueError.invalidDefaults }

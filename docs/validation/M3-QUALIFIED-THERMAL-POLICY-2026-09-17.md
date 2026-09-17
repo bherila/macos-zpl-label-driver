@@ -49,3 +49,9 @@ Locally committed source62dd3c5000ac746e79c2e28c9157eb19d5c1d09a is not yet
 pushed. Previous persistence sourcecacca166ce0b62df7e2ab3299a96b63e1f927c7e
 remote/PR81 head confirmed equal; exact hosted run35216715041 in progress.
 Preceding8b70383 run35216048756 passed. No hosted thermal-policy pass is claimed.
+
+## Published checkpoint
+
+Policy source62dd3c5 and documentation checkpoint4970335b509e30dbe3558f947c9e8c1cd385ef6e
+pushed; remote branch/PR81 read back equal to4970335. Exact hosted35217368100
+observed live, not pass evidence. Precedingcacca16 run35216715041 passed.
