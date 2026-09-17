@@ -374,3 +374,7 @@ Unpublished width-subset implementation checkpoint `8dcc24141aaa8dbb6ca6aa27aecb
 ## Open exact-integer identity defect
 
 [JSON integer investigation](validation/JSON-INTEGER-IDENTITY-INVESTIGATION-2026-09-17.md) reproduced lossy large revision/order reload and Int.max rejection. A tentative string conversion still admitted a large fractional token after Foundation rounded it. Source and tests were restored; no partial fix landed. Next slice is shared exact integer parsing across the enumerated codec sites, preserving geometry and existing wire/error contracts. This is an independent software gap, so the goal is not blocked on hardware.
+
+## Exact integer conversion dependency
+
+[Token conversion validation](validation/EXACT-JSON-INTEGER-TOKENS-2026-09-17.md) records the internal scalar parser and signed-edge/fraction/exponent tests. All 287 Core tests passed debug/release; debug accelerator passed. Product codecs are unchanged and the identity defect is still open. Next is bounded JSON traversal retaining numeric lexemes and integration across all enumerated codec sites, with original round-trip regressions. No Mac GUI/scheduler or physical gates were advanced.
