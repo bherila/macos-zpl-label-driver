@@ -372,3 +372,11 @@ PreparedAcceptedFinishingJob is constructed only by the durable store factory. I
 and revalidates the accepted reference, renders solely retained source/plan/controls, and
 carries exact accepted identity into subsequent stages. One aggregate finite budget and
 cancellation span reopen/render. It grants no device delivery or replay authority.
+
+AcceptedFinishingFramedJob retains durable accepted identity alongside complete packed
+preparation and qualified ordered output. AcceptedFinishingAttemptStore verifies the exact
+accepted record and full supplied context before publication/recovery. Its immutable bounded
+intent is keyed by acceptance ID, independent of artifact identifiers. Recorded intent always
+recovers uncertain, even after synthetic success. No clear/reset/completion/replay authority
+exists. A coordinator must hold a job lease across missing-intent check, publication and all
+actual delivery/status waits; idempotent storage publication is not a new sending permission.

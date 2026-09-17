@@ -368,4 +368,58 @@ final class FinishingQueueStoreTests: XCTestCase {
             XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.referenceMismatch)
         }
     }
+    func testAcceptedFramingKeepsIdentityAndIntentSurvivesNewArtifactNames() throws {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let accepted=try AcceptedFinishingJobStore(root:workflows.root), ref=try accepted.save(job)
+        let prepared=try accepted.prepare(reference:ref,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        let qualification=FinishingOutputQualification(profile:job.geometry.printer.profile,model:job.geometry.printer.profile.capabilities.model,
+            quantityOne:documented,labelCompletion:documented,rfid:.init(state:.unsupported,evidence:.documentedModel(sourceID:"synthetic-non-rfid")),
+            delayedCutter:documented,delayedCutReadiness:documented,cutCompletion:documented,
+            completeFileDelivery:.observed(true,evidence:.reportedInstallation))
+        let framed=try prepared.frame(qualification:qualification)
+        XCTAssertEqual(framed.reference,ref)
+        XCTAssertEqual(framed.output.preparation,prepared.preparation)
+        XCTAssertEqual(framed.output.steps.compactMap { if case let .formatFile(n,_)=($0) { return n }; return nil },[1,2,3,4])
+        XCTAssertEqual(framed.output.steps.compactMap { if case let .delayedCutFile(n,_)=($0) { return n }; return nil },[3,4])
+        let artifacts=try FinishingArtifactStore(root:workflows.root)
+        let first=try artifacts.save(id:"synthetic-frame-one",revision:1,output:framed.output)
+        let second=try artifacts.save(id:"synthetic-frame-two",revision:1,output:framed.output)
+        XCTAssertNotEqual(first.id,second.id)
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        XCTAssertEqual(try intents.recoveryObservation(reference:ref,against:job,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker),.noRecordedIntent)
+        try intents.recordPotentialAttempt(reference:ref,against:job,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        try intents.recordPotentialAttempt(reference:ref,against:job,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        _ = try artifacts.load(reference:second,against:framed.output)
+        _ = try InertFinishingDelivery.run(output:framed.output, coordinationID:job.geometry.physicalDevice,
+            leaseDirectory:workflows.root)
+        XCTAssertEqual(try AcceptedFinishingAttemptStore(root:workflows.root).recoveryObservation(reference:ref,against:job,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),.uncertainAfterRecordedIntent)
+        let directory=workflows.root.appendingPathComponent("accepted-finishing-attempts")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath:directory.path).filter { $0.hasSuffix(".bin") }.count,1)
+    }
+    func testAcceptedIntentRequiresExactContextAndUncertainCommitRemainsRecorded() throws {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let accepted=try AcceptedFinishingJobStore(root:workflows.root), ref=try accepted.save(job)
+        let wrong=try AcceptedFinishingJob.accept(acceptanceID:job.acceptanceID,cancellationSHA256:job.cancellationSHA256,
+            queueReference:job.queueReference,queueStore:queues,workflowStore:workflows,printerStore:printers,geometry:job.geometry,
+            originalPDF:job.originalPDF,copyOwnership:.engine(copies:2,collated:true),pageRangeOwnership:job.pageRangeOwnership,workerExecutable:worker)
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        XCTAssertThrowsError(try intents.recordPotentialAttempt(reference:ref,against:wrong,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingAttemptStore.Error,.contextMismatch)
+        }
+        XCTAssertThrowsError(try intents.recoveryObservation(reference:ref,against:wrong,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingAttemptStore.Error,.contextMismatch)
+        }
+        let faulty=try AcceptedFinishingAttemptStore(root:workflows.root,
+            storage:PrivateImmutableDirectory(root:workflows.root,syncDirectory:{ _ in -1 }))
+        XCTAssertThrowsError(try faulty.recordPotentialAttempt(reference:ref,against:job,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingAttemptStore.Error,.commitUncertain)
+        }
+        XCTAssertEqual(try intents.recoveryObservation(reference:ref,against:job,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker),.uncertainAfterRecordedIntent)
+    }
 }

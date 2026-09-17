@@ -21,12 +21,12 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
   `3047f7880665e9550efb621fbfad2ceb328fff49`. Latest published software
   implementation `ccd7a9a`: immutable original-PDF acceptance and range/copy ownership.
   Earlier explicit A assessments remain historical; new source needs reassessment.
-- Latest completed finite900s `bash scripts/ci-swift.sh`, session94514, completed
-  `FULL_GATE_EXIT 0`:104 Python/281 Core/339 native tests in debug/release,
+- Latest completed finite900s `bash scripts/ci-swift.sh`, session76633, completed
+  `FULL_GATE_EXIT 0`:104 Python/281 Core/341 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.BoN9cT`; no printer accessed.
+  Local artifact: `artifacts/setup-app.8Cbhfj`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
@@ -34,8 +34,8 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
 - Hosted run35236186182 completed success at exact604aef7 (archive store).
   Attempt-store run35238690886 passed at exact385a545. New coordinator/evidence
   run35240005700 passed at exactfc24c3d. CI-history/evidence run35241292200
-  passed at exact8c24997. Queue run35244168027 passed at exact029ddd5. Geometry run35245718555 passed at exact37775b4. Acceptance run35246781489 is
-  queued at exact3047f78; it does not cover local durable storage. Poll this exact handle.
+  passed at exact8c24997. Queue run35244168027 passed at exact029ddd5. Geometry run35245718555 passed at exact37775b4. Acceptance run35246781489 completed success
+  at exact3047f78; it does not cover local durable storage.
 - The two earlier cloud review passes apply to older base/head pairs. No third pass
   was requested, and these passes are not a verdict on subsequent changes.
 - Local host evidence is macOS27 ARM; minimum-runtime26 and hosted checks are
@@ -202,7 +202,12 @@ The durable-reference preparation factory is now local; fifteen focused native c
 including actual four-label packed preparation and wrong digest before worker invocation.
 Full gate session94514 passed exit0 with104Python/281Core/339Mac debug/release
 plus oracle/inert/signature/packaged checks; source publication pending. See [preparation bridge evidence](validation/M3-PREPARED-ACCEPTED-FINISHING-2026-09-17.md).
-Next: accepted identity-bound framing, attempt intent and cancellation/lifecycle recovery.
+Accepted identity-bound framing and job-level intent are now local. Seventeen focused
+native cases passed including artifact renaming, cold recovery, exact context, uncertain
+publication and synthetic success without clearing uncertainty. Two independent guard
+omissions failed exit1; exact restored17 cases passed exit0. Full gate session76633 passed exit0:104Python/281Core/341Mac debug/release plus
+oracle/inert/signature/packaged checks; see [intent evidence](validation/M3-ACCEPTED-FINISHING-INTENT-2026-09-17.md).
+Next: accepted-job coordinated inert admission, then cancellation/lifecycle recovery.
 Actual identified unit correspondence remains open.
 
 ## Manual Part A and Part B
