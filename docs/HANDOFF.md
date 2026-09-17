@@ -1,3 +1,49 @@
+# Finishing stock-plan terminal validation — 2026-09-17
+
+Full finite CI-equivalent recheck passed ownexit0:89Python/266Core/313Mac
+debug/release plus independent/inert/native/signature/packaged checks. Artifact
+`artifacts/setup-app.DaVytl`. Prior native deadline failures remain recorded and
+cause unestablished; no deadlines/assertions/source were changed to obtain green.
+Exact-media binding fault reproduced and byte-restored266Core passed. See
+`validation/M3-FINISHING-STOCK-PLAN-2026-09-17.md`. Ready for source review/push
+after disclosure gate, not mechanical acceptance. Next ordinary schema binding
+and qualified delivery boundaries; M1/GUI/accessibility/USB/physical gates remain.
+Frozen B unchanged. No printer/admin/merge/binary release.
+
+# Finishing prerequisite hosted readback — 2026-09-17
+
+Exact hosted run35220870087 completed successfully at checkpoint
+2ca28a5f044625bd2b422a07a22cec9f267cbfca. This covers the published finishing
+mode/accessory and cut-boundary prerequisite, not the local stock-plan slice.
+Local stock-plan full recheck remains live under session46907.
+
+# Worker deadline diagnosis follow-up — 2026-09-17
+
+Existing five-second layout/barcode deadlines and assertions are unchanged. Nine
+debug layout-worker tests passed ownexit0; the previously failing original-source/
+changed-anchor pipeline passed release1.35s and debug1.72s ownexit0. Prior two
+timeouts remain recorded; cause unestablished. Full finite900s recheck is live
+under tool session46907, log `/tmp/zpl-finishing-stock-full-recheck.log`. Poll the
+same handle; do not restart merely from observation timeout. Local stock-plan
+changes remain unpushed. Next inspect terminal full result and publish only after
+required green checks and disclosure review. Frozen B remains unchanged.
+
+# Finishing stock and output plans — 2026-09-17
+
+New local source ties per-mode stock suitability to the exact media snapshot and
+combines enabled/model/accessory, stock and explicit schedule validation for the
+complete engine-expanded output count. Unknown/model-only declarations cannot
+admit stock; non-cut modes cannot silently drop a cut schedule. Four focused tests
+passed own exit0; deliberately removing media binding reproduced the regression,
+then byte-restored all266 Core passed ownexit0. Full gate failed ownexit1:
+89Python/266Core debug/release passed, but native debug313 had one existing
+barcode-anchor preparation deadline failure. Focused recheck also timed out in
+OfflineRenderWorker. No cause or broad pass established; source remains local,
+unpushed. Next inspect finite worker timing and diagnose before full-gate rerun;
+do not weaken deadlines. Previous checkpoint2ca28a5 hosted35220870087 still live.
+See `validation/M3-FINISHING-STOCK-PLAN-2026-09-17.md`. Ordinary mechanical jobs,
+qualified delivery boundaries and physical behavior remain open. Frozen B unchanged.
+
 # Finishing qualification and cut intentions — 2026-09-17
 
 Implementation `b768a172cd78d43e2d2046ec7df8894357c43cc6` is locally validated and adds explicit enabled/model/accessory gates for bounded
