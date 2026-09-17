@@ -33,7 +33,7 @@ Full finite900s gate session76703 completed FULL_GATE_EXIT 0:104 Python,277 Core
 native tests in debug/release, independent strict/ASCII oracles, bounded inert pipeline,
 ARM/minimum26 metadata, local signatures and packaged-worker PBM/ZPL equality.
 Log /tmp/zpl-finishing-queue-full.log; artifact artifacts/setup-app.gfdEKb.
-New library/tests are included by existing CI. Source publication remains pending.
+New library/tests are included by existing CI. Implementation source checkpoint 8493efcbea4420ada22d70002a5d08e2010b5c37; source publication remains pending.
 
 Next: bounded canonical private queue persistence verifying actual profile/workflow digests,
 then separate accepted finishing ticket/source/output/pitch/device binding and lifecycle.
