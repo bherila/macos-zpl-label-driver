@@ -317,9 +317,12 @@
         "docs/validation/M4-DRAFT-OUTPUT-STOCK-2026-09-17.md (local unpublished4f6fbd9b0471cbfc8b730cb01f68e6fb8ee011b7; validated atomic destination-stock draft mutation preserves source sheets/skips/copy order/revision and invalid-edit atomicity;304Core debug/release,106Python and accelerator passed; native stock UI/render context and prescribed manual/physical gates remain open)",
         "docs/validation/M2-CANVAS-STOCK-RESIZING-2026-09-17.md (local unpublished8749143; immutable canvas stock resize retains independent pitch and width/height/byte budgets, preserves geometry equality; preliminary305Core both/accelerator passed,final9geometry tests both passed; native stock UI and prescribed integration/hardware remain open)",
         "docs/validation/M4-EDITOR-STOCK-CANVAS-2026-09-17.md (unpublished86ed052; atomic stock/canvas editor binding, immutable correction revisions and reload geometry, stale/invalid preservation and real-worker obsolete stock completion;21native editor tests both modes passed; stock UI/bootstrap policy and manual/physical gates remain pending)",
-        "docs/validation/M4-STOCK-CONTROLS-REOPENING-2026-09-17.md (unpublisheded50407; explicit-mm stock controls and bounded changed-stock reopening as unreviewed immutable correction; before1failure,final35native both/106Python/preflight and signed local app/packaged fidelity passed; visual/VoiceOver/installed/physical gates open)"
+        "docs/validation/M4-STOCK-CONTROLS-REOPENING-2026-09-17.md (unpublisheded50407; explicit-mm stock controls and bounded changed-stock reopening as unreviewed immutable correction; before1failure,final35native both/106Python/preflight and signed local app/packaged fidelity passed; visual/VoiceOver/installed/physical gates open)",
+        "docs/validation/M4-STOCK-INTEGRATED-REGRESSION-2026-09-17.md (unpublished00d1026; full native debug379tests/4assertions failed in2configured-stock opening tests; accelerator106Python/305Core both passed; native release/later gate stages not run; stop and explicit configured/offline stock-policy restructure required)"
       ],
-      "blockers": []
+      "blockers": [
+        "Current stock-opening change regresses default configured-stock identity/dimension admission; full native debug failed two document-opening tests. Separate configured-setup and explicit offline-candidate policies before integrated acceptance."
+      ]
     },
     {
       "id": "M5",
