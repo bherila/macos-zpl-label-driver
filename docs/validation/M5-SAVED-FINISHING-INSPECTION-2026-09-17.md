@@ -72,3 +72,7 @@ Use synthetic records only and keep the frozen Part B candidate separate.
    export and error/status controls. Record actual results against the exact app build.
 6. Confirm no queue/default changes, privilege prompts, status query or printer command
    occurred. Compilation and model tests do not establish these native dialog checks.
+
+## Export disclosure follow-on
+
+The native folder chooser now explicitly discloses that packed previews contain label content and a manifest with document hashes, and requests review before sharing. The disclosure appears before the user chooses Export Here. A finite300-second release build of label-printer-setup passed exit0. This one-string UI change did not change export bytes or consent mechanics; no redundant text-matching test was added. Native display/layout and keyboard/VoiceOver remain NOT RUN. No M5-AC09 acceptance or whole-source ledger refresh is inferred from this build.

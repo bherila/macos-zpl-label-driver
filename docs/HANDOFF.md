@@ -326,3 +326,5 @@ M5-AC12 at A; M0-AC04 at I for actual local native build/CGContext smoke only.
 Next: validate the clean ledger readback, then continue remaining software gap review. All manual/hardware/release gates remain unchanged.
 
 Current offline performance refresh: [M2-CURRENT-OFFLINE-PERFORMANCE-2026-09-17](validation/M2-CURRENT-OFFLINE-PERFORMANCE-2026-09-17.md), finite six invocations exit0; repeat p95 138.331ms, first515.937ms. Command RSS only; aggregate worker peak not instrumented. No acceptance promotion.
+
+Saved finishing preview export chooser now discloses label content and document hashes and asks for review before sharing, before export consent. Finite300s release setup-app build passed exit0. Actual dialog/VoiceOver NOT RUN. This source change makes earlier exact-source acceptance records historical on this branch; no ledger pass was refreshed by a copy build.

@@ -43,7 +43,7 @@ public struct FinishingInspectionView: View {
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true; panel.canChooseFiles = false; panel.allowsMultipleSelection = false
         panel.prompt = "Export Here"
-        panel.message = "Choose a folder for a new packed-preview subfolder. Existing output is preserved."
+        panel.message = "Packed previews contain the label content and a manifest with document hashes. Review these files before sharing them. Choose a folder for a new preview subfolder; existing output is preserved."
         guard panel.runModal() == .OK, let parent = panel.url else { return }
         let destination = parent.appendingPathComponent("Packed Previews " + UUID().uuidString, isDirectory: true)
         Task {
