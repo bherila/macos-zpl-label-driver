@@ -245,7 +245,8 @@
         "docs/validation/M3-NETWORK-CORRECTNESS-ASSESSMENT-2026-09-17.md (explicit M3-AC05 A-level semantic assessment; exact short-write/backpressure/framing/zero/reset/timeout oracles at b12e65a63cfebcce3625a249975e837dbb0bc2ee; native/physical gates remain open)",
         "docs/validation/M3-CONTROL-PROTOCOL-TABLE-2026-09-17.md (all twelve documented control kinds/four finishing families now have cited range/lifetime/model/interaction metadata; Core 301 and accelerator before final metadata refinement, final focused coverage passed both modes; semantic acceptance pending)",
         "docs/validation/M3-CONTROL-COVERAGE-ASSESSMENT-2026-09-17.md (M3-AC03 A-level semantic assessment at clean local unpublished 2d59771aba5cd27d950fde395bbccaef24fc5d9a; 301 Core and 9 actual native finishing tests debug/release passed; initial empty filter excluded; ordinary print-speed subset distinguished from standalone tuples; no I/H/R claim)",
-        "docs/validation/M3-ENDPOINT-URI-COMPONENTS-2026-09-17.md (local unpublished 8743f7ac65c0217ad795454d303020bb0d051f6f; six invalid endpoint acceptances reproduced, 18 TCP tests debug/release and 106 Python tests passed; preserves bare IPv6 and UTF-8 bounds; partial M3-AC12 only)"
+        "docs/validation/M3-ENDPOINT-URI-COMPONENTS-2026-09-17.md (local unpublished 8743f7ac65c0217ad795454d303020bb0d051f6f; six invalid endpoint acceptances reproduced, 18 TCP tests debug/release and 106 Python tests passed; preserves bare IPv6 and UTF-8 bounds; partial M3-AC12 only)",
+        "docs/validation/M3-WORKER-INTEGER-ADMISSION-2026-09-17.md (local unpublished 81f41cba1c28402aa3d51b26a5a08221d73ad4e8; ten rounded fractional acceptances reproduced, five private worker message routes guarded; final 26 native cases debug/release and 106 Python tests passed; partial M3-AC12 only)"
       ],
       "blockers": []
     },
