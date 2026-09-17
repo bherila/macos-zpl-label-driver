@@ -2,6 +2,36 @@ import XCTest
 @testable import LabelCore
 
 final class BoundedDeliveryTests: XCTestCase {
+    func testCompleteJobBindsExactOrderedBytesBeforeAnySinkEffect() throws {
+        let profile = try PrinterProfile.gc420dUSBReference(revision: 19)
+        let outputs = [ResolvedOutputLabel(sourcePage: 2, regionID: "first"),
+                       ResolvedOutputLabel(sourcePage: 1, regionID: "second")]
+        let encoder = try ZPLPreparedLabelEncoder()
+        let labels = try zip(outputs, [UInt8(0x80), UInt8(0x40)]).map { output, pixel in
+            PreparedOutputLabel(output: output, prepared: try encoder.prepare(
+                bitmap: MonochromeBitmap(width: 8, height: 1, bytes: [pixel]), profile: profile))
+        }
+        let job = try PreparedJobPayload(labels: labels, expectedOutputLabels: outputs,
+            monochromeConversion: .textAndBarcodeThreshold(cutoff: 128))
+        var tracker = try DeliveryTracker(preparedJob: job)
+        try tracker.prepared()
+        try tracker.waiting()
+        var sink = RecordingSink()
+        let substituted = labels[1].prepared.bytes + labels[0].prepared.bytes
+        XCTAssertEqual(substituted.count, job.bytes.count)
+        XCTAssertThrowsError(try BoundedDelivery.write(substituted, to: &sink, tracker: &tracker)) {
+            XCTAssertEqual($0 as? DeliveryStateError, .payloadBindingMismatch)
+        }
+        XCTAssertEqual(sink.largestOffer, 0)
+        XCTAssertTrue(sink.collected.isEmpty)
+        XCTAssertEqual(tracker.receipt.state, .waiting)
+        try BoundedDelivery.write(job.bytes, to: &sink, tracker: &tracker)
+        XCTAssertEqual(sink.collected, job.bytes)
+        XCTAssertEqual(tracker.receipt.profileSnapshot, job.profileSnapshot)
+        XCTAssertEqual(tracker.receipt.state, .transmitted(bytesAccepted: job.bytes.count))
+        XCTAssertFalse(tracker.receipt.mayRetryAutomatically)
+    }
+
     struct RecordingSink: DeliveryByteSink {
         var collected = Data()
         var largestOffer = 0

@@ -82,14 +82,24 @@ public struct DeliveryTracker: Sendable {
     }
 
     public init(preparedLabel: PreparedLabel) throws {
-        guard !preparedLabel.bytes.isEmpty else { throw DeliveryStateError.invalidByteCount }
+        try self.init(boundPayload: preparedLabel.bytes, profileSnapshot: preparedLabel.profileSnapshot)
+    }
+
+    /// Bind the complete ordered job rather than pairing concatenated bytes
+    /// with a revision token or the snapshot of an arbitrary individual label.
+    public init(preparedJob: PreparedJobPayload) throws {
+        try self.init(boundPayload: preparedJob.bytes, profileSnapshot: preparedJob.profileSnapshot)
+    }
+
+    private init(boundPayload: Data, profileSnapshot: JobProfileSnapshot) throws {
+        guard !boundPayload.isEmpty else { throw DeliveryStateError.invalidByteCount }
         receipt = DeliveryReceipt(
             state: .accepted,
-            expectedBytes: preparedLabel.bytes.count,
-            profileRevision: preparedLabel.profileSnapshot.revision,
-            profileSnapshot: preparedLabel.profileSnapshot
+            expectedBytes: boundPayload.count,
+            profileRevision: profileSnapshot.revision,
+            profileSnapshot: profileSnapshot
         )
-        boundPayload = preparedLabel.bytes
+        self.boundPayload = boundPayload
     }
 
     public mutating func prepared() throws { try transition(from: .accepted, to: .prepared) }
