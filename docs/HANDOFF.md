@@ -1,3 +1,19 @@
+# Offline documented control encoder — 2026-09-17
+
+New explicit typed fragment mapping covers print/feed/backfeed, absolute integer
+darkness with relative normalization, thermal method, gap/mark tracking, home,
+shift, top, width and tear-off using R45 primary public tables. Each requested
+kind requires supported qualification; model bounds apply independently. Input
+conflicts/duplicates/output limits fail without returned partial bytes. Five
+focused tests pass, original accelerator passed. Full native gate passed exit0:
+89Python/202Core/273Mac debug/release, both132/180 oracles, twelve CLI cases,
+inert ABI/pipeline and nested signatures/ARM/min26/packaged equality.
+Ordinary GC420d admission is unchanged; this is not a qualified/persisted profile
+or production adapter. Remaining codec/snapshot integration, continuous length
+semantics, accessory hardware and physical isolation are explicit in
+`validation/M3-DOCUMENTED-CONTROL-ENCODING-2026-09-17.md`. Partial M3-AC03/04/12;
+M3-AC03 stays unchecked. B remains frozen. No printer/scheduler/privilege action.
+
 # Control coverage audit and next implementation — 2026-09-17
 
 Source inspection at published df657e9 identifies the full ordinary control gap:
@@ -24,7 +40,8 @@ Full local checks passed exit0: 89Python/197Core/273Mac debug/release, both
 independent oracles, twelve CLI cases and inert/signature/packaged checks.
 Published at df657e9 on PR #81 after preceding exact406d6a4 hosted
 run35203016675 passed, including packaged worker equality and native checks.
-New status-source hosted checks remain pending; no later-source independent
+Exact status-source run35204155422 passed with retained native/oracle/packaged
+evidence; new documented-control source hosted checks pending. No later-source independent
 review claim. Actual GC420d
 status/channel/freshness/coordinator and physical evidence remain unobserved.
 Additional partial M3-AC01/09/12 only. Frozen B candidate unchanged; no privilege,
