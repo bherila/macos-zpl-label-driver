@@ -39,3 +39,24 @@ Developer-ID negative and packaged-worker PBM/ZPL equality. Local artifact
 `artifacts/setup-app.FwiqW0`. Earlier failures remain recorded; their timing cause
 is not established. Automated results do not establish installed/GUI/physical
 acceptance or five-second barcode latency.
+
+## Complete real-barcode site audit
+
+The subsequent raster-binding full gate failed ownexit1 in release321 tests at
+the pre-existing saved-barcode reopening case's five-second analyzer budget.
+Debug321 passed. This was another unaddressed correctness site, not a changed
+production deadline or evidence that raster binding caused the timeout.
+
+All four real-barcode correctness scenarios now use NativeBarcodeCorrectnessBudget:
+observed QR bounds/repeat equality, observed empty locations on a non-label page,
+original-source synthetic pipeline/changed-anchor rejection, and saved-workflow
+reopening/packed-preview equality/fresh review. A source audit test enumerates
+their2/1/3/4 explicit deadline call sites and requires the shared bounded default.
+This names the common property rather than patching one more anonymous constant.
+Dedicated short-deadline tests remain unchanged. Focused suites then finite900s
+full gate run under session9657. No new terminal full result or timing-cause claim.
+
+
+## Terminal complete-site gate
+
+Five focused suites passed ownexit0. Full finite900s gate completed ownexit0:89Python/270Core/322Mac debug/release, independent oracle/finite inert ABI and pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.JX0Qc6. No printer accessed; no scheduler/GUI/installation/physical acceptance inferred. Earlier five-second failures remain recorded; their timing cause is unestablished.
