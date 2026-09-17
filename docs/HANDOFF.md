@@ -388,3 +388,7 @@ Unpublished token-traversal implementation checkpoint: `37977fdb1912ece63784ac4a
 ## Exact JSON identity codec integration
 
 [Codec integration evidence](validation/EXACT-JSON-INTEGER-CODECS-2026-09-17.md) repairs the identified manual codec sites together, including private defaults readers and native qualification manifests. All 299 Core and 21 native workflow-store tests passed debug/release; restoring floating integer conversion caused 18 failures across seven codec regressions. Source is restored. Full native CI-equivalent validation is pending; older whole-system baselines are historical. No manual or physical gate changed.
+
+## Current complete software baseline
+
+[Exact JSON integrated baseline](validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md) evaluated clean unpublished `b12e65a63cfebcce3625a249975e837dbb0bc2ee` with the finite 900-second native CI sequence, exit 0. Passed 106 Python, 299 Core and 364 native tests debug/release, both oracle/ABI modes, ARM/minimum-26 metadata, nested local ad-hoc signatures, fail-closed Developer-ID negative and packaged-worker synthetic PBM/ZPL equality. Local artifact `artifacts/setup-app.ANaCKz` does not replace the frozen manual candidate. Manual/physical/retail-host gates remain open; no ledger acceptance was refreshed. Next: audit remaining independent software requirements against this checkpoint and prepare reviewable source integration without merging or binary publication.

@@ -104,7 +104,8 @@
         "docs/validation/M2-WORKER-MEMORY-INSTRUMENTATION-ATTEMPT-2026-09-17.md (finite synthetic offline memory-wrapper attempt exit65, no memory pass; intermediate parent violates required worker/coordinator parent identity. Preserve supervision; next safe route is in-worker bounded scalar telemetry.)",
         "docs/validation/M2-IN-WORKER-MEMORY-TELEMETRY-2026-09-17.md (Optional bounded render-worker RSS telemetry now travels through private result validation, CLI JSON and offline benchmark reports without an intermediate process. Unavailable remains nil/null; invalid0/negative/above1TiB values reject before returned payload.41 focused native tests passed debug/release; validation omission fault produced3 expected failures;106Python tests passed. Actual six-run offline measurement succeeded; CLI/worker peaks separate, not simultaneous aggregate memory. Native GUI/scheduler/install/hardware gates unchanged.)",
         "docs/validation/M2-IN-WORKER-MEMORY-BASELINE-2026-09-17.json (clean committed-source finite six-run default-path measurement exit0; source/CLI/worker/input hashes; separate per-process RSS, no aggregate or physical claim)",
-        "docs/validation/M2-M5-TELEMETRY-INTEGRATED-BASELINE-2026-09-17.md (clean source3be5feca11d89c0987f4106ffaea5760b07df4df; finite900s CI-equivalent terminal exit0,106Python/281Core/361Mac debug+release, independent/inert/signature/packaged checks; local artifactHZUdFj; manual/hardware gates and exact-ID evidence remain open; unpublished)"
+        "docs/validation/M2-M5-TELEMETRY-INTEGRATED-BASELINE-2026-09-17.md (clean source3be5feca11d89c0987f4106ffaea5760b07df4df; finite900s CI-equivalent terminal exit0,106Python/281Core/361Mac debug+release, independent/inert/signature/packaged checks; local artifactHZUdFj; manual/hardware gates and exact-ID evidence remain open; unpublished)",
+        "docs/validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished b12e65a63cfebcce3625a249975e837dbb0bc2ee; full native CI sequence exit 0; 106 Python/299 Core/364 native debug/release, oracle/ABI/signature/packaged fidelity; manual and physical gates unchanged)"
       ],
       "blockers": []
     },
@@ -239,7 +240,8 @@
         "docs/validation/M3-ENDPOINT-UTF8-BUDGET-2026-09-17.md (encoded host byte-budget regression; 16 TCP tests debug/release, 106 Python tests and release setup-app build passed; earlier source-bound acceptance remains historical)",
         "docs/validation/M3-STATUS-FUNCTION-BUDGET-2026-09-17.md (discarded function-setting fields enforce eight-bit grammar; reproduced three invalid acceptances; 283 Core tests debug/release, accelerator and release app build passed)",
         "docs/validation/M3-TCP-LATE-CALLBACKS-2026-09-17.md (terminal-result immutability after late TCP callbacks; three failure outcomes, finite queue-drain assertions, 17 TCP tests debug/release; partial M3-AC05 only)",
-        "docs/validation/EXACT-JSON-INTEGER-CODECS-2026-09-17.md (exact numeric token admission across seven manual codecs, private geometry/offset readers and native qualification manifest; 299 Core and 21 native store tests debug/release passed; complete native baseline pending)"
+        "docs/validation/EXACT-JSON-INTEGER-CODECS-2026-09-17.md (exact numeric token admission across seven manual codecs, private geometry/offset readers and native qualification manifest; 299 Core and 21 native store tests debug/release passed; complete native baseline pending)",
+        "docs/validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished b12e65a63cfebcce3625a249975e837dbb0bc2ee; full native CI sequence exit 0; 106 Python/299 Core/364 native debug/release, oracle/ABI/signature/packaged fidelity; manual and physical gates unchanged)"
       ],
       "blockers": []
     },
@@ -289,7 +291,8 @@
         "docs/validation/JSON-INTEGER-IDENTITY-INVESTIGATION-2026-09-17.md (open large integer identity defect reproduced; tentative partial fix restored; shared codec parsing remains next independent implementation slice)",
         "docs/validation/EXACT-JSON-INTEGER-TOKENS-2026-09-17.md (internal exact numeric-token converter; 287 Core tests debug/release and accelerator passed; codecs not integrated and identity defect remains open)",
         "docs/validation/TOKEN-PRESERVING-JSON-2026-09-17.md (internal bounded JSON traversal retaining numeric lexemes; 291 Core tests debug/release; product codec integration and original identity repair still open)",
-        "docs/validation/EXACT-JSON-INTEGER-CODECS-2026-09-17.md (exact numeric token admission across seven manual codecs, private geometry/offset readers and native qualification manifest; 299 Core and 21 native store tests debug/release passed; complete native baseline pending)"
+        "docs/validation/EXACT-JSON-INTEGER-CODECS-2026-09-17.md (exact numeric token admission across seven manual codecs, private geometry/offset readers and native qualification manifest; 299 Core and 21 native store tests debug/release passed; complete native baseline pending)",
+        "docs/validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished b12e65a63cfebcce3625a249975e837dbb0bc2ee; full native CI sequence exit 0; 106 Python/299 Core/364 native debug/release, oracle/ABI/signature/packaged fidelity; manual and physical gates unchanged)"
       ],
       "blockers": []
     },
@@ -337,7 +340,8 @@
         "2026-09-17 saved-job chooser non-cancellation failures now invalidate pending work and clear the previous verified selection/export authority with a redacted error; user cancellation preserves selection. Three release model tests passed; omission of selected=nil produced the expected no-export assertion failure, exact restoration passed all three. Release app build passed. Native chooser/error/VoiceOver NOT RUN; no new acceptance or device I/O.",
         "docs/validation/M2-M5-ISOLATED-SOFTWARE-BASELINE-2026-09-17.md (clean local sourceb3e90d22135673c7a0b6f053eeb9b823ebf3c1fa; finite900s CI-equivalent gate exit0,105Python/281Core/360Mac debug+release, independent/inert/signature/packaged checks; manual scheduler/GUI/install/USB/physical gates unchanged; unpublished)",
         "docs/validation/M5-LOCALIZABLE-APP-MESSAGES-2026-09-17.md (18 stored app messages/dialog strings now use Foundation String(localized:) lookup with unchanged English fallback: saved-job inspection, USB discovery, editor errors, setup storage error and preview export dialog. Release app build and27 focused release model tests passed exit0. No translations, another-language support, actual GUI layout/VoiceOver or acceptance pass claimed.)",
-        "docs/validation/M2-M5-TELEMETRY-INTEGRATED-BASELINE-2026-09-17.md (clean source3be5feca11d89c0987f4106ffaea5760b07df4df; finite900s CI-equivalent terminal exit0,106Python/281Core/361Mac debug+release, independent/inert/signature/packaged checks; local artifactHZUdFj; manual/hardware gates and exact-ID evidence remain open; unpublished)"
+        "docs/validation/M2-M5-TELEMETRY-INTEGRATED-BASELINE-2026-09-17.md (clean source3be5feca11d89c0987f4106ffaea5760b07df4df; finite900s CI-equivalent terminal exit0,106Python/281Core/361Mac debug+release, independent/inert/signature/packaged checks; local artifactHZUdFj; manual/hardware gates and exact-ID evidence remain open; unpublished)",
+        "docs/validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished b12e65a63cfebcce3625a249975e837dbb0bc2ee; full native CI sequence exit 0; 106 Python/299 Core/364 native debug/release, oracle/ABI/signature/packaged fidelity; manual and physical gates unchanged)"
       ],
       "blockers": []
     },
