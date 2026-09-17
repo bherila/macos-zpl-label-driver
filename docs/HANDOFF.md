@@ -5,8 +5,11 @@ The fixed editor reserves a finite viewport and scrolls details inside it;
 31 focused native editor/bootstrap/layout tests pass, including three widths.
 Visible millimeter labels retain the existing generation-bound callbacks.
 Corrected app build/signatures/packaged equality passed exit 0; the local
-maintainer retest candidate is `artifacts/setup-app.N8tFGX`. Full gate is running
-and actual maintainer retest remains NOT RUN. See `validation/M5-EDITOR-LAYOUT-2026-09-17.md`.
+maintainer retest candidate is `artifacts/setup-app.N8tFGX`. Full local gate at source `f665d36` passed exit 0: 86 Python / 185 Core /
+265 Mac debug/release with both independent/inert/signature/packaged checks;
+hosted checks and review await publication. The maintainer reports **issue #80 part A passed** on macOS Golden Gate
+27.0 with that local artifact. Full accessibility, Tahoe, scheduler, download
+and physical acceptance remain open. See `validation/M5-EDITOR-LAYOUT-2026-09-17.md`.
 The withdrawn preview must not be used for acceptance. No replacement public
 release, queue, device or administrator action is authorized by this correction.
 

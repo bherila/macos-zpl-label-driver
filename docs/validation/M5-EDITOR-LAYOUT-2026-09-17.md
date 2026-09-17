@@ -4,7 +4,8 @@
 
 The maintainer's manual GUI test on 2026-09-17 observed setup text and controls
 painting over the extraction editor after selecting a PDF, covering **Show Source
-Page**. GUI acceptance is FAIL/BLOCKED, not a successful launch or preview check.
+Page**. The old artifact failed/blocked GUI acceptance; this is retained as failure evidence
+rather than being rewritten as successful launch or preview acceptance.
 The broken preview release and GitHub tag were explicitly authorized for removal;
 both were removed and independently read back absent. Issue #80 now records the
 withdrawal and blocker instead of recommending the broken download.
@@ -30,9 +31,19 @@ unchanged. No rendering, ticket, profile or printer-control semantics change.
   ARM architecture, deployment minimum 26 and packaged-worker PBM/ZPL equality
   passed. Local artifact directory `artifacts/setup-app.N8tFGX`; this artifact
   is separately identified for the maintainer retest and is not a public release.
-- Full debug/release local gate and hosted checks: pending correction validation.
-- Actual on-screen Show Source Page/crop/Preview and accessibility retest: NOT RUN.
-  The offscreen allocation regression is not an interactive GUI acceptance pass.
+- Full `bash scripts/ci-swift.sh` at source `f665d36`: exit 0, bounded to
+  900 seconds, 86 Python / 185 Core / 265 Mac tests in debug and release,
+  132 original and 180 compressed independent vectors per configuration,
+  both inert harnesses and pipeline, ARM/minimum-26 signatures and packaged
+  PBM/ZPL equality. Hosted checks and independent review await publication.
+- Corrected actual GUI retest: maintainer reported **issue #80 section A passed**
+  on macOS Golden Gate 27.0, same Apple Silicon Mac, corrected local artifact
+  `artifacts/setup-app.N8tFGX`, opened at their request. This records the finite
+  synthetic manual opening/source/crop/exact-preview flow with hardware
+  confirmations unchecked and no queue/approval/print. It is user-observed
+  local-build evidence, not the offscreen allocation test or a downloaded
+  artifact. Full keyboard/VoiceOver, Tahoe 26.x and quarantined launch remain
+  NOT RUN. Administrator scheduler/physical acceptance remains NOT RUN.
 
 Actual test host: macOS 27.0 (26A428), arm64, Xcode 27.0 (27A266a), Swift 6.4;
 minimum deployment remains 26.0. Do not infer new Tahoe support evidence.
