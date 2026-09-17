@@ -220,3 +220,21 @@ Both prepared and direct encoders check known signed home/shift/top placement
 against controlled dimensions before original graphics. Overflow, negative known
 origin and far-edge clipping fail. Unknown device state remains unknown, and this
 necessary packed-raster check is not evidence of physical printable bounds.
+
+### Storage-only finishing declarations (printer profile8)
+
+Profile8 retains profile7 controls and adds a required nullable finishing
+configuration. Non-null records bind exact media, enabled mode/model facts,
+installation declarations, per-mode stock suitability and independently qualified
+cut schedules with finite batch limits. Model facts must agree with the enclosing
+profile; cutter/peeler declarations cannot override its installed inventory.
+Unknown and absent values remain distinct. The private canonical codec retains
+its32KiB cap, fixed nested fields, bounded source IDs, sorted unique enabled modes
+and actual JSON booleans. This is supplied installation evidence, not sensing.
+
+Profile8 is currently storage-only. Queue6/ticket7 roles remain bounded to profile7;
+a shared ordinary-version constraint also rejects profile8 direct control
+resolution/encoding, including bitmap encoding and profile preparation. Persistence
+success does not enable mechanical actions or establish physical cut/file-boundary
+semantics. Finishing job/schema/normalization/delivery integration remains required
+before removing this gate.

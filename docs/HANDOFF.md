@@ -1,3 +1,79 @@
+# Finishing profile8 terminal local validation — 2026-09-17
+
+Full finite CI-equivalent gate passed ownexit0:89Python/270Core/314Mac debug/release
+plus independent/inert/native/signature/packaged checks. Artifact `artifacts/setup-app.FwiqW0`.
+Exact-media profile binding fault reproduced ownexit1, source byte-restored,
+all270Core restored pass. Four ordinary admission calls failed before sharedguard;
+profile8 remains storage-only. Two correctness test budgets explicitly align to
+existing production60s; dedicated short-deadline/cancellation cases unchanged.
+Prior native timeout causes remain unestablished, not claimed repaired. Next
+coherent commits/source push and exact hosted readback after disclosure review.
+Ordinary finishing job/encoder/delivery integration and physical gates remain open.
+Frozen B unchanged. No printer/admin/merge/binary release.
+
+# Barcode-budget focused evidence and hosted prerequisite — 2026-09-17
+
+Layout9/pipeline16/render-worker11 focused tests passed ownexit0, including short
+deadline and cancellation cases. Full gate session67662 remains live; poll same
+handle. Explicit correctness success budgets changed5->existing bounded default60;
+production limits and dedicated short-deadline cases unchanged. Prior failures
+and unestablished timing cause remain recorded. Published checkpointa8c8db3 exact
+hosted35221905583 passed, not evidence for local profile8/admission/budget changes.
+No source publication yet; frozen B unchanged.
+
+# Barcode correctness-budget restructure — 2026-09-17
+
+Profile8 full-final gate failed ownexit1 on existing barcode pipeline timedOut.
+Cause remains unestablished. A temporary60s diagnostic passed and source restored.
+Two real-barcode correctness cases now explicitly use the existing production60s
+bounded default, preserving every semantic assertion. Dedicated0.05s worker and0.1s
+preparation deadline tests are unchanged. This is a test-budget change, not a
+production timeout/performance fix. See `validation/M2-BARCODE-CORRECTNESS-BUDGET-2026-09-17.md`.
+Layout-worker/pipeline/render-worker focused suites then full finite900s gate run
+under session67662; poll that handle. Full log `/tmp/zpl-finishing-profile-full-budget.log`.
+Profile8/new guards remain local/unpushed. Next inspect focused/full terminal,
+media-binding negative, staged/tree disclosure review and coherent source commits.
+Frozen B unchanged. No printer/admin/merge/binary release.
+
+# Profile8 admission constraint implemented — 2026-09-17
+
+New four-call regression failed without the guard, then all270 Core passed ownexit0
+with shared ordinary profile-version admission in control resolution and encoding.
+Both bitmap encode and profile prepare exercise it; qualified profile7 stays valid.
+Strict boolean negatives enumerate accessory and stock paths. Profile8 storage
+remains available but ordinary controls cannot resolve/encode until full mechanical
+binding is implemented. Initial full gate failed ownexit1 on existing native
+barcode-child timeout (89/269 Core debug/release pass, native debug314 one failure);
+no cause established or deadlines changed. Updated full finite900s gate is live
+under session82592, log `/tmp/zpl-finishing-profile-full-final.log`; poll that handle.
+No publication yet; next inspect terminal, finish media-binding regression and
+disclosure review before source push. Frozen B unchanged.
+
+# Profile8 pre-publication boundary finding — 2026-09-17
+
+The current full gate remains live under session58188. Review found that storage-
+only profile8 requires explicit direct control-resolution and ordinary-encoder
+version rejection in addition to existing queue/ticket profile7 role checks.
+Thermal normalization is profile7-only, so direct profile8 encoding cannot be
+admitted by compile/storage success. After terminal gate, add shared unsupported-
+version guards and meaningful regression coverage for both encoding entry paths
+and resolution, then rerun affected/full checks before pushing. No source push or
+mechanical acceptance yet; frozen B unchanged.
+
+# Immutable finishing profile8 declarations — 2026-09-17
+
+Local source adds strict bounded immutable profile8 finishing configuration, with
+exact media, model/inventory consistency, enabled stock gates and finite schedule
+bounds. Legacy canonical fields remain exact; queue6/ticket7 still reject profile8
+and ordinary non-tear controls. All269 Core passed ownexit0. Native cold-store
+readback/conflicting-policy test runs before finite full gate under session58188;
+poll the same handle. Logs `/tmp/zpl-finishing-profile-native-focused.log` and
+`/tmp/zpl-finishing-profile-full.log`. No full pass or publication yet. See
+`validation/M3-FINISHING-PROFILE-PERSISTENCE-2026-09-17.md`. Next inspect terminal
+results, reproduce independent media-binding regression, restore byte-for-byte,
+then source review/push. Ordinary mechanical binding and physical gates remain.
+Frozen B unchanged. No printer/admin/merge/binary release.
+
 # Finishing stock implementation checkpoint — 2026-09-17
 
 Implementation `c1a0ff7e1b7000674eb1b96c415890af9f8afbe5` is locally validated as recorded below.

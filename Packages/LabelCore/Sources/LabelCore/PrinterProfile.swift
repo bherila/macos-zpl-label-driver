@@ -246,6 +246,7 @@ public struct PrinterProfile: Equatable, Sendable {
     /// has none; version 2 stores only controls already accepted by validation.
     public let configuredDefaults: PrinterControlDefaults
     public let thermalMedia: ThermalMediaConfiguration
+    public let finishingConfiguration: FinishingProfileConfiguration?
 
     public init(
         schemaVersion: Int,
@@ -255,9 +256,10 @@ public struct PrinterProfile: Equatable, Sendable {
         media: MediaConfiguration,
         connection: ConnectionConfiguration,
         configuredDefaults: PrinterControlDefaults = .init(),
-        thermalMedia: ThermalMediaConfiguration = .unobserved
+        thermalMedia: ThermalMediaConfiguration = .unobserved,
+        finishingConfiguration: FinishingProfileConfiguration? = nil
     ) throws {
-        guard (1...7).contains(schemaVersion), revision > 0,
+        guard (1...8).contains(schemaVersion), revision > 0,
               schemaVersion >= 2 || configuredDefaults == .init() else {
             throw PrinterProfileError.invalidProfileVersion
         }
@@ -280,7 +282,7 @@ public struct PrinterProfile: Equatable, Sendable {
             throw PrinterProfileError.invalidProfileVersion
         }
         try capabilities.offsets.validateDeclaration()
-        guard schemaVersion == 7 || (thermalMedia == .unobserved &&
+        guard schemaVersion >= 7 || (thermalMedia == .unobserved &&
             capabilities.directThermal == .init(state: .unknown, evidence: .unobserved)) else {
             throw PrinterProfileError.invalidProfileVersion
         }
@@ -307,6 +309,11 @@ public struct PrinterProfile: Equatable, Sendable {
         self.connection = connection
         self.configuredDefaults = configuredDefaults
         self.thermalMedia = thermalMedia
+        guard schemaVersion == 8 || finishingConfiguration == nil else {
+            throw PrinterProfileError.invalidProfileVersion
+        }
+        try finishingConfiguration?.validate(media: media, capabilities: capabilities, installed: installedHardware)
+        self.finishingConfiguration = finishingConfiguration
         try validate(.init(thermalMethod: configuredDefaults.thermalMethod,
             finishing: configuredDefaults.finishing,
             printSpeedIps: configuredDefaults.printSpeedIps,
@@ -410,7 +417,7 @@ public extension PrinterProfile {
     /// unchanged; it is never converted to a guessed current value.
     func validate(_ request: PrinterControlRequest) throws {
         if let method = request.thermalMethod {
-            if schemaVersion == 7 {
+            if schemaVersion >= 7 {
                 _ = try ThermalControlQualification(directThermal: capabilities.directThermal,
                     thermalTransfer: capabilities.thermalTransfer).control(for: method,
                         media: thermalMedia.method, ribbonPresent: thermalMedia.ribbonPresent)

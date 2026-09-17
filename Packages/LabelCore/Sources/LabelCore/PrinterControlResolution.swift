@@ -85,6 +85,14 @@ public struct ResolvedPrinterControls: Equatable, Sendable {
     }
 }
 
+/// Schema8 currently stores declarations only. Queue/ticket, preparation and
+/// mechanical normalization must be extended together before ordinary admission.
+enum OrdinaryPrinterProfileAdmission {
+    static func validate(_ version: Int) throws {
+        guard (1...7).contains(version) else { throw PrinterProfileError.invalidProfileVersion }
+    }
+}
+
 public extension PrinterProfile {
     /// Resolves the documented precedence once, then validates the effective
     /// combination. This is deliberately transport-free: it creates neither
@@ -93,6 +101,7 @@ public extension PrinterProfile {
         job: PrinterControlRequest,
         workflowDefaults: PrinterControlDefaults = .init()
     ) throws -> ResolvedPrinterControls {
+        try OrdinaryPrinterProfileAdmission.validate(schemaVersion)
         guard let thermal = job.thermalMethod ?? workflowDefaults.thermalMethod
             ?? configuredDefaults.thermalMethod ?? (schemaVersion < 7 ? .directThermal : nil) else {
             throw ThermalControlQualification.Error.explicitMethodRequired

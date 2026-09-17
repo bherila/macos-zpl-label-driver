@@ -14,6 +14,30 @@ final class PrinterProfileStoreTests: XCTestCase {
         return root
     }
 
+    func testFinishingProfileRevisionColdReadbackAndConflictingPolicyPreserveOriginal() throws {
+        let root = try temporaryRoot(), base = try PrinterProfile.gc420dUSBReference()
+        let fact = CapabilityFact(state: .supported,
+            evidence: .documentedModel(sourceID: "synthetic-finishing-storage"))
+        func qualified(_ maximum: Int) throws -> PrinterProfile {
+            try .init(schemaVersion: 8, revision: 12, capabilities: base.capabilities,
+                installedHardware: base.installedHardware, media: base.media, connection: base.connection,
+                finishingConfiguration: .init(finishing: .init(modes: [.tearOff: fact], enabledModes: [.tearOff]),
+                    stock: .init(media: base.media, compatibleModes: [
+                        .tearOff: .observed(true, evidence: .reportedInstallation)]),
+                    schedules: .init(batch: fact, maximumBatchSize: maximum)))
+        }
+        let original = try qualified(5), store = try PrinterProfileStore(root: root)
+        let reference = try store.save(id: "synthetic-finishing", profile: original)
+        XCTAssertEqual(reference.schemaVersion, 8)
+        let cold = try PrinterProfileStore(root: root)
+        XCTAssertEqual(try cold.load(reference: reference), original)
+        XCTAssertThrowsError(try cold.save(id: reference.id, profile: qualified(4))) {
+            XCTAssertEqual($0 as? PrinterProfileStore.Error, .profileConflict)
+        }
+        XCTAssertEqual(try cold.load(reference: reference), original)
+        XCTAssertEqual(try cold.load(reference: reference).finishingConfiguration?.schedules.maximumBatchSize, 5)
+    }
+
     private func profile(model: String = "GC420d", revision: Int = 7) throws -> PrinterProfile {
         let base = try PrinterProfile.gc420dUSBReference(revision: revision)
         return try PrinterProfile(
