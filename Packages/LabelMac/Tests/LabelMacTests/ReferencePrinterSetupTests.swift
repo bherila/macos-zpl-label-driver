@@ -254,19 +254,24 @@ final class ReferencePrinterSetupTests: XCTestCase {
         XCTAssertEqual(profile.configuredDefaults.darkness, 15)
     }
 
-    func testProfileFiveOfflineSpeedEditRetainsGeometryTrackingAndDarkness() throws {
+    private func geometryProfile(defaults: PrinterControlDefaults? = nil) throws -> PrinterProfile {
         let b = try darknessProfile(defaultValue: 15)
         let c = b.capabilities
         let fact = CapabilityFact(state: .supported, evidence: .documentedModel(sourceID: "synthetic-geometry-fixture"))
         var tracking = c.tracking; tracking[.continuous] = fact
         func limit(_ value: Int) -> QualifiedDotLimit { .init(fact: fact, maximumDots: value) }
         let geometry = try MediaGeometryRequest(widthDots: 20, lengthDots: 10, originXDot: 1, originYDot: 1)
-        let p = try PrinterProfile(schemaVersion: 5, revision: b.revision,
+        return try PrinterProfile(schemaVersion: 5, revision: b.revision,
             capabilities: .init(model: c.model, thermalTransfer: c.thermalTransfer, cutter: c.cutter, peeler: c.peeler,
                 rewind: c.rewind, tracking: tracking, printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: c.darkness,
                 physicalGeometry: .init(width: limit(832), continuousLength: limit(1500), homeX: limit(100), homeY: limit(200))),
             installedHardware: b.installedHardware, media: b.media, connection: b.connection,
-            configuredDefaults: .init(printSpeedIps: 3, darkness: 15, tracking: .continuous, mediaGeometry: geometry))
+            configuredDefaults: defaults ?? .init(printSpeedIps: 3, darkness: 15, tracking: .continuous, mediaGeometry: geometry))
+    }
+
+    func testProfileFiveOfflineSpeedEditRetainsGeometryTrackingAndDarkness() throws {
+        let p = try geometryProfile()
+        let geometry = try XCTUnwrap(p.configuredDefaults.mediaGeometry)
         let model = ReferencePrinterSetupModel(profile: p)
         XCTAssertEqual(model.darknessChoices, Array(0...30))
         XCTAssertEqual(model.facts.first { $0.id == "tracking" }?.status, .configured)
@@ -278,6 +283,87 @@ final class ReferencePrinterSetupTests: XCTestCase {
         XCTAssertEqual(defaults.tracking, .continuous)
         XCTAssertEqual(defaults.mediaGeometry, geometry)
         XCTAssertEqual(p.configuredDefaults.printSpeedIps, 3)
+    }
+
+    func testGeometryDraftPreservesIndependentDefaultsAndExplicitZeroHome() throws {
+        let profile = try geometryProfile()
+        let model = ReferencePrinterSetupModel(profile: profile)
+        XCTAssertEqual(model.trackingChoices, [.gap, .continuous])
+        XCTAssertEqual(model.geometryRange(for: .width), 2...832)
+        XCTAssertEqual(model.geometryRange(for: .homeX), 0...100)
+        model.geometryDraft[.homeX] = "0"
+        model.geometryDraft[.width] = "30"
+        let defaults = try model.workflowDefaults()
+        XCTAssertEqual(defaults.mediaGeometry, try .init(widthDots: 30, lengthDots: 10, originXDot: 0, originYDot: 1))
+        XCTAssertEqual(defaults.tracking, .continuous)
+        XCTAssertEqual(defaults.darkness, 15)
+        XCTAssertEqual(defaults.printSpeedIps, 3)
+        model.geometryDraft[.width] = ""
+        XCTAssertEqual(try model.workflowDefaults().mediaGeometry?.widthDots, 20)
+        XCTAssertEqual(profile.configuredDefaults.mediaGeometry?.originXDot, 1)
+        XCTAssertFalse(model.canInstallQueue)
+    }
+
+    func testInvalidGeometryDraftNeverFallsBackOrClamps() throws {
+        let model = ReferencePrinterSetupModel(profile: try geometryProfile())
+        for field in ReferencePrinterSetupModel.GeometryField.allCases {
+            for text in ["broken", "2.5", "nan", "999999999999999999999999999", "-1", "32001"] {
+                model.geometryDraft = [field: text]
+                XCTAssertThrowsError(try model.workflowDefaults())
+                XCTAssertNotNil(model.validationMessage)
+                XCTAssertEqual(model.geometryDraft[field], text)
+                XCTAssertFalse(model.canInstallQueue)
+            }
+        }
+        model.geometryDraft = [.width: "1"]
+        XCTAssertThrowsError(try model.workflowDefaults())
+        model.geometryDraft = [.length: "0"]
+        XCTAssertThrowsError(try model.workflowDefaults())
+    }
+
+    func testTrackingChangeDoesNotDropInheritedLengthAndResetRestoresDefaults() throws {
+        let model = ReferencePrinterSetupModel(profile: try geometryProfile())
+        try model.selectTracking(.gap)
+        XCTAssertThrowsError(try model.workflowDefaults())
+        XCTAssertTrue(model.validationMessage?.contains("inherited length") == true)
+        XCTAssertThrowsError(try model.selectTracking(.blackMark))
+        XCTAssertEqual(model.selectedTracking, .gap)
+        try model.selectTracking(nil)
+        XCTAssertEqual(try model.workflowDefaults().tracking, .continuous)
+        XCTAssertEqual(try model.workflowDefaults().mediaGeometry?.lengthDots, 10)
+    }
+
+    func testUnqualifiedReferenceDoesNotExposeGeometryOrTrackingDrafts() throws {
+        let model = try ReferencePrinterSetupModel.gc420dUSB()
+        XCTAssertTrue(model.trackingChoices.isEmpty)
+        for field in ReferencePrinterSetupModel.GeometryField.allCases {
+            XCTAssertNil(model.geometryRange(for: field))
+            model.geometryDraft = [field: "0"]
+            XCTAssertThrowsError(try model.workflowDefaults())
+        }
+        XCTAssertThrowsError(try model.selectTracking(.gap))
+        model.geometryDraft = [:]
+        XCTAssertNil(try model.workflowDefaults().mediaGeometry)
+        XCTAssertNil(try model.workflowDefaults().tracking)
+    }
+
+    func testHomePairAndContinuousLengthMustBeCompleteBeforeDraftCanBeUsed() throws {
+        let p = try geometryProfile(defaults: .init(tracking: .gap))
+        let model = ReferencePrinterSetupModel(profile: p)
+        model.geometryDraft[.homeX] = "0"
+        XCTAssertThrowsError(try model.workflowDefaults())
+        XCTAssertTrue(model.validationMessage?.contains("both label-home") == true)
+        model.geometryDraft[.homeY] = "0"
+        XCTAssertEqual(try model.workflowDefaults().mediaGeometry?.originYDot, 0)
+        try model.selectTracking(.continuous)
+        XCTAssertThrowsError(try model.workflowDefaults())
+        XCTAssertTrue(model.validationMessage?.contains("requires a qualified label length") == true)
+        model.geometryDraft[.length] = "10"
+        XCTAssertEqual(try model.workflowDefaults().tracking, .continuous)
+        XCTAssertEqual(try model.workflowDefaults().mediaGeometry?.lengthDots, 10)
+        XCTAssertEqual(model.facts.first { $0.id == "geometry-homeX" }?.status, .configured)
+        let reference = try ReferencePrinterSetupModel.gc420dUSB()
+        XCTAssertEqual(reference.facts.first { $0.id == "geometry-homeX" }?.status, .unknown)
     }
 
 }

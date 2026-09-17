@@ -1,3 +1,17 @@
+# Qualified geometry draft editing — 2026-09-17
+
+Current unpublished source adds evidenced schema5 tracking/geometry session drafts
+with whole-dot ranges, blank per-field inheritance and explicit zero home values.
+Invalid text stays visible and blocks readiness; incomplete home/continuous length
+and inherited-length tracking conflicts fail rather than dropping settings.
+Reference choices stay unavailable; current device settings remain unknown.
+19 focused setup tests passed exit0, including five new geometry combinations.
+Full CI-equivalent gate passed ownexit0: 89Python/231Core/290Mac debug/release, independent/inert checks, ad-hoc signatures and packaged-worker equality.
+Preceding65314a1 hosted35212808079 remains in progress; defer source push until terminal to preserve that exact-head result.
+See `validation/M5-QUALIFIED-GEOMETRY-EDITING-2026-09-17.md`. Installed dialog,
+GUI/keyboard/VoiceOver, persistent default management and USB/physical qualification
+remain open. No printer/admin/merge/binary action. Part B frozen bytes unchanged.
+
 # Immutable physical geometry/tracking implementation — 2026-09-17
 
 Published source `65314a16e1b9f6f9e22ab2d5f63c291eb2c65cd1` on PR #81 binds separately qualified physical limits and defaults
