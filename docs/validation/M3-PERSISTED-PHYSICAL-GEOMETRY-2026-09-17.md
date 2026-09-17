@@ -80,3 +80,7 @@ Actual adapter/USB/helper identity/lifecycle follows M1 admission. Installed and
 physical media/state/fault recovery require prescribed finite evidence; no command
 was sent to a printer, no queue/admin action, no merge/binary release. Part B remains
 its separately frozen bytes. M3-AC03 and applicable manual acceptances stay unchecked.
+
+## Source checkpoint
+
+Published source `65314a16e1b9f6f9e22ab2d5f63c291eb2c65cd1` on PR #81; remote branch and PR head read back equal. Hosted run `35212808079` observed queued at this checkpoint, not a pass. No merge or binary publication.
