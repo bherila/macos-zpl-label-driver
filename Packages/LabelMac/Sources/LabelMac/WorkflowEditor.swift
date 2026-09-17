@@ -55,7 +55,7 @@ public final class WorkflowEditorModel: ObservableObject {
 
     private let originalPDF: Data
     private let analyzedPages: [AnalyzedSourcePage]
-    private let canvas: DotCanvas
+    private var canvas: DotCanvas
     private let store: WorkflowProfileStore
     public let isManualDraft: Bool
     public let isReopenedWorkflow: Bool
@@ -199,6 +199,20 @@ public final class WorkflowEditorModel: ObservableObject {
         var next = try editableDraft()
         try next.updateRegion(id: expectedRegionID, normalizedRect: rect, rotation: region.rotation)
         try replaceDraft(next)
+        cancelPreview()
+        isSaved = false
+    }
+
+    /// Edits candidate destination geometry without changing source sheet rules.
+    /// All fallible preparation precedes committing draft/canvas and invalidating review.
+    public func setOutputStock(id: String, size: PhysicalSize,
+                               expectedBinding: WorkflowEditorEditBinding? = nil) throws {
+        try validateEditBinding(expectedBinding)
+        let nextCanvas = try canvas.replacingPhysicalSize(size)
+        var next = try editableDraft()
+        try next.setOutputStock(id: id, size: size)
+        try replaceDraft(next)
+        canvas = nextCanvas
         cancelPreview()
         isSaved = false
     }
@@ -415,7 +429,9 @@ public final class WorkflowEditorModel: ObservableObject {
 
     public func reloadForCorrection(profileID: String, revision: Int) throws {
         let stored = try store.load(profileID: profileID, revision: revision)
+        let nextCanvas = try canvas.replacingPhysicalSize(stored.outputStock)
         try replaceDraft(store.correctionDraft(for: stored))
+        canvas = nextCanvas
         cancelPreview()
         selectedRegionID = Self.regions(in: draft.profile).first?.id
         preview = nil

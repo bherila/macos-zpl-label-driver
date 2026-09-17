@@ -36,6 +36,42 @@ final class WorkflowEditorTests: XCTestCase {
             XCTAssertEqual(model.isSaved, saved)
         }
     }
+    func testOutputStockMutationBindsPreviewAndPreservesRejectedEditState() throws {
+        let (model, store) = try makeModel()
+        try model.save()
+        let saved = model.profile
+        try model.refreshPreview()
+        try confirmReview(model)
+        let oldBinding = WorkflowEditorEditBinding(regionID: "selected", editGeneration: model.editGeneration)
+        let stock = PhysicalSize(width: try Millimeters(7.055555555555555),
+                                 height: try Millimeters(3.5277777777777777))
+        try model.setOutputStock(id: "candidate-stock", size: stock, expectedBinding: oldBinding)
+        XCTAssertFalse(model.isSaved)
+        XCTAssertNil(model.preview)
+        XCTAssertEqual(model.unreviewedRegionCount, model.regions.count)
+        XCTAssertEqual(model.profile.pageRules, saved.pageRules)
+        XCTAssertEqual(model.profile.revision, saved.revision + 1)
+        XCTAssertEqual(try store.load(profileID: saved.id, revision: saved.revision), saved)
+        try model.refreshPreview()
+        XCTAssertEqual(model.preview?.bitmap.layout.width, 20)
+        XCTAssertEqual(model.preview?.bitmap.layout.height, 10)
+        let current = model.profile
+        let preview = model.preview
+        let generation = model.editGeneration
+        XCTAssertThrowsError(try model.setOutputStock(id: "stale-stock", size: saved.outputStock,
+                                                     expectedBinding: oldBinding))
+        XCTAssertThrowsError(try model.setOutputStock(id: "invalid stock", size: saved.outputStock))
+        XCTAssertThrowsError(try model.setOutputStock(id: "oversized-stock", size: PhysicalSize(
+            width: try Millimeters(10_000), height: try Millimeters(10))))
+        XCTAssertEqual(model.profile, current)
+        XCTAssertEqual(model.preview, preview)
+        XCTAssertEqual(model.editGeneration, generation)
+        try model.reloadForCorrection(profileID: saved.id, revision: saved.revision)
+        try model.refreshPreview()
+        XCTAssertEqual(model.preview?.bitmap.layout.width, 10)
+        XCTAssertEqual(model.preview?.bitmap.layout.height, 10)
+    }
+
     private func confirmReview(_ model: WorkflowEditorModel) throws {
         try model.confirmSelectedBoundsAndPreviewReviewed(expectedProfile: model.profile, expectedPreview: model.preview,
             expectedEditGeneration: model.editGeneration)
@@ -518,6 +554,31 @@ final class WorkflowEditorTests: XCTestCase {
             continuation?.resume()
             continuation = nil
         }
+    }
+
+    func testCompletedOldStockWorkerCannotReplaceResizedPreview() async throws {
+        let (model, _) = try makeModel()
+        let executable = try worker()
+        let barrier = PreviewBarrier()
+        let obsolete = Task {
+            await model.refreshPreviewInWorker(workerExecutable: executable, deadlineSeconds: 5,
+                afterPreparation: { await barrier.pause() })
+        }
+        let limit = ContinuousClock.now.advanced(by: .seconds(5))
+        while !(await barrier.arrived) && ContinuousClock.now < limit { await Task.yield() }
+        let arrived = await barrier.arrived
+        XCTAssertTrue(arrived)
+        XCTAssertNoThrow(try model.setOutputStock(id: "resized-stock", size: PhysicalSize(
+            width: try Millimeters(7.055555555555555), height: try Millimeters(3.5277777777777777))))
+        await model.refreshPreviewInWorker(workerExecutable: executable, deadlineSeconds: 5)
+        let current = model.preview
+        await barrier.release()
+        await obsolete.value
+        XCTAssertEqual(current?.bitmap.layout.width, 20)
+        XCTAssertEqual(current?.bitmap.layout.height, 10)
+        XCTAssertEqual(model.preview, current)
+        XCTAssertFalse(model.isPreparingPreview)
+        XCTAssertNil(model.lastError)
     }
 
     func testCompletedObsoleteWorkerCannotReplaceNewerPreview() async throws {
