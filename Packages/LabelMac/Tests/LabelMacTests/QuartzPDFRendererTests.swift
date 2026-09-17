@@ -198,6 +198,34 @@ final class QuartzPDFRendererTests: XCTestCase {
         XCTAssertTrue(bitmap.pixels.suffix(50).allSatisfy { $0 == 0 })
     }
 
+    func testMarginsReserveExactPackedBlankAreaForFitAndActualSize() throws {
+        let source = try solidBlackSquarePDF()
+        let physical = try QuartzPDFRenderer.pageBox(originalPDF: source, pageNumber: 1).effectivePhysicalSize()
+        let canvas = try DotCanvas(physicalSize: physical,
+            resolution: DotResolution(xDotsPerMillimeter: 20 / physical.width.value,
+                                      yDotsPerMillimeter: 40 / physical.height.value))
+        let margins = try OutputMargins(left: physical.width.value * 0.1,
+            top: physical.height.value * 0.2, right: physical.width.value * 0.2,
+            bottom: physical.height.value * 0.1)
+        for policy in [PagePlacementPolicy.fit, .actualSize] {
+            let rendered = try QuartzPDFRenderer.render(.init(originalPDF: source,
+                pageNumber: 1, canvas: canvas, placementPolicy: policy, outputMargins: margins))
+            let bitmap = try packed(rendered)
+            var expected = [UInt8](repeating: 0, count: canvas.bitmapLayout.byteCount)
+            for y in 8..<36 {
+                for x in 2..<16 {
+                    expected[y * canvas.bitmapLayout.bytesPerRow + x / 8] |= UInt8(0x80 >> (x % 8))
+                }
+            }
+            XCTAssertEqual(bitmap.bytes, expected)
+            let legacy = try QuartzPDFRenderer.render(.init(originalPDF: source,
+                pageNumber: 1, canvas: canvas, placementPolicy: policy))
+            let zero = try QuartzPDFRenderer.render(.init(originalPDF: source,
+                pageNumber: 1, canvas: canvas, placementPolicy: policy, outputMargins: .zero))
+            XCTAssertEqual(legacy, zero)
+        }
+    }
+
     func testFitPreservesPhysicalAspectAtNonSquareResolution() throws {
         let canvas = try DotCanvas(
             physicalSize: PhysicalSize(width: try Millimeters(20), height: try Millimeters(10)),
