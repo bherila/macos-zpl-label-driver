@@ -215,6 +215,35 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
                 if mode == .peel { expected.append(.awaitLabelTaken(outputLabel: ordinal)) }
             }
             XCTAssertEqual(framed.steps, expected)
+            let artifact = try FinishingFramedArtifact.encode(framed)
+            XCTAssertEqual(artifact, try FinishingFramedArtifact.encode(framed))
+            XCTAssertEqual(artifact.sha256.count, 64)
+            XCTAssertEqual(artifact, try FinishingFramedArtifact.reopen(artifact.bytes, against: framed))
+            XCTAssertNoThrow(try FinishingFramedArtifact.encode(framed, maximumBytes: artifact.bytes.count))
+            XCTAssertThrowsError(try FinishingFramedArtifact.encode(framed, maximumBytes: artifact.bytes.count - 1))
+            for corrupted in [Data(), Data(artifact.bytes.dropLast()), artifact.bytes + Data([0])] {
+                XCTAssertThrowsError(try FinishingFramedArtifact.reopen(corrupted, against: framed))
+            }
+            var changed = artifact.bytes; changed[changed.startIndex] ^= 1
+            XCTAssertThrowsError(try FinishingFramedArtifact.reopen(changed, against: framed))
+            let reordered = FinishingFramedOutput(preparation: preparation, qualification: qualification,
+                steps: Array(framed.steps.reversed()), totalEncodedBytes: total)
+            XCTAssertThrowsError(try FinishingFramedArtifact.reopen(artifact.bytes, against: reordered))
+            let changedSource = FinishingRasterPreparation(sourceSHA256: String(repeating: "b", count: 64),
+                sourceByteCount: preparation.sourceByteCount, extraction: preparation.extraction,
+                canvas: preparation.canvas, conversion: preparation.conversion, rasters: preparation.rasters,
+                binding: preparation.binding, normalization: preparation.normalization)
+            let changedContext = FinishingFramedOutput(preparation: changedSource, qualification: qualification,
+                steps: framed.steps, totalEncodedBytes: total)
+            XCTAssertThrowsError(try FinishingFramedArtifact.reopen(artifact.bytes, against: changedContext))
+            let cancelArchive = OfflineRenderWorkerCancellation(); cancelArchive.cancel()
+            XCTAssertThrowsError(try FinishingFramedArtifact.encode(framed, cancellation: cancelArchive)) {
+                XCTAssertEqual($0 as? FinishingFramedArtifact.Error, .cancelled)
+            }
+            XCTAssertThrowsError(try FinishingFramedArtifact.encode(framed, deadlineSeconds: 0))
+            XCTAssertThrowsError(try FinishingFramedArtifact.encode(framed, deadlineSeconds: Double.leastNonzeroMagnitude)) {
+                XCTAssertEqual($0 as? FinishingFramedArtifact.Error, .timedOut)
+            }
             // Nearest independent constraint: completing file delivery does
             // not satisfy status/removal, and no attempted file is replayable.
             var tracker = FinishingDeliveryTracker(output: framed)
