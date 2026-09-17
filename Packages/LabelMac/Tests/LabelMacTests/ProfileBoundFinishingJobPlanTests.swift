@@ -376,6 +376,71 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
                 attributes: [.posixPermissions: 0o700])
             let domain = try PhysicalDeviceCoordinationID(sha256: String(repeating: "a", count: 64))
             let identity = PhysicalDeviceIdentity(coordinationID: domain)
+            let persistedRoot = directory.appending(path: "persisted-inert-\(mode)")
+            let persistedArchives = try FinishingArtifactStore(root: persistedRoot)
+            let persistedReference = try persistedArchives.save(id: "synthetic-inert", revision: 1, output: framed)
+            let persistedIntents = try FinishingAttemptStore(root: persistedRoot)
+            let stopped = try InertPersistedFinishingDelivery.run(output: framed, reference: persistedReference,
+                attemptStore: persistedIntents, coordinationID: domain, leaseDirectory: leaseRoot,
+                scenario: .init(stopBeforeStep: 0))
+            XCTAssertEqual(stopped.state, .failedBeforeAttempt)
+            XCTAssertEqual(try persistedIntents.recoveryObservation(reference: persistedReference, against: framed),
+                           .noRecordedIntent)
+            var persistedEvents = 0
+            let failedRecorded = try InertPersistedFinishingDelivery.run(output: framed, reference: persistedReference,
+                attemptStore: persistedIntents, coordinationID: domain, leaseDirectory: leaseRoot,
+                scenario: .init(failAfterAttemptAtStep: 0), deadlineSeconds: 60, cancellation: .init()) { _ in
+                    persistedEvents += 1
+                    XCTAssertEqual(try persistedIntents.recoveryObservation(reference: persistedReference, against: framed),
+                                   .uncertainAfterRecordedIntent)
+                    XCTAssertThrowsError(try PhysicalDeviceLease(acquiring: identity, inExistingDirectory: leaseRoot))
+                    let alias = try PhysicalDeviceCoordinationID(sha256: String(repeating: "b", count: 64))
+                    XCTAssertThrowsError(try InertPersistedFinishingDelivery.run(output: framed, reference: persistedReference,
+                        attemptStore: persistedIntents, coordinationID: alias, leaseDirectory: leaseRoot)) {
+                            XCTAssertEqual($0 as? InertPersistedFinishingDelivery.Error, .artifactBusy)
+                    }
+                }
+            XCTAssertEqual(persistedEvents, 1)
+            XCTAssertEqual(failedRecorded.state, .uncertain)
+            XCTAssertEqual(failedRecorded.bytesAccepted, 0)
+            let reopenedIntents = try FinishingAttemptStore(root: persistedRoot)
+            XCTAssertThrowsError(try InertPersistedFinishingDelivery.run(output: framed, reference: persistedReference,
+                attemptStore: reopenedIntents, coordinationID: domain, leaseDirectory: leaseRoot)) {
+                    XCTAssertEqual($0 as? InertPersistedFinishingDelivery.Error, .recordedIntentRequiresReview)
+            }
+            let released = try PhysicalDeviceLease(acquiring: identity, inExistingDirectory: leaseRoot)
+            released.release()
+            let completedReference = try persistedArchives.save(id: "synthetic-completed", revision: 1, output: framed)
+            let preCancelled = OfflineRenderWorkerCancellation(); preCancelled.cancel()
+            let cancelledRecorded = try InertPersistedFinishingDelivery.run(output: framed, reference: completedReference,
+                attemptStore: persistedIntents, coordinationID: domain, leaseDirectory: leaseRoot,
+                cancellation: preCancelled)
+            XCTAssertEqual(cancelledRecorded.state, .cancelledBeforeAttempt)
+            XCTAssertEqual(try persistedIntents.recoveryObservation(reference: completedReference, against: framed), .noRecordedIntent)
+            let completedRecorded = try InertPersistedFinishingDelivery.run(output: framed, reference: completedReference,
+                attemptStore: persistedIntents, coordinationID: domain, leaseDirectory: leaseRoot,
+                scenario: .init(), deadlineSeconds: 60, cancellation: .init()) { _ in
+                    XCTAssertEqual(try persistedIntents.recoveryObservation(reference: completedReference, against: framed),
+                                   .uncertainAfterRecordedIntent)
+                    XCTAssertThrowsError(try PhysicalDeviceLease(acquiring: identity, inExistingDirectory: leaseRoot))
+                }
+            XCTAssertEqual(completedRecorded.state, .confirmed) // Synthetic accounting only.
+            XCTAssertEqual(try reopenedIntents.recoveryObservation(reference: completedReference, against: framed),
+                           .uncertainAfterRecordedIntent)
+            XCTAssertThrowsError(try InertPersistedFinishingDelivery.run(output: framed, reference: completedReference,
+                attemptStore: reopenedIntents, coordinationID: domain, leaseDirectory: leaseRoot))
+            let publicationReference = try persistedArchives.save(id: "synthetic-publication-fault", revision: 1, output: framed)
+            let publicationFault = try FinishingAttemptStore(root: persistedRoot,
+                storage: PrivateImmutableDirectory(root: persistedRoot, syncDirectory: { _ in -1 }))
+            var faultCallbacks = 0
+            XCTAssertThrowsError(try InertPersistedFinishingDelivery.run(output: framed, reference: publicationReference,
+                attemptStore: publicationFault, coordinationID: domain, leaseDirectory: leaseRoot,
+                scenario: .init(), deadlineSeconds: 60, cancellation: .init()) { _ in faultCallbacks += 1 }) {
+                    XCTAssertEqual($0 as? FinishingAttemptStore.Error, .commitUncertain)
+                }
+            XCTAssertEqual(faultCallbacks, 0)
+            XCTAssertEqual(try reopenedIntents.recoveryObservation(reference: publicationReference, against: framed),
+                           .uncertainAfterRecordedIntent)
             var observedWaits: [Int] = []
             let simulated = try InertFinishingDelivery.run(output: framed, coordinationID: domain,
                 leaseDirectory: leaseRoot, scenario: .init(), deadlineSeconds: 60, cancellation: .init()) { event in
