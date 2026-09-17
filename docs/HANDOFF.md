@@ -129,6 +129,15 @@ coverage pending. See
 [integration evidence](validation/M3-INERT-PERSISTED-FINISHING-2026-09-17.md).
 No actual accepted sender/device status or replay authority is introduced.
 
+## Local compatibility inventory refresh
+
+[COMPATIBILITY.md](COMPATIBILITY.md) now records actual hosted26.6.2/25G83 arm64 and
+local27.0/26A428 arm64 automation, separate from narrow reported GUI and absent installed/
+physical qualification. Runtime, application, transport/accessory and distribution rows
+retain exact pending gates; no qualified physical row or broad family/runtime claim.
+Preflight/diffcheck passed. See [inventory evidence](validation/M6-COMPATIBILITY-INVENTORY-2026-09-17.md).
+This is documentation; per-ID assessments and semantic review remain open.
+
 ## Manual Part A and Part B
 
 The maintainer reported issue80 Part A passed with the corrected local editor artifact

@@ -303,7 +303,8 @@
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
       "evidence": [
-        "docs/validation/M6-TRACEABILITY-REPORT-2026-09-17.md (read-only explicit per-ID assessments/source-reference integrity report maps90IDs/21requirements;14focused/restored and103Python tests passed with independent level/failure/source faults detected; empty ledger remains unready; full finite gate session24242 exit0:103Python/272Core/324Mac debug/release plus oracle/inert pipeline/signature/packaged-worker checks; M6-AC01 backfill/semantic review and all prescribed integration/hardware/release gates open)"
+        "docs/validation/M6-TRACEABILITY-REPORT-2026-09-17.md (read-only explicit per-ID assessments/source-reference integrity report maps90IDs/21requirements;14focused/restored and103Python tests passed with independent level/failure/source faults detected; empty ledger remains unready; full finite gate session24242 exit0:103Python/272Core/324Mac debug/release plus oracle/inert pipeline/signature/packaged-worker checks; M6-AC01 backfill/semantic review and all prescribed integration/hardware/release gates open)",
+        "docs/validation/M6-COMPATIBILITY-INVENTORY-2026-09-17.md (partial truthful runtime/app/device/distribution inventory; exact local27.0/26A428 arm64 and hosted26.6.2/25G83 arm64 verified; preflight/diffcheck passed; no installed/physical qualification; per-ID semantic review and prescribed evidence remain open)"
       ],
       "blockers": []
     }
