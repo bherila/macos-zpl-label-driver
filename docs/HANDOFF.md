@@ -1,3 +1,21 @@
+# Current complete-job delivery handoff — 2026-09-17
+
+Published previous delivery fix: `a370e05` on PR #81, base `77c29ff`.
+Exact-head hosted run 35199700601 is active, with preflight success and native
+checks running. The second/final review is clean at base `77c29ff` / head
+`a370e05`: reviewer thumbs-up, no inline findings or review threads. That
+review does not cover the following new source changes.
+The next coherent follow-on binds `PreparedJobPayload` bytes/profile directly
+into the existing tracker and TCP adapter. Nine focused portable and fourteen
+native TCP tests pass, including pre-write equal-size substitution rejection,
+exact ordered two-label loopback equality and all failure-boundary snapshots.
+The required full local gate passed exit 0: 86 Python / 189 Core / 267 Mac
+debug/release, both independent/inert/signature/packaged checks. This follow-on
+is ready for publication; its changed-head hosted evidence remains pending.
+See `validation/M3-COMPLETE-JOB-DELIVERY-BINDING-2026-09-17.md`.
+No production lease/scheduler/USB/physical claim is made. B remains a separately
+frozen administrator experiment, not replaced by these rebuilds.
+
 # Current independent delivery slice — 2026-09-17
 
 On the existing PR #81 branch, the shared delivery loop now bounds each copied
@@ -6,8 +24,8 @@ including a known zero-byte prefix. This preserves exact immutable payload order
 and prevents automatic replay based on invalid accounting. The old eight-test
 focused run reproduced 12 assertion failures; all eight corrected tests pass.
 Required full local checks passed exit 0: 86 Python / 188 Core / 265 Mac
-debug/release, both independent/inert/signature/packaged checks. The follow-on
-is ready for publication; hosted checks and changed-head review remain pending.
+debug/release, both independent/inert/signature/packaged checks. The fix was pushed as `a370e05`; its exact-head hosted checks and second
+review was clean at that exact pair; hosted outcome remains pending.
 See `validation/M3-BOUNDED-WRITE-WINDOWS-2026-09-17.md`.
 PR #81 first review is clean at head `52ba93f` / base `77c29ff`: reviewer
 thumbs-up, no inline findings or review threads. Hosted run 35198999638 remains

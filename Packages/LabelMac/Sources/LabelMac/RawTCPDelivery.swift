@@ -78,8 +78,20 @@ public enum RawTCPDelivery {
         )
     }
 
+    /// Complete-job handoff preserves the prepared label order and immutable
+    /// profile snapshot without reapplying page ranges, copies or collation.
+    /// This low-level adapter does not acquire the physical-device lease.
+    public static func send(
+        _ preparedJob: PreparedJobPayload,
+        to endpoint: RawTCPEndpoint,
+        configuration: RawTCPDeliveryConfiguration = .default
+    ) async throws -> RawTCPDeliveryResult {
+        try await send(payload: preparedJob.bytes, to: endpoint,
+            tracker: DeliveryTracker(preparedJob: preparedJob), configuration: configuration)
+    }
+
     /// Legacy revision-only handoff. New product paths should pass a
-    /// `PreparedLabel` so the receipt has an immutable configuration snapshot.
+    /// `PreparedLabel` or `PreparedJobPayload` so the receipt has an immutable snapshot.
     public static func send(
         _ payload: Data,
         to endpoint: RawTCPEndpoint,
@@ -127,6 +139,14 @@ public enum RawTCPDelivery {
         preparedLabel: PreparedLabel
     ) throws -> RawTCPDeliveryResult {
         try result(for: attempt, tracker: DeliveryTracker(preparedLabel: preparedLabel))
+    }
+
+    /// Deterministic complete-job result seam for every send boundary.
+    static func result(
+        for attempt: RawTCPAttemptResult,
+        preparedJob: PreparedJobPayload
+    ) throws -> RawTCPDeliveryResult {
+        try result(for: attempt, tracker: DeliveryTracker(preparedJob: preparedJob))
     }
 
     private static func result(
