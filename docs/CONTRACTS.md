@@ -360,3 +360,10 @@ immutable value owns original bytes/hash, complete expanded plan, copy/range own
 resolved controls. Preparation cannot replace those values and verifies its result. Intake
 is offlineCLI; durable acceptance, installed scheduler admission, active queue generation,
 identified unit correspondence and device delivery authority remain separate contracts.
+
+AcceptedFinishingJobStore stores canonical manifest and exact source in one immutable binary
+transaction, bounded16MiB metadata/100MiB source and four records. Reopen verifies archive
+digest/lengths/canonical structure, reconstructs original acceptance from exact references
+and compares complete extraction/profile/queue/canvas/normalization/cut context. Changing
+interpretation fails; conflicts never overwrite. Uncertain publication carries an exact
+recovery reference. Recovery grants no delivery, completion or replay authority.

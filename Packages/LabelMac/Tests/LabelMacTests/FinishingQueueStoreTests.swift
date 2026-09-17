@@ -279,4 +279,77 @@ final class FinishingQueueStoreTests: XCTestCase {
             XCTAssertEqual($0 as? AcceptedFinishingJob.Error,.cancelled)
         }
     }
+    private func acceptedFixture() throws -> (AcceptedFinishingJob,WorkflowProfileStore,PrinterProfileStore,FinishingQueueStore,URL) {
+        let (workflows,printers,queues,ref,geometry,source,worker)=try acceptanceSetup()
+        let accepted=try AcceptedFinishingJob.accept(acceptanceID:"synthetic-durable",cancellationSHA256:String(repeating:"c",count:64),
+            queueReference:ref,queueStore:queues,workflowStore:workflows,printerStore:printers,geometry:geometry,originalPDF:source,
+            copyOwnership:.engine(copies:2,collated:false),pageRangeOwnership:.engine(selectedSourcePages:[1]),controls:.init(darkness:0),workerExecutable:worker)
+        return (accepted,workflows,printers,queues,worker)
+    }
+    func testDurableFinishingColdReopenAndConflictKeepOriginalContext() throws {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let store=try AcceptedFinishingJobStore(root:workflows.root)
+        let ref=try store.save(job)
+        XCTAssertEqual(try store.save(job),ref)
+        XCTAssertEqual(try AcceptedFinishingJobStore(root:workflows.root).load(reference:ref,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),job)
+        let altered=try AcceptedFinishingJob.accept(acceptanceID:job.acceptanceID,cancellationSHA256:job.cancellationSHA256,
+            queueReference:job.queueReference,queueStore:queues,workflowStore:workflows,printerStore:printers,geometry:job.geometry,
+            originalPDF:job.originalPDF,copyOwnership:.engine(copies:2,collated:true),pageRangeOwnership:job.pageRangeOwnership,workerExecutable:worker)
+        XCTAssertThrowsError(try store.save(altered)) { XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.conflict) }
+        let wrong=try AcceptedFinishingReference(acceptanceID:ref.acceptanceID,sha256:String(repeating:"0",count:64))
+        XCTAssertThrowsError(try store.load(reference:wrong,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.referenceMismatch)
+        }
+    }
+    func testDurableFinishingRehashedStaleContextFailsInsteadOfReinterpretation() throws {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let store=try AcceptedFinishingJobStore(root:workflows.root), ref=try store.save(job)
+        let file=workflows.root.appendingPathComponent("accepted-finishing-jobs").appendingPathComponent(AcceptedFinishingJobStore.fileName(ref))
+        let original=try Data(contentsOf:file)
+        var length:UInt64=0
+        for (i,byte) in original[8..<16].enumerated() { length |= UInt64(byte) << (i*8) }
+        let boundary=16+Int(length)
+        var metadata=try XCTUnwrap(JSONSerialization.jsonObject(with:original.subdata(in:16..<boundary)) as? [String:Any])
+        metadata["context"]=Data([0]).base64EncodedString()
+        let changed=try JSONSerialization.data(withJSONObject:metadata,options:[.sortedKeys])
+        var bytes=Data("AFJOB001".utf8)
+        for shift in stride(from:0,through:56,by:8) { bytes.append(UInt8(truncatingIfNeeded:UInt64(changed.count)>>shift)) }
+        bytes.append(changed);bytes.append(original.subdata(in:boundary..<original.count));try bytes.write(to:file)
+        let rehashed=try AcceptedFinishingReference(acceptanceID:ref.acceptanceID,sha256:digest(bytes))
+        XCTAssertThrowsError(try store.load(reference:rehashed,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.contextMismatch)
+        }
+    }
+    func testDurableFinishingUncertainPublicationReturnsExactRecoverableIdentity() throws {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let store=AcceptedFinishingJobStore(root:workflows.root,storage:try PrivateImmutableDirectory(root:workflows.root,syncDirectory:{ _ in -1 }))
+        var recovery:AcceptedFinishingReference?
+        XCTAssertThrowsError(try store.save(job)) { error in
+            if case let AcceptedFinishingJobStore.Error.commitUncertain(ref)=error { recovery=ref }
+            else { XCTFail("Expected exact uncertain publication") }
+        }
+        let ref=try XCTUnwrap(recovery)
+        XCTAssertEqual(try AcceptedFinishingJobStore(root:workflows.root).load(reference:ref,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker),job)
+    }
+    func testDurableFinishingOversizedLengthAndBinarySymlinkFailBeforeWorker() throws {
+        let (job,workflows,printers,queues,_)=try acceptedFixture()
+        let store=try AcceptedFinishingJobStore(root:workflows.root), ref=try store.save(job)
+        let file=workflows.root.appendingPathComponent("accepted-finishing-jobs").appendingPathComponent(AcceptedFinishingJobStore.fileName(ref))
+        let original=try Data(contentsOf:file)
+        var bytes=original;bytes.replaceSubrange(8..<16,with:Data(repeating:255,count:8));try bytes.write(to:file)
+        let wrong=try AcceptedFinishingReference(acceptanceID:ref.acceptanceID,sha256:digest(bytes))
+        XCTAssertThrowsError(try store.load(reference:wrong,queueStore:queues,workflowStore:workflows,printerStore:printers,
+            workerExecutable:URL(fileURLWithPath:"/nonexistent-worker"))) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.invalidRecord)
+        }
+        try FileManager.default.removeItem(at:file)
+        let target=workflows.root.appendingPathComponent("external.bin");try original.write(to:target)
+        try FileManager.default.createSymbolicLink(at:file,withDestinationURL:target)
+        XCTAssertThrowsError(try store.load(reference:ref,queueStore:queues,workflowStore:workflows,printerStore:printers,
+            workerExecutable:URL(fileURLWithPath:"/nonexistent-worker"))) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.cannotRead)
+        }
+    }
 }
