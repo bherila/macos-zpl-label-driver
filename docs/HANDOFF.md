@@ -1,3 +1,17 @@
+# Qualified absolute darkness persistence — 2026-09-17
+
+Current feature adds profile4/queue3/ticket4 darkness persistence and
+qualified ordinary encoding (^MD0 then ~SDnn). Earlier canonical formats remain
+strict, and reference GC420d darkness stays unknown. Nearest independent constraint:
+absolute values survive immutable default binding and normalize relative adjustment.
+Old-code regression reproduced3 failures; preliminary serializer round trip failed2
+assertions and motivated versioned persistence before publication. Seven focused
+Core cases and the combined native two-label inert case passed; full gate exit0:
+89 Python / 217 Core / 279 Mac debug/release, both132 original and180 ASCII round-trips, twelve benchmark CLI cases, fifteen inert ABI cases, native builds, nested local-ad-hoc signatures, ARM/minimum26 metadata and packaged PBM/ZPL equality.
+See `validation/M3-QUALIFIED-DARKNESS-2026-09-17.md` for exact tests and remaining
+UI/installed/physical gates. No administrator action, printer I/O or merge/release.
+Frozen Part B is unchanged; editor18a03c3 hosted35208318962 passed at that exact head; this feature is a separate checkpoint.
+
 # Offline motor default editor — 2026-09-17
 
 Current source preserves configured print/feed/backfeed defaults while editing,

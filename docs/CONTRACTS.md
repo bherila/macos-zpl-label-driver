@@ -95,7 +95,20 @@ secondary values. Selecting either motor speed
 requires a complete resolved print/feed/backfeed tuple; the encoder never fills
 omitted arguments with protocol defaults. Reference GC420d feed/backfeed facts
 remain unknown and cannot be requested silently. No read-only observation enters
-precedence. Other previously unqualified controls remain unavailable.
+precedence. Other previously unqualified controls remain unavailable in version3.
+
+Version4 adds required nullable configured default `darkness`; its supported
+capability must have explicit evidence and explicit integer values are0..30.
+Earlier profile formats retain exact keys and reject explicit darkness.
+Queue3 adds required nullable darkness defaults and may bind profile4; earlier
+queues reject the new field/reference. Ticket4 admits these references and
+resolved darkness, while ticket2/3 reject downgrade attempts. The ordinary
+encoder neutralizes additive relative adjustment with `^MD0` before `~SDnn`
+when absolute darkness is explicit. Unspecified darkness emits neither command.
+Immutable precedence, original source rendering, full decoder default binding,
+output bounds and mixed-control job rejection remain mandatory. This is supplied
+profile qualification, not an observed current setting or physical state-isolation
+pass. The reference profile remains unchanged.
 
 Virtual queue version 2 and resolved ticket version 3 persist these choices with
 exact field sets. Older versions keep their canonical bytes and reject new

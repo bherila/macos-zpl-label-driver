@@ -668,6 +668,37 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         XCTAssertEqual(stored.bytes.count, result.preparedByteCount)
     }
 
+    func testQualifiedDarknessAndMotorDefaultsReachSameImmutableInertJob() throws {
+        let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
+        let fixture = try makeFixture(workflowSource: original, regionCount: 2,
+                                      qualifiedMotorSpeeds: true, qualifiedDarkness: true)
+        let path = fixture.root.appending(path: "synthetic-darkness-source.pdf")
+        try original.write(to: path, options: .withoutOverwriting)
+        let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+        let result = try fixture.pipeline.run(queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: "synthetic-darkness-bound", cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario(maximumChunkBytes: 4_096))
+        let bundle = try fixture.jobs.load(acceptanceID: result.acceptanceID,
+            queueStore: fixture.queues, workflowStore: fixture.workflows, printerStore: fixture.printers)
+        XCTAssertEqual(bundle.ticket.printerProfile.schemaVersion, 4)
+        XCTAssertEqual(bundle.ticket.queue.schemaVersion, 3)
+        XCTAssertEqual(bundle.ticket.schemaVersion, 4)
+        XCTAssertEqual(try fixture.printers.load(reference: bundle.ticket.printerProfile).configuredDefaults.darkness, 10)
+        XCTAssertEqual(bundle.ticket.controls.darkness, .value(20))
+        XCTAssertEqual(bundle.ticket.controls.feedSpeedIps, .value(4))
+        let stored = try AcceptedJobStateStore(acceptedJobStore: fixture.jobs).loadPrepared(
+            acceptanceID: result.acceptanceID, queueStore: fixture.queues,
+            workflowStore: fixture.workflows, printerStore: fixture.printers)
+        XCTAssertEqual(stored.resolvedControls, bundle.ticket.controls)
+        let text = String(decoding: stored.bytes, as: UTF8.self)
+        XCTAssertEqual(text.components(separatedBy: "^MD0\n~SD20\n").count - 1, 2)
+        XCTAssertEqual(text.components(separatedBy: "^PR3,4,3\n").count - 1, 2)
+        XCTAssertFalse(text.contains("~SD10\n"))
+        XCTAssertEqual(result.delivery, .transmitted(byteCount: stored.bytes.count))
+    }
+
     private func makeFixture(
         workflowSource: Data,
         regionCount: Int = 1,
@@ -678,7 +709,8 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         regionOverride: LabelCore.NormalizedRect? = nil,
         workflowID: String = "native-4x6-local",
         queueID: String = "shipping-native",
-        qualifiedMotorSpeeds: Bool = false
+        qualifiedMotorSpeeds: Bool = false,
+        qualifiedDarkness: Bool = false
     ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory.appending(
             path: "SyntheticInertJobPipeline-\(UUID().uuidString)"
@@ -746,23 +778,25 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         let c = baseline.capabilities
         let speedFact = CapabilityFact(state: .supported,
             evidence: .documentedModel(sourceID: "synthetic-speed-fixture"))
-        let printer = try qualifiedMotorSpeeds ? PrinterProfile(schemaVersion: 3, revision: 1,
+        let printer = try (qualifiedMotorSpeeds || qualifiedDarkness) ? PrinterProfile(schemaVersion: qualifiedDarkness ? 4 : 3, revision: 1,
             // Hypothetical test qualification only. Preserve the pipeline's
             // documented GC420d pitch guard; do not admit an unknown model.
             capabilities: PrinterCapabilities(model: "GC420d",
                 thermalTransfer: c.thermalTransfer, cutter: c.cutter, peeler: c.peeler,
                 rewind: c.rewind, tracking: c.tracking, printSpeedChoicesIps: c.printSpeedChoicesIps,
-                darkness: c.darkness, feedSpeeds: .init(fact: speedFact, choicesIps: [2, 4]),
-                backfeedSpeeds: .init(fact: speedFact, choicesIps: [2, 3])),
+                darkness: qualifiedDarkness ? .init(state: .supported, evidence: .documentedModel(sourceID: "R45")) : c.darkness,
+                feedSpeeds: qualifiedMotorSpeeds ? .init(fact: speedFact, choicesIps: [2, 4]) : .unverified,
+                backfeedSpeeds: qualifiedMotorSpeeds ? .init(fact: speedFact, choicesIps: [2, 3]) : .unverified),
             installedHardware: baseline.installedHardware, media: baseline.media,
             connection: baseline.connection,
-            configuredDefaults: .init(printSpeedIps: 3, feedSpeedIps: 2, backfeedSpeedIps: 2)) : baseline
+            configuredDefaults: .init(printSpeedIps: 3, feedSpeedIps: qualifiedMotorSpeeds ? 2 : nil,
+                backfeedSpeedIps: qualifiedMotorSpeeds ? 2 : nil, darkness: qualifiedDarkness ? 10 : nil)) : baseline
         let printerReference = try printers.save(id: "gc420d-usb", profile: printer)
         let physicalDevice = try PhysicalDeviceCoordinationID(
             sha256: String(repeating: "d", count: 64)
         )
         let queue = try VirtualQueueDefinition(
-            schemaVersion: qualifiedMotorSpeeds ? 2 : 1,
+            schemaVersion: qualifiedDarkness ? 3 : (qualifiedMotorSpeeds ? 2 : 1),
             id: queueID, revision: 1,
             displayName: "Synthetic native labels",
             physicalDevice: physicalDevice,
@@ -773,7 +807,8 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
                 finishing: .tearOff,
                 printSpeedIps: 3,
                 feedSpeedIps: qualifiedMotorSpeeds ? 4 : nil,
-                backfeedSpeedIps: qualifiedMotorSpeeds ? 3 : nil
+                backfeedSpeedIps: qualifiedMotorSpeeds ? 3 : nil,
+                darkness: qualifiedDarkness ? 20 : nil
             ),
             validatingAgainst: printer
         )

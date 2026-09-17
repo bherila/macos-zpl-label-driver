@@ -13,12 +13,24 @@ final class ResolvedJobTicketTests: XCTestCase {
     private func fixture(
         queueRevision: Int = 2,
         copyPolicy: LabelOrderPlan.CopyPolicy = .engine(copies: 2, collated: true),
-        qualifiedMotorSpeeds: Bool = false
+        qualifiedMotorSpeeds: Bool = false,
+        qualifiedDarkness: Bool = false
     ) throws -> (
         ActiveVirtualQueueSelection, ImmutableProfileReference,
         VirtualQueueDefinition, WorkflowProfile, PrinterProfile, ExtractionPlan
     ) {
-        let printer = try qualifiedMotorSpeeds ? MotorSpeedTestFixture.profile() : PrinterProfile.gc420dUSBReference(revision: 7)
+        let baseline = try qualifiedMotorSpeeds ? MotorSpeedTestFixture.profile() : PrinterProfile.gc420dUSBReference(revision: 7)
+        let c = baseline.capabilities
+        let printer = try qualifiedDarkness ? PrinterProfile(schemaVersion: 4, revision: 7,
+            capabilities: .init(model: c.model, thermalTransfer: c.thermalTransfer, cutter: c.cutter,
+                peeler: c.peeler, rewind: c.rewind, tracking: c.tracking,
+                printSpeedChoicesIps: c.printSpeedChoicesIps,
+                darkness: .init(state: .supported, evidence: .documentedModel(sourceID: "R45")),
+                feedSpeeds: c.feedSpeeds, backfeedSpeeds: c.backfeedSpeeds),
+            installedHardware: baseline.installedHardware, media: baseline.media, connection: baseline.connection,
+            configuredDefaults: .init(printSpeedIps: baseline.configuredDefaults.printSpeedIps,
+                feedSpeedIps: baseline.configuredDefaults.feedSpeedIps,
+                backfeedSpeedIps: baseline.configuredDefaults.backfeedSpeedIps, darkness: 10)) : baseline
         let workflowReference = try ImmutableProfileReference(
             id: "letter-two-labels", schemaVersion: 2,
             revision: 3, sha256: workflowDigest
@@ -27,7 +39,7 @@ final class ResolvedJobTicketTests: XCTestCase {
             id: "gc420d-usb", schemaVersion: printer.schemaVersion, revision: 7, sha256: printerDigest
         )
         let queue = try VirtualQueueDefinition(
-            schemaVersion: qualifiedMotorSpeeds ? 2 : 1,
+            schemaVersion: qualifiedDarkness ? 3 : (qualifiedMotorSpeeds ? 2 : 1),
             id: "shipping-labels", revision: queueRevision, displayName: "Shipping labels",
             physicalDevice: PhysicalDeviceCoordinationID(sha256: deviceDigest),
             workflowProfile: workflowReference,
@@ -35,7 +47,7 @@ final class ResolvedJobTicketTests: XCTestCase {
             workflowDefaults: PrinterControlRequest(
                 thermalMethod: .directThermal, finishing: .tearOff, printSpeedIps: 3,
                 feedSpeedIps: qualifiedMotorSpeeds ? 4 : nil,
-                backfeedSpeedIps: qualifiedMotorSpeeds ? 2 : nil
+                backfeedSpeedIps: qualifiedMotorSpeeds ? 2 : nil, darkness: qualifiedDarkness ? 20 : nil
             ),
             validatingAgainst: printer
         )
@@ -354,6 +366,42 @@ final class ResolvedJobTicketTests: XCTestCase {
             XCTAssertThrowsError(try VirtualQueueJSON.decode(JSONSerialization.data(withJSONObject: changed), validatingAgainst: printer))
         }
         queueRoot["schemaVersion"] = 1
+        XCTAssertThrowsError(try VirtualQueueJSON.decode(JSONSerialization.data(withJSONObject: queueRoot), validatingAgainst: printer))
+    }
+
+    func testQualifiedDarknessQueueAndTicketPreserveDefaultAndRejectDroppedControl() throws {
+        let (active, reference, queue, workflow, printer, plan) = try fixture(qualifiedMotorSpeeds: true, qualifiedDarkness: true)
+        let queueBytes = try VirtualQueueJSON.encode(queue)
+        XCTAssertEqual(try VirtualQueueJSON.printerProfileReference(in: queueBytes), queue.printerProfile)
+        XCTAssertEqual(try VirtualQueueJSON.decode(queueBytes, validatingAgainst: printer), queue)
+        let ticket = try ResolvedJobTicket.accept(acceptanceID: "synthetic-darkness", cancellationSHA256: cancellationDigest,
+            activeSelection: active, queueReference: reference, queueDefinition: queue,
+            workflowProfile: workflow, printerProfile: printer, sourceDocumentSHA256: sourceDigest,
+            sourceByteCount: 4096, intakeProvenance: .offlineCLI, plan: plan,
+            copyOwnership: .engine(copies: 2, collated: true), pageRangeOwnership: .engine(selectedSourcePages: [1, 2]))
+        XCTAssertEqual(ticket.schemaVersion, 4)
+        XCTAssertEqual(ticket.controls.darkness, .value(20))
+        let bytes = try ResolvedJobTicketJSON.encode(ticket)
+        let decoded = try ResolvedJobTicketJSON.decode(bytes, queueReference: reference,
+            queueDefinition: queue, workflowProfile: workflow, printerProfile: printer)
+        XCTAssertEqual(decoded, ticket)
+        XCTAssertEqual(try ResolvedJobTicketJSON.encode(decoded), bytes)
+        XCTAssertEqual(try ZPLControlEncoder().encode(decoded.controls), Data("^MMT\n^PR3,4,2\n^MD0\n~SD20\n".utf8))
+        let root = try XCTUnwrap(try JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+        var changed = root
+        var controls = try XCTUnwrap(root["controls"] as? [String: Any])
+        controls["darkness"] = ["mode": "leaveUnchanged", "value": NSNull()]; changed["controls"] = controls
+        XCTAssertThrowsError(try ResolvedJobTicketJSON.decode(JSONSerialization.data(withJSONObject: changed),
+            queueReference: reference, queueDefinition: queue, workflowProfile: workflow, printerProfile: printer))
+        changed = root; changed["schemaVersion"] = 3
+        XCTAssertThrowsError(try ResolvedJobTicketJSON.acceptanceID(JSONSerialization.data(withJSONObject: changed)))
+        var queueRoot = try XCTUnwrap(try JSONSerialization.jsonObject(with: queueBytes) as? [String: Any])
+        var defaults = try XCTUnwrap(queueRoot["defaults"] as? [String: Any])
+        for replacement: Any in [true, -1, 31, "20"] {
+            defaults["darkness"] = replacement; queueRoot["defaults"] = defaults
+            XCTAssertThrowsError(try VirtualQueueJSON.decode(JSONSerialization.data(withJSONObject: queueRoot), validatingAgainst: printer))
+        }
+        defaults.removeValue(forKey: "darkness"); queueRoot["defaults"] = defaults
         XCTAssertThrowsError(try VirtualQueueJSON.decode(JSONSerialization.data(withJSONObject: queueRoot), validatingAgainst: printer))
     }
 
