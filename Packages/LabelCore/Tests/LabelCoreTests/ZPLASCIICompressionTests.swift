@@ -2,6 +2,18 @@ import XCTest
 @testable import LabelCore
 
 final class ZPLASCIICompressionTests: XCTestCase {
+    func testLiteralBoundaryAndAdditiveCountTokensRemainByteExact() {
+        let cases: [(Int, String)] = [(1, "AA"), (2, "JA"), (9, "XA"), (10, "gA"),
+            (19, "gXA"), (20, "hA"), (199, "yXA"), (200, "zA"),
+            (201, "zHA"), (400, "zzA"), (801, "zzzzHA")]
+        for (bytes, expected) in cases {
+            XCTAssertEqual(String(decoding: ZPLASCIICompression.row(
+                [UInt8](repeating: 0xAA, count: bytes)[...]), as: UTF8.self), expected)
+        }
+        XCTAssertEqual(String(decoding: ZPLASCIICompression.row([0xAA, 0xAB][...]), as: UTF8.self), "IAB")
+        XCTAssertEqual(String(decoding: ZPLASCIICompression.row([0xAB, 0xCD][...]), as: UTF8.self), "ABCD")
+    }
+
     func testDocumentedCountsAndLiteralFallback() {
         func encode(_ bytes: [UInt8]) -> String {
             String(decoding: ZPLASCIICompression.row(bytes[...]), as: UTF8.self)

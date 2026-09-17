@@ -1,3 +1,21 @@
+# Current experimental compression performance slice — 2026-09-17
+
+Published previous lease/benchmark stack at `c3e03af` on PR #81. Its exact-head
+hosted run35202180091 remains active; previous8c041aa hosted success is separate.
+The next performance slice avoids per-run temporary Data and per-byte nibble
+arrays without changing command bytes, count/literal choices or output limits.
+Six compression tests pass before/after, including new explicit count boundaries.
+A second twenty-iteration reference report observes analytic ASCII p95 falling
+from45.358ms to8.795ms while all six output sizes remain unchanged. This is
+informational; analytic compression still costs about2.4x plain encoding for
+roughly5% output reduction, so production and first physical compression stay OFF.
+See `validation/M2-COMPRESSION-FASTPATH-2026-09-17.md` and raw reports.
+Full local checks passed exit0: 89Python/191Core/273Mac debug/release, both
+unchanged oracles, twelve CLI cases and inert/signature/packaged checks.
+Publication waits for the already-active preceding hosted run. Cloud
+review applies only to a370e05/base77c29ff; no later source verdict is inferred.
+Frozen B remains unchanged; no queue/privileged/device mutation or publication.
+
 # Current encoding benchmark slice — 2026-09-17
 
 Exact-head hosted run 35200866409 passed at preceding `8c041aa`; its retained

@@ -14,20 +14,27 @@ public enum ZPLASCIICompression {
         var count = 0
         func flush() {
             guard let value = current else { return }
-            var tokens = Data()
+            // Counts of one or two hex digits never save bytes; emit them
+            // directly rather than constructing temporary count buffers.
+            if count <= 2 {
+                result.append(value)
+                if count == 2 { result.append(value) }
+                return
+            }
+            // Every run of at least three digits is smaller as additive counts.
             var remaining = count
-            while remaining >= 400 { tokens.append(122); remaining -= 400 }
-            if remaining >= 20 { tokens.append(UInt8(103 + remaining / 20 - 1)); remaining %= 20 }
-            if remaining > 0 { tokens.append(UInt8(71 + remaining - 1)) }
-            tokens.append(value)
-            if tokens.count < count { result.append(tokens) }
-            else { result.append(contentsOf: repeatElement(value, count: count)) }
+            while remaining >= 400 { result.append(122); remaining -= 400 }
+            if remaining >= 20 { result.append(UInt8(103 + remaining / 20 - 1)); remaining %= 20 }
+            if remaining > 0 { result.append(UInt8(71 + remaining - 1)) }
+            result.append(value)
+        }
+        func appendNibble(_ value: UInt8) {
+            if value == current { count += 1 }
+            else { flush(); current = value; count = 1 }
         }
         for byte in bytes {
-            for value in [hex[Int(byte >> 4)], hex[Int(byte & 15)]] {
-                if value == current { count += 1 }
-                else { flush(); current = value; count = 1 }
-            }
+            appendNibble(hex[Int(byte >> 4)])
+            appendNibble(hex[Int(byte & 15)])
         }
         flush()
         return result
