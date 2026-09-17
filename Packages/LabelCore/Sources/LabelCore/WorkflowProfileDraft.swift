@@ -43,6 +43,21 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
         )
     }
 
+    /// Changes only the destination stock of this editable candidate revision.
+    /// Source sheet rules/crops remain immutable; device qualification is separate.
+    public mutating func setOutputStock(id: String, size: PhysicalSize) throws {
+        let next = try WorkflowProfile(
+            schemaVersion: profile.schemaVersion,
+            id: profile.id,
+            revision: profile.revision,
+            outputStockID: id,
+            outputStock: size,
+            monochromeConversion: profile.monochromeConversion,
+            pageRules: profile.pageRules
+        )
+        profile = next
+    }
+
     public mutating func updateRegion(
         id: String,
         normalizedRect: NormalizedRect,

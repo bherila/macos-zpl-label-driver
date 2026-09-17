@@ -63,6 +63,42 @@ final class WorkflowProfileDraftTests: XCTestCase {
         XCTAssertEqual(plan.outputLabels.map(\.regionID), ["B", "A", "C", "B", "A", "C"])
     }
 
+    func testOutputStockEditPreservesSheetRulesSkipsCopyOrderAndRevision() throws {
+        let base = try profile()
+        let original = try WorkflowProfile(id: base.id, revision: base.revision,
+            outputStockID: base.outputStockID, outputStock: base.outputStock,
+            monochromeConversion: base.monochromeConversion,
+            pageRules: base.pageRules + [try WorkflowPageRule(sourcePage: 3,
+                expectedInput: base.pageRules[0].expectedInput, disposition: .skip(.customsForm))])
+        var draft = try WorkflowProfileDraft(nextRevisionOf: original)
+        let before = draft.profile
+        let stock = PhysicalSize(width: try Millimeters.inches(2), height: try Millimeters.inches(3))
+        try draft.setOutputStock(id: "configured-2x3", size: stock)
+        XCTAssertEqual(draft.profile.id, original.id)
+        XCTAssertEqual(draft.profile.revision, original.revision + 1)
+        XCTAssertEqual(draft.profile.pageRules, original.pageRules)
+        XCTAssertEqual(draft.profile.monochromeConversion, original.monochromeConversion)
+        XCTAssertEqual(draft.profile.outputStockID, "configured-2x3")
+        XCTAssertEqual(draft.profile.outputStock, stock)
+        let decoded = try WorkflowProfileJSON.decode(WorkflowProfileJSON.encode(draft.profile))
+        XCTAssertEqual(decoded, draft.profile)
+        let pages = try (0..<3).map { _ in
+            try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792)
+        }
+        let copies = LabelOrderPlan.CopyPolicy.engine(copies: 2, collated: true)
+        let priorPlan = try ExtractionPlanner.plan(sourcePages: pages, profile: before, copyPolicy: copies)
+        let plan = try ExtractionPlanner.plan(sourcePages: pages, profile: decoded, copyPolicy: copies)
+        XCTAssertEqual(plan.outputLabels.map(\.regionID), ["A", "C", "B", "A", "C", "B"])
+        XCTAssertEqual(plan.outputLabels.map(\.sourceRect), priorPlan.outputLabels.map(\.sourceRect))
+        XCTAssertEqual(plan.skippedPages, priorPlan.skippedPages)
+        XCTAssertEqual(plan.skippedPages, [AccountedNonLabelPage(sourcePage: 3, reason: .customsForm)])
+        XCTAssertTrue(plan.outputLabels.allSatisfy { $0.outputStock == stock && $0.outputStockID == "configured-2x3" })
+        let accepted = draft
+        XCTAssertThrowsError(try draft.setOutputStock(id: "invalid stock", size: original.outputStock))
+        XCTAssertEqual(draft, accepted)
+        XCTAssertEqual(original.outputStock, base.outputStock)
+    }
+
     func testInvalidEditsLeaveDraftUnchanged() throws {
         var draft = WorkflowProfileDraft(profile: try profile())
         let original = draft
