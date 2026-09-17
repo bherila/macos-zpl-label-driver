@@ -100,7 +100,7 @@ prescribed evidence levels, candidate/file bindings and current-failure veto. Ex
 per-ID ledger is empty; milestone prose/checkmarks cannot qualify rows. 14 focused/restored
 and 103 Python cases passed with independent level/failure/source faults detected.
 Finite full gate session24242 passed own exit0 with 103/272/324 tests and the
-checks above; log /tmp/zpl-traceability-full.log. Source commit pending; [tool guide](TRACEABILITY.md) and
+checks above; log /tmp/zpl-traceability-full.log. Implementation 947557476c5f4dd52dcd87d8600cd1089de5ada7 committed locally; exact hosted coverage pending; [tool guide](TRACEABILITY.md) and
 [evidence](validation/M6-TRACEABILITY-REPORT-2026-09-17.md). No release qualified.
 
 ## Manual Part A and Part B

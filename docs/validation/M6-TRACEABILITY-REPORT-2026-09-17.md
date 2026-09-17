@@ -32,7 +32,7 @@ Logs /tmp/zpl-traceability-level-fault.log, /tmp/zpl-traceability-failure-fault.
 oracle round trips per mode, finite benchmark and inert ABI/pipeline checks, ARM/minimum26
 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative, and packaged
 worker synthetic PBM/ZPL equality. Log /tmp/zpl-traceability-full.log; local artifact
-artifacts/setup-app.jamhiV. No printer accessed. Source checkpoint pending.
+artifacts/setup-app.jamhiV. No printer accessed. Implementation source 947557476c5f4dd52dcd87d8600cd1089de5ada7; hosted coverage pending.
 
 M6-AC01 remains open: deliberate implementation/evidence backfill for every mandatory
 criterion, independent semantic review, scope/support matrices and actual prescribed
