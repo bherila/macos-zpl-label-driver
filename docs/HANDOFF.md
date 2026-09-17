@@ -466,3 +466,7 @@ Local unpublished d86206a2bb5721c36569f5f7100c5b58c3facb66 documents the impleme
 ## Atomic candidate output-stock edit
 
 [Stock draft evidence](validation/M4-DRAFT-OUTPUT-STOCK-2026-09-17.md) evaluates local unpublished4f6fbd9b0471cbfc8b730cb01f68e6fb8ee011b7. Validated atomic stock replacement preserves source-sheet rules/crops/skips, candidate revision, copy order and immutable original profile.304Core debug/release,106Python and accelerator passed; initial test-only qualification compile error corrected. This does not complete native stock UI or M4 media acceptance. Next: explicit rendering context retaining resolution/resource/stock limits, coherent bootstrap policy and preview/review invalidation before exposing stock changes. Full native/signatures/Linux not refreshed; frozen manual candidate and all scheduler/helper/USB/physical gates unchanged. No merge or publication.
+
+## Limit-preserving stock canvas
+
+[Canvas receipt](validation/M2-CANVAS-STOCK-RESIZING-2026-09-17.md) records unpublished8749143. DotCanvas retains admission budgets for validated physical-size replacement with original independent pitch; geometry equality remains compatible with finishing binding. Preliminary305Core both/accelerator passed; final9geometry cases both passed after explicit equality refinement. Native stock editor integration remains next; no native/GUI/physical/signature acceptance refreshed. Frozen candidate unchanged.
