@@ -24,24 +24,61 @@ public struct PrinterSetupFact: Equatable, Identifiable, Sendable {
 
 @MainActor
 public final class ReferencePrinterSetupModel: ObservableObject {
+    public enum MotorSpeedKind: Equatable, Sendable { case print, feed, backfeed }
     public enum Error: Swift.Error, Equatable, Sendable {
         case unsupportedSpeed(Int)
+        case unavailableMotorSpeed(MotorSpeedKind, CapabilityState)
+        case unsupportedMotorSpeed(MotorSpeedKind, Int)
     }
 
     public let profile: PrinterProfile
     @Published public var stockLoadedConfirmed = false
     @Published public var tearOffConfirmed = false
     @Published public private(set) var selectedSpeedIps: Int?
+    @Published public private(set) var selectedFeedSpeedIps: Int?
+    @Published public private(set) var selectedBackfeedSpeedIps: Int?
 
     init(profile: PrinterProfile) {
         self.profile = profile
+        selectedSpeedIps = profile.configuredDefaults.printSpeedIps
+        selectedFeedSpeedIps = profile.configuredDefaults.feedSpeedIps
+        selectedBackfeedSpeedIps = profile.configuredDefaults.backfeedSpeedIps
     }
 
     public static func gc420dUSB() throws -> ReferencePrinterSetupModel {
         ReferencePrinterSetupModel(profile: try .gc420dUSBReference())
     }
 
-    public var speedChoices: [Int] { profile.capabilities.printSpeedChoicesIps.sorted() }
+    public var speedChoices: [Int] { profile.capabilities.printSpeedChoicesIps.intersection([2, 3, 4]).sorted() }
+
+    public func speedChoices(for kind: MotorSpeedKind) -> [Int] {
+        switch kind {
+        case .print: return speedChoices
+        case .feed: return profile.capabilities.feedSpeeds.fact.state == .supported
+            ? profile.capabilities.feedSpeeds.choicesIps.sorted() : []
+        case .backfeed: return profile.capabilities.backfeedSpeeds.fact.state == .supported
+            ? profile.capabilities.backfeedSpeeds.choicesIps.sorted() : []
+        }
+    }
+
+    public func selectedSpeed(for kind: MotorSpeedKind) -> Int? {
+        switch kind {
+        case .print: selectedSpeedIps
+        case .feed: selectedFeedSpeedIps
+        case .backfeed: selectedBackfeedSpeedIps
+        }
+    }
+
+    public func defaultChoiceLabel(for kind: MotorSpeedKind) -> String {
+        let configured: Int?
+        switch kind {
+        case .print: configured = profile.configuredDefaults.printSpeedIps
+        case .feed: configured = profile.configuredDefaults.feedSpeedIps
+        case .backfeed: configured = profile.configuredDefaults.backfeedSpeedIps
+        }
+        if let configured { return "Use configured device default (\(configured) inches per second)" }
+        return "Do not explicitly set this speed"
+    }
     /// Editing/rendering a draft performs no device I/O and must not require
     /// asserting observations of hardware that may not be attached.
     public var canEditOfflineWorkflows: Bool { true }
@@ -49,26 +86,70 @@ public final class ReferencePrinterSetupModel: ObservableObject {
     /// A reported transport is not a discovered device. Installation remains
     /// unavailable until a later bounded discovery flow supplies an identity.
     public var canInstallQueue: Bool {
-        guard stockLoadedConfirmed && tearOffConfirmed else { return false }
+        guard stockLoadedConfirmed && tearOffConfirmed,
+              (try? workflowDefaults()) != nil else { return false }
         if case .observed = profile.connection.stableIdentity { return true }
         return false
     }
 
-    public func selectSpeed(_ speed: Int?) throws {
-        if let speed, !profile.capabilities.printSpeedChoicesIps.contains(speed) {
-            throw Error.unsupportedSpeed(speed)
+    public var installationReadinessMessage: String {
+        if let validationMessage { return validationMessage }
+        guard case .observed = profile.connection.stableIdentity else {
+            return "Queue installation remains unavailable until this Mac positively identifies the USB device"
         }
-        selectedSpeedIps = speed
+        guard stockLoadedConfirmed && tearOffConfirmed else {
+            return "Confirm the actual stock and tear-off configuration before queue installation"
+        }
+        return "Ready for queue installation"
+    }
+
+    public func selectSpeed(_ speed: Int?, kind: MotorSpeedKind = .print) throws {
+        if let speed, !speedChoices(for: kind).contains(speed) {
+            if kind == .print { throw Error.unsupportedSpeed(speed) }
+            let fact = kind == .feed ? profile.capabilities.feedSpeeds.fact : profile.capabilities.backfeedSpeeds.fact
+            if fact.state != .supported { throw Error.unavailableMotorSpeed(kind, fact.state) }
+            throw Error.unsupportedMotorSpeed(kind, speed)
+        }
+        switch kind {
+        case .print: selectedSpeedIps = speed
+        case .feed: selectedFeedSpeedIps = speed
+        case .backfeed: selectedBackfeedSpeedIps = speed
+        }
     }
 
     public func workflowDefaults() throws -> PrinterControlRequest {
-        let request = PrinterControlRequest(
-            thermalMethod: .directThermal,
-            finishing: .tearOff,
-            printSpeedIps: selectedSpeedIps
-        )
-        try profile.validate(request)
-        return request
+        let resolved = try profile.resolveControls(job: .init(
+            thermalMethod: .directThermal, finishing: .tearOff,
+            printSpeedIps: selectedSpeedIps, feedSpeedIps: selectedFeedSpeedIps,
+            backfeedSpeedIps: selectedBackfeedSpeedIps))
+        // Validate against the actual current ordinary encoder as well as
+        // supplied profile declarations; this is bounded memory work, no I/O.
+        _ = try ZPLControlEncoder().encode(resolved)
+        let printSpeed: Int?
+        if case let .value(value) = resolved.printSpeedIps { printSpeed = value }
+        else { printSpeed = nil }
+        return .init(thermalMethod: .directThermal, finishing: .tearOff,
+                     printSpeedIps: printSpeed, feedSpeedIps: resolved.feedSpeedIps.explicitValue,
+                     backfeedSpeedIps: resolved.backfeedSpeedIps.explicitValue)
+    }
+
+    public var validationMessage: String? {
+        do { _ = try workflowDefaults(); return nil }
+        catch PrinterProfileError.incompleteMotorSpeeds {
+            return "Choose print, feed and backfeed speeds together, or use a complete configured default."
+        } catch {
+            return "The selected speed combination is unavailable in this profile."
+        }
+    }
+
+    private func motorFact(id: String, label: String, capability: QualifiedSpeedChoices) -> PrinterSetupFact {
+        switch capability.fact.state {
+        case .unknown: return .init(id: id, label: label, value: "Not qualified; current setting unknown", status: .unknown)
+        case .unsupported: return .init(id: id, label: label, value: "Unavailable in this profile", status: .unavailable)
+        case .supported:
+            let choices = capability.choicesIps.sorted().map(String.init).joined(separator: ", ")
+            return .init(id: id, label: label, value: "Qualified profile choices: \(choices) inches per second", status: .configured)
+        }
     }
 
     public var facts: [PrinterSetupFact] {
@@ -79,6 +160,8 @@ public final class ReferencePrinterSetupModel: ObservableObject {
             .init(id: "finishing", label: "Finishing", value: "Tear-off", status: .configured),
             .init(id: "cutter", label: "Cutter", value: "Unavailable on selected setup", status: .unavailable),
             .init(id: "peeler", label: "Peeler", value: "Not qualified", status: .unknown),
+            motorFact(id: "feedSpeed", label: "Feed speed", capability: profile.capabilities.feedSpeeds),
+            motorFact(id: "backfeedSpeed", label: "Backfeed speed", capability: profile.capabilities.backfeedSpeeds),
             .init(id: "darkness", label: "Darkness", value: "Not qualified; leave unchanged", status: .unknown),
             .init(id: "tracking", label: "Media tracking", value: "Not observed; leave unchanged", status: .unknown),
         ]
@@ -104,16 +187,17 @@ public struct ReferencePrinterSetupView: View {
                         }
                     }
                 }
-                Picker("Draft print speed for this setup session", selection: Binding(
-                    get: { model.selectedSpeedIps },
-                    set: { try? model.selectSpeed($0) }
-                )) {
-                    Text("Leave printer setting unchanged").tag(Int?.none)
-                    ForEach(model.speedChoices, id: \.self) { speed in
-                        Text("\(speed) inches per second").tag(Int?.some(speed))
-                    }
+                speedPicker(.print, label: "Draft print speed for this setup session")
+                if !model.speedChoices(for: .feed).isEmpty {
+                    speedPicker(.feed, label: "Draft feed speed for this setup session")
                 }
-                .accessibilityHint("Only documented speed choices are available")
+                if !model.speedChoices(for: .backfeed).isEmpty {
+                    speedPicker(.backfeed, label: "Draft backfeed speed for this setup session")
+                }
+                if let message = model.validationMessage {
+                    Label(message, systemImage: "exclamationmark.triangle")
+                        .accessibilityLabel(message)
+                }
                 Text("A later queue-management step will save the selected default. No printer setting is changed here.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -125,20 +209,25 @@ public struct ReferencePrinterSetupView: View {
                     .font(.caption)
                     .accessibilityLabel("Offline editing does not require hardware confirmation. Installation and printing readiness still do.")
 
-                Label(
-                    model.canInstallQueue
-                        ? "Ready for queue installation"
-                        : "Queue installation remains unavailable until this Mac positively identifies the USB device",
-                    systemImage: model.canInstallQueue ? "checkmark.circle" : "exclamationmark.triangle"
-                )
-                .accessibilityLabel(
-                    model.canInstallQueue
-                        ? "Queue installation ready"
-                        : "Queue installation unavailable. USB device identity has not been discovered."
-                )
+                Label(model.installationReadinessMessage,
+                      systemImage: model.canInstallQueue ? "checkmark.circle" : "exclamationmark.triangle")
+                    .accessibilityLabel(model.installationReadinessMessage)
             }
             .padding(4)
         }
+    }
+
+    private func speedPicker(_ kind: ReferencePrinterSetupModel.MotorSpeedKind, label: String) -> some View {
+        Picker(label, selection: Binding(
+            get: { model.selectedSpeed(for: kind) },
+            set: { try? model.selectSpeed($0, kind: kind) }
+        )) {
+            Text(model.defaultChoiceLabel(for: kind)).tag(Int?.none)
+            ForEach(model.speedChoices(for: kind), id: \.self) { speed in
+                Text("\(speed) inches per second").tag(Int?.some(speed))
+            }
+        }
+        .accessibilityHint("Only choices qualified in this profile are available. This edits a draft without changing the printer.")
     }
 
     private func symbol(for status: PrinterSetupFact.Status) -> String {
