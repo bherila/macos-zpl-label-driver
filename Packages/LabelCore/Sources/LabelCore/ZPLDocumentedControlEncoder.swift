@@ -170,8 +170,11 @@ public struct ZPLDocumentedControlEncoder: Sendable {
                 }
                 command = "^LT\(value)\n"
             case let .printWidth(value):
-                guard value >= 2, let maximum = limits.maximumPrintWidthDots,
-                      maximum >= 2, value <= maximum else {
+                // Same bounded geometry subset as ordinary profile admission.
+                // ^PW is additionally bounded by the supplied label/model width;
+                // an overbroad declaration must not authorize printer clamping.
+                guard (2...32_000).contains(value), let maximum = limits.maximumPrintWidthDots,
+                      (2...32_000).contains(maximum), value <= maximum else {
                     throw Error.invalidValue(control.kind)
                 }
                 command = "^PW\(value)\n"
