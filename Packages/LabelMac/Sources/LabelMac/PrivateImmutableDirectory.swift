@@ -1,7 +1,8 @@
 import Darwin
 import Foundation
+import LabelCore
 
-public struct ImmutablePublicationIdentity: Equatable, Sendable {
+public struct ImmutablePublicationIdentity: Equatable, Sendable, RedactedDiagnosticValue {
     public let id: String
     public let schemaVersion: Int
     public let revision: Int

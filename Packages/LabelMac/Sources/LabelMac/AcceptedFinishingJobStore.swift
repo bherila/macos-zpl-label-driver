@@ -3,7 +3,7 @@ import Darwin
 import Foundation
 import LabelCore
 
-public struct AcceptedFinishingReference: Equatable, Sendable {
+public struct AcceptedFinishingReference: Equatable, Sendable, RedactedDiagnosticValue {
     public let acceptanceID: String
     public let sha256: String
     public init(acceptanceID: String, sha256: String) throws {
