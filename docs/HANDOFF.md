@@ -1,5 +1,9 @@
 # Offline documented control encoder — 2026-09-17
 
+Published source436f413 on PR #81; changed-head hosted run35205027228 is
+active. Earlier exactdf657e9 hosted run35204155422 passed. These are separate
+source checkpoints; no cloud verdict covers the new encoder.
+
 New explicit typed fragment mapping covers print/feed/backfeed, absolute integer
 darkness with relative normalization, thermal method, gap/mark tracking, home,
 shift, top, width and tear-off using R45 primary public tables. Each requested
