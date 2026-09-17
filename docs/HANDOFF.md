@@ -1,3 +1,9 @@
+# Inert finishing lease source checkpoint — 2026-09-17
+
+Implementation 3a5b79a6d543c749fb6998379af594c70582d84f passed local89/272/324 full gate.
+Next source/remote/PR equality and exact hosted verification. Actual accepted adapter,
+file/status/pitch/ticket integration and persistent recovery remain open.
+
 # Inert finishing lease lifetime — 2026-09-17
 
 Finite discard coordinator now holds the existing shared kernel lease through all
