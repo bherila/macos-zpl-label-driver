@@ -67,3 +67,7 @@ rendering and real-PDF integration remain M2.2 work.
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
+
+## PR2 merge preparation — finite extents
+
+Source 2e56f2e3a38f80555cd6a81170adbfac97fe1f7a; [receipt](validation/M2-PR2-FINITE-EXTENTS-2026-09-17.md). Eight before-fix overflow acceptances reproduced; corner checks preserve negative origins across rotations/UserUnit.57Core both/native scaffold both/accelerator both/local-ad-hoc diagnostic and34Python/preflight passed. No scheduler/printer claim. Maintainer authorized merges through38; PR1 merged separately, native stack82 registered2–59. Next cascading rebase and exact-head hosted CI before further merges.
