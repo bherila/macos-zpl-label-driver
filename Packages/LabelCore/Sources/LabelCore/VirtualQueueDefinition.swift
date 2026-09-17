@@ -1,7 +1,7 @@
 import CoreFoundation
 import Foundation
 
-public enum VirtualQueueError: Error, Equatable, Sendable {
+public enum VirtualQueueError: Error, Equatable, Sendable, RedactedDiagnosticValue {
     case invalidSelector(String)
     case invalidDisplayName
     case invalidDigest
@@ -10,6 +10,21 @@ public enum VirtualQueueError: Error, Equatable, Sendable {
     case printerProfileMismatch
     case tooManyQueues
     case duplicateQueueID(String)
+
+    /// Caller-supplied selectors remain available through typed matching only.
+    public var description: String {
+        let code = switch self {
+        case .invalidSelector: "invalidSelector(redacted)"
+        case .invalidDisplayName: "invalidDisplayName"
+        case .invalidDigest: "invalidDigest"
+        case .invalidRevision: "invalidRevision"
+        case .invalidDefaults: "invalidDefaults"
+        case .printerProfileMismatch: "printerProfileMismatch"
+        case .tooManyQueues: "tooManyQueues"
+        case .duplicateQueueID: "duplicateQueueID(redacted)"
+        }
+        return "VirtualQueueError.\(code)"
+    }
 }
 
 public struct ImmutableProfileReference: Equatable, Sendable {

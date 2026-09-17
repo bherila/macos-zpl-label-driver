@@ -1,7 +1,7 @@
 /// Mutable-by-value editing state for a future teach-once UI. Every operation
 /// rebuilds the typed immutable contract; invalid edits leave the draft intact.
 public struct WorkflowProfileDraft: Equatable, Sendable {
-    public enum Error: Swift.Error, Equatable, Sendable {
+    public enum Error: Swift.Error, Equatable, Sendable, RedactedDiagnosticValue {
         case revisionOverflow
         case regionNotFound(String)
         case invalidDestination
@@ -9,6 +9,20 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
         case pageNotFound(Int)
         case invalidPageDisposition
         case lastOutputPage
+
+        /// Region identifiers must not enter routine diagnostics or dumps.
+        public var description: String {
+            let code = switch self {
+            case .revisionOverflow: "revisionOverflow"
+            case .regionNotFound: "regionNotFound(redacted)"
+            case .invalidDestination: "invalidDestination"
+            case .lastRegionOnPage: "lastRegionOnPage"
+            case let .pageNotFound(page): "pageNotFound(\(page))"
+            case .invalidPageDisposition: "invalidPageDisposition"
+            case .lastOutputPage: "lastOutputPage"
+            }
+            return "WorkflowProfileDraft.Error.\(code)"
+        }
     }
 
     public private(set) var profile: WorkflowProfile

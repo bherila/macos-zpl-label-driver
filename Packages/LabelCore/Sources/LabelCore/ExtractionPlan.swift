@@ -210,7 +210,7 @@ public struct WorkflowProfile: Equatable, Sendable {
     }
 }
 
-public enum ExtractionPlanError: Error, Equatable, Sendable {
+public enum ExtractionPlanError: Error, Equatable, Sendable, RedactedDiagnosticValue {
     case invalidProfile
     case invalidSourcePageCount
     case unaccountedSourcePage(Int)
@@ -224,6 +224,25 @@ public enum ExtractionPlanError: Error, Equatable, Sendable {
     case invalidPageSelection
     case invalidOutputLimit
     case tooManyOutputLabels
+
+    public var description: String {
+        let code = switch self {
+        case .invalidProfile: "invalidProfile"
+        case .invalidSourcePageCount: "invalidSourcePageCount"
+        case let .unaccountedSourcePage(page): "unaccountedSourcePage(\(page))"
+        case let .missingSourcePage(page): "missingSourcePage(\(page))"
+        case let .inputGeometryMismatch(page): "inputGeometryMismatch(page: \(page))"
+        case let .analysisRequired(page): "analysisRequired(page: \(page))"
+        case let .missingAnchor(page, _): "missingAnchor(page: \(page), anchorID: redacted)"
+        case let .ambiguousAnchor(page, _): "ambiguousAnchor(page: \(page), anchorID: redacted)"
+        case .invalidAnalysis: "invalidAnalysis"
+        case .invalidCopyPolicy: "invalidCopyPolicy"
+        case .invalidPageSelection: "invalidPageSelection"
+        case .invalidOutputLimit: "invalidOutputLimit"
+        case .tooManyOutputLabels: "tooManyOutputLabels"
+        }
+        return "ExtractionPlanError.\(code)"
+    }
 }
 
 public struct PlannedExtractionLabel: Equatable, Sendable {
