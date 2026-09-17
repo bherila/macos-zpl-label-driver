@@ -6,6 +6,21 @@ import LabelCore
 @testable import LabelMac
 
 final class USBRegistryDiscoveryTests: XCTestCase {
+    func testRegistryObservationDumpHidesStoredIdentityAndPreservesExplicitFields() {
+        let value = USBPrinterObservation(registryEntryID: 123456789,
+            vendorID: 1234, productID: 5678, interfaceNumber: 42)
+        var output = ""
+        dump([value], to: &output)
+        for secret in ["123456789", "1234", "5678", "42", value.id.uuidString] {
+            XCTAssertFalse(output.contains(secret))
+        }
+        XCTAssertTrue(Mirror(reflecting: value).children.isEmpty)
+        XCTAssertEqual(value.vendorID, 1234)
+        XCTAssertEqual(value.productID, 5678)
+        XCTAssertEqual(value.interfaceNumber, 42)
+        XCTAssertEqual(value, value)
+    }
+
     private final class Registry: USBInterfaceRegistryAccess {
         var iterator: io_iterator_t = 100
         var entries: [io_object_t] = []

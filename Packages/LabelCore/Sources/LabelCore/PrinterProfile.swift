@@ -110,7 +110,7 @@ public enum PrinterTransport: String, Equatable, Sendable {
 /// A validated local connection identity. It is intentionally opaque to normal
 /// callers and diagnostics; transport URIs, serial numbers, and USB paths must
 /// not leak through routine status output.
-public struct StableConnectionIdentity: Equatable, Sendable, CustomStringConvertible, CustomDebugStringConvertible {
+public struct StableConnectionIdentity: Equatable, Sendable, RedactedDiagnosticValue {
     public enum ValidationError: Error, Equatable, Sendable { case invalidIdentifier }
 
     private let rawValue: String
@@ -128,8 +128,6 @@ public struct StableConnectionIdentity: Equatable, Sendable, CustomStringConvert
         rawValue = opaqueValue
     }
 
-    public var description: String { "StableConnectionIdentity(redacted)" }
-    public var debugDescription: String { description }
 }
 
 /// Connection facts live beside media and capabilities in the immutable
