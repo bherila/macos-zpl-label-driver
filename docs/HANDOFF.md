@@ -1,3 +1,20 @@
+# Current independent delivery slice — 2026-09-17
+
+On the existing PR #81 branch, the shared delivery loop now bounds each copied
+write window to 64 KiB and treats invalid sink byte counts as delivery uncertainty,
+including a known zero-byte prefix. This preserves exact immutable payload order
+and prevents automatic replay based on invalid accounting. The old eight-test
+focused run reproduced 12 assertion failures; all eight corrected tests pass.
+Required full local checks passed exit 0: 86 Python / 188 Core / 265 Mac
+debug/release, both independent/inert/signature/packaged checks. The follow-on
+is ready for publication; hosted checks and changed-head review remain pending.
+See `validation/M3-BOUNDED-WRITE-WINDOWS-2026-09-17.md`.
+PR #81 first review is clean at head `52ba93f` / base `77c29ff`: reviewer
+thumbs-up, no inline findings or review threads. Hosted run 35198999638 remains
+verified active at that head; no hosted outcome is inferred. The separately frozen B
+candidate remains at its original hashes/checkpoint while the maintainer performs
+the administrator step. No queue/job/device/privileged mutation is inferred.
+
 # Current GUI blocker correction — 2026-09-17
 
 Issue #80's native allocation regression reproduced height 0 in the old editor.
@@ -7,7 +24,8 @@ Visible millimeter labels retain the existing generation-bound callbacks.
 Corrected app build/signatures/packaged equality passed exit 0; the local
 maintainer retest candidate is `artifacts/setup-app.N8tFGX`. Full local gate at source `f665d36` passed exit 0: 86 Python / 185 Core /
 265 Mac debug/release with both independent/inert/signature/packaged checks;
-hosted checks and review await publication. The maintainer reports **issue #80 part A passed** on macOS Golden Gate
+first review is clean at `52ba93f` / `77c29ff`, with hosted checks running.
+The maintainer reports **issue #80 part A passed** on macOS Golden Gate
 27.0 with that local artifact. Full accessibility, Tahoe, scheduler, download
 and physical acceptance remain open. See `validation/M5-EDITOR-LAYOUT-2026-09-17.md`.
 The withdrawn preview must not be used for acceptance. No replacement public
@@ -16,7 +34,8 @@ release, queue, device or administrator action is authorized by this correction.
 # Active independent implementation — 2026-09-17
 
 The maintainer attempted the separate issue #80 manual Mac test and reported
-corrupted/overlapping layout after PDF selection; GUI acceptance is blocked.
+corrupted/overlapping layout after PDF selection in the withdrawn preview;
+that failure was corrected and local section A subsequently passed on macOS27.
 The broken preview release and GitHub tag were removed at their explicit
 request and read back absent. Implementation continues. No additional queue/device/privileged action is
 inferred from that parallel activity.
@@ -27,9 +46,11 @@ The ordinary prepared-job path remains plain hex, and the original oracle is
 unchanged. Five focused Swift and four Python tests pass. Full local CI-equivalent
 checks passed exit 0: 86 Python / 185 Core / 264 Mac debug/release, both
 independent/inert/signature/packaged checks. Actual local host is macOS 27.0,
-not a new Tahoe qualification. Hosted CI and review are not yet run.
+not a new Tahoe qualification. PR #81 first review at `52ba93f` / `77c29ff`
+is clean; exact-head hosted CI is running.
 See `validation/M2-ASCII-COMPRESSION-2026-09-17.md`. Firmware/profile selection,
-GUI, administrator scheduler and physical gates remain unperformed.
+broader GUI/accessibility, administrator scheduler and physical gates remain
+unperformed; the specific corrected local offline section A passed.
 
 # Current implementation handoff — revision 3
 
