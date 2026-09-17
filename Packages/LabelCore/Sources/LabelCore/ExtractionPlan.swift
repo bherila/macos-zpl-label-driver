@@ -159,6 +159,7 @@ public struct WorkflowProfile: Equatable, Sendable {
     public let revision: Int
     public let outputStockID: String
     public let outputStock: PhysicalSize
+    public let outputMargins: OutputMargins
     /// The deterministic one-bit conversion used for every output label in
     /// this immutable workflow revision. Mixed-content workflows require a
     /// future explicit region policy rather than an ambient caller choice.
@@ -171,12 +172,18 @@ public struct WorkflowProfile: Equatable, Sendable {
         revision: Int,
         outputStockID: String,
         outputStock: PhysicalSize,
+        outputMargins: OutputMargins = .zero,
         monochromeConversion: MonochromeConversion = .textAndBarcodeThreshold(cutoff: 128),
         pageRules: [WorkflowPageRule]
     ) throws {
-        guard schemaVersion == 2, revision > 0,
+        guard (schemaVersion == 2 || schemaVersion == 3),
+              (schemaVersion == 3 || outputMargins == .zero), revision > 0,
               Self.isSafeIdentifier(id), Self.isSafeIdentifier(outputStockID),
               !pageRules.isEmpty, pageRules.count <= 1_000 else {
+            throw ExtractionPlanError.invalidProfile
+        }
+        guard outputStock.width.value - outputMargins.left - outputMargins.right > 0,
+              outputStock.height.value - outputMargins.top - outputMargins.bottom > 0 else {
             throw ExtractionPlanError.invalidProfile
         }
         let pages = pageRules.map(\.sourcePage)
@@ -198,6 +205,7 @@ public struct WorkflowProfile: Equatable, Sendable {
         self.revision = revision
         self.outputStockID = outputStockID
         self.outputStock = outputStock
+        self.outputMargins = outputMargins
         self.monochromeConversion = monochromeConversion
         self.pageRules = pageRules
     }
@@ -255,6 +263,7 @@ public struct PlannedExtractionLabel: Equatable, Sendable {
     public let scalePolicy: ExtractionScalePolicy
     public let outputStockID: String
     public let outputStock: PhysicalSize
+    public let outputMargins: OutputMargins
     public let profileID: String
     public let profileRevision: Int
 }
@@ -374,6 +383,7 @@ public enum ExtractionPlanner {
                 scalePolicy: region.scalePolicy,
                 outputStockID: profile.outputStockID,
                 outputStock: profile.outputStock,
+                outputMargins: profile.outputMargins,
                 profileID: profile.id,
                 profileRevision: profile.revision
             )

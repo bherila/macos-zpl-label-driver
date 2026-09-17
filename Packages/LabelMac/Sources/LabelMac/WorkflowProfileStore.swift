@@ -111,8 +111,9 @@ public struct WorkflowProfileStore: @unchecked Sendable {
         guard let latest, latest >= snapshot.revision else { throw Error.profileIdentityMismatch }
         guard latest < Int.max else { throw WorkflowProfileDraft.Error.revisionOverflow }
         return WorkflowProfileDraft(profile: try WorkflowProfile(
-            id: snapshot.id, revision: latest + 1,
+            schemaVersion: snapshot.schemaVersion, id: snapshot.id, revision: latest + 1,
             outputStockID: snapshot.outputStockID, outputStock: snapshot.outputStock,
+            outputMargins: snapshot.outputMargins,
             monochromeConversion: snapshot.monochromeConversion, pageRules: snapshot.pageRules))
     }
 

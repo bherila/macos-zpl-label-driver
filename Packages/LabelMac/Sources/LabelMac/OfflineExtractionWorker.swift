@@ -5,6 +5,7 @@ import LabelCore
 /// remain in the parent, after validation of the exact returned packed bitmap.
 public enum OfflineExtractionWorker {
     public enum Error: Swift.Error, Equatable, Sendable {
+        case unsupportedOutputMargins
         case outputStockMismatch
         case invalidWorkerBitmap
     }
@@ -15,6 +16,7 @@ public enum OfflineExtractionWorker {
         deadlineSeconds: Double = OfflineRenderWorkerProcess.defaultDeadlineSeconds,
         cancellation: OfflineRenderWorkerCancellation = .init()
     ) throws -> MonochromeBitmap {
+        guard label.outputMargins == .zero else { throw Error.unsupportedOutputMargins }
         guard canvas.physicalSize == label.outputStock else { throw Error.outputStockMismatch }
         let conversionWire: [String: Any]
         switch conversion {

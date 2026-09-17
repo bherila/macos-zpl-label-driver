@@ -34,10 +34,12 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
     public init(nextRevisionOf profile: WorkflowProfile) throws {
         guard profile.revision < Int.max else { throw Error.revisionOverflow }
         self.profile = try WorkflowProfile(
+            schemaVersion: profile.schemaVersion,
             id: profile.id,
             revision: profile.revision + 1,
             outputStockID: profile.outputStockID,
             outputStock: profile.outputStock,
+            outputMargins: profile.outputMargins,
             monochromeConversion: profile.monochromeConversion,
             pageRules: profile.pageRules
         )
@@ -52,9 +54,18 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
             revision: profile.revision,
             outputStockID: id,
             outputStock: size,
+            outputMargins: profile.outputMargins,
             monochromeConversion: profile.monochromeConversion,
             pageRules: profile.pageRules
         )
+        profile = next
+    }
+
+    public mutating func setOutputMargins(_ margins: OutputMargins) throws {
+        let next = try WorkflowProfile(schemaVersion: 3, id: profile.id, revision: profile.revision,
+            outputStockID: profile.outputStockID, outputStock: profile.outputStock,
+            outputMargins: margins, monochromeConversion: profile.monochromeConversion,
+            pageRules: profile.pageRules)
         profile = next
     }
 
@@ -218,10 +229,12 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
 
     private func replacingProfile(pageRules: [WorkflowPageRule]) throws -> WorkflowProfile {
         try WorkflowProfile(
+            schemaVersion: profile.schemaVersion,
             id: profile.id,
             revision: profile.revision,
             outputStockID: profile.outputStockID,
             outputStock: profile.outputStock,
+            outputMargins: profile.outputMargins,
             monochromeConversion: profile.monochromeConversion,
             pageRules: pageRules
         )

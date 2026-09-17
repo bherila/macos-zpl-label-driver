@@ -3,6 +3,37 @@ import XCTest
 @testable import LabelCore
 
 final class WorkflowProfileJSONTests: XCTestCase {
+    func testMarginSchemaRoundtripLegacyBytesAndPlannedBinding() throws {
+        let original = try profile()
+        let legacy = try WorkflowProfileJSON.encode(original)
+        XCTAssertFalse(String(decoding: legacy, as: UTF8.self).contains("outputMargins"))
+        XCTAssertEqual(try WorkflowProfileJSON.encode(WorkflowProfileJSON.decode(legacy)), legacy)
+        let margins = try OutputMargins(left: 1.5, top: 2, right: 2.5, bottom: 3)
+        var draft = WorkflowProfileDraft(profile: original)
+        try draft.setOutputMargins(margins)
+        XCTAssertEqual(draft.profile.schemaVersion, 3)
+        let bytes = try WorkflowProfileJSON.encode(draft.profile)
+        XCTAssertEqual(try WorkflowProfileJSON.decode(bytes), draft.profile)
+        let analyzed = try original.pageRules.sorted { $0.sourcePage < $1.sourcePage }.map { rule in
+            try AnalyzedSourcePage(pageBox: PDFPageBox(originX: 0, originY: 0,
+                width: rule.expectedInput.uprightPhysicalSize.width.value * 72 / 25.4,
+                height: rule.expectedInput.uprightPhysicalSize.height.value * 72 / 25.4),
+                anchors: rule.structuralAnchors.map { ObservedPageAnchor(kind: $0.kind, normalizedRect: $0.normalizedRect) })
+        }
+        let plan = try ExtractionPlanner.plan(analyzedPages: analyzed, profile: draft.profile)
+        XCTAssertTrue(plan.outputLabels.allSatisfy { $0.outputMargins == margins })
+        var root = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+        for value: Any in [true, -1.0, "1.5"] {
+            root["outputMargins"] = ["left": value, "top": 2, "right": 2.5, "bottom": 3]
+            XCTAssertThrowsError(try WorkflowProfileJSON.decode(JSONSerialization.data(withJSONObject: root)))
+        }
+        root["outputMargins"] = ["left": 1.5, "top": 2, "right": 2.5]
+        XCTAssertThrowsError(try WorkflowProfileJSON.decode(JSONSerialization.data(withJSONObject: root)))
+        root["outputMargins"] = ["left": 1.5, "top": 2, "right": 2.5, "bottom": 3]
+        root["schemaVersion"] = 2
+        XCTAssertThrowsError(try WorkflowProfileJSON.decode(JSONSerialization.data(withJSONObject: root)))
+    }
+
     func testExactIntegerIdentityAcrossLargeRevisionAndOrder() throws {
         let original = try profile()
         for value in [9_007_199_254_740_993, Int.max] {

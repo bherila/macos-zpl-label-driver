@@ -34,20 +34,19 @@ public enum WorkflowProfileJSON {
             throw WorkflowProfileJSONError.malformedJSON
         }
         do {
-            let root = try object(
-                raw,
-                allowed: [
-                    "schemaVersion", "id", "revision", "outputStock",
-                    "monochromeConversion", "pages",
-                ],
-                required: [
-                    "schemaVersion", "id", "revision", "outputStock",
-                    "monochromeConversion", "pages",
-                ]
-            )
-            guard try integer(root, "schemaVersion") == 2 else {
-                throw WorkflowProfileJSONError.unsupportedSchema
-            }
+            let keys: Set<String> = ["schemaVersion", "id", "revision", "outputStock", "monochromeConversion", "pages"]
+            let header = try object(raw, allowed: keys.union(["outputMargins"]), required: ["schemaVersion"])
+            let version = try integer(header, "schemaVersion")
+            guard version == 2 || version == 3 else { throw WorkflowProfileJSONError.unsupportedSchema }
+            let shape = version == 3 ? keys.union(["outputMargins"]) : keys
+            let root = try object(raw, allowed: shape, required: shape)
+            let margins: OutputMargins
+            if version == 3 {
+                let fields: Set<String> = ["left", "top", "right", "bottom"]
+                let object = try object(required(root, "outputMargins"), allowed: fields, required: fields)
+                margins = try OutputMargins(left: number(object, "left"), top: number(object, "top"),
+                    right: number(object, "right"), bottom: number(object, "bottom"))
+            } else { margins = .zero }
             let output = try object(
                 required(root, "outputStock"),
                 allowed: ["id", "widthMillimeters", "heightMillimeters"],
@@ -63,11 +62,12 @@ public enum WorkflowProfileJSON {
             }
             let pages = try pagesRaw.map(decodePage)
             return try WorkflowProfile(
-                schemaVersion: 2,
+                schemaVersion: version,
                 id: try string(root, "id"),
                 revision: try integer(root, "revision"),
                 outputStockID: try string(output, "id"),
                 outputStock: stock,
+                outputMargins: margins,
                 monochromeConversion: try decodeConversion(
                     required(root, "monochromeConversion")
                 ),
@@ -85,7 +85,7 @@ public enum WorkflowProfileJSON {
             throw WorkflowProfileJSONError.invalidLimit
         }
         let pages: [[String: Any]] = profile.pageRules.map(encodePage)
-        let root: [String: Any] = [
+        var root: [String: Any] = [
             "schemaVersion": profile.schemaVersion,
             "id": profile.id,
             "revision": profile.revision,
@@ -97,6 +97,10 @@ public enum WorkflowProfileJSON {
             "monochromeConversion": encodeConversion(profile.monochromeConversion),
             "pages": pages,
         ]
+        if profile.schemaVersion == 3 {
+            root["outputMargins"] = ["left": profile.outputMargins.left, "top": profile.outputMargins.top,
+                "right": profile.outputMargins.right, "bottom": profile.outputMargins.bottom]
+        }
         let data: Data
         do {
             data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])

@@ -34,6 +34,29 @@ final class WorkflowProfileDraftTests: XCTestCase {
         )
     }
 
+    func testMarginsSurviveCorrectionEditsAndInvalidStockChangesAreAtomic() throws {
+        let original = try profile()
+        var draft = try WorkflowProfileDraft(nextRevisionOf: original)
+        let margins = try OutputMargins(left: 10, top: 2, right: 12, bottom: 3)
+        try draft.setOutputMargins(margins)
+        try draft.moveRegion(id: "A", to: 1)
+        let correction = try WorkflowProfileDraft(nextRevisionOf: draft.profile)
+        XCTAssertEqual(correction.profile.outputMargins, margins)
+        XCTAssertEqual(correction.profile.schemaVersion, 3)
+        XCTAssertEqual(correction.profile.pageRules, draft.profile.pageRules)
+        try draft.setOutputStock(id: "smaller-stock", size: PhysicalSize(width: .inches(2), height: .inches(3)))
+        XCTAssertEqual(draft.profile.outputMargins, margins)
+        XCTAssertEqual(draft.profile.schemaVersion, 3)
+        let before = draft.profile
+        XCTAssertThrowsError(try draft.setOutputStock(id: "small-stock", size: PhysicalSize(
+            width: Millimeters(10), height: Millimeters(10))))
+        XCTAssertEqual(draft.profile, before)
+        XCTAssertThrowsError(try draft.setOutputMargins(OutputMargins(left: 200, top: 0, right: 0, bottom: 0)))
+        XCTAssertEqual(draft.profile, before)
+        XCTAssertEqual(original.schemaVersion, 2)
+        XCTAssertEqual(original.outputMargins, .zero)
+    }
+
     func testNextRevisionEditsCanonicalCoordinatesAndRotation() throws {
         var draft = try WorkflowProfileDraft(nextRevisionOf: profile())
         let rect = try NormalizedRect(x: 0.2, y: 0.25, width: 0.3, height: 0.5)

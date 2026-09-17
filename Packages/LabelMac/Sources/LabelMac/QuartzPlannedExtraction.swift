@@ -18,6 +18,7 @@ public struct PreparedExtractionLabel: Equatable, Sendable {
 /// into the final dot canvas. Analysis thumbnails are not an input type here.
 public enum QuartzPlannedExtraction {
     public enum Error: Swift.Error, Equatable, Sendable {
+        case unsupportedOutputMargins
         case outputStockMismatch
     }
 
@@ -30,6 +31,7 @@ public enum QuartzPlannedExtraction {
         maximumSourcePages: Int = 1_000,
         maximumPixels: Int = 32 * 1024 * 1024
     ) throws -> PreparedExtractionLabel {
+        guard label.outputMargins == .zero else { throw Error.unsupportedOutputMargins }
         guard canvas.physicalSize == label.outputStock else { throw Error.outputStockMismatch }
         let grayscale = try QuartzPDFRenderer.render(.init(
             originalPDF: originalPDF,
