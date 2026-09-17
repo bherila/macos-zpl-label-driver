@@ -13,6 +13,11 @@ Refined persisted motor-source full gate passed separately.
 
 # Qualified persisted motor speed implementation — 2026-09-17
 
+Published source `4a647fe` on PR #81 after full local gate exit0. Remote branch
+and PR head were independently read back at that exact SHA. Hosted run35207150736
+is queued for this new source; preceding436f413 success is a separate checkpoint.
+No independent cloud verdict covers this new source.
+
 Separate qualified feed/backfeed capabilities/defaults now resolve per field,
 persist in explicit profile3/queue2/ticket3 formats, bind immutable prepared jobs
 and reach the native inert pipeline as one complete ^PR tuple. Legacy bytes and
