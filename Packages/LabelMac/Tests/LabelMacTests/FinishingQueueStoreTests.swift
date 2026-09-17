@@ -950,4 +950,48 @@ final class FinishingQueueStoreTests: XCTestCase {
         }
     }
 
+    func testFinishingCLICancellationAfterWorkerAdmissionUsesCancellationExitForBothCommands() throws {
+        let (framed,workflows,_,_,worker,_)=try cancellableFramedFixture()
+        let tools=workflows.root.appendingPathComponent("synthetic-cli-tools")
+        try FileManager.default.createDirectory(at:tools,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700])
+        let executable=tools.appendingPathComponent("label-driver")
+        try FileManager.default.copyItem(at:worker.deletingLastPathComponent().appendingPathComponent("label-driver"),to:executable)
+        let marker=tools.appendingPathComponent("admitted")
+        let inertWorker=tools.appendingPathComponent("label-render-worker")
+        // Finite inert worker: admission marker, no parsing, device API or output.
+        try Data("#!/bin/sh\n: > \"$(dirname \"$0\")/admitted\"\nexec /bin/sleep 20\n".utf8).write(to:inertWorker)
+        XCTAssertEqual(chmod(inertWorker.path,0o500),0)
+        for command in ["finishing-inspect","finishing-preview"] {
+            for signalNumber in [SIGINT,SIGTERM] {
+                try? FileManager.default.removeItem(at:marker)
+                let output=workflows.root.appendingPathComponent("synthetic-cancelled-preview")
+                var args=[command,"--catalog",workflows.root.path,"--accepted-id",framed.reference.acceptanceID,
+                    "--accepted-sha",framed.reference.sha256,"--json"]
+                if command=="finishing-preview" { args += ["--preview-dir",output.path] }
+                let process=Process(),stdout=Pipe(),stderr=Pipe()
+                process.executableURL=executable;process.arguments=args
+                process.standardOutput=stdout;process.standardError=stderr
+                try process.run()
+                let end=Date().addingTimeInterval(15)
+                while process.isRunning && !FileManager.default.fileExists(atPath:marker.path) && Date()<end {
+                    Thread.sleep(forTimeInterval:0.01)
+                }
+                XCTAssertTrue(FileManager.default.fileExists(atPath:marker.path),command)
+                if process.isRunning { XCTAssertEqual(kill(process.processIdentifier,signalNumber),0) }
+                while process.isRunning && Date()<end { Thread.sleep(forTimeInterval:0.01) }
+                if process.isRunning { _=kill(process.processIdentifier,SIGKILL) }
+                process.waitUntilExit()
+                XCTAssertEqual(process.terminationStatus,130,command)
+                XCTAssertTrue(stdout.fileHandleForReading.readDataToEndOfFile().isEmpty)
+                let errorData=stderr.fileHandleForReading.readDataToEndOfFile()
+                let error=try XCTUnwrap(JSONSerialization.jsonObject(with:errorData) as? [String:Any])
+                XCTAssertEqual(error["code"] as? String,"CANCELLED",command)
+                XCTAssertFalse(String(decoding:errorData,as:UTF8.self).contains(workflows.root.path))
+                XCTAssertFalse(FileManager.default.fileExists(atPath:output.path))
+                XCTAssertFalse(FileManager.default.fileExists(atPath:workflows.root.appendingPathComponent("accepted-finishing-attempts").path))
+                XCTAssertFalse(FileManager.default.fileExists(atPath:workflows.root.appendingPathComponent("accepted-finishing-cancellations").path))
+            }
+        }
+    }
+
 }

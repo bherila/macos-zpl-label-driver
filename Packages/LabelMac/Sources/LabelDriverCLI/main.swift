@@ -49,10 +49,10 @@ struct LabelDriverCLI {
                 fail(.output("preview export durability uncertain; preserve output for review"), json: args.contains("--json"))
             } catch is PackedFinishingPreviewExport.Error {
                 fail(.output("preview export failed"), json: args.contains("--json"))
+            } catch AcceptedFinishingJob.Error.cancelled, OfflineRenderWorkerProcess.Error.cancelled {
+                emitError(code:.cancelled,message:"preview cancelled",json:args.contains("--json"))
+                exit(Exit.cancelled.rawValue)
             } catch {
-                if let error = error as? AcceptedFinishingJob.Error, error == .cancelled {
-                    emitError(code:.cancelled,message:"preview cancelled",json:args.contains("--json"));exit(Exit.cancelled.rawValue)
-                }
                 fail(.input("finishing preview preparation failed"), json: args.contains("--json"))
             }
             return
@@ -68,7 +68,7 @@ struct LabelDriverCLI {
                 FileHandle.standardOutput.write(Data("\n".utf8))
             } catch FinishingInspectionCommand.Error.usage {
                 fail(.usage(usage), json: args.contains("--json"))
-            } catch AcceptedFinishingJob.Error.cancelled {
+            } catch AcceptedFinishingJob.Error.cancelled, OfflineRenderWorkerProcess.Error.cancelled {
                 emitError(code: .cancelled, message: "inspection cancelled", json: args.contains("--json"))
                 exit(Exit.cancelled.rawValue)
             } catch {
