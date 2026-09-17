@@ -1,3 +1,20 @@
+# Latest hosted checkpoint and next status work — 2026-09-17
+
+Hosted run35202180091 passed at exact `c3e03af`, with retained log confirming
+273 native tests, both132/180 oracles, twelve benchmark CLI cases and packaged
+worker equality. The following compression performance source passed its full
+local89/191/273debug/release gate and is now ready for publication on PR #81.
+The earlier cloud review remains scoped to a370e05/base77c29ff.
+
+Next independent task: bounded offline legacy host-status decoding. Public Zebra
+~HS framing returns three strings; some fault conditions suppress replies.
+Missing/unsupported/unverified replies must remain unknown, never healthy or
+zero. General status is not a job-specific print receipt. The decoder must drop
+opaque private fields, validate framing/counts/flags, reject oversized/truncated/
+malformed input, preserve observations separately from configured defaults,
+and add no device query or transport I/O. Current GC420d query/channel support
+remains unobserved. First physical compression remains OFF; B remains frozen.
+
 # Current experimental compression performance slice — 2026-09-17
 
 Published previous lease/benchmark stack at `c3e03af` on PR #81. Its exact-head
