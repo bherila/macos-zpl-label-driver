@@ -1,6 +1,17 @@
+# Independently qualified offset policy — 2026-09-17
+
+Current unpublished policy separately qualifies model intervals for black-mark
+offset, horizontal shift and label top; explicit zero survives, unsupported/unknown
+intervals stay absent, black-mark mode requires explicit offset plus separate
+tracking qualification. Five focused Core cases passed exit0. Full finite gate
+passed ownexit0 89Python/236Core/290Mac debug/release, independent/inert/signature/packaged checks. See `validation/M3-QUALIFIED-OFFSET-POLICY-2026-09-17.md`.
+Persistence/default/prepared placement/UI integration remains work. Source setup
+slice publisheda2de872 and validated89/231/290; remote/PR exact readback confirmed.
+Preceding65314a1 hosted35212808079 passed; new35213680526 observed queued, not pass evidence. No admin/printer/merge/binary action.
+
 # Qualified geometry draft editing — 2026-09-17
 
-Current unpublished source adds evidenced schema5 tracking/geometry session drafts
+Publisheda2de872 source adds evidenced schema5 tracking/geometry session drafts
 with whole-dot ranges, blank per-field inheritance and explicit zero home values.
 Invalid text stays visible and blocks readiness; incomplete home/continuous length
 and inherited-length tracking conflicts fail rather than dropping settings.
