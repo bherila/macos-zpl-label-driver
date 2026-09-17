@@ -24,9 +24,11 @@ public struct PrinterSetupFact: Equatable, Identifiable, Sendable {
 
 @MainActor
 public final class ReferencePrinterSetupModel: ObservableObject {
+    public enum OffsetField: String, CaseIterable, Sendable { case blackMark, shiftLeft, labelTop }
     public enum GeometryField: String, CaseIterable, Sendable { case width, length, homeX, homeY }
     public enum MotorSpeedKind: Equatable, Sendable { case print, feed, backfeed }
     public enum Error: Swift.Error, Equatable, Sendable {
+        case invalidOffsetText(OffsetField)
         case invalidGeometryText(GeometryField)
         case unavailableTracking(MediaTracking)
         case unavailableDarkness
@@ -36,6 +38,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         case unsupportedMotorSpeed(MotorSpeedKind, Int)
     }
 
+    @Published public var offsetDraft: [OffsetField: String] = [:]
     @Published public var geometryDraft: [GeometryField: String] = [:]
     @Published public private(set) var selectedTracking: MediaTracking?
     public let profile: PrinterProfile
@@ -118,6 +121,48 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         let x = try value(.homeX), y = try value(.homeY)
         guard width != nil || length != nil || x != nil || y != nil else { return nil }
         return try .init(widthDots: width, lengthDots: length, originXDot: x, originYDot: y)
+    }
+
+    private func offsetLimit(for field: OffsetField) -> QualifiedDotRange {
+        let p = profile.capabilities.offsets
+        return switch field {
+        case .blackMark: p.blackMark
+        case .shiftLeft: p.shiftLeft
+        case .labelTop: p.labelTop
+        }
+    }
+
+    public func offsetRange(for field: OffsetField) -> ClosedRange<Int>? {
+        let limit = offsetLimit(for: field)
+        guard profile.schemaVersion == 6, limit.fact.state == .supported,
+              limit.fact.evidence != .unobserved else { return nil }
+        return limit.range
+    }
+
+    public func offsetDefaultLabel(for field: OffsetField) -> String {
+        let offsets = profile.configuredDefaults.offsets
+        let value: Int?
+        switch field {
+        case .blackMark: value = offsets?.blackMarkOffsetDots
+        case .shiftLeft: value = offsets?.shiftLeftDots
+        case .labelTop: value = offsets?.labelTopDots
+        }
+        if let value { return "Configured default: \(value) dots" }
+        return "No configured default"
+    }
+
+    private func offsetRequest() throws -> OffsetControlRequest? {
+        func value(_ field: OffsetField) throws -> Int? {
+            let text = offsetDraft[field, default: ""].trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.isEmpty { return nil }
+            guard let value = Int(text), let range = offsetRange(for: field), range.contains(value) else {
+                throw Error.invalidOffsetText(field)
+            }
+            return value
+        }
+        let mark = try value(.blackMark), shift = try value(.shiftLeft), top = try value(.labelTop)
+        guard mark != nil || shift != nil || top != nil else { return nil }
+        return .init(blackMarkOffsetDots: mark, shiftLeftDots: shift, labelTopDots: top)
     }
 
     public var darknessChoices: [Int] {
@@ -225,7 +270,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
             thermalMethod: .directThermal, finishing: .tearOff,
             printSpeedIps: selectedSpeedIps, feedSpeedIps: selectedFeedSpeedIps,
             backfeedSpeedIps: selectedBackfeedSpeedIps, darkness: selectedDarkness,
-            tracking: selectedTracking, mediaGeometry: geometryRequest()))
+            tracking: selectedTracking, mediaGeometry: geometryRequest(), offsets: offsetRequest()))
         // Validate against the actual current ordinary encoder as well as
         // supplied profile declarations; this is bounded memory work, no I/O.
         _ = try ZPLControlEncoder().encode(resolved)
@@ -251,9 +296,11 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         catch PrinterProfileError.incompleteMotorSpeeds {
             return "Choose print, feed and backfeed speeds together, or use a complete configured default."
         } catch OffsetControlQualification.Error.blackMarkOffsetRequired {
-            return "Black-mark tracking requires a qualified explicit offset; offset editing is not yet available here."
+            return "Enter a qualified black-mark offset in dots, including zero when explicitly intended."
         } catch OffsetControlQualification.Error.blackMarkModeRequired {
             return "A configured black-mark offset requires black-mark tracking."
+        } catch Error.invalidOffsetText {
+            return "Enter signed whole dots within the qualified offset range, or leave the field blank to use its configured default."
         } catch Error.invalidGeometryText {
             return "Enter whole dots within the qualified range, or leave the field blank to use its configured default."
         } catch PhysicalGeometryQualification.Error.incompleteHome {
@@ -307,6 +354,25 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         }
     }
 
+    private var offsetFacts: [PrinterSetupFact] {
+        OffsetField.allCases.map { field in
+            let label: String
+            switch field {
+            case .blackMark: label = "Black-mark offset"
+            case .shiftLeft: label = "Horizontal label shift"
+            case .labelTop: label = "Label top offset"
+            }
+            if let range = offsetRange(for: field) {
+                return .init(id: "offset-\(field.rawValue)", label: label,
+                    value: "Qualified range: \(range.lowerBound)–\(range.upperBound) dots; current setting unknown", status: .configured)
+            }
+            let fact = offsetLimit(for: field).fact
+            return .init(id: "offset-\(field.rawValue)", label: label,
+                value: fact.state == .unsupported ? "Unavailable in this profile" : "Not qualified; current setting unknown",
+                status: fact.state == .unsupported ? .unavailable : .unknown)
+        }
+    }
+
     public var facts: [PrinterSetupFact] {
         [
             .init(id: "model", label: "Model", value: profile.capabilities.model, status: .configured),
@@ -319,7 +385,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
             motorFact(id: "backfeedSpeed", label: "Backfeed speed", capability: profile.capabilities.backfeedSpeeds),
             darknessFact,
             trackingFact,
-        ] + geometryFacts
+        ] + geometryFacts + offsetFacts
     }
 }
 
@@ -373,7 +439,7 @@ public struct ReferencePrinterSetupView: View {
                         }
                     }
                     .accessibilityHint("This chooses a draft control. The printer’s current tracking setting is unknown.")
-                    Text("Black-mark tracking requires a qualified offset. Offset editing is not yet available here.").font(.caption)
+                    Text("Black-mark tracking requires its qualified offset. A blank offset inherits its configured default; it does not reset the printer.").font(.caption)
                 }
                 ForEach(ReferencePrinterSetupModel.GeometryField.allCases, id: \.self) { field in
                     if let range = model.geometryRange(for: field) {
@@ -384,6 +450,19 @@ public struct ReferencePrinterSetupView: View {
                             ), prompt: Text(model.geometryDefaultLabel(for: field)))
                             .accessibilityHint("Whole dots from \(range.lowerBound) through \(range.upperBound). Blank uses the configured default. No printer setting is changed.")
                             Text("\(range.lowerBound)–\(range.upperBound) dots. Blank: \(model.geometryDefaultLabel(for: field)).")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                ForEach(ReferencePrinterSetupModel.OffsetField.allCases, id: \.self) { field in
+                    if let range = model.offsetRange(for: field) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            TextField(offsetLabel(field), text: Binding(
+                                get: { model.offsetDraft[field, default: ""] },
+                                set: { model.offsetDraft[field] = $0 }
+                            ), prompt: Text(model.offsetDefaultLabel(for: field)))
+                            .accessibilityHint("Signed whole dots from \(range.lowerBound) through \(range.upperBound). Blank uses the configured default. No printer setting is changed.")
+                            Text("\(range.lowerBound)–\(range.upperBound) dots. Blank: \(model.offsetDefaultLabel(for: field)).")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -412,6 +491,14 @@ public struct ReferencePrinterSetupView: View {
                     .accessibilityLabel(model.installationReadinessMessage)
             }
             .padding(4)
+        }
+    }
+
+    private func offsetLabel(_ field: ReferencePrinterSetupModel.OffsetField) -> String {
+        switch field {
+        case .blackMark: "Draft black-mark offset (dots)"
+        case .shiftLeft: "Draft horizontal label shift (dots)"
+        case .labelTop: "Draft label top offset (dots)"
         }
     }
 

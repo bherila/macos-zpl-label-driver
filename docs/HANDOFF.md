@@ -1,6 +1,20 @@
+# Qualified signed offset utility drafts — 2026-09-17
+
+Current unpublished setup source adds independently qualified black-mark/shift/top
+signed whole-dot drafts, configured inheritance, explicit zero and retained invalid
+text with actionable errors. Mark mode/offset combination is validated. Bound
+geometry/motor/darkness and reference unknown qualification survive.24focused setup
+tests passed ownexit0;full finite CI-equivalent gate passed ownexit0:89Python/242Core/296Mac debug/release plus independent/inert/signature/packaged checks. See
+`validation/M5-QUALIFIED-OFFSET-EDITING-2026-09-17.md`. Persistent native default/profile
+management, installed dialog, keyboard/VoiceOver, thermal/finishing and physical
+qualification remain. Preceding272fc90 offset snapshot slice published and locally validated89/242/292;
+remote/PR exact readback confirmed, new35215154447 hosted live, not pass evidence.
+Preceding64272f0 hosted35214380345 passed at its exact source.
+No printer/admin/merge/binary action. B frozen bytes unchanged.
+
 # Immutable offset binding and known placement — 2026-09-17
 
-Current unpublished source adds profile6/queue5/ticket6 exact qualification/default
+Published272fc90 source adds profile6/queue5/ticket6 exact qualification/default
 persistence, per-field offset precedence, explicit mark mode/offset qualification,
 ordinary encoding before graphics and shared signed packed-raster containment.
 Legacy schemas/reference qualification remain unchanged.242 Core and21 focused
