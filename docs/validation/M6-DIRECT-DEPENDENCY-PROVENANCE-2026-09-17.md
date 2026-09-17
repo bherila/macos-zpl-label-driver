@@ -1,0 +1,13 @@
+# Existing direct dependency provenance inventory
+
+Inspected implementation checkpoint: `04d5671b8f83adc72f1f3d8996f748f9b474403a` (local unpublished). Documentation-only follow-on; no package/workflow pin, product or runtime behavior changed. Advances F17 provenance preparation, not full M6/release acceptance.
+
+Checked tools/fixtures/requirements.txt (four existing exact pins), both Swift manifests, current source imports and CUPS adapter provenance, and workflow action uses (two unique existing full commit pins). Exact PyPI metadata verified pinned versions/license declarations. ReportLab sdist was downloaded with a finite timeout/16 MiB cap, SHA256 verified against exact-version published metadata, and only its license member read; no source executed or files extracted into the project. Three BSD conditions support the explicitly labeled BSD-3-Clause inspection mapping. Pillow 12.3.0 declares MIT-CMU, rather than assuming a historical HPND identifier. Both pinned GitHub action MIT license texts were fetched at the exact commits and hashed. [Inventory and primary sources](../../THIRD-PARTY-NOTICES.md#verified-direct-development-dependency-inventory--2026-09-17) distinguish declarations, mapping, development-only purpose and non-bundling.
+
+The inventory retains the requirement to preserve notices if components are redistributed, rather than claiming repository MIT relicenses dependencies. Tool/action transitives, optional external validator versions/licenses, complete source and artifact redistribution review and any future production dependency remain open. This is no formal legal clean-room or full compliance determination. No support row, acceptance checkbox or ledger was changed.
+
+Live issue80 readback: open, no new Part B evidence; recorded section A remains the corrected local offline GUI observation. ADR0003 still defers production adapter selection. Neither code signatures nor this provenance inventory authorizes production installer/queue operations.
+
+Validation: documentation pin-agreement checks, repository preflight, diff/disclosure review; exact results recorded in handoff. Runtime/Swift/native/GUI/scheduler/admin/USB/physical/release tests NOT RUN because this slice changes documentation only. Previous source-code validation remains scoped to its evaluated checkpoints. No dependency installed/upgraded, fixture regenerated, bundled third-party asset, printer I/O, privilege, GitHub write, merge or publication.
+
+Next: reconcile all remaining independent software/automated evidence gaps with the full mandatory scope, and prepare coherent source integration; preserve the frozen manual candidate and physical budget boundary.
