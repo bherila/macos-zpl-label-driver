@@ -115,7 +115,18 @@ public enum OfflineRenderWorkerProcess {
             originalPDF: originalPDF, ticketJSON: ticketJSON,
             workerExecutable: workerExecutable, operationFlag: "--job-directory",
             deadlineSeconds: deadlineSeconds, cancellation: cancellation,
-            readOutput: readRenderOutput
+            readOutput: { scratch in
+                let output = try readRenderOutput(scratch)
+                // Bind the successful artifact to the same immutable ticket
+                // staged for this child, without trusting reported dimensions.
+                do {
+                    let ticket = try OfflineConversionTicket(jsonData: ticketJSON)
+                    let canvas = try DotCanvas(physicalSize: ticket.physicalSize, resolution: ticket.resolution)
+                    guard output.result.widthDots == canvas.width,
+                          output.result.heightDots == canvas.height else { throw Error.invalidResult }
+                } catch { throw Error.invalidResult }
+                return output
+            }
         )
     }
 

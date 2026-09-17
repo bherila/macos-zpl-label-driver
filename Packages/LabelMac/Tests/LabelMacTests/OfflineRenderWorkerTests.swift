@@ -118,6 +118,13 @@ final class OfflineRenderWorkerTests: XCTestCase {
             (9, good, zpl, false), (1, padding, try ZPLGraphicEncoder().diagnosticFormat(narrow), false)]
         for (index, value) in cases.enumerated() {
             let (width, preview, commands, valid) = value
+            // Match the request to metadata so each malformed artifact fails
+            // on bitmap binding even when request-canvas binding is enabled.
+            let matchingTicket = try JSONSerialization.data(withJSONObject: [
+                "schemaVersion": 1, "pageNumber": 1,
+                "physicalSize": ["widthMillimeters": width, "heightMillimeters": 1],
+                "resolution": ["xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1],
+                "conversion": ["mode": "textAndBarcodeThreshold", "cutoff": 128]])
             let previewFile = directory.appendingPathComponent("fixture-preview-\(index)")
             let zplFile = directory.appendingPathComponent("fixture-zpl-\(index)")
             try preview.write(to: previewFile); try commands.write(to: zplFile)
@@ -132,11 +139,51 @@ final class OfflineRenderWorkerTests: XCTestCase {
             try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: worker.path)
             if valid {
                 let output = try OfflineRenderWorkerProcess.run(originalPDF: Data([1]),
-                    ticketJSON: ticket, workerExecutable: worker, deadlineSeconds: 5)
+                    ticketJSON: matchingTicket, workerExecutable: worker, deadlineSeconds: 5)
                 XCTAssertEqual(output.previewPBM, good); XCTAssertEqual(output.zpl, zpl)
             } else {
                 XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(originalPDF: Data([1]),
-                    ticketJSON: ticket, workerExecutable: worker, deadlineSeconds: 5)) {
+                    ticketJSON: matchingTicket, workerExecutable: worker, deadlineSeconds: 5)) {
+                    XCTAssertEqual($0 as? OfflineRenderWorkerProcess.Error, .invalidResult)
+                }
+            }
+        }
+    }
+
+    func testParentBindsCanonicalWorkerOutputToRoundedRequestCanvas() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let bitmap = try MonochromeBitmap(width: 8, height: 1, bytes: [0x80])
+        let preview = bitmap.pbmData(), zpl = try ZPLGraphicEncoder().diagnosticFormat(bitmap)
+        let previewFile = directory.appendingPathComponent("fixture-preview")
+        let zplFile = directory.appendingPathComponent("fixture-zpl")
+        try preview.write(to: previewFile); try zpl.write(to: zplFile)
+        let metadata = String(decoding: try JSONEncoder().encode(OfflineRenderWorkerResult(
+            widthDots: 8, heightDots: 1, zplBytes: zpl.count, previewBytes: preview.count)), as: UTF8.self)
+        func quoted(_ path: String) -> String { "'" + path.replacingOccurrences(of: "'", with: "'\"'\"'") + "'" }
+        let script = "#!/bin/sh\numask 077\nprintf '%s' '" + metadata + "' > \"$2/result.json\"\ncp "
+            + quoted(zplFile.path) + " \"$2/prepared.zpl\"\ncp " + quoted(previewFile.path) + " \"$2/preview.pbm\"\n"
+        let worker = directory.appendingPathComponent("inert-worker")
+        try Data(script.utf8).write(to: worker)
+        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: worker.path)
+        let cases: [(Double, Double, Double, Double, Bool)] = [
+            (8, 1, 1, 1, true), (8.49, 1.49, 1, 1, true), (4, 1, 2, 1, true),
+            (8.5, 1, 1, 1, false), (8, 2, 1, 1, false), (4, 1, 2, 2, false)]
+        for (width, height, xResolution, yResolution, valid) in cases {
+            let requested = try JSONSerialization.data(withJSONObject: [
+                "schemaVersion": 1, "pageNumber": 1,
+                "physicalSize": ["widthMillimeters": width, "heightMillimeters": height],
+                "resolution": ["xDotsPerMillimeter": xResolution, "yDotsPerMillimeter": yResolution],
+                "conversion": ["mode": "textAndBarcodeThreshold", "cutoff": 128]])
+            if valid {
+                let output = try OfflineRenderWorkerProcess.run(originalPDF: Data([1]),
+                    ticketJSON: requested, workerExecutable: worker, deadlineSeconds: 5)
+                XCTAssertEqual(output.previewPBM, preview); XCTAssertEqual(output.zpl, zpl)
+            } else {
+                XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(originalPDF: Data([1]),
+                    ticketJSON: requested, workerExecutable: worker, deadlineSeconds: 5)) {
                     XCTAssertEqual($0 as? OfflineRenderWorkerProcess.Error, .invalidResult)
                 }
             }
