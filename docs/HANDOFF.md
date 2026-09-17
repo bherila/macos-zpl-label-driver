@@ -506,3 +506,7 @@ Local unpublished d86206a2bb5721c36569f5f7100c5b58c3facb66 documents the impleme
 ## Planned margins through real worker
 
 [Receipt](validation/M4-MARGIN-WORKER-PROPAGATION-2026-09-17.md) evaluates unpublished 6bfa0232a22349782c35c3b118babf0fa1be9ce1. Private ticket-v3 and original-PDF worker now carry margins; both extraction parents bind planned-label margins and temporary guards are removed. Zero uses legacy-v2 request; stock mismatch remains pre-parse/launch. Final53focused native debug/release passed with direct/worker PBM/ZPL and both planned bitmap equality;106Python/preflight/diff passed. No current full/signatures/packaging/Linux/manual/physical claims. Queue workflow-v3 remains disabled and editor controls pending. Next reference/snapshot admission and editor margin editing, then integrated gate.
+
+## Editable reserved margins
+
+[Receipt](validation/M4-EDITOR-OUTPUT-MARGINS-2026-09-17.md) evaluates unpublished 304a392fccbcbc0b6cb8df5158d229a83a2f93a8. Model and native measurement fields edit margins with immutable correction, generation binding and preview/review invalidation. Dot-empty margin/stock edits reject atomically; real old-worker barrier proves newer preview preserved.23editor both/106Python/preflight passed. App setup-app.Ab82hG local ad-hoc metadata/signatures/packaged-worker equality passed; no GUI/VO/manual/physical claim or frozen-candidate replacement. Queue-v3 references pending; next snapshot admission/reconstruction compatibility and integrated gate.
