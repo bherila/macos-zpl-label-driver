@@ -1,3 +1,16 @@
+# Inert finishing lease lifetime — 2026-09-17
+
+Finite discard coordinator now holds the existing shared kernel lease through all
+finishing file/status steps, including last peel removal. Nine focused/restored native
+cases passed; early status-wait release failed45assertions then source byte-restored.
+Full finite900s session42783 passed ownexit0:89Python/272Core/324native debug/release
+plus independent/inert/signature/packaged checks; artifact artifacts/setup-app.DeJXCW;
+log /tmp/zpl-inert-finishing-lease-full.log. Next commit/push/exact hosted readback;
+source/disclosure review passed and restored coordinator hash unchanged; see
+validation/M3-INERT-FINISHING-LEASE-2026-09-17.md. Actual accepted device/ticket/pitch,
+file/status adapter, persistence/recovery and installed/physical gates remain open.
+Frozen B unchanged; no printer/admin/merge/binary action.
+
 # Finishing delivery accounting source checkpoint — 2026-09-17
 
 Implementation d02212eff311358675ea3bb65a1f7389f64e3240 passed the local89/272/324 full gate.

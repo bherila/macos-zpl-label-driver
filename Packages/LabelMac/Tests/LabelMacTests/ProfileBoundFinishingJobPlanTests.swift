@@ -275,6 +275,71 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
             try decreasing.acceptedByTransport(byteCount: 1)
             XCTAssertThrowsError(try decreasing.acceptedByTransport(byteCount: 0))
             XCTAssertEqual(decreasing.state, .uncertain)
+            // Lease ownership must survive every file and readiness/removal wait.
+            let leaseRoot = directory.appending(path: "inert-leases-\(mode)")
+            try FileManager.default.createDirectory(at: leaseRoot, withIntermediateDirectories: false,
+                attributes: [.posixPermissions: 0o700])
+            let domain = try PhysicalDeviceCoordinationID(sha256: String(repeating: "a", count: 64))
+            let identity = PhysicalDeviceIdentity(coordinationID: domain)
+            var observedWaits: [Int] = []
+            let simulated = try InertFinishingDelivery.run(output: framed, coordinationID: domain,
+                leaseDirectory: leaseRoot, scenario: .init(), deadlineSeconds: 60, cancellation: .init()) { event in
+                    XCTAssertThrowsError(try PhysicalDeviceLease(acquiring: identity, inExistingDirectory: leaseRoot)) {
+                        XCTAssertEqual($0 as? PhysicalDeviceLeaseError, .alreadyHeld)
+                    }
+                    if case let .statusWait(index) = event { observedWaits.append(index) }
+                }
+            XCTAssertEqual(simulated.state, .confirmed) // Synthetic observations only.
+            XCTAssertEqual(simulated.bytesAccepted, total)
+            let expectedWaits = expected.indices.filter { index in
+                switch expected[index] {
+                case .formatFile, .delayedCutFile: false
+                default: true
+                }
+            }
+            XCTAssertEqual(observedWaits, expectedWaits)
+            let afterSuccess = try PhysicalDeviceLease(acquiring: identity, inExistingDirectory: leaseRoot)
+            XCTAssertThrowsError(try InertFinishingDelivery.run(output: framed, coordinationID: domain,
+                leaseDirectory: leaseRoot)) { XCTAssertEqual($0 as? InertFinishingDelivery.Error, .deviceBusy) }
+            afterSuccess.release()
+            for index in expectedWaits {
+                let unknown = try InertFinishingDelivery.run(output: framed, coordinationID: domain,
+                    leaseDirectory: leaseRoot, scenario: .init(unknownStatusAtStep: index))
+                XCTAssertEqual(unknown.state, .uncertain)
+                XCTAssertEqual(unknown.nextStepIndex, index)
+                XCTAssertFalse(unknown.mayRetryAutomatically)
+                let released = try PhysicalDeviceLease(acquiring: identity, inExistingDirectory: leaseRoot)
+                released.release()
+            }
+            let attemptFailure = try InertFinishingDelivery.run(output: framed, coordinationID: domain,
+                leaseDirectory: leaseRoot, scenario: .init(failAfterAttemptAtStep: 0))
+            XCTAssertEqual(attemptFailure.state, .uncertain)
+            XCTAssertEqual(attemptFailure.bytesAccepted, 0)
+            let beforeSend = try InertFinishingDelivery.run(output: framed, coordinationID: domain,
+                leaseDirectory: leaseRoot, scenario: .init(stopBeforeStep: 0))
+            XCTAssertTrue(beforeSend.mayRetryAutomatically)
+            let cancel = OfflineRenderWorkerCancellation()
+            let duringWait = try InertFinishingDelivery.run(output: framed, coordinationID: domain,
+                leaseDirectory: leaseRoot, scenario: .init(), deadlineSeconds: 60, cancellation: cancel) { event in
+                    if case .statusWait = event { cancel.cancel() }
+                }
+            XCTAssertEqual(duringWait.state, .uncertain)
+            enum Injected: Swift.Error { case failure }
+            XCTAssertThrowsError(try InertFinishingDelivery.run(output: framed, coordinationID: domain,
+                leaseDirectory: leaseRoot, scenario: .init(), deadlineSeconds: 60, cancellation: .init()) { _ in
+                    throw Injected.failure
+                })
+            let afterError = try PhysicalDeviceLease(acquiring: identity, inExistingDirectory: leaseRoot)
+            afterError.release()
+            for scenario in [InertFinishingDelivery.Scenario(maximumChunkBytes: 0),
+                .init(stopBeforeStep: -1), .init(failAfterAttemptAtStep: 1), .init(unknownStatusAtStep: 0)] {
+                XCTAssertThrowsError(try InertFinishingDelivery.run(output: framed, coordinationID: domain,
+                    leaseDirectory: leaseRoot, scenario: scenario)) {
+                        XCTAssertEqual($0 as? InertFinishingDelivery.Error, .invalidScenario)
+                    }
+            }
+            XCTAssertThrowsError(try InertFinishingDelivery.run(output: framed, coordinationID: domain,
+                leaseDirectory: leaseRoot, deadlineSeconds: 0))
             if mode == .peel {
                 let withoutPrepeel = FinishingOutputQualification(profile: job.printer.profile, model: qualification.model,
                     quantityOne: documented, labelCompletion: documented, rfid: nonRFID,

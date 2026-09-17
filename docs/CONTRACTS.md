@@ -279,3 +279,9 @@ subsequent failure uncertain, even with zero known accepted bytes. Unknown/unsat
 status cannot advance, and exact step/payload binding precedes attempts. Callers must
 provide actual qualified correlation and hold physical ownership through all waits;
 this tracker supplies neither hardware receipts nor accepted device-write authority.
+
+InertFinishingDelivery only discards bytes and supplies synthetic status. It owns the
+validated kernel lease through every file and wait, with bounded cooperative deadline/
+cancellation and scope-exit release. Caller-provided coordination is simulator input;
+production must derive identity from an accepted immutable ticket and verify actual
+file/status behavior. Its synthetic confirmed result is never hardware evidence.
