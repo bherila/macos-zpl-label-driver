@@ -498,3 +498,7 @@ Local unpublished d86206a2bb5721c36569f5f7100c5b58c3facb66 documents the impleme
 ## Missing-head CI batch complete
 
 [Exact hosted receipt](validation/M0-MISSING-PR-HEAD-CI-2026-09-17.md): all36 existing PR3–38 workflow_dispatch runs successful with matching expected heads. These do not attach to PR3 rollup and do not validate unpublished successors. Draft/nonlinear-history/geometry-fix reconciliation remains before stack merge readiness. No merges/rebases/stack registration.
+
+## Native reserved margin clipping
+
+[Receipt](validation/M4-NATIVE-MARGIN-CLIPPING-2026-09-17.md) evaluates unpublished 1c5ab7b2c706bd2af293efa3fba84e2d05307b60. Native request margins feed physical placement and visible-area clipping preserves blank margins even for actual-size oversized content. Exact packed asymmetric-margin/non-square-pitch and zero-default tests passed:30renderer debug/37renderer+planned release/106Python. Full/manual/hardware results not refreshed. Both extraction parents retain nonzero-margin guards until private ticket/worker propagation; next extend OfflineConversion and real subprocess tests before enabling workflow margins.
