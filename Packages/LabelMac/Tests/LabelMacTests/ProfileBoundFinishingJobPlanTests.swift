@@ -34,6 +34,65 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
                     maximumBatchSize: maximumBatch)) : nil)
     }
 
+    private func job(_ count: Int = 2) throws -> ProfileBoundFinishingJobPlan {
+        let store = try store(), reference = try store.save(id: "synthetic-finishing", profile: profile())
+        return try store.finishingPlan(reference: reference, mode: .cut, outputLabelCount: count, schedule: .endOfJob)
+    }
+
+    func testRasterBindingRejectsReorderingReplacementAndDimensionsWithIdenticalBytes() throws {
+        let job = try job()
+        let a = try MonochromeBitmap(width: 8, height: 2, bytes: [0x80, 0])
+        let b = try MonochromeBitmap(width: 8, height: 2, bytes: [0x40, 0])
+        let reshaped = try MonochromeBitmap(width: 4, height: 2, bytes: a.bytes)
+        let binding = try FinishingRasterBinding(job: job, orderedRasters: [a, b])
+        XCTAssertEqual(binding.totalPackedBytes, 4)
+        XCTAssertEqual(binding.labels.map(\.width), [8, 8])
+        XCTAssertEqual(binding.orderedRasterSHA256.count, 64)
+        XCTAssertNoThrow(try binding.validate(job: job, orderedRasters: [a, b]))
+        for changed in [[b, a], [a, a], [reshaped, b]] {
+            XCTAssertThrowsError(try binding.validate(job: job, orderedRasters: changed))
+            XCTAssertNotEqual(try FinishingRasterBinding(job: job, orderedRasters: changed).orderedRasterSHA256,
+                binding.orderedRasterSHA256)
+        }
+    }
+
+    func testRasterCountByteBudgetGeometryAndCancellationRemainIndependent() throws {
+        let job = try job(), bitmap = try MonochromeBitmap(width: 8, height: 1, bytes: [0x80])
+        for changed in [[], [bitmap], [bitmap, bitmap, bitmap]] {
+            XCTAssertThrowsError(try FinishingRasterBinding(job: job, orderedRasters: changed))
+        }
+        for limit in [0, -1, FinishingRasterBinding.maximumTotalBytes + 1, Int.max] {
+            XCTAssertThrowsError(try FinishingRasterBinding(job: job, orderedRasters: [bitmap, bitmap], maximumTotalBytes: limit))
+        }
+        XCTAssertThrowsError(try FinishingRasterBinding(job: job, orderedRasters: [bitmap, bitmap], maximumTotalBytes: 1))
+        XCTAssertNoThrow(try FinishingRasterBinding(job: job, orderedRasters: [bitmap, bitmap], maximumTotalBytes: 2))
+        let wide = try MonochromeBitmap(width: 8193, height: 1, bytes: Array(repeating: 0, count: 1025))
+        XCTAssertThrowsError(try FinishingRasterBinding(job: job, orderedRasters: [wide, bitmap]))
+        let tall = try MonochromeBitmap(width: 1, height: 65536, bytes: Array(repeating: 0, count: 65536))
+        XCTAssertThrowsError(try FinishingRasterBinding(job: job, orderedRasters: [tall, bitmap]))
+        let pixels = try MonochromeBitmap(width: 8192, height: 4097,
+            bytes: Array(repeating: 0, count: 1024 * 4097))
+        XCTAssertThrowsError(try FinishingRasterBinding(job: job, orderedRasters: [pixels, bitmap]))
+        let cancelled = OfflineRenderWorkerCancellation(); cancelled.cancel()
+        XCTAssertThrowsError(try FinishingRasterBinding(job: job, orderedRasters: [bitmap, bitmap], cancellation: cancelled)) {
+            XCTAssertEqual($0 as? FinishingRasterBinding.Error, .cancelled)
+        }
+    }
+
+    func testRasterBindingRejectsChangedProfileModeAndScheduleDespiteSameRasterInputs() throws {
+        let store = try store(), reference = try store.save(id: "synthetic-finishing", profile: profile())
+        let old = try store.finishingPlan(reference: reference, mode: .cut, outputLabelCount: 1, schedule: .endOfJob)
+        let bitmap = try MonochromeBitmap(width: 8, height: 1, bytes: [0x80])
+        let binding = try FinishingRasterBinding(job: old, orderedRasters: [bitmap])
+        let next = try store.save(id: reference.id, profile: profile(revision: 12))
+        for changed in [try store.finishingPlan(reference: next, mode: .cut, outputLabelCount: 1, schedule: .endOfJob),
+                        try store.finishingPlan(reference: reference, mode: .cut, outputLabelCount: 1, schedule: .everyLabel),
+                        try store.finishingPlan(reference: reference, mode: .peel, outputLabelCount: 1)] {
+            XCTAssertThrowsError(try binding.validate(job: changed, orderedRasters: [bitmap]))
+        }
+        XCTAssertNoThrow(try binding.validate(job: old, orderedRasters: [bitmap]))
+    }
+
     func testColdStorePlansEveryModeUsingTheExactRevisionAndCompleteCount() throws {
         let store = try store(), original = try profile()
         let reference = try store.save(id: "synthetic-finishing", profile: original)

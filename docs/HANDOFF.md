@@ -1,3 +1,38 @@
+# Ordered raster binding terminal gate — 2026-09-17
+
+Full finite900s gate completed ownexit0:89Python/270Core/322Mac debug/release, independent oracle/finite inert ABI and pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.JX0Qc6. No printer accessed; no scheduler/GUI/installation/physical acceptance inferred.
+Previous published checkpoint61c17fb hosted35224479619 completed success at exact head.
+Budget audit and raster binding are separate source commits; next verify pushed head
+and its hosted run. Original-source provenance, normalized mechanical command framing,
+peel waits and adapter/manual/hardware gates remain open. Frozen B unchanged.
+
+# Full barcode correctness-site budget audit — 2026-09-17
+
+Raster full gate failed release321 on existing saved-barcode analyzer timedOut;
+89/270debug-release and321native debug pass, no full pass. Four real-barcode
+correctness scenarios now use shared NativeBarcodeCorrectnessBudget (existing60s
+production bound), with site-enumeration audit2/1/3/4 calls. Dedicated short-deadline
+tests unchanged. Focused budget/layout/opening/pipeline/render suites then finite
+900s full gate run under session9657; poll same handle. Full log
+`/tmp/zpl-finishing-raster-full-budget-audit.log`. Source/budget restructure remain
+local/unpushed; no timing root-cause or physical acceptance claimed. Next inspect
+terminal evidence, separate budget fix from raster feature commits, disclosure gate.
+Frozen B unchanged. No printer/admin/merge/binary release.
+
+# Ordered finishing raster inputs — 2026-09-17
+
+Local FinishingRasterBinding now hashes actual packed input dimensions/layout/bytes
+and whole order against the immutable profile/count/mode/schedule job context.
+Changed pixels/order/dimensions or job context fail; bounded geometry/byte totals
+and cancellation are separate gates. Seven focused/restored native cases passed
+ownexit0; omitting dimensions from the digest reproduced a failing independent
+same-bytes/changed-width assertion, then byte-restored source. Full finite900s gate
+is live under session30468, log `/tmp/zpl-finishing-raster-full.log`; poll same handle.
+See `validation/M3-FINISHING-RASTER-BINDING-2026-09-17.md`. This does not prove
+original-PDF provenance, encoded bytes or physical delivery. Ordinary profile8 remains
+rejected. Next inspect terminal gate and review/push; source currently local only.
+Manual/physical gates and frozen B unchanged. No printer/admin/merge/binary release.
+
 # Profile-bound finishing source checkpoint — 2026-09-17
 
 Implementation `7c97afa8df33852f181bcd30f0fc0b59ec6f958e` is locally validated as recorded below.
