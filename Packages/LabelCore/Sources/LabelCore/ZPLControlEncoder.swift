@@ -71,6 +71,7 @@ public struct ZPLControlEncoder: Sendable {
     }
 
     public func encode(_ controls: ResolvedPrinterControls) throws -> Data {
+        try OrdinaryPrinterProfileAdmission.validate(controls.profileSchemaVersion)
         switch controls.thermalMethod {
         case .leaveUnchanged, .value(.directThermal): break
         case .value(.thermalTransfer):

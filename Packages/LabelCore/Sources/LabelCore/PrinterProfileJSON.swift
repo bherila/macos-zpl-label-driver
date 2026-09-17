@@ -34,11 +34,14 @@ public enum PrinterProfileJSON {
             "media": encodeMedia(profile.media),
             "connection": encodeConnection(profile.connection),
         ]
-        if profile.schemaVersion == 7 {
+        if profile.schemaVersion >= 7 {
             root["thermalMedia"] = [
                 "method": encodeObservation(profile.thermalMedia.method) { $0.rawValue },
                 "ribbonPresent": encodeObservation(profile.thermalMedia.ribbonPresent) { $0 },
             ]
+        }
+        if profile.schemaVersion == 8 {
+            root["finishingConfiguration"] = profile.finishingConfiguration.map(encodeFinishingConfiguration) ?? NSNull()
         }
         if profile.schemaVersion >= 2 {
             root["configuredDefaults"] = [
@@ -82,13 +85,14 @@ public enum PrinterProfileJSON {
                 throw PrinterProfileJSONError.invalidType("object")
             }
             let version = try integer(dictionary, "schemaVersion")
-            guard (1...7).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
+            guard (1...8).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
             var keys: Set<String> = [
                 "schemaVersion", "revision", "capabilities", "installedHardware",
                 "media", "connection",
             ]
             if version >= 2 { keys.insert("configuredDefaults") }
-            if version == 7 { keys.insert("thermalMedia") }
+            if version >= 7 { keys.insert("thermalMedia") }
+            if version == 8 { keys.insert("finishingConfiguration") }
             let root = try object(raw, allowed: keys)
             var defaults = PrinterControlDefaults()
             if version >= 2 {
@@ -124,7 +128,8 @@ public enum PrinterProfileJSON {
                 media: decodeMedia(try required(root, "media")),
                 connection: decodeConnection(try required(root, "connection")),
                 configuredDefaults: defaults,
-                thermalMedia: version == 7 ? try decodeThermalMedia(required(root, "thermalMedia")) : .unobserved
+                thermalMedia: version >= 7 ? try decodeThermalMedia(required(root, "thermalMedia")) : .unobserved,
+                finishingConfiguration: version == 8 ? try decodeFinishingConfiguration(required(root, "finishingConfiguration")) : nil
             )
         } catch let error as PrinterProfileJSONError { throw error }
         catch { throw PrinterProfileJSONError.invalidValue("profile") }
@@ -145,7 +150,7 @@ public enum PrinterProfileJSON {
             "printSpeedChoicesIps": value.printSpeedChoicesIps.sorted(),
             "darkness": encodeFact(value.darkness),
         ]
-        if version == 7 { result["directThermal"] = encodeFact(value.directThermal) }
+        if version >= 7 { result["directThermal"] = encodeFact(value.directThermal) }
         if version >= 3 {
             result["feedSpeeds"] = encodeSpeedChoices(value.feedSpeeds)
             result["backfeedSpeeds"] = encodeSpeedChoices(value.backfeedSpeeds)
@@ -210,7 +215,74 @@ public enum PrinterProfileJSON {
         return QualifiedSpeedChoices(fact: try decodeFact(required(value, "fact")), choicesIps: Set(choices))
     }
 
+
+    private static let finishingModes: [FinishingMode] = [.tearOff, .cut, .peel, .rewind]
+
+    private static func encodeFinishingConfiguration(_ value: FinishingProfileConfiguration) -> [String: Any] {
+        var modes: [String: Any] = [:], stock: [String: Any] = [:]
+        for mode in finishingModes {
+            modes[mode.rawValue] = value.finishing.modes[mode].map(encodeFact) ?? NSNull()
+            stock[mode.rawValue] = value.stock.compatibleModes[mode].map { encodeObservation($0) { $0 } } ?? NSNull()
+        }
+        return ["modes": modes, "enabledModes": value.finishing.enabledModes.map(\.rawValue).sorted(),
+            "installed": ["cutter": encodeObservation(value.finishing.installed.cutter) { $0 },
+                "peeler": encodeObservation(value.finishing.installed.peeler) { $0 },
+                "rewinder": encodeObservation(value.finishing.installed.rewinder) { $0 }],
+            "stock": ["media": encodeMedia(value.stock.media), "compatibleModes": stock],
+            "schedules": ["everyLabel": encodeFact(value.schedules.everyLabel),
+                "batch": encodeFact(value.schedules.batch), "endOfJob": encodeFact(value.schedules.endOfJob),
+                "maximumBatchSize": value.schedules.maximumBatchSize.map { $0 as Any } ?? NSNull()]]
+    }
+
+    private static func decodeFinishingBoolean(_ raw: Any) throws -> Observation<Bool> {
+        try decodeObservation(raw) {
+            guard let number = $0 as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else {
+                throw PrinterProfileJSONError.invalidType("finishingBoolean")
+            }
+            return number.boolValue
+        }
+    }
+
+    private static func decodeFinishingConfiguration(_ raw: Any) throws -> FinishingProfileConfiguration? {
+        if raw is NSNull { return nil }
+        let value = try object(raw, allowed: ["modes", "enabledModes", "installed", "stock", "schedules"])
+        let keys = Set(finishingModes.map(\.rawValue))
+        let modes = try object(required(value, "modes"), allowed: keys)
+        let stock = try object(required(value, "stock"), allowed: ["media", "compatibleModes"])
+        let compatible = try object(required(stock, "compatibleModes"), allowed: keys)
+        var facts: [FinishingMode: CapabilityFact] = [:], observations: [FinishingMode: Observation<Bool>] = [:]
+        for mode in finishingModes {
+            let fact = try required(modes, mode.rawValue)
+            if !(fact is NSNull) { facts[mode] = try decodeFact(fact) }
+            let observation = try required(compatible, mode.rawValue)
+            if !(observation is NSNull) { observations[mode] = try decodeFinishingBoolean(observation) }
+        }
+        guard let enabled = try required(value, "enabledModes") as? [String], enabled.count <= 4,
+              enabled == enabled.sorted(), Set(enabled).count == enabled.count,
+              enabled.allSatisfy({ FinishingMode(rawValue: $0) != nil }) else {
+            throw PrinterProfileJSONError.invalidValue("enabledModes")
+        }
+        let installed = try object(required(value, "installed"), allowed: ["cutter", "peeler", "rewinder"])
+        let schedules = try object(required(value, "schedules"), allowed: ["everyLabel", "batch", "endOfJob", "maximumBatchSize"])
+        return .init(finishing: .init(modes: facts, enabledModes: Set(enabled.compactMap(FinishingMode.init(rawValue:))),
+            installed: .init(cutter: try decodeFinishingBoolean(required(installed, "cutter")),
+                peeler: try decodeFinishingBoolean(required(installed, "peeler")),
+                rewinder: try decodeFinishingBoolean(required(installed, "rewinder")))),
+            stock: .init(media: try decodeMedia(required(stock, "media")), compatibleModes: observations),
+            schedules: .init(everyLabel: try decodeFact(required(schedules, "everyLabel")),
+                batch: try decodeFact(required(schedules, "batch")), endOfJob: try decodeFact(required(schedules, "endOfJob")),
+                maximumBatchSize: try optionalInteger(schedules, "maximumBatchSize")))
+    }
+
     private static func validateForEncoding(_ profile: PrinterProfile) throws {
+        if let configuration = profile.finishingConfiguration {
+            for fact in Array(configuration.finishing.modes.values) + [configuration.schedules.everyLabel,
+                configuration.schedules.batch, configuration.schedules.endOfJob] { try validateEvidence(fact.evidence) }
+            for observation in Array(configuration.stock.compatibleModes.values) + [configuration.finishing.installed.cutter,
+                configuration.finishing.installed.peeler, configuration.finishing.installed.rewinder] {
+                try validateObservationEvidence(observation)
+            }
+        }
         let capabilities = profile.capabilities
         for fact in [
             capabilities.directThermal, capabilities.thermalTransfer, capabilities.cutter, capabilities.peeler,
@@ -255,7 +327,7 @@ public enum PrinterProfileJSON {
     private static func decodeCapabilities(_ raw: Any, version: Int) throws -> PrinterCapabilities {
         var keys: Set<String> = ["model", "thermalTransfer", "cutter", "peeler", "rewind", "tracking",
                                  "printSpeedChoicesIps", "darkness"]
-        if version == 7 { keys.insert("directThermal") }
+        if version >= 7 { keys.insert("directThermal") }
         if version >= 3 { keys.formUnion(["feedSpeeds", "backfeedSpeeds"]) }
         if version >= 5 { keys.insert("physicalGeometry") }
         if version >= 6 { keys.insert("offsets") }
@@ -290,7 +362,7 @@ public enum PrinterProfileJSON {
             backfeedSpeeds: version >= 3 ? try decodeSpeedChoices(required(value, "backfeedSpeeds")) : .unverified,
             physicalGeometry: version >= 5 ? try decodePhysicalGeometry(required(value, "physicalGeometry")) : .unverified,
             offsets: version >= 6 ? try decodeOffsets(required(value, "offsets")) : .unverified,
-            directThermal: version == 7 ? try decodeFact(required(value, "directThermal")) : .init(state: .unknown, evidence: .unobserved)
+            directThermal: version >= 7 ? try decodeFact(required(value, "directThermal")) : .init(state: .unknown, evidence: .unobserved)
         )
     }
 
