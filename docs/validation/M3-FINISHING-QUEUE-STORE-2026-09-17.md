@@ -34,7 +34,7 @@ Full finite900s gate session41257 completed FULL_GATE_EXIT0:104Python/279Core/32
 in debug/release plus strict/ASCII oracles, finite inert ABI/filter/pipeline checks,
 ARM/min26 metadata, nested local signatures and packaged-worker PBM/ZPL equality.
 Log /tmp/zpl-finishing-queue-store-full.log; artifact artifacts/setup-app.KNUte4.
-Existing native CI includes the new library/tests. Source publication pending.
+Existing native CI includes the new library/tests. Implementation checkpoint a6d90b4a1d9ed8b7eb4e73e42513be2c39f56092; source publication pending.
 
 Next: accepted finishing ticket binding original source, exact expanded order, qualified
 pitch/device identity and durable lifecycle. Real status, scheduler/root admission,

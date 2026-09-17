@@ -3306,12 +3306,14 @@ in debug/release and oracle/inert/signature/packaged checks. Local implementatio
 [queue evidence](validation/M3-FINISHING-QUEUE-DEFINITION-2026-09-17.md).
 The canonical codec is now implemented locally; seven focused/restored cases passed and
 canonical-byte omission failed two assertions. Full gate session28149 passed exit0 with
-104Python/279Core/324Mac debug/release and oracle/inert/signature/packaged checks; see
+104Python/279Core/324Mac debug/release and oracle/inert/signature/packaged checks. Local implementation
+a6d90b4a1d9ed8b7eb4e73e42513be2c39f56092; source publication pending. See
 [codec evidence](validation/M3-FINISHING-QUEUE-CODEC-2026-09-17.md).
 Private finishing queue storage is now locally implemented; five focused/restored cases
 passed, including cold recovery of uncertain publication. Snapshot and both digest faults
 independently failed exit1. Full gate session41257 passed exit0 with104Python/279Core/329Mac
-debug/release and oracle/inert/signature/packaged checks; see
+debug/release and oracle/inert/signature/packaged checks. Local implementation
+a6d90b4a1d9ed8b7eb4e73e42513be2c39f56092; source publication pending. See
 [store evidence](validation/M3-FINISHING-QUEUE-STORE-2026-09-17.md).
 Next independent slice: accepted finishing source/order/pitch/device and durable lifecycle binding.
 
