@@ -124,8 +124,8 @@ aliases. Previous intent rejects restart. All four modes exercise no-attempt can
 zero-byte attempt, synthetic waits, uncertain sync and lease release. Expanded nine tests
 passed; publication/replay faults detected exit1, restored nine cases passed exit0.
 Full finite gate session64896 passed FULL_GATE_EXIT 0 with 103/272/324 tests and
-the checks above; log /tmp/zpl-persisted-finishing-full.log. Source commit pending.
-See
+the checks above; log /tmp/zpl-persisted-finishing-full.log. Implementation 42a4caec2fb28ce8e752860cf494ddf9c37c6b69 committed locally; source push and hosted
+coverage pending. See
 [integration evidence](validation/M3-INERT-PERSISTED-FINISHING-2026-09-17.md).
 No actual accepted sender/device status or replay authority is introduced.
 
