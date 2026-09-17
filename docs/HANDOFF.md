@@ -1,3 +1,22 @@
+# Current offline status decoder slice — 2026-09-17
+
+On the existing PR #81 branch, a pure bounded legacy ~HS decoder exposes typed
+observations only after explicit support, with distinct unavailable states for
+unknown/unsupported/missing input. Fixed-width three-string framing, 64KiB cap,
+flags, reserved constants and numeric fields validate before any snapshot.
+Opaque fields are discarded and default diagnostic descriptions/dumps redact
+snapshot data. No query, I/O, profile mutation or print-completion inference.
+Six focused tests pass, including all nonempty truncated prefixes and twelve
+independent flags; zero-batch status does not confirm or replay a transmitted job.
+See `validation/M3-OFFLINE-HOST-STATUS-2026-09-17.md` and R44 provenance.
+Full local checks passed exit0: 89Python/197Core/273Mac debug/release, both
+independent oracles, twelve CLI cases and inert/signature/packaged checks.
+Publication waits for preceding exact406d6a4 hosted run35203016675, which
+remains active; no later-source hosted/independent review claim. Actual GC420d
+status/channel/freshness/coordinator and physical evidence remain unobserved.
+Additional partial M3-AC01/09/12 only. Frozen B candidate unchanged; no privilege,
+queue, device, merge, third review request or binary release action.
+
 # Latest hosted checkpoint and next status work — 2026-09-17
 
 Hosted run35202180091 passed at exact `c3e03af`, with retained log confirming

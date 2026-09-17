@@ -375,3 +375,21 @@ The plain-hex oracle and ordinary prepared-job encoder remain unchanged.
 Original Swift code and a separate Python decoder are independently checked
 against documented count examples and boundary vectors. Firmware qualification
 is still required before production selection; no manual PDF is redistributed.
+
+<a id="r44"></a>
+## R44 — Public Zebra legacy host-status reply grammar
+
+[Zebra ~HS protocol documentation](https://docs.zebra.com/content/tcm/us/en/printers/software/zpl-pg/zpl-commands/~hs4.html)
+and [public programming guide](https://www.zebra.com/content/dam/support-dam/en/documentation/unrestricted/guide/software/zpl-zbi2-pg-en.pdf).
+The official indexed reference was checked on 2026-09-17; direct HTML retrieval
+returned 404, so its indexed text supplies the framing/field tables. The guide's
+indexed text independently confirms response suppression under some faults.
+No manual PDF is bundled or redistributed.
+
+The decoder implements only the documented three-string fixed-width subset,
+validates flags/numbers and drops opaque third-string data. It does not issue a
+query, authenticate/freshen a reply, enable unit support, infer readiness from
+silence, or turn general status into a job-specific receipt. Actual GC420d USB
+status transport and firmware support remain unobserved. Its 64KiB input cap is
+project policy, not a vendor claim. Source tables describe observations rather
+than permissions to configure hardware.
