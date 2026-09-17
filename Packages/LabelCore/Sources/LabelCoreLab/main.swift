@@ -38,11 +38,24 @@ do {
         let encoder = try ZPLGraphicEncoder(maxDecodedBandBytes: cap)
         try bitmap.pbmData().write(to: dir.appendingPathComponent(name + ".pbm"), options: .withoutOverwriting)
         try encoder.diagnosticFormat(bitmap).write(to: dir.appendingPathComponent(name + ".zpl"), options: .withoutOverwriting)
+        try encoder.compressedDiagnosticFormat(bitmap).write(to: dir.appendingPathComponent(name + ".acs.zpl"), options: .withoutOverwriting)
         entries.append(["name": name, "width": width, "height": height, "bandLimit": cap,
                         "bandRows": try encoder.bands(for: layout).map(\.rowCount)])
     }
     let manifest = try JSONSerialization.data(withJSONObject: ["schemaVersion": 1, "vectors": entries], options: [.prettyPrinted, .sortedKeys])
     try (manifest + Data([10])).write(to: dir.appendingPathComponent("vectors.json"), options: .withoutOverwriting)
+    var compressionEntries: [[String: Any]] = []
+    for (pattern, value) in [("white", UInt8(0)), ("black", UInt8(255)), ("nibble", UInt8(0x66)), ("checker", UInt8(0xA5))] {
+        for stride in [1, 2, 3, 9, 10, 19, 20, 199, 200, 201, 400, 801] {
+            let name = "compression-\(pattern)-\(stride)"
+            let bitmap = try MonochromeBitmap(width: stride * 8, height: 3, bytes: [UInt8](repeating: value, count: stride * 3))
+            let encoder = try ZPLGraphicEncoder(maxDecodedBandBytes: stride * 2)
+            try encoder.compressedDiagnosticFormat(bitmap).write(to: dir.appendingPathComponent(name + ".acs.zpl"), options: .withoutOverwriting)
+            compressionEntries.append(["name": name, "pattern": pattern, "stride": stride])
+        }
+    }
+    let compressionManifest = try JSONSerialization.data(withJSONObject: compressionEntries, options: [.prettyPrinted, .sortedKeys])
+    try compressionManifest.write(to: dir.appendingPathComponent("compression.json"), options: .withoutOverwriting)
     print("Offline vectors written. No printer accessed. Diagnostic ZPL is not a qualified job.")
 } catch {
     FileHandle.standardError.write(Data("ERROR: \(error)\n".utf8))

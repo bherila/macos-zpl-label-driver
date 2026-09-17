@@ -361,3 +361,17 @@ and subprocess setup opens that stdout as `/dev/null`. Source inspection informs
 the direct-descriptor regression, not installed Tahoe scheduler acceptance.
 No CUPS implementation is copied or bundled. Native direct-executable tests
 remain distinct from administrator admission and actual spooler execution.
+
+<a id="r43"></a>
+## R43 — Zebra ASCII hexadecimal repeat-count compression
+
+[ZPL II Programming Guide Volume Two](https://www.zebra.com/content/dam/support-dam/en/documentation/unrestricted/guide/software/zplii-pm-vol2-en.pdf),
+45542L-002 Rev. A, printed page 52, documents additive hexadecimal repeat
+counts and previous-row repetition. [Graphic Field](https://docs.zebra.com/content/tcm/us/en/printers/software/zpl-pg/zpl-commands/%5Egf.html)
+defines ASCII download conventions and decoded-byte metadata. The experimental
+writer uses only count tokens and previous-row repetition; it does not implement
+binary compression, download stored objects, or enable a device capability.
+The plain-hex oracle and ordinary prepared-job encoder remain unchanged.
+Original Swift code and a separate Python decoder are independently checked
+against documented count examples and boundary vectors. Firmware qualification
+is still required before production selection; no manual PDF is redistributed.
