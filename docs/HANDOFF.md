@@ -21,12 +21,12 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
   `3047f7880665e9550efb621fbfad2ceb328fff49`. Latest published software
   implementation `ccd7a9a`: immutable original-PDF acceptance and range/copy ownership.
   Earlier explicit A assessments remain historical; new source needs reassessment.
-- Latest completed finite900s `bash scripts/ci-swift.sh`, session76633, completed
-  `FULL_GATE_EXIT 0`:104 Python/281 Core/341 native tests in debug/release,
+- Latest completed finite900s `bash scripts/ci-swift.sh`, session32086, completed
+  `FULL_GATE_EXIT 0`:104 Python/281 Core/344 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.8Cbhfj`; no printer accessed.
+  Local artifact: `artifacts/setup-app.0aX201`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
@@ -207,7 +207,14 @@ native cases passed including artifact renaming, cold recovery, exact context, u
 publication and synthetic success without clearing uncertainty. Two independent guard
 omissions failed exit1; exact restored17 cases passed exit0. Full gate session76633 passed exit0:104Python/281Core/341Mac debug/release plus
 oracle/inert/signature/packaged checks; see [intent evidence](validation/M3-ACCEPTED-FINISHING-INTENT-2026-09-17.md).
-Next: accepted-job coordinated inert admission, then cancellation/lifecycle recovery.
+Accepted-job coordinated inert admission is now local: twenty focused native cases passed
+exit0, including intent-before-discard, job/device lease competitors during waits, replay
+refusal and uncertainty after zero-byte/publication failures. Replay-veto/early-lease
+faults failed exit1 through expected assertions; exact restored20 cases passed exit0.
+Full gate session32086 passed exit0:104Python/281Core/344Mac debug/release plus
+oracle/inert/signature/packaged checks;
+see [coordinator evidence](validation/M3-ACCEPTED-FINISHING-COORDINATOR-2026-09-17.md).
+Next: durable accepted-job cancellation/lifecycle recovery.
 Actual identified unit correspondence remains open.
 
 ## Manual Part A and Part B

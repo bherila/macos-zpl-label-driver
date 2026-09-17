@@ -380,3 +380,9 @@ intent is keyed by acceptance ID, independent of artifact identifiers. Recorded 
 recovers uncertain, even after synthetic success. No clear/reset/completion/replay authority
 exists. A coordinator must hold a job lease across missing-intent check, publication and all
 actual delivery/status waits; idempotent storage publication is not a new sending permission.
+
+InertAcceptedFinishingDelivery derives its simulator device domain from sealed accepted
+geometry, holds an acceptance-ID lease across validation, device coordination and all waits,
+and publishes conservative intent before the first discard callback. Recorded uncertainty
+vetoes later admission. A single finite aggregate deadline spans validation/publication/steps.
+Synthetic confirmations do not clear intent or prove hardware completion.

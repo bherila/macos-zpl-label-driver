@@ -24,7 +24,7 @@ Full finite900-second Mac gate session76633 completed FULL_GATE_EXIT0:104 Python
 281 Core and341 native tests in debug/release;132 strict and180 ASCII oracle cases per
 mode, finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local
 ad-hoc signatures, Developer-ID negative and packaged-worker PBM/ZPL equality. Local
-artifact: artifacts/setup-app.8Cbhfj. Source commit/publication pending.
+artifact: artifacts/setup-app.8Cbhfj. Implementation checkpoint: 90449fbd2bdb546511bdc3506eb39cce8f22e927. Source publication pending.
 
 Next: coordinate accepted-job intent and a job lease through every inert file/status wait,
 then durable cancellation/lifecycle recovery. A future coordinator must hold a job lease

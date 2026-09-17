@@ -422,4 +422,89 @@ final class FinishingQueueStoreTests: XCTestCase {
         XCTAssertEqual(try intents.recoveryObservation(reference:ref,against:job,queueStore:queues,
             workflowStore:workflows,printerStore:printers,workerExecutable:worker),.uncertainAfterRecordedIntent)
     }
+    private func acceptedFramedFixture() throws -> (AcceptedFinishingFramedJob,WorkflowProfileStore,PrinterProfileStore,FinishingQueueStore,URL) {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let accepted=try AcceptedFinishingJobStore(root:workflows.root), ref=try accepted.save(job)
+        let prepared=try accepted.prepare(reference:ref,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        let qualification=FinishingOutputQualification(profile:job.geometry.printer.profile,model:job.geometry.printer.profile.capabilities.model,
+            quantityOne:documented,labelCompletion:documented,rfid:.init(state:.unsupported,evidence:.documentedModel(sourceID:"synthetic-non-rfid")),
+            delayedCutter:documented,delayedCutReadiness:documented,cutCompletion:documented,
+            completeFileDelivery:.observed(true,evidence:.reportedInstallation))
+        return (try prepared.frame(qualification:qualification),workflows,printers,queues,worker)
+    }
+    func testAcceptedCoordinatorRecordsBeforeDiscardHoldsLeasesThroughWaitsAndRefusesReplay() throws {
+        let (framed,workflows,printers,queues,worker)=try acceptedFramedFixture()
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        var attempts=0, waits=0, discarded=0
+        _ = try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root,
+            scenario:.init(),deadlineSeconds:60,cancellation:.init()) { event in
+                switch event {
+                case .fileAttempt:
+                    attempts += 1
+                    XCTAssertEqual(try intents.recoveryObservation(reference:framed.reference,against:framed.prepared.acceptance,
+                        queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),.uncertainAfterRecordedIntent)
+                case .bytesDiscarded: discarded += 1
+                case .statusWait:
+                    waits += 1
+                    XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,
+                        queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root)) {
+                        XCTAssertEqual($0 as? InertAcceptedFinishingDelivery.Error,.jobBusy)
+                    }
+                    XCTAssertThrowsError(try PhysicalDeviceLease(acquiring:.init(coordinationID:framed.prepared.acceptance.geometry.physicalDevice),
+                        inExistingDirectory:workflows.root)) { XCTAssertEqual($0 as? PhysicalDeviceLeaseError,.alreadyHeld) }
+                }
+            }
+        XCTAssertEqual(attempts,6);XCTAssertGreaterThan(waits,0);XCTAssertGreaterThan(discarded,0)
+        XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:try AcceptedFinishingAttemptStore(root:workflows.root),
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root)) {
+            XCTAssertEqual($0 as? InertAcceptedFinishingDelivery.Error,.recordedIntentRequiresReview)
+        }
+        let released=try PhysicalDeviceLease(acquiring:.init(coordinationID:framed.prepared.acceptance.geometry.physicalDevice),inExistingDirectory:workflows.root)
+        released.release()
+    }
+    func testAcceptedCoordinatorZeroBytesAndUncertainPublicationCannotBecomeFreshAdmission() throws {
+        for publicationFault in [false,true] {
+            let (framed,workflows,printers,queues,worker)=try acceptedFramedFixture()
+            let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+            let selected = publicationFault ? try AcceptedFinishingAttemptStore(root:workflows.root,
+                storage:PrivateImmutableDirectory(root:workflows.root,syncDirectory:{ _ in -1 })) : intents
+            var observed=0
+            if publicationFault {
+                XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:selected,queueStore:queues,
+                    workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root,
+                    scenario:.init(),deadlineSeconds:60,cancellation:.init(),observe:{ _ in observed += 1 })) {
+                    XCTAssertEqual($0 as? AcceptedFinishingAttemptStore.Error,.commitUncertain)
+                }
+                XCTAssertEqual(observed,0)
+            } else {
+                _ = try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:selected,queueStore:queues,
+                    workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root,
+                    scenario:.init(failAfterAttemptAtStep:0),deadlineSeconds:60,cancellation:.init()) { event in
+                        if case .bytesDiscarded = event { observed += 1 }
+                    }
+                XCTAssertEqual(observed,0)
+            }
+            XCTAssertEqual(try intents.recoveryObservation(reference:framed.reference,against:framed.prepared.acceptance,
+                queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),.uncertainAfterRecordedIntent)
+            XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,queueStore:queues,
+                workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root)) {
+                XCTAssertEqual($0 as? InertAcceptedFinishingDelivery.Error,.recordedIntentRequiresReview)
+            }
+        }
+    }
+    func testAcceptedCoordinatorStopBeforeAttemptAndCancellationCreateNoIntent() throws {
+        let (framed,workflows,printers,queues,worker)=try acceptedFramedFixture()
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        _ = try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root,
+            scenario:.init(stopBeforeStep:0))
+        let cancellation=OfflineRenderWorkerCancellation();cancellation.cancel()
+        XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root,cancellation:cancellation)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJob.Error,.cancelled)
+        }
+        XCTAssertEqual(try intents.recoveryObservation(reference:framed.reference,against:framed.prepared.acceptance,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),.noRecordedIntent)
+    }
 }
