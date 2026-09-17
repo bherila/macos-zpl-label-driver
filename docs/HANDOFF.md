@@ -24,6 +24,15 @@ authorization for a finite, clearly named experimental capture queue and its
 installation scope. No printer output, queue modification, privileged helper,
 or production adapter is authorized by the current evidence.
 
+M1 preflight on Tahoe ARM is recorded in
+[M1-TAHOE-CAPTURE-2026-09-15.md](validation/M1-TAHOE-CAPTURE-2026-09-15.md).
+The candidate PPDs now pass native `cupstestppd -v` with standard full-bleed
+media names, and the inert probe's release build/signature were verified. The
+only attempted installation action was a non-interactive authorization check,
+which was denied; no backend, queue, printer operation, or global CUPS change
+occurred. M1 installed-scheduler evidence remains blocked until the local
+supported administrator authorization path is completed.
+
 Reusable components now exist: canonical monochrome packing/threshold/PBM, bounded
 uncompressed graphic fields, copy ordering, an offline vector CLI, an inert CUPS
 ABI probe, three candidate PPDs and original synthetic PDF/HTML fixtures. Do not
