@@ -510,3 +510,7 @@ Local unpublished d86206a2bb5721c36569f5f7100c5b58c3facb66 documents the impleme
 ## Editable reserved margins
 
 [Receipt](validation/M4-EDITOR-OUTPUT-MARGINS-2026-09-17.md) evaluates unpublished 304a392fccbcbc0b6cb8df5158d229a83a2f93a8. Model and native measurement fields edit margins with immutable correction, generation binding and preview/review invalidation. Dot-empty margin/stock edits reject atomically; real old-worker barrier proves newer preview preserved.23editor both/106Python/preflight passed. App setup-app.Ab82hG local ad-hoc metadata/signatures/packaged-worker equality passed; no GUI/VO/manual/physical claim or frozen-candidate replacement. Queue-v3 references pending; next snapshot admission/reconstruction compatibility and integrated gate.
+
+## Portable workflow3 reference checkpoint
+
+[Receipt](validation/M4-WORKFLOW3-REFERENCE-CORE-2026-09-17.md):311Core both/accelerator debug passed for workflow3 resolved-ticket and finishing references, stale planned margins and snapshot rejection. Native validation/contract reconciliation pending; implementation paused for maintainer-authorized merge through38. PR1 now squash-merged at072dbe3; native58PR2–59 stack82 created, remaining PRs unmerged.

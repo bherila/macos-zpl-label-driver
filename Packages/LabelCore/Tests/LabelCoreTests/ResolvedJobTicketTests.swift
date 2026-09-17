@@ -19,6 +19,26 @@ final class ResolvedJobTicketTests: XCTestCase {
         }
     }
 
+    func testMarginWorkflowReferencesRoundtripAndRejectStalePlannedMargins() throws {
+        let margins = try OutputMargins(left: 1, top: 2, right: 3, bottom: 4)
+        let (active, reference, queue, workflow, printer, plan) = try fixture(outputMargins: margins)
+        let ticket = try ResolvedJobTicket.accept(acceptanceID: "margin-snapshot",
+            cancellationSHA256: cancellationDigest, activeSelection: active, queueReference: reference,
+            queueDefinition: queue, workflowProfile: workflow, printerProfile: printer,
+            sourceDocumentSHA256: sourceDigest, sourceByteCount: 100, intakeProvenance: .offlineCLI,
+            plan: plan, copyOwnership: .engine(copies: 2, collated: true), pageRangeOwnership: .upstreamAlreadyApplied)
+        XCTAssertEqual(ticket.workflowProfile.schemaVersion, 3)
+        XCTAssertTrue(plan.outputLabels.allSatisfy { $0.outputMargins == margins })
+        XCTAssertEqual(try ResolvedJobTicketJSON.decode(ResolvedJobTicketJSON.encode(ticket),
+            queueReference: reference, queueDefinition: queue, workflowProfile: workflow, printerProfile: printer), ticket)
+        let (_, _, _, _, _, stalePlan) = try fixture()
+        XCTAssertThrowsError(try ResolvedJobTicket.accept(acceptanceID: "stale-margin-plan",
+            cancellationSHA256: cancellationDigest, activeSelection: active, queueReference: reference,
+            queueDefinition: queue, workflowProfile: workflow, printerProfile: printer,
+            sourceDocumentSHA256: sourceDigest, sourceByteCount: 100, intakeProvenance: .offlineCLI,
+            plan: stalePlan, copyOwnership: .engine(copies: 2, collated: true), pageRangeOwnership: .upstreamAlreadyApplied))
+    }
+
     private let queueDigest = String(repeating: "a", count: 64)
     private let workflowDigest = String(repeating: "b", count: 64)
     private let printerDigest = String(repeating: "c", count: 64)
@@ -33,7 +53,8 @@ final class ResolvedJobTicketTests: XCTestCase {
         qualifiedDarkness: Bool = false,
         qualifiedGeometry: Bool = false,
         qualifiedOffsets: Bool = false,
-        qualifiedThermal: Bool = false
+        qualifiedThermal: Bool = false,
+        outputMargins: OutputMargins = .zero
     ) throws -> (
         ActiveVirtualQueueSelection, ImmutableProfileReference,
         VirtualQueueDefinition, WorkflowProfile, PrinterProfile, ExtractionPlan
@@ -51,7 +72,7 @@ final class ResolvedJobTicketTests: XCTestCase {
                 feedSpeedIps: baseline.configuredDefaults.feedSpeedIps,
                 backfeedSpeedIps: baseline.configuredDefaults.backfeedSpeedIps, darkness: 10)) : baseline)))
         let workflowReference = try ImmutableProfileReference(
-            id: "letter-two-labels", schemaVersion: 2,
+            id: "letter-two-labels", schemaVersion: outputMargins == .zero ? 2 : 3,
             revision: 3, sha256: workflowDigest
         )
         let printerReference = try ImmutableProfileReference(
@@ -82,11 +103,13 @@ final class ResolvedJobTicketTests: XCTestCase {
         )
         let page = try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792)
         let profile = try WorkflowProfile(
+            schemaVersion: workflowReference.schemaVersion,
             id: workflowReference.id, revision: workflowReference.revision,
             outputStockID: "nominal-4x6",
             outputStock: PhysicalSize(
                 width: try Millimeters.inches(4), height: try Millimeters.inches(6)
             ),
+            outputMargins: outputMargins,
             monochromeConversion: .photographicOrderedDither4x4,
             pageRules: [
                 try WorkflowPageRule(

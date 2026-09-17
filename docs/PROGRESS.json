@@ -328,7 +328,8 @@
         "docs/validation/M4-IMMUTABLE-OUTPUT-MARGINS-2026-09-17.md (immutable schema-v3 margin definitions/plans; v2 byte compatibility and atomic stock validation;309Core/87focused native both,106Python/accelerator debug passed; nonzero rendering deliberately blocked pending worker integration, no full/manual/hardware acceptance)",
         "docs/validation/M4-NATIVE-MARGIN-CLIPPING-2026-09-17.md (native original-PDF margin request/visible clipping, exact packed asymmetry and zero defaults;30native debug/37release/106Python passed; worker/UI integration pending)",
         "docs/validation/M4-MARGIN-WORKER-PROPAGATION-2026-09-17.md (planned margins propagate via private ticket-v3/original-PDF worker; final53native both/direct-worker exact equality,106Python/preflight passed; zero legacy retained; queue-v3/editor controls pending, no full/manual/hardware acceptance)",
-        "docs/validation/M4-EDITOR-OUTPUT-MARGINS-2026-09-17.md (model/native margin fields with atomic dot-area validation, revision/review/generation/race tests;23editor both/106Python and local ad-hoc app packaging passed; GUI/VO/manual/physical and queue-v3 remain open)"
+        "docs/validation/M4-EDITOR-OUTPUT-MARGINS-2026-09-17.md (model/native margin fields with atomic dot-area validation, revision/review/generation/race tests;23editor both/106Python and local ad-hoc app packaging passed; GUI/VO/manual/physical and queue-v3 remain open)",
+        "docs/validation/M4-WORKFLOW3-REFERENCE-CORE-2026-09-17.md (311Core both/accelerator debug pass; native/contract reconciliation pending, portable checkpoint only)"
       ],
       "blockers": []
     },

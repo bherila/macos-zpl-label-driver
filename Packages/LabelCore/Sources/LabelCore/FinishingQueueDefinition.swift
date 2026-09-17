@@ -39,7 +39,8 @@ public struct FinishingQueueDefinition: Equatable, Sendable {
               displayName.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else {
             throw Error.invalidIdentity
         }
-        guard workflowProfile.schemaVersion == 2, workflowProfile.id == workflow.id,
+        guard (2...3).contains(workflowProfile.schemaVersion),
+              workflowProfile.schemaVersion == workflow.schemaVersion, workflowProfile.id == workflow.id,
               workflowProfile.revision == workflow.revision, printerProfile.schemaVersion == 8,
               printer.schemaVersion == 8, printerProfile.revision == printer.revision else {
             throw Error.invalidReference
