@@ -1,0 +1,7 @@
+# Endpoint encoded-byte budget regression
+
+The raw TCP endpoint constructor now bounds host input to 253 UTF-8 bytes before scalar validation. The nearest independent constraint is encoded input size: a grapheme count cannot bound bytes because one grapheme may contain many combining marks. The bounded prefix examines at most 254 bytes and rejects excess input without changing host normalization or DNS syntax policy.
+
+The new constructor-only regression accepts a 253-byte Unicode cluster and rejects a 255-byte cluster, both one grapheme. It also checks ASCII 253/254-byte boundaries and IPv6 loopback admission. Before the fix the oversized cluster was accepted and the regression failed one assertion. After the fix all 16 RawTCPDeliveryTests passed in debug and release. The Python suite passed 106 tests with exit 0; the release label-printer-setup product build passed exit 0. An initial build command used an incorrect product name and failed before compilation; the corrected declared product was validated.
+
+The regression does not resolve these synthetic hosts or connect to a printer. Existing delivery tests use finite loopback peers. No DNS validity, GUI, physical output, installation, privilege, hosted CI or publication claim follows. The last integrated baseline predates this and the documented-width source changes. Earlier exact-source acceptance records remain historical; no acceptance was refreshed.

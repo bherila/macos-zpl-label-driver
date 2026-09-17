@@ -20,6 +20,20 @@ final class RawTCPDeliveryTests: XCTestCase {
         XCTAssertNotEqual(endpoint, try RawTCPEndpoint(host: endpoint.host, port: 19102))
     }
 
+    func testEndpointHostBudgetCountsUTF8BytesBeforeNetworkAdmission() throws {
+        let maximum = "e" + String(repeating: "\u{0301}", count: 126)
+        let oversized = maximum + "\u{0301}"
+        XCTAssertEqual(maximum.utf8.count, 253)
+        XCTAssertEqual(oversized.count, 1)
+        XCTAssertNoThrow(try RawTCPEndpoint(host: maximum, port: 19101))
+        XCTAssertThrowsError(try RawTCPEndpoint(host: oversized, port: 19101)) {
+            XCTAssertEqual($0 as? RawTCPEndpoint.ValidationError, .invalidHost)
+        }
+        XCTAssertNoThrow(try RawTCPEndpoint(host: String(repeating: "a", count: 253), port: 19101))
+        XCTAssertThrowsError(try RawTCPEndpoint(host: String(repeating: "a", count: 254), port: 19101))
+        XCTAssertNoThrow(try RawTCPEndpoint(host: "::1", port: 19101))
+    }
+
     private func completeJob() throws -> PreparedJobPayload {
         let profile = try PrinterProfile.gc420dUSBReference(revision: 29)
         let encoder = try ZPLPreparedLabelEncoder()

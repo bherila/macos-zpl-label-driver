@@ -15,7 +15,9 @@ public struct RawTCPEndpoint: Equatable, Sendable, RedactedDiagnosticValue {
     public let port: UInt16
 
     public init(host: String, port: UInt16) throws {
-        guard !host.isEmpty, host.count <= 253,
+        // Bound encoded input before scalar validation; grapheme count does not
+        // bound memory (one cluster may contain arbitrarily many combining marks).
+        guard !host.isEmpty, host.utf8.prefix(254).count <= 253,
               host.unicodeScalars.allSatisfy({ !$0.properties.isWhitespace && !CharacterSet.controlCharacters.contains($0) })
         else { throw ValidationError.invalidHost }
         guard port != 0 else { throw ValidationError.invalidPort }
