@@ -124,7 +124,8 @@ public struct ResolvedJobTicket: Equatable, Sendable {
         do { controls = try printerProfile.resolveControls(job: explicitControls, workflowDefaults: defaults) }
         catch { throw ResolvedJobTicketError.invalidControls }
         return try ResolvedJobTicket(
-            schemaVersion: queueDefinition.schemaVersion == 2 || printerProfile.schemaVersion == 3 ? 3 : 2,
+            schemaVersion: queueDefinition.schemaVersion == 3 || printerProfile.schemaVersion == 4 ? 4 :
+                (queueDefinition.schemaVersion == 2 || printerProfile.schemaVersion == 3 ? 3 : 2),
             acceptanceID: acceptanceID,
             cancellationSHA256: cancellationSHA256,
             activeSelectionGeneration: activeSelection.generation,
@@ -171,16 +172,20 @@ public struct ResolvedJobTicket: Equatable, Sendable {
         outputLabels: [ResolvedOutputLabel],
         skippedPages: [ResolvedSkippedPage]
     ) throws {
-        guard (2...3).contains(schemaVersion) else { throw ResolvedJobTicketError.unsupportedSchema }
-        guard schemaVersion == 3 || (printerProfile.schemaVersion <= 2 && queue.schemaVersion == 1 &&
+        guard (2...4).contains(schemaVersion) else { throw ResolvedJobTicketError.unsupportedSchema }
+        guard schemaVersion >= 3 || (printerProfile.schemaVersion <= 2 && queue.schemaVersion == 1 &&
               controls.feedSpeedIps == .notExplicitlyControlled && controls.backfeedSpeedIps == .notExplicitlyControlled) else {
+            throw ResolvedJobTicketError.invalidControls
+        }
+        guard schemaVersion == 4 || (printerProfile.schemaVersion <= 3 && queue.schemaVersion <= 2 &&
+              controls.darkness == .leaveUnchanged) else {
             throw ResolvedJobTicketError.invalidControls
         }
         guard VirtualQueueDefinition.isSelector(acceptanceID),
               VirtualQueueDefinition.isSHA256(cancellationSHA256)
         else { throw ResolvedJobTicketError.invalidIdentity }
         guard activeSelectionGeneration > 0,
-              workflowProfile.schemaVersion == 2, (1...3).contains(printerProfile.schemaVersion),
+              workflowProfile.schemaVersion == 2, (1...4).contains(printerProfile.schemaVersion),
               controls.profileSchemaVersion == printerProfile.schemaVersion,
               controls.profileRevision == printerProfile.revision else {
             throw ResolvedJobTicketError.invalidReference
@@ -397,7 +402,7 @@ public enum ResolvedJobTicketJSON {
                 "monochromeConversion", "controls", "outputLabels", "skippedPages",
             ])
             let version = try integer(root, "schemaVersion")
-            guard (2...3).contains(version) else {
+            guard (2...4).contains(version) else {
                 throw ResolvedJobTicketError.unsupportedSchema
             }
             let source = try object(try required(root, "source"), keys: [
@@ -580,7 +585,7 @@ public enum ResolvedJobTicketJSON {
             "tracking": encodeOptionalTracking(value.tracking),
             "mediaGeometry": encodeGeometry(value.mediaGeometry),
         ]
-        if version == 3 {
+        if version >= 3 {
             result["feedSpeedIps"] = encodeMotorSpeed(value.feedSpeedIps)
             result["backfeedSpeedIps"] = encodeMotorSpeed(value.backfeedSpeedIps)
         }
@@ -590,7 +595,7 @@ public enum ResolvedJobTicketJSON {
     private static func decodeControls(_ raw: Any, version: Int) throws -> ResolvedPrinterControls {
         var keys: Set<String> = ["profileSchemaVersion", "profileRevision", "thermalMethod", "finishing",
                                  "printSpeedIps", "darkness", "tracking", "mediaGeometry"]
-        if version == 3 { keys.formUnion(["feedSpeedIps", "backfeedSpeedIps"]) }
+        if version >= 3 { keys.formUnion(["feedSpeedIps", "backfeedSpeedIps"]) }
         let value = try object(raw, keys: keys)
         return ResolvedPrinterControls(
             profileSchemaVersion: try integer(value, "profileSchemaVersion"),
@@ -598,8 +603,8 @@ public enum ResolvedJobTicketJSON {
             thermalMethod: try decodeRequired(value, "thermalMethod", ThermalMethod.init(rawValue:)),
             finishing: try decodeRequired(value, "finishing", FinishingMode.init(rawValue:)),
             printSpeedIps: try decodeOptionalInt(value, "printSpeedIps"),
-            feedSpeedIps: version == 3 ? try decodeMotorSpeed(value, "feedSpeedIps") : .notExplicitlyControlled,
-            backfeedSpeedIps: version == 3 ? try decodeMotorSpeed(value, "backfeedSpeedIps") : .notExplicitlyControlled,
+            feedSpeedIps: version >= 3 ? try decodeMotorSpeed(value, "feedSpeedIps") : .notExplicitlyControlled,
+            backfeedSpeedIps: version >= 3 ? try decodeMotorSpeed(value, "backfeedSpeedIps") : .notExplicitlyControlled,
             darkness: try decodeOptionalInt(value, "darkness"),
             tracking: try decodeOptional(value, "tracking", MediaTracking.init(rawValue:)),
             mediaGeometry: try decodeGeometry(try required(value, "mediaGeometry"))

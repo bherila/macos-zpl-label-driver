@@ -28,6 +28,11 @@ public struct ZPLControlProtocol: Equatable, Sendable {
         lifetime: .applicationUntilReissuedOrPowerOff,
         notes: "All three values explicit; feed/backfeed need separate profile qualification. Reference remains unknown.")
 
+    public static let qualifiedAbsoluteDarkness: ZPLControlProtocol = .init(
+        option: "darkness", command: "^MD0/~SD", sourceID: "R45",
+        lifetime: .applicationUntilReissuedOrPowerOff,
+        notes: "Explicit integer 0..30; relative adjustment normalized. Requires qualified profile4 fact; reference remains unknown.")
+
     public static let gc420dBaseline: [ZPLControlProtocol] = [
         .init(option: "printSpeedIps", command: "^PRp", sourceID: "R11",
               lifetime: .applicationUntilReissuedOrPowerOff,
@@ -73,7 +78,12 @@ public struct ZPLControlEncoder: Sendable {
             break
         case .value: throw ZPLControlEncodingError.unsupportedFinishing
         }
-        guard controls.darkness == .leaveUnchanged else { throw ZPLControlEncodingError.unqualifiedDarkness }
+        var darknessBytes: Data?
+        if case let .value(value) = controls.darkness {
+            guard controls.profileSchemaVersion == 4 else { throw ZPLControlEncodingError.unqualifiedDarkness }
+            darknessBytes = try ZPLDocumentedControlEncoder().encode([.absoluteDarkness(value)],
+                qualification: [.absoluteDarkness: .supported])
+        }
         guard controls.tracking == .leaveUnchanged else { throw ZPLControlEncodingError.unqualifiedTracking }
         // This encoder implements only the documented GC420d subset. A caller's
         // capability declaration cannot widen the documented command subset.
@@ -83,7 +93,7 @@ public struct ZPLControlEncoder: Sendable {
 
         var motorBytes: Data?
         if controls.feedSpeedIps != .notExplicitlyControlled || controls.backfeedSpeedIps != .notExplicitlyControlled {
-            guard controls.profileSchemaVersion == 3 else { throw ZPLControlEncodingError.unqualifiedMotorSpeeds }
+            guard controls.profileSchemaVersion >= 3 else { throw ZPLControlEncodingError.unqualifiedMotorSpeeds }
             guard case let .value(printSpeed) = controls.printSpeedIps,
                   case let .value(feedSpeed) = controls.feedSpeedIps,
                   case let .value(backfeedSpeed) = controls.backfeedSpeedIps else {
@@ -101,6 +111,7 @@ public struct ZPLControlEncoder: Sendable {
         else if case let .value(speed) = controls.printSpeedIps {
             output.append(contentsOf: "^PR\(speed)\n".utf8)
         }
+        if let darknessBytes { output.append(darknessBytes) }
         guard output.count <= maxOutputBytes else { throw ZPLControlEncodingError.outputLimit }
         return output
     }

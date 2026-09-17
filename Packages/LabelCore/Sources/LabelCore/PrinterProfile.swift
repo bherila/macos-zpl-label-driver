@@ -246,7 +246,7 @@ public struct PrinterProfile: Equatable, Sendable {
         connection: ConnectionConfiguration,
         configuredDefaults: PrinterControlDefaults = .init()
     ) throws {
-        guard (1...3).contains(schemaVersion), revision > 0,
+        guard (1...4).contains(schemaVersion), revision > 0,
               schemaVersion >= 2 || configuredDefaults == .init() else {
             throw PrinterProfileError.invalidProfileVersion
         }
@@ -256,7 +256,7 @@ public struct PrinterProfile: Equatable, Sendable {
         guard capabilities.printSpeedChoicesIps.allSatisfy({ $0 > 0 }) else {
             throw PrinterProfileError.invalidPrintSpeedChoice
         }
-        guard schemaVersion == 3 ||
+        guard schemaVersion >= 3 ||
               (capabilities.feedSpeeds == .unverified && capabilities.backfeedSpeeds == .unverified &&
                configuredDefaults.feedSpeedIps == nil && configuredDefaults.backfeedSpeedIps == nil) else {
             throw PrinterProfileError.invalidProfileVersion
@@ -316,6 +316,7 @@ public enum PrinterProfileError: Error, Equatable, Sendable {
     case unsupportedFinishing(FinishingMode)
     case unsupportedPrintSpeed(Int)
     case unavailableDarkness
+    case unsupportedDarkness(Int)
     case unavailableTracking(MediaTracking)
     case unavailableMediaGeometry
 }
@@ -412,7 +413,15 @@ public extension PrinterProfile {
                 throw PrinterProfileError.incompleteMotorSpeeds
             }
         }
-        if request.darkness != nil { throw PrinterProfileError.unavailableDarkness }
+        if let darkness = request.darkness {
+            guard schemaVersion == 4, capabilities.darkness.state == .supported,
+                  capabilities.darkness.evidence != .unobserved else {
+                throw PrinterProfileError.unavailableDarkness
+            }
+            guard (0...30).contains(darkness) else {
+                throw PrinterProfileError.unsupportedDarkness(darkness)
+            }
+        }
         if let tracking = request.tracking {
             // Model capability and a read-only observation do not qualify a
             // control command. Tracking remains unavailable until its command,
