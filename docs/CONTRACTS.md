@@ -272,3 +272,10 @@ in explicit order. They expose no concatenated payload or delivery authority. A 
 sender must independently validate its actual file/status implementation and retain the
 physical-device coordination lease through required waits. Unknown status is never
 completion. Ordinary schema8 queue/ticket/encoder admission remains unchanged.
+
+FinishingDeliveryTracker is in-memory accounting only. A complete file advances to its
+status requirement, never directly to printed completion. Any attempted file makes
+subsequent failure uncertain, even with zero known accepted bytes. Unknown/unsatisfied
+status cannot advance, and exact step/payload binding precedes attempts. Callers must
+provide actual qualified correlation and hold physical ownership through all waits;
+this tracker supplies neither hardware receipts nor accepted device-write authority.
