@@ -370,3 +370,7 @@ Unpublished width-subset implementation checkpoint `8dcc24141aaa8dbb6ca6aa27aecb
 ## Typed extraction region admission
 
 [Shared page-region budget](validation/M4-TYPED-REGION-LIMIT-2026-09-17.md) fixes a typed profile that could be exported but not imported. Model, JSON importer and editor now share the existing 256-region limit; rejection is explicit. All 284 Core and 31 native editor tests passed debug/release; the debug accelerator passed. No manual editor, scheduler or physical gate was promoted. Next: inspect remaining profile/planning requirements and production integration dependencies rather than carry historical acceptance forward.
+
+## Open exact-integer identity defect
+
+[JSON integer investigation](validation/JSON-INTEGER-IDENTITY-INVESTIGATION-2026-09-17.md) reproduced lossy large revision/order reload and Int.max rejection. A tentative string conversion still admitted a large fractional token after Foundation rounded it. Source and tests were restored; no partial fix landed. Next slice is shared exact integer parsing across the enumerated codec sites, preserving geometry and existing wire/error contracts. This is an independent software gap, so the goal is not blocked on hardware.

@@ -1,0 +1,13 @@
+# JSON integer identity investigation
+
+Open implementation defect; no fix or acceptance pass is claimed.
+
+A native regression against current WorkflowProfileJSON reproduced two failures: revision/outputOrder 9007199254740993 reloaded with changed integer identity, and Int.max threw invalidType despite typed admission. The focused test exited 1. The encoder preserves these integer values; converting decoded integer NSNumber to Double is the lossy boundary.
+
+A tentative string/decimal conversion repaired native integer round trips but a second adversarial case failed: JSON revision 9007199254740993.5 was accepted as an integer. A direct native Foundation experiment showed JSONSerialization returns an NSNumber with objCType d and stringValue 9007199254740994 for that token; integer literal 9007199254740993 and Int.max retain objCType q and exact strings. Thus validation after Foundation numeric conversion cannot recover original fraction information merely from stringValue. The tentative source/test edits were restored; no partial fix was committed.
+
+The neighboring portable codecs with analogous integer guards are PrinterProfileJSON, ResolvedJobTicket, ActiveVirtualQueueSelection, FinishingQueueJSON, AcceptedJobState and VirtualQueueDefinition. WorkflowProfileStore has another native revision guard. Geometry floating-point conversions are a separate domain and must not be changed wholesale.
+
+Next implementation slice: name exact JSON integer identity as a shared constraint and validate integer tokens without a lossy intermediate. A native JSONDecoder probe also accepted 9007199254740993.5 as Int 9007199254740993, while preserving integer literals/Int.max and rejecting overflow/boolean tokens. JSONDecoder Int decoding alone therefore is not a sufficient exactness boundary. Select a bounded token-aware parsing/validation approach that retains numeric spellings for integer fields, and verify it on Linux as well. Cover all affected identity codec paths, integral decimal/exponent spellings, booleans, large fractions, overflow and exact signed edges; preserve wire schemas, profile content digests and existing error types. Do not silently cap typed revision identities or accept rounded fractions to obtain a green suite. A one-codec fix would leave twin paths and is not ready to land.
+
+The reproduction is synthetic and constructor/serialization only. No printer I/O, queue change, privilege, manual GUI, merge or release occurred. Previous validated source was restored. This investigation advances the next implementation decision, not software completion. Manual gates remain unchanged.
