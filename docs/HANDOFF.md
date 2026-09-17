@@ -190,7 +190,8 @@ passed exit0 with104Python/279Core/332Mac debug/release and oracle/inert/signatu
 Original-PDF in-memory acceptance and retained-source preparation are now locally implemented.
 Eight Core/ten native focused/restored cases passed; six selection/copy/control/source
 omissions independently failed exit1. Full gate session88103 passed exit0 with104Python/281Core/334Mac
-debug/release plus oracle/inert/signature/packaged checks; source publication pending. See
+debug/release plus oracle/inert/signature/packaged checks. Local implementation
+ccd7a9aab1175518fda1a8db783862ed865b1d81; source publication pending. See
 [acceptance evidence](validation/M3-ORIGINAL-FINISHING-ACCEPTANCE-2026-09-17.md).
 Next: durable canonical finishing ticket/source publication and identity-bound framing,
 attempt intent, cancellation/lifecycle recovery. Actual identified unit correspondence remains open.
