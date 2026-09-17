@@ -367,3 +367,8 @@ digest/lengths/canonical structure, reconstructs original acceptance from exact 
 and compares complete extraction/profile/queue/canvas/normalization/cut context. Changing
 interpretation fails; conflicts never overwrite. Uncertain publication carries an exact
 recovery reference. Recovery grants no delivery, completion or replay authority.
+
+PreparedAcceptedFinishingJob is constructed only by the durable store factory. It reopens
+and revalidates the accepted reference, renders solely retained source/plan/controls, and
+carries exact accepted identity into subsequent stages. One aggregate finite budget and
+cancellation span reopen/render. It grants no device delivery or replay authority.

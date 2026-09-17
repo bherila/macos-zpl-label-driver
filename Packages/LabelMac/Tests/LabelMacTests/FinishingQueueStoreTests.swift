@@ -352,4 +352,20 @@ final class FinishingQueueStoreTests: XCTestCase {
             XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.cannotRead)
         }
     }
+    func testPreparedFinishingIdentityComesFromVerifiedDurableRecord() throws {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let store=try AcceptedFinishingJobStore(root:workflows.root), ref=try store.save(job)
+        let result=try store.prepare(reference:ref,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        XCTAssertEqual(result.reference,ref)
+        XCTAssertEqual(result.acceptance,job)
+        XCTAssertEqual(result.preparation.extraction,job.extraction)
+        XCTAssertEqual(result.preparation.controls,job.controls)
+        XCTAssertEqual(result.preparation.sourceSHA256,job.sourceSHA256)
+        XCTAssertEqual(result.preparation.rasters.count,4)
+        let wrong=try AcceptedFinishingReference(acceptanceID:ref.acceptanceID,sha256:String(repeating:"0",count:64))
+        XCTAssertThrowsError(try store.prepare(reference:wrong,queueStore:queues,workflowStore:workflows,printerStore:printers,
+            workerExecutable:URL(fileURLWithPath:"/nonexistent-worker"))) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.referenceMismatch)
+        }
+    }
 }
