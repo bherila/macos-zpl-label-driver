@@ -3301,7 +3301,8 @@ FinishingQueueDefinition binds exact workflow/profile snapshots, stock and expli
 mode/schedule selection. Five focused/restored tests passed; snapshot/selection/stock
 omissions independently failed exit1. No installed queue, actual reference-digest check or
 accepted ticket is produced. Full gate session76703 passed exit0 with104Python/277Core/324Mac
-in debug/release and oracle/inert/signature/packaged checks; publication pending. See
+in debug/release and oracle/inert/signature/packaged checks. Local implementation
+8493efcbea4420ada22d70002a5d08e2010b5c37; publication pending. See
 [queue evidence](validation/M3-FINISHING-QUEUE-DEFINITION-2026-09-17.md).
 Next independent slice: canonical bounded private queue persistence with actual reference
 readback, then accepted finishing source/order/pitch/device and durable lifecycle binding.
