@@ -3151,23 +3151,23 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
 - Branch: `codex/m2-ascii-graphic-compression`; open PR81, base
   `codex/m3-control-speed-boundary`. This is stacked unmerged work, not main.
 - Published source/remote/PR equality verified at
-  `fc24c3da3315a06f9f586a485b873761998e1a31`. Latest published software
+  `8c2499783c64b218c289fc50d5bb019b42e8ff8c`. Latest published software
   implementation `42a4cae`: inert durable finishing intent/coordinator integration;
   compatibility inventory and two explicit A assessments are also published.
-- Latest finite900s `bash scripts/ci-swift.sh`, session76225, completed
-  `FULL_GATE_EXIT 0`:104 Python/272 Core/324 native tests in debug/release,
+- Latest finite900s `bash scripts/ci-swift.sh`, session76703, completed
+  `FULL_GATE_EXIT 0`:104 Python/277 Core/324 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.w0DWyo`; no printer accessed.
+  Local artifact: `artifacts/setup-app.gfdEKb`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
   accounting detected treating zero known accepted bytes as a retryable send attempt.
 - Hosted run35236186182 completed success at exact604aef7 (archive store).
   Attempt-store run35238690886 passed at exact385a545. New coordinator/evidence
-  run35240005700 is in progress at exactfc24c3d; it does not qualify the local
-  CI-history slice. Poll exact handles without restarting.
+  run35240005700 passed at exactfc24c3d. CI-history/evidence run35241292200
+  passed at exact8c24997. Neither covers the newer offline queue source.
 - The two earlier cloud review passes apply to older base/head pairs. No third pass
   was requested, and these passes are not a verdict on subsequent changes.
 - Local host evidence is macOS27 ARM; minimum-runtime26 and hosted checks are
@@ -3294,6 +3294,17 @@ Implementation b4eb3bc8ef7bae8a63bd14f021c4502be0b097df committed locally, push/
 After the passing full gate, M3-AC01/04 implementation/test hashes were checked unchanged
 and fresh A records bind this source and new gate evidence. Earlier records remain
 historical. Never exempt CI inputs from source binding; integration/H/R stay pending.
+
+## Local offline finishing queue policy
+
+FinishingQueueDefinition binds exact workflow/profile snapshots, stock and explicit whole
+mode/schedule selection. Five focused/restored tests passed; snapshot/selection/stock
+omissions independently failed exit1. No installed queue, actual reference-digest check or
+accepted ticket is produced. Full gate session76703 passed exit0 with104Python/277Core/324Mac
+in debug/release and oracle/inert/signature/packaged checks; publication pending. See
+[queue evidence](validation/M3-FINISHING-QUEUE-DEFINITION-2026-09-17.md).
+Next independent slice: canonical bounded private queue persistence with actual reference
+readback, then accepted finishing source/order/pitch/device and durable lifecycle binding.
 
 ## Manual Part A and Part B
 

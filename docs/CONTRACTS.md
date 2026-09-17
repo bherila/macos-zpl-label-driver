@@ -319,3 +319,14 @@ steps; exceptions release ownership without clearing intent. Existing intent rej
 run. Synthetic completion never clears or upgrades the durable observation to printed.
 Accepted ticket/device binding, correlated hardware status, authoritative durable completion
 and installed scheduler retry semantics remain separate acceptance gates.
+
+### Offline finishing queue policy
+
+FinishingQueueDefinition is a separate typed offline namespace, not an installed ordinary
+queue or accepted ticket. It binds complete workflow2/profile8 snapshots, immutable
+reference shapes, reported nominal stock matching workflow output, validated defaults
+and one whole mode/schedule selection. Later resolution requires exact snapshots,
+valid expanded counts and consistent explicit job choices. Whole selection overrides
+remove obsolete cut schedules; other controls preserve shared precedence and explicit
+zero. A future store must independently verify canonical reference digests. This type
+provides no source/order/pitch/device admission, persistence or delivery authority.
