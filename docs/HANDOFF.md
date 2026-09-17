@@ -1,3 +1,15 @@
+# Current GUI blocker correction — 2026-09-17
+
+Issue #80's native allocation regression reproduced height 0 in the old editor.
+The fixed editor reserves a finite viewport and scrolls details inside it;
+31 focused native editor/bootstrap/layout tests pass, including three widths.
+Visible millimeter labels retain the existing generation-bound callbacks.
+Corrected app build/signatures/packaged equality passed exit 0; the local
+maintainer retest candidate is `artifacts/setup-app.N8tFGX`. Full gate is running
+and actual maintainer retest remains NOT RUN. See `validation/M5-EDITOR-LAYOUT-2026-09-17.md`.
+The withdrawn preview must not be used for acceptance. No replacement public
+release, queue, device or administrator action is authorized by this correction.
+
 # Active independent implementation — 2026-09-17
 
 The maintainer attempted the separate issue #80 manual Mac test and reported
