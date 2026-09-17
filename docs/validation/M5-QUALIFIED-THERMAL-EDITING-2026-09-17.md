@@ -68,3 +68,11 @@ validated slice. Publication and exact-head hosted results are separate evidence
 no hosted pass claimed here. Previous8eca8ef hosted35218734631 last observed
 in progress. Next: finishing/accessory policies and native management; manual
 GUI/accessibility/M1/physical gates remain unchanged.
+
+## Publication readback
+
+Source140dd0e/checkpoint6c8e16a8bd1bac2bfd3c1c0ca474b17af6c0a3ed pushed.
+Remote branch andPR81 head read back equal to6c8e16a. Exact hosted35219619085
+observed in progress, not pass evidence. Preceding8eca8ef run35218734631 passed
+at its exact source. No third cloud review requested; older verdicts do not cover
+this later utility source. Manual gates remain open.

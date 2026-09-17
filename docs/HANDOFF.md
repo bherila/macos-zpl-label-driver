@@ -1,3 +1,29 @@
+# Finishing qualification and cut intentions — 2026-09-17
+
+Current locally validated source adds explicit enabled/model/accessory gates for bounded
+offline finishing-mode fragments and independently qualified engine-output cut
+boundary planning, including explicit final partial-batch behavior. No cut schedule
+is equated to a mode fragment or unqualified delayed-cut/file delivery boundary.
+Six focused Core cases passed ownexit0; full finite CI-equivalent gate passed
+ownexit0:89Python/262Core/313Mac debug/release plus independent/inert/signature/
+packaged checks. Model-documentation-as-installation fault reproduced all three
+accessory assertions; source restored byte-for-byte and all262Core passed ownexit0.
+See `validation/M3-QUALIFIED-FINISHING-POLICY-2026-09-17.md`. Ordinary integration,
+stock compatibility, native finishing and physical/accessory waits/faults/isolation
+remain work; profile7/queue6/ticket7 still tear-off only. No printer/admin/merge/
+binary release. Frozen B unchanged. Previous6c8e16a remote/PR81 confirmed;
+exact hosted35219619085 last observed live, not pass evidence.
+
+# Thermal utility publication readback — 2026-09-17
+
+Source140dd0e/checkpoint6c8e16a8bd1bac2bfd3c1c0ca474b17af6c0a3ed pushed;
+remote branch andPR81 head read back equal to6c8e16a. Exact hosted35219619085
+observed in progress, not pass evidence. Preceding8eca8ef run35218734631 passed
+at its exact source. Full local89/256/313 ownexit0 and restored37focused ownexit0
+are automated evidence only. Next finishing policies and remaining native queue/
+profile/installer management; manual GUI/accessibility/M1/USB/physical gates open.
+No printer/admin/merge/binary release; B frozen bytes unchanged.
+
 # Qualified thermal utility drafts — 2026-09-17
 
 Validated source140dd0ec5a7355bedab2cca12929dcd1ff220b1a preserves configured transfer/direct defaults, exposes
