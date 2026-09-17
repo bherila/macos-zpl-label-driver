@@ -1,3 +1,21 @@
+# Active independent implementation — 2026-09-17
+
+The maintainer attempted the separate issue #80 manual Mac test and reported
+corrupted/overlapping layout after PDF selection; GUI acceptance is blocked.
+The broken preview release and GitHub tag were removed at their explicit
+request and read back absent. Implementation continues. No additional queue/device/privileged action is
+inferred from that parallel activity.
+
+M2.5 experimental ASCII compression is in progress on
+`codex/m2-ascii-graphic-compression`, based on PR #79 `77c29ff`.
+The ordinary prepared-job path remains plain hex, and the original oracle is
+unchanged. Five focused Swift and four Python tests pass. Full local CI-equivalent
+checks passed exit 0: 86 Python / 185 Core / 264 Mac debug/release, both
+independent/inert/signature/packaged checks. Actual local host is macOS 27.0,
+not a new Tahoe qualification. Hosted CI and review are not yet run.
+See `validation/M2-ASCII-COMPRESSION-2026-09-17.md`. Firmware/profile selection,
+GUI, administrator scheduler and physical gates remain unperformed.
+
 # Current implementation handoff — revision 3
 
 Issue #78 speed-boundary fix is in progress on `codex/m3-control-speed-boundary`,

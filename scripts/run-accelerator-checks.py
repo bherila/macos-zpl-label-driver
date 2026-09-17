@@ -2,11 +2,13 @@
 """Offline regression suite. Does not install, print, access GitHub, or require secrets."""
 from __future__ import annotations
 import argparse
+import json
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 from zpl_oracle import verify_vectors
+from zpl_compression_oracle import verify_vectors as verify_compressed_vectors
 from check_probe import verify as verify_probe
 from check_capture_filter import verify as verify_capture_filter
 from check_capture_pipeline import verify as verify_capture_pipeline
@@ -31,6 +33,8 @@ def main():
         vectors=Path(tmp)/"vectors"
         run([str(binary/"label-core-lab"),"--vectors-dir",str(vectors)],timeout=30)
         print(f"Cross-language ZPL/PBM/analytic round-trips: {verify_vectors(vectors)}",flush=True)
+        manifest = json.loads((vectors / "vectors.json").read_text())
+        print(f"Independent ASCII compression round-trips: {verify_compressed_vectors(vectors, manifest)}",flush=True)
         # The lab must not clobber an existing directory.
         r=subprocess.run([str(binary/"label-core-lab"),"--vectors-dir",str(vectors)],
                          cwd=ROOT,capture_output=True,timeout=10)
