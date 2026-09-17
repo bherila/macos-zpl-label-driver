@@ -216,7 +216,7 @@ public enum OfflineRenderWorkerProcess {
             let resultData = try readPrivateRegularFile(
                 scratch.appending(path: resultFilename), maximumBytes: maximumResultBytes
             )
-            let result = try JSONDecoder().decode(OfflineRenderWorkerResult.self, from: resultData)
+            let result = try WorkerProtocolJSON.decode(OfflineRenderWorkerResult.self, from: resultData, message: .renderResult)
             guard result.schemaVersion == 1,
                   result.widthDots > 0, result.heightDots > 0,
                   result.zplBytes >= 0, result.zplBytes <= maximumZPLBytes,
@@ -354,7 +354,7 @@ public enum OfflineRenderWorkerProcess {
         let data = try readPrivateRegularFile(
             directory.appending(path: failureFilename), maximumBytes: maximumResultBytes
         )
-        let failure = try JSONDecoder().decode(OfflineRenderWorkerFailure.self, from: data)
+        let failure = try WorkerProtocolJSON.decode(OfflineRenderWorkerFailure.self, from: data, message: .failure)
         guard failure.schemaVersion == 1 else { throw Error.invalidResult }
         return failure
     }

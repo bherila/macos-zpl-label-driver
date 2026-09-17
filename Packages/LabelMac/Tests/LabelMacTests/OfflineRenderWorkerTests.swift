@@ -80,6 +80,27 @@ final class OfflineRenderWorkerTests: XCTestCase {
         XCTAssertNil(legacy.workerMaximumResidentBytes)
     }
 
+    func testWorkerIntegerFieldsRejectFractionalTokensBeforeReturningArtifacts() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let fields = ["schemaVersion", "widthDots", "heightDots", "zplBytes", "previewBytes", "workerMaximumResidentBytes"]
+        for invalidField in fields {
+            let worker = directory.appendingPathComponent("inert-worker-" + invalidField)
+            let metadata = "{" + fields.map {
+                "\"" + $0 + "\":" + ($0 == invalidField ? "1.00000000000000000000000000000000001" : "1")
+            }.joined(separator: ",") + "}"
+            let script = "#!/bin/sh\numask 077\nprintf '%s' '" + metadata + "' > \"$2/result.json\"\nprintf x > \"$2/prepared.zpl\"\nprintf x > \"$2/preview.pbm\"\n"
+            try Data(script.utf8).write(to: worker)
+            try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: worker.path)
+            XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(originalPDF: Data([1]),
+                ticketJSON: ticket, workerExecutable: worker, deadlineSeconds: 5)) {
+                XCTAssertEqual($0 as? OfflineRenderWorkerProcess.Error, .invalidResult)
+            }
+        }
+    }
+
     func testDeadlineTerminatesOwnedWorkerWithoutReturningArtifacts() throws {
         let start = ContinuousClock.now
         XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(

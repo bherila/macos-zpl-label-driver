@@ -75,7 +75,7 @@ public struct OfflineConversionTicket: Equatable, Sendable {
     public init(jsonData: Data) throws {
         let wire: WireTicket
         do {
-            wire = try JSONDecoder().decode(WireTicket.self, from: jsonData)
+            wire = try WorkerProtocolJSON.decode(WireTicket.self, from: jsonData, message: .conversionTicket)
         } catch {
             throw TicketError.malformedJSON
         }
