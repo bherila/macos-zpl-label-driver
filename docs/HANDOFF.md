@@ -502,3 +502,7 @@ Local unpublished d86206a2bb5721c36569f5f7100c5b58c3facb66 documents the impleme
 ## Native reserved margin clipping
 
 [Receipt](validation/M4-NATIVE-MARGIN-CLIPPING-2026-09-17.md) evaluates unpublished 1c5ab7b2c706bd2af293efa3fba84e2d05307b60. Native request margins feed physical placement and visible-area clipping preserves blank margins even for actual-size oversized content. Exact packed asymmetric-margin/non-square-pitch and zero-default tests passed:30renderer debug/37renderer+planned release/106Python. Full/manual/hardware results not refreshed. Both extraction parents retain nonzero-margin guards until private ticket/worker propagation; next extend OfflineConversion and real subprocess tests before enabling workflow margins.
+
+## Planned margins through real worker
+
+[Receipt](validation/M4-MARGIN-WORKER-PROPAGATION-2026-09-17.md) evaluates unpublished 6bfa0232a22349782c35c3b118babf0fa1be9ce1. Private ticket-v3 and original-PDF worker now carry margins; both extraction parents bind planned-label margins and temporary guards are removed. Zero uses legacy-v2 request; stock mismatch remains pre-parse/launch. Final53focused native debug/release passed with direct/worker PBM/ZPL and both planned bitmap equality;106Python/preflight/diff passed. No current full/signatures/packaging/Linux/manual/physical claims. Queue workflow-v3 remains disabled and editor controls pending. Next reference/snapshot admission and editor margin editing, then integrated gate.

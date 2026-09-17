@@ -326,7 +326,8 @@
         "docs/validation/M4-STOCK-POLICY-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished77de47c; explicit configured/offline stock policy restructure; finite full native ownexit0:106Python/305Core/380Mac debug+release, oracles/inert/metadata/ad-hoc/nested/packaged checks; current software baseline only, all manual/physical/release gates open)",
         "docs/validation/M4-OUTPUT-MARGIN-PLACEMENT-2026-09-17.md (unpublished2711a3f; validated software margins preserve independent pitch/uniform fit/actual-size clipping and zero defaults, reject quantized-empty and overflow;307Core both/106Python accelerator/35native rendering both passed; profile/worker/UI margin integration and manual/physical gates remain open)",
         "docs/validation/M4-IMMUTABLE-OUTPUT-MARGINS-2026-09-17.md (immutable schema-v3 margin definitions/plans; v2 byte compatibility and atomic stock validation;309Core/87focused native both,106Python/accelerator debug passed; nonzero rendering deliberately blocked pending worker integration, no full/manual/hardware acceptance)",
-        "docs/validation/M4-NATIVE-MARGIN-CLIPPING-2026-09-17.md (native original-PDF margin request/visible clipping, exact packed asymmetry and zero defaults;30native debug/37release/106Python passed; worker/UI integration pending)"
+        "docs/validation/M4-NATIVE-MARGIN-CLIPPING-2026-09-17.md (native original-PDF margin request/visible clipping, exact packed asymmetry and zero defaults;30native debug/37release/106Python passed; worker/UI integration pending)",
+        "docs/validation/M4-MARGIN-WORKER-PROPAGATION-2026-09-17.md (planned margins propagate via private ticket-v3/original-PDF worker; final53native both/direct-worker exact equality,106Python/preflight passed; zero legacy retained; queue-v3/editor controls pending, no full/manual/hardware acceptance)"
       ],
       "blockers": []
     },
