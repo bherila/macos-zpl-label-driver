@@ -70,3 +70,8 @@ negative and packaged-worker PBM/ZPL equality. Artifact `artifacts/setup-app.DaV
 No source/deadline/assertion change was made between native diagnosis and this
 recheck. Earlier failures remain recorded; their cause is not established. This
 is automated evidence, not installed scheduler/GUI/physical acceptance.
+
+## Source checkpoint
+
+Implementation `c1a0ff7e1b7000674eb1b96c415890af9f8afbe5` contains the validated stock-plan slice.
+Exact hosted validation for its publication checkpoint remains separate.
