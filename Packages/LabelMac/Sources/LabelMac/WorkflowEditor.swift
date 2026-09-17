@@ -465,44 +465,51 @@ public struct WorkflowEditorView: View {
             .frame(minWidth: 180)
             .accessibilityLabel("Label regions in output order")
 
-            VStack(alignment: .leading, spacing: 12) {
-                mediaSummary
-                pageHandling
-                if model.isReopenedWorkflow {
-                    Text("Saved workflow reopened for correction as a new revision. Review this PDF and the exact label previews before saving. Earlier revisions and their qualifications are unchanged.")
-                        .accessibilityLabel("Reopened workflow requires review of its new revision")
-                } else if model.isManualDraft {
-                    Text("Manual extraction: no label crop was chosen automatically. Each starting region covers its full source page. Set the label bounds and review the exact preview; this draft has no unattended qualification.")
-                        .accessibilityLabel("Manual extraction requires region and preview review")
-                }
-                if let region = selectedRegion { regionControls(region) }
-                sourceReferenceView
-                previewView
-                previewReviewControls
-                if let error = model.lastError {
-                    Text(error).foregroundStyle(.red).accessibilityLabel("Editor error: \(error)")
-                }
-                HStack {
-                    Button("Preview") {
-                        if let workerExecutable {
-                            Task { await model.refreshPreviewInWorker(workerExecutable: workerExecutable) }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    mediaSummary
+                    pageHandling
+                    if model.isReopenedWorkflow {
+                        Text("Saved workflow reopened for correction as a new revision. Review this PDF and the exact label previews before saving. Earlier revisions and their qualifications are unchanged.")
+                            .accessibilityLabel("Reopened workflow requires review of its new revision")
+                    } else if model.isManualDraft {
+                        Text("Manual extraction: no label crop was chosen automatically. Each starting region covers its full source page. Set the label bounds and review the exact preview; this draft has no unattended qualification.")
+                            .accessibilityLabel("Manual extraction requires region and preview review")
+                    }
+                    if let region = selectedRegion { regionControls(region) }
+                    sourceReferenceView
+                    previewView
+                    previewReviewControls
+                    if let error = model.lastError {
+                        Text(error).foregroundStyle(.red).accessibilityLabel("Editor error: \(error)")
+                    }
+                    HStack {
+                        Button("Preview") {
+                            if let workerExecutable {
+                                Task { await model.refreshPreviewInWorker(workerExecutable: workerExecutable) }
+                            }
                         }
+                            .keyboardShortcut("p", modifiers: [.command])
+                            .disabled(workerExecutable == nil || model.isPreparingPreview)
+                        if model.isPreparingPreview {
+                            ProgressView().accessibilityLabel("Preparing exact bitmap preview")
+                            Button("Cancel Preview") { model.cancelPreview() }
+                        }
+                        Button("Save Revision") { perform(model.save) }
+                            .keyboardShortcut("s", modifiers: [.command])
+                        Button("Approve for Unattended Use") { perform(model.approveForUnattendedUse) }
+                            .disabled(!model.canApproveForUnattendedUse)
                     }
-                        .keyboardShortcut("p", modifiers: [.command])
-                        .disabled(workerExecutable == nil || model.isPreparingPreview)
-                    if model.isPreparingPreview {
-                        ProgressView().accessibilityLabel("Preparing exact bitmap preview")
-                        Button("Cancel Preview") { model.cancelPreview() }
-                    }
-                    Button("Save Revision") { perform(model.save) }
-                        .keyboardShortcut("s", modifiers: [.command])
-                    Button("Approve for Unattended Use") { perform(model.approveForUnattendedUse) }
-                        .disabled(!model.canApproveForUnattendedUse)
                 }
+                .padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding()
             .frame(minWidth: 480)
         }
+        // NSSplitView has no intrinsic vertical extent. In the setup's outer
+        // ScrollView it otherwise reserves zero height and paints over siblings.
+        // Both panes stay in this viewport; details scroll independently.
+        .frame(height: 720)
         .onDisappear { model.cancelPreview(); model.cancelSourcePreview() }
         .confirmationDialog("Mark this source page as non-label?", isPresented: $confirmingSkip,
                             titleVisibility: .visible) {
@@ -677,12 +684,15 @@ public struct WorkflowEditorView: View {
     private func measurementField(
         _ title: String, value: Double, update: @escaping (Double) throws -> Void
     ) -> some View {
-        TextField(title, value: Binding(
-            get: { value },
-            set: { newValue in perform { try update(newValue) } }
-        ), format: .number.precision(.fractionLength(0...2)))
-        .textFieldStyle(.roundedBorder)
-        .accessibilityLabel(title)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.caption)
+            TextField(title, value: Binding(
+                get: { value },
+                set: { newValue in perform { try update(newValue) } }
+            ), format: .number.precision(.fractionLength(0...2)))
+            .textFieldStyle(.roundedBorder)
+            .accessibilityLabel(title)
+        }
     }
 
     private func update(
