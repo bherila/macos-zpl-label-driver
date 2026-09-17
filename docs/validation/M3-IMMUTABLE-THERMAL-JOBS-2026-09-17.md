@@ -67,3 +67,10 @@ management, keyboard/VoiceOver, USB, faults and physical isolation remain open.
 Supplied installation declarations do not independently authenticate loaded media
 or prove it has not changed. No printer I/O, administrator action, merge, release
 or binary publication. Part B frozen candidate unchanged.
+
+## Source checkpoint
+
+Implementation source5698f2f34ba5322af9bb86789033cd952806d204 contains this
+validated slice. Publication/readback and hosted CI are separate checkpoints;
+no hosted pass for this source is claimed here. Precedingbe681ca hosted
+run35218292332 last observed in progress before this checkpoint.
