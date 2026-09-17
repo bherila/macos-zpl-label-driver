@@ -1,3 +1,21 @@
+# Current lease namespace admission slice — 2026-09-17
+
+Previous diagnostic fix was pushed as `8c041aa` on PR #81. Exact-head hosted
+run 35200866409 remains active; no hosted success is inferred. The next safe
+follow-on validates a private effective-user-owned 0700 lease root and empty
+0600 lock, opens descriptor-relative and checks both named inode bindings
+before/after flock. Old six-test run reproduced five failures; all eight fixed
+lease tests pass, including replacement at opened/locked checkpoints and
+reacquisition after rejection. Required full local gate passed exit 0:
+86 Python / 190 Core / 273 Mac debug/release, both independent/inert/signature/
+packaged checks. Publication waits for the already-active hosted run.
+See `validation/M3-LEASE-NAMESPACE-ADMISSION-2026-09-17.md`.
+The trusted owner must preserve the namespace throughout delivery; installed
+scheduler/ownership/USB/physical claims remain open. Additional partial
+M3-AC07/08/12 only. Do not supersede the active hosted run merely to publish.
+Second cloud review covers a370e05/base77c29ff, not these later source changes.
+B remains its original separately frozen candidate; no privileged action here.
+
 # Current identity diagnostics slice — 2026-09-17
 
 Prior complete-job handoff was pushed as `052e83e` on PR #81. Exact-head hosted
