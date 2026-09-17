@@ -221,6 +221,7 @@ event boundaries, with twenty-five focused cases passed exit0. Polling omission 
 exit0. Full gate session54742 passed exit0:104Python/281Core/349Mac debug/release plus
 oracle/inert/signature/packaged checks. See
 [cancellation evidence](validation/M3-ACCEPTED-FINISHING-CANCELLATION-2026-09-17.md).
+Cold recovery implementation checkpoint: `7654b787b08ef881887af3f9e5d8b80b362bcbb1` (local, unpublished).
 Cold recovery interpretation is now local: twenty-seven focused native cases passed exit0,
 including cancellation/intent combinations, synthetic success, corrupt records and finite
 operation guards. Intent/cancellation mapping omissions each failed exit1 through expected assertions;

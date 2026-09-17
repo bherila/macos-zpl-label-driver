@@ -23,7 +23,7 @@ Full finite900-second Mac gate session31620 completed FULL_GATE_EXIT0:104Python,
 281Core and351Mac debug/release;132 strict and180 ASCII oracle cases per mode; finite
 benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc
 signatures, Developer-ID negative and packaged-worker PBM/ZPL equality. Local artifact:
-artifacts/setup-app.zxDtj3. Source commit pending.
+artifacts/setup-app.zxDtj3. Implementation checkpoint: 7654b787b08ef881887af3f9e5d8b80b362bcbb1. Source publication pending.
 
 Next: integrate accepted finishing recovery into a bounded offline application flow; installed
 queues, identified unit correspondence/status, scheduler policy, retail installation and
