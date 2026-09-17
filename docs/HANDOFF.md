@@ -1,3 +1,21 @@
+# Offline continuous tracking/length fragment — 2026-09-17
+
+Current fragment pairs explicit continuous mode with a positive
+model-memory-bounded length; R46 records official indexed provenance, direct-fetch
+limitations and unchanged optional scope flag. Y/N both apply to explicitly
+continuous media; no second-argument delimiter is guessed. Competing tracking
+modes, unknown qualification, absent bounds and output limits fail closed.
+Seven focused tests pass. The initial full run failed the old complete-kind test
+input enumeration; that coverage assertion was retained and extended. Corrected
+full gate passed exit0: 89 Python / 219 Core / 283 Mac debug/release, both132 original and180 ASCII round-trips, twelve benchmark CLI cases, fifteen inert ABI cases, native builds, nested local-ad-hoc signatures, ARM/minimum26 metadata and packaged PBM/ZPL equality. See `validation/M3-CONTINUOUS-LENGTH-FRAGMENT-2026-09-17.md`.
+This is partial M3-AC03/04/12 only; ordinary profile4 admission stays unchanged.
+Next slice is coherent qualified geometry/memory/default/profile/queue/ticket
+integration before packed graphics, not claiming sensed-stock length semantics.
+
+Published editor348b367 remote/PR head read back exact, source hosted35209880271
+is live. Its local89/217/283 full gate passed. Preceding83cfaa8 hosted35209283943
+passed exact. Part B is separately frozen; no printer/admin/merge/binary release.
+
 # Offline qualified darkness editor — 2026-09-17
 
 Current source preserves configured darkness in returned workflow defaults and

@@ -409,3 +409,24 @@ rendered to resolve a delimiter ambiguity for ^LL, which is not implemented
 in this slice. Speeds are independent parameters with model restrictions;
 relative ^MD is added to ~SD. Model-specific accepted ranges, installed defaults
 and physical behavior remain separately qualified. No device command sent.
+
+
+## R46 — Public Zebra continuous mode and label-length scope
+
+[Zebra ^MN command](https://docs.zebra.com/us/en/printers/software/zpl-pg/zpl-commands/%5Emn.html),
+[Zebra ^LL command](https://docs.zebra.com/content/tcm/us/en/printers/software/zpl-pg/zpl-commands/%5Ell.html),
+and [legacy Zebra Programming Guide, ^LL section](https://cpws.zebra.com/cpws/docs/zpl/zpl_manual.pdf).
+
+Checked2026-09-17 using indexed official primary content; direct HTML fetches
+returned404 and the legacy PDF fetch returned502, so no new direct-fetch/hash
+claim. R45's directly inspected current guide is separate corroborating evidence.
+No manual is bundled. ^MNN explicitly selects continuous tracking; ^LL supplies
+its length in dots. The accepted1..32000 range is further limited by actual model
+memory/label-size bounds, which cannot be inferred from nominal stock or PDF size.
+Modern ^LL has a media-scope flag: Y applies to all media, N to continuous only;
+omitting it retains current scope. This flag does not change applicability to an
+explicitly continuous format. The implemented paired operation emits the documented
+single length argument after ^MNN, avoiding ambiguous second-argument syntax.
+This does not normalize the flag or establish later gap/mark length behavior.
+^LL must precede first ^FS; retained until replaced/power-off, with no ^JUS emitted.
+Unit qualification and physical behavior remain unobserved.
