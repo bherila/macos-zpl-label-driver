@@ -470,3 +470,7 @@ Local unpublished d86206a2bb5721c36569f5f7100c5b58c3facb66 documents the impleme
 ## Limit-preserving stock canvas
 
 [Canvas receipt](validation/M2-CANVAS-STOCK-RESIZING-2026-09-17.md) records unpublished8749143. DotCanvas retains admission budgets for validated physical-size replacement with original independent pitch; geometry equality remains compatible with finishing binding. Preliminary305Core both/accelerator passed; final9geometry cases both passed after explicit equality refinement. Native stock editor integration remains next; no native/GUI/physical/signature acceptance refreshed. Frozen candidate unchanged.
+
+## Editor model stock/canvas binding
+
+[Editor receipt](validation/M4-EDITOR-STOCK-CANVAS-2026-09-17.md) records unpublished86ed052. Stock model edits prepare validated candidate/canvas atomically, cancel stale previews and invalidate review; saved correction reload rebuilds matching geometry.21editor tests debug/release passed, including real-worker obsolete-stock completion. Next: native explicit-unit stock controls and coherent bootstrap stock policy without physical qualification or relaxed limits. Full suite/signature/manual evidence not refreshed; frozen candidate unchanged.
