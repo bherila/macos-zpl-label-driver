@@ -1,3 +1,9 @@
+# Finishing delivery accounting source checkpoint — 2026-09-17
+
+Implementation d02212eff311358675ea3bb65a1f7389f64e3240 passed the local89/272/324 full gate.
+Next verify source/PR/remote equality and exact hosted CI. Actual correlated status,
+file delivery, persistent recovery, lease and accepted admission remain open.
+
 # Finishing delivery accounting — 2026-09-17
 
 Local tracker now preserves exact file/step order and post-attempt uncertainty through
