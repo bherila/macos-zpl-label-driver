@@ -31,6 +31,8 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
         case publicationBusy
     }
 
+    enum RecordFormat: String { case json = ".json", binary = ".bin" }
+
     enum FaultPoint: Equatable, Sendable {
         case beforeRename
     }
@@ -69,10 +71,15 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
         directory name: String,
         fileName: String,
         maximumBytes: Int,
-        maximumRecords: Int? = nil
+        maximumRecords: Int? = nil,
+        recordFormat: RecordFormat = .json
     ) throws {
         guard data.count <= maximumBytes else { throw Error.cannotWrite }
-        if let maximumRecords, !(1...256).contains(maximumRecords) { throw Error.cannotWrite }
+        if let maximumRecords {
+            guard (1...256).contains(maximumRecords), fileName.hasSuffix(recordFormat.rawValue) else {
+                throw Error.cannotWrite
+            }
+        }
         try withDirectory(name, syncRootAfterBody: true) { directory in
             let lock = try maximumRecords.map { _ in try acquirePublicationLock(directory) }
             defer { if let lock { _ = flock(lock, LOCK_UN); close(lock) } }
@@ -82,7 +89,7 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
             ) { return }
             if let maximumRecords, let lock {
                 try validatePublicationLock(lock, directory: directory)
-                try ensureRecordCapacity(directory, maximumRecords: maximumRecords)
+                try ensureRecordCapacity(directory, maximumRecords: maximumRecords, recordFormat: recordFormat)
             }
             do {
                 let temporary = ".tmp-\(UUID().uuidString)"
@@ -168,7 +175,7 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
         }
     }
 
-    private func ensureRecordCapacity(_ directory: Int32, maximumRecords: Int) throws {
+    private func ensureRecordCapacity(_ directory: Int32, maximumRecords: Int, recordFormat: RecordFormat) throws {
         let enumeration = openat(directory, ".", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard enumeration >= 0 else { throw Error.cannotRead }
         guard let stream = fdopendir(enumeration) else { close(enumeration); throw Error.cannotRead }
@@ -188,7 +195,7 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
                 }
             }
             guard let name else { throw Error.cannotRead }
-            if !name.hasPrefix("."), name.hasSuffix(".json") {
+            if !name.hasPrefix("."), name.hasSuffix(recordFormat.rawValue) {
                 records += 1
                 guard records < maximumRecords else { throw Error.recordCapacityReached }
             }

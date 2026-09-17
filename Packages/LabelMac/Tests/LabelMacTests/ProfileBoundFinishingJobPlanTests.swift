@@ -236,6 +236,37 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
             let changedContext = FinishingFramedOutput(preparation: changedSource, qualification: qualification,
                 steps: framed.steps, totalEncodedBytes: total)
             XCTAssertThrowsError(try FinishingFramedArtifact.reopen(artifact.bytes, against: changedContext))
+            let archiveRoot = directory.appending(path: "archive-store-\(mode)")
+            let archives = try FinishingArtifactStore(root: archiveRoot)
+            let archiveReference = try archives.save(id: "synthetic-framed", revision: 1, output: framed)
+            let reopenedStore = try FinishingArtifactStore(root: archiveRoot)
+            XCTAssertEqual(try reopenedStore.load(reference: archiveReference, against: framed), artifact)
+            XCTAssertEqual(try reopenedStore.save(id: "synthetic-framed", revision: 1, output: framed), archiveReference)
+            XCTAssertThrowsError(try reopenedStore.save(id: "synthetic-framed", revision: 1, output: changedContext)) {
+                XCTAssertEqual($0 as? FinishingArtifactStore.Error, .conflict)
+            }
+            XCTAssertEqual(try reopenedStore.load(reference: archiveReference, against: framed), artifact)
+            let wrongDigest = try FinishingArtifactReference(id: archiveReference.id, revision: 1,
+                sha256: String(repeating: "c", count: 64))
+            XCTAssertThrowsError(try reopenedStore.load(reference: wrongDigest, against: framed)) {
+                XCTAssertEqual($0 as? FinishingArtifactStore.Error, .referenceMismatch)
+            }
+            let uncertainStorage = try PrivateImmutableDirectory(root: archiveRoot, syncDirectory: { _ in -1 })
+            let uncertainStore = FinishingArtifactStore(root: archiveRoot, storage: uncertainStorage)
+            var uncertainReference: FinishingArtifactReference?
+            XCTAssertThrowsError(try uncertainStore.save(id: "synthetic-uncertain", revision: 1, output: framed)) { error in
+                guard case let FinishingArtifactStore.Error.commitUncertain(reference) = error else {
+                    return XCTFail("Expected uncertain publication")
+                }
+                uncertainReference = reference
+            }
+            XCTAssertEqual(try reopenedStore.load(reference: XCTUnwrap(uncertainReference), against: framed), artifact)
+            for id in ["synthetic-third", "synthetic-fourth"] { _ = try archives.save(id: id, revision: 1, output: framed) }
+            XCTAssertThrowsError(try archives.save(id: "synthetic-fifth", revision: 1, output: framed)) {
+                XCTAssertEqual($0 as? FinishingArtifactStore.Error, .capacityReached)
+            }
+            XCTAssertEqual(try archives.save(id: "synthetic-framed", revision: 1, output: framed), archiveReference)
+            XCTAssertThrowsError(try archives.save(id: "../unsafe", revision: 1, output: framed))
             let cancelArchive = OfflineRenderWorkerCancellation(); cancelArchive.cancel()
             XCTAssertThrowsError(try FinishingFramedArtifact.encode(framed, cancellation: cancelArchive)) {
                 XCTAssertEqual($0 as? FinishingFramedArtifact.Error, .cancelled)
