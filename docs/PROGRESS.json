@@ -243,7 +243,8 @@
         "docs/validation/EXACT-JSON-INTEGER-CODECS-2026-09-17.md (exact numeric token admission across seven manual codecs, private geometry/offset readers and native qualification manifest; 299 Core and 21 native store tests debug/release passed; complete native baseline pending)",
         "docs/validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished b12e65a63cfebcce3625a249975e837dbb0bc2ee; full native CI sequence exit 0; 106 Python/299 Core/364 native debug/release, oracle/ABI/signature/packaged fidelity; manual and physical gates unchanged)",
         "docs/validation/M3-NETWORK-CORRECTNESS-ASSESSMENT-2026-09-17.md (explicit M3-AC05 A-level semantic assessment; exact short-write/backpressure/framing/zero/reset/timeout oracles at b12e65a63cfebcce3625a249975e837dbb0bc2ee; native/physical gates remain open)",
-        "docs/validation/M3-CONTROL-PROTOCOL-TABLE-2026-09-17.md (all twelve documented control kinds/four finishing families now have cited range/lifetime/model/interaction metadata; Core 301 and accelerator before final metadata refinement, final focused coverage passed both modes; semantic acceptance pending)"
+        "docs/validation/M3-CONTROL-PROTOCOL-TABLE-2026-09-17.md (all twelve documented control kinds/four finishing families now have cited range/lifetime/model/interaction metadata; Core 301 and accelerator before final metadata refinement, final focused coverage passed both modes; semantic acceptance pending)",
+        "docs/validation/M3-CONTROL-COVERAGE-ASSESSMENT-2026-09-17.md (M3-AC03 A-level semantic assessment at clean local unpublished 2d59771aba5cd27d950fde395bbccaef24fc5d9a; 301 Core and 9 actual native finishing tests debug/release passed; initial empty filter excluded; ordinary print-speed subset distinguished from standalone tuples; no I/H/R claim)"
       ],
       "blockers": []
     },

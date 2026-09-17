@@ -596,6 +596,80 @@
           "sha256": "9e608671e8c4912c9d9c05de8b5e227da98bb21ebe7e6080a33926a3f8c6c7e4"
         }
       ]
+    },
+    {
+      "acceptanceID": "M3-AC03",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "2d59771aba5cd27d950fde395bbccaef24fc5d9a",
+      "implementation": [
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLControlEncoder.swift",
+          "sha256": "5a11110def21581dc46eddd277f64f153e289fe855bc9a2e75b9fb2bc74f6575"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLDocumentedControlEncoder.swift",
+          "sha256": "0160e5c33772c6a516e2d729d98e5ee9dddae475b86e418e72c40abb270a3674"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLControlProtocolCoverage.swift",
+          "sha256": "c5e28f592c2cefbe55757a067be28f18e31e452ac043c79ea932e7369c30ee1d"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/FinishingControlQualification.swift",
+          "sha256": "dfe6af24932d35864d2184b6cb40af86df9649d310ce54ab4cf5db949592f036"
+        },
+        {
+          "path": "Packages/LabelMac/Sources/LabelMac/FinishingFramedOutput.swift",
+          "sha256": "55e0490f3533320176462559803d3b6a0471fed129d8c2dd216a4459982839c5"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLControlEncoderTests.swift",
+          "sha256": "b1a7745ca3c0442fcce30c27ff9c7cd655fec1e5a1f51a326a82f08042e294c1"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLDocumentedControlEncoderTests.swift",
+          "sha256": "230b8c20595ada42fa3b650afb79d91db249aaeefc6327ce6f02a47b3256ccb9"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLControlProtocolCoverageTests.swift",
+          "sha256": "468ecf4ab8e410ece44ddf06cee0910ee4ccb4a03e4b914bedb8756ea998358c"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/MotorSpeedIntegrationTests.swift",
+          "sha256": "1ac6a652127e27ac355714d105c329d4469b96defeada6305280580eaa9dfd52"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/DarknessIntegrationTests.swift",
+          "sha256": "b13a06b5dcea2578788d7eb3650c704bbb5cb11dac395ecb32291979b84b53cc"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ThermalControlIntegrationTests.swift",
+          "sha256": "8721fa493a0c55d443b2532f89793df93c191d57ec11e9c98b7e3291fc9b330e"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/GeometryControlIntegrationTests.swift",
+          "sha256": "7f342cd61978a2e4af4badb3ca3783d2cd46cd020869982f74d3a88688558238"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/OffsetControlIntegrationTests.swift",
+          "sha256": "4d68c9cbf0dbc2ec5b876e42ebdbf2e0c01d35ef3aceedd164acb8d7f04dbc8a"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingControlQualificationTests.swift",
+          "sha256": "68ef9434513470ef7fd1d67435b0f20cdfb1e8f81bbcb5ae0540009fbad9f968"
+        },
+        {
+          "path": "Packages/LabelMac/Tests/LabelMacTests/ProfileBoundFinishingJobPlanTests.swift",
+          "sha256": "0a86aca8e2d3fb14a97eb35d026548ce4670211e63fad02cb489391f35e6a4b7"
+        },
+        {
+          "path": "docs/validation/M3-CONTROL-COVERAGE-ASSESSMENT-2026-09-17.md",
+          "sha256": "c08abf855ae0a160d0e246f23587911b702a99b2387bf7d6975b6a91d6f1605c"
+        }
+      ]
     }
   ]
 }
