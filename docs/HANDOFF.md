@@ -1,3 +1,14 @@
+# Finishing delivery accounting — 2026-09-17
+
+Local tracker now preserves exact file/step order and post-attempt uncertainty through
+status and final peel-removal waits. Nine focused/restored native cases passed; zero-byte
+attempt regression independently failed then source restored. Full finite900s gate session75954 passed ownexit0:89Python/272Core/324native
+debug/release plus independent/inert/signature/packaged checks. Artifact
+artifacts/setup-app.8BT8lP; log /tmp/zpl-finishing-delivery-full.log. Source/disclosure
+review passed and restored tracker hash unchanged; next commit/push/readback;
+see validation/M3-FINISHING-DELIVERY-ACCOUNTING-2026-09-17.md. No actual sender/status/
+lease or accepted adapter integration; M3-AC09 remains open. Frozen B unchanged.
+
 # Qualified finishing framing source checkpoint — 2026-09-17
 
 Implementation b76cfd3903d05076ded9074a3e3d3ae06b847d3c passed the recorded local 89/272/324 full gate.

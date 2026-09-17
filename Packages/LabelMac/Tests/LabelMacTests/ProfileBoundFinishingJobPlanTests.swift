@@ -215,6 +215,66 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
                 if mode == .peel { expected.append(.awaitLabelTaken(outputLabel: ordinal)) }
             }
             XCTAssertEqual(framed.steps, expected)
+            // Nearest independent constraint: completing file delivery does
+            // not satisfy status/removal, and no attempted file is replayable.
+            var tracker = FinishingDeliveryTracker(output: framed)
+            for (index, step) in expected.enumerated() {
+                XCTAssertEqual(tracker.nextStepIndex, index)
+                XCTAssertEqual(tracker.nextStep, step)
+                XCTAssertFalse(tracker.mayRetryAutomatically)
+                switch step {
+                case let .formatFile(_, bytes), let .delayedCutFile(_, bytes):
+                    XCTAssertThrowsError(try tracker.beginFile(stepIndex: index + 1, bytes: bytes))
+                    XCTAssertThrowsError(try tracker.beginFile(stepIndex: index, bytes: Data()))
+                    try tracker.beginFile(stepIndex: index, bytes: bytes)
+                    XCTAssertThrowsError(try tracker.fileFinished())
+                    try tracker.acceptedByTransport(byteCount: bytes.count / 2)
+                    try tracker.acceptedByTransport(byteCount: bytes.count)
+                    try tracker.fileFinished()
+                    XCTAssertEqual(tracker.state, .awaitingStatus)
+                    var waitingFailure = tracker
+                    try waitingFailure.stop(cancelled: true)
+                    XCTAssertEqual(waitingFailure.state, .uncertain)
+                    XCTAssertFalse(waitingFailure.mayRetryAutomatically)
+                default:
+                    XCTAssertEqual(tracker.state, .awaitingStatus)
+                    XCTAssertFalse(try tracker.observeStatus(stepIndex: index, step: step, observation: .unknown))
+                    XCTAssertFalse(try tracker.observeStatus(stepIndex: index, step: step, observation: .notSatisfied))
+                    XCTAssertEqual(tracker.nextStepIndex, index)
+                    XCTAssertThrowsError(try tracker.observeStatus(stepIndex: index + 1, step: step, observation: .confirmed))
+                    XCTAssertTrue(try tracker.observeStatus(stepIndex: index, step: step, observation: .confirmed))
+                }
+            }
+            XCTAssertEqual(tracker.state, .confirmed)
+            XCTAssertNil(tracker.nextStep)
+            XCTAssertEqual(tracker.bytesAccepted, total)
+            XCTAssertThrowsError(try tracker.stop(cancelled: false))
+            var beforeAttempt = FinishingDeliveryTracker(output: framed)
+            try beforeAttempt.stop(cancelled: false)
+            XCTAssertTrue(beforeAttempt.mayRetryAutomatically)
+            var cancelledBefore = FinishingDeliveryTracker(output: framed)
+            try cancelledBefore.stop(cancelled: true)
+            XCTAssertFalse(cancelledBefore.mayRetryAutomatically)
+            guard case let .formatFile(_, firstBytes) = expected[0] else { return XCTFail("Expected format") }
+            var attempted = FinishingDeliveryTracker(output: framed)
+            try attempted.beginFile(stepIndex: 0, bytes: firstBytes)
+            try attempted.stop(cancelled: false)
+            XCTAssertEqual(attempted.bytesAccepted, 0)
+            XCTAssertEqual(attempted.state, .uncertain)
+            XCTAssertFalse(attempted.mayRetryAutomatically)
+            XCTAssertThrowsError(try attempted.beginFile(stepIndex: 0, bytes: firstBytes))
+            for invalid in [-1, firstBytes.count + 1] {
+                var broken = FinishingDeliveryTracker(output: framed)
+                try broken.beginFile(stepIndex: 0, bytes: firstBytes)
+                XCTAssertThrowsError(try broken.acceptedByTransport(byteCount: invalid))
+                XCTAssertEqual(broken.state, .uncertain)
+                XCTAssertFalse(broken.mayRetryAutomatically)
+            }
+            var decreasing = FinishingDeliveryTracker(output: framed)
+            try decreasing.beginFile(stepIndex: 0, bytes: firstBytes)
+            try decreasing.acceptedByTransport(byteCount: 1)
+            XCTAssertThrowsError(try decreasing.acceptedByTransport(byteCount: 0))
+            XCTAssertEqual(decreasing.state, .uncertain)
             if mode == .peel {
                 let withoutPrepeel = FinishingOutputQualification(profile: job.printer.profile, model: qualification.model,
                     quantityOne: documented, labelCompletion: documented, rfid: nonRFID,
