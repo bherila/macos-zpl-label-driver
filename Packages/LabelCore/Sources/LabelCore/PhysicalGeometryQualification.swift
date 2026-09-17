@@ -92,9 +92,10 @@ public struct PhysicalGeometryQualification: Equatable, Sendable {
     /// Unknown home/shift/top/device state remains unknown; this is not physical proof.
     public func validateRaster(_ bitmap: MonochromeBitmap, request: MediaGeometryRequest,
                                tracking: MediaTracking? = nil,
-                               trackingFact: CapabilityFact = .init(state: .unknown, evidence: .unobserved)) throws {
+                               trackingFact: CapabilityFact = .init(state: .unknown, evidence: .unobserved),
+                               offsets: OffsetControlRequest? = nil) throws {
         _ = try controls(for: request, tracking: tracking, trackingFact: trackingFact)
-        try Self.validateKnownRaster(bitmap, request: request)
+        try Self.validateKnownRaster(bitmap, request: request, offsets: offsets)
     }
 
     static func validateKnownRaster(_ bitmap: MonochromeBitmap, request: MediaGeometryRequest,

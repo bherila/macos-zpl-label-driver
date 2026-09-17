@@ -19,10 +19,17 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
         return try .init(schemaVersion: 8, revision: revision,
             capabilities: .init(model: "synthetic-finishing-model", thermalTransfer: c.thermalTransfer,
                 cutter: documented, peeler: documented, rewind: documented, tracking: c.tracking,
-                printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: c.darkness),
+                printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: documented, physicalGeometry: .init(width: .init(fact: documented, maximumDots: 200),
+                    homeX: .init(fact: documented, maximumDots: 200),
+                    homeY: .init(fact: documented, maximumDots: 200)),
+                offsets: .init(shiftLeft: .init(fact: documented, range: -5...5),
+                    labelTop: .init(fact: documented, range: -5...5)), directThermal: documented),
             installedHardware: .init(transport: .usb, selectedFinishing: .tearOff, cutter: installed,
                 peeler: installed, observedSpeedIps: nil, observedDarkness: nil, observedTracking: nil),
             media: base.media, connection: base.connection,
+            configuredDefaults: .init(thermalMethod: .directThermal),
+            thermalMedia: .init(method: .observed(.directThermal, evidence: .reportedInstallation),
+                ribbonPresent: .observed(false, evidence: .reportedInstallation)),
             finishingConfiguration: includeConfiguration ? .init(finishing: .init(
                 modes: Dictionary(uniqueKeysWithValues: modes.map { ($0, documented) }), enabledModes: Set(modes),
                 installed: .init(cutter: .observed(true, evidence: .reportedInstallation),
@@ -61,9 +68,25 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
             resolution: DotResolution(xDotsPerMillimeter: 1, yDotsPerMillimeter: 1))
         let conversion = MonochromeConversion.textAndBarcodeThreshold(cutoff: 128)
         let job = try job(2)
-        let result = try FinishingRasterPreparation.prepare(job: job, originalPDF: source,
+        let request = PrinterControlRequest(finishing: .cut, printSpeedIps: 3, darkness: 0,
+            mediaGeometry: try .init(widthDots: canvas.width, originXDot: 1, originYDot: 0),
+            offsets: .init(shiftLeftDots: 1))
+        let result = try FinishingRasterPreparation.prepare(job: job,
+            controlRequest: request, originalPDF: source,
             extraction: plan, canvas: canvas, conversion: conversion, workerExecutable: worker)
         XCTAssertEqual(result.extraction, plan)
+        XCTAssertEqual(result.controls.finishing, .value(.cut))
+        XCTAssertEqual(result.controls.thermalMethod, .value(.directThermal))
+        XCTAssertEqual(result.controls.darkness, .value(0))
+        XCTAssertEqual(result.controls.printSpeedIps, .value(3))
+        XCTAssertEqual(result.controls.mediaGeometry, .value(try .init(widthDots: canvas.width,
+            originXDot: 1, originYDot: 0)))
+        XCTAssertEqual(result.controls.offsets, .value(.init(shiftLeftDots: 1)))
+        XCTAssertNoThrow(try result.validateControls(job: request))
+        var changedRequest = request; changedRequest.printSpeedIps = 4
+        XCTAssertThrowsError(try result.validateControls(job: changedRequest)) {
+            XCTAssertEqual($0 as? FinishingRasterPreparation.Error, .bindingMismatch)
+        }
         XCTAssertEqual(result.rasters.count, 2) // No second copy expansion.
         XCTAssertEqual(result.rasters[0], result.rasters[1])
         XCTAssertEqual(result.rasters[0], try OfflineExtractionWorker.render(originalPDF: source,
@@ -88,21 +111,36 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
             canvas: canvas, conversion: conversion))
         // Resource/count failures precede any worker execution.
         let inert = URL(fileURLWithPath: "/usr/bin/false")
-        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job, originalPDF: source,
+        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job,
+            controlRequest: .init(finishing: .cut, printSpeedIps: 3, darkness: 0), originalPDF: source,
             extraction: single, canvas: canvas, conversion: conversion, workerExecutable: inert)) {
             XCTAssertEqual($0 as? FinishingRasterPreparation.Error, .planMismatch)
         }
-        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job, originalPDF: source,
+        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job,
+            controlRequest: .init(finishing: .cut, printSpeedIps: 3, darkness: 0), originalPDF: source,
             extraction: plan, canvas: canvas, conversion: conversion, workerExecutable: inert, maximumPackedBytes: 1)) {
             XCTAssertEqual($0 as? FinishingRasterPreparation.Error, .byteLimit)
         }
+        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job,
+            controlRequest: .init(finishing: .cut, printSpeedIps: 3, darkness: 31),
+            originalPDF: source, extraction: plan, canvas: canvas, conversion: conversion, workerExecutable: inert)) {
+            XCTAssertEqual($0 as? PrinterProfileError, .unsupportedDarkness(31))
+        }
+        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job,
+            controlRequest: .init(finishing: .cut, printSpeedIps: 3, darkness: 0,
+                mediaGeometry: try .init(widthDots: canvas.width, originXDot: 1, originYDot: 0)),
+            originalPDF: source, extraction: plan, canvas: canvas, conversion: conversion, workerExecutable: worker)) {
+            XCTAssertEqual($0 as? PhysicalGeometryQualification.Error, .rasterExceedsWidth)
+        }
         let cancelled = OfflineRenderWorkerCancellation(); cancelled.cancel()
-        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job, originalPDF: source,
+        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job,
+            controlRequest: .init(finishing: .cut, printSpeedIps: 3, darkness: 0), originalPDF: source,
             extraction: plan, canvas: canvas, conversion: conversion, workerExecutable: inert, cancellation: cancelled)) {
             XCTAssertEqual($0 as? FinishingRasterPreparation.Error, .cancelled)
         }
         let unexpectedPages = try Data(contentsOf: root.appending(path: "Fixtures/generated/mixed-pages.pdf"))
-        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job, originalPDF: unexpectedPages,
+        XCTAssertThrowsError(try FinishingRasterPreparation.prepare(job: job,
+            controlRequest: .init(finishing: .cut, printSpeedIps: 3, darkness: 0), originalPDF: unexpectedPages,
             extraction: plan, canvas: canvas, conversion: conversion, workerExecutable: worker)) {
             XCTAssertEqual($0 as? FinishingRasterPreparation.Error, .planMismatch)
         }

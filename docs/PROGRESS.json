@@ -184,7 +184,9 @@
         "181cf15534dd60c98e3b7c1978accbeaa6d2e575 (original-document finishing preparation source checkpoint; local 89/270/323 gate passed, hosted/readback pending)",
         "docs/validation/M3-FINISHING-CONTROL-RESOLUTION-2026-09-17.md (local complete-policy-bound offline profile8 resolution with shared ordinary normal-control validation; six focused/restored cases passed, independent normal-validation and policy-equality omission faults reproduced; full gate pending, ordinary/mechanical/ticket/queue/device/manual/physical gates open)",
         "docs/validation/M3-FINISHING-CONTROL-RESOLUTION-2026-09-17.md (terminal local full gate passed ownexit0 89/272/323 debug/release with independent/inert/native/signature/packaged checks; six restored focused cases and source/disclosure review passed; ordinary/mechanical encoding and accepted ticket/queue/device/manual/physical gates remain open)",
-        "74b030ed45766b4e1df0caa35900d9449a68d796 (shared offline finishing resolution source checkpoint; local 89/272/323 full gate passed, hosted/readback pending)"
+        "74b030ed45766b4e1df0caa35900d9449a68d796 (shared offline finishing resolution source checkpoint; local 89/272/323 full gate passed, hosted/readback pending)",
+        "docs/validation/M3-FINISHING-PREPARATION-CONTROLS-2026-09-17.md (local effective controls retained before isolated workers, immutable-policy revalidation and qualified home/shift containment; eight focused/restored native cases passed with independent control-equality and offset-forwarding failures; full gate pending, command/wire/ticket/queue/device/pitch/manual/physical gates open)",
+        "docs/validation/M3-FINISHING-PREPARATION-CONTROLS-2026-09-17.md (terminal full local gate passed ownexit0 89/272/323 debug/release with independent/inert/native/signature/packaged checks; eight restored focused cases and source/disclosure review passed; command/wire/ticket/queue/device/pitch/manual/physical gates remain open)"
       ],
       "blockers": []
     },
