@@ -31,7 +31,7 @@ strict/ASCII independent oracles, inert ABI/pipeline, ARM/minimum26 metadata,
 local signatures, Developer-ID negative and packaged-worker equality. Artifact:
 artifacts/setup-app.gLgyA5. The full gate uses a process-scoped idle-sleep
 assertion (caffeinate -i) and process-group timeout cleanup; no test deadlines change.
-Source checkpoint pending.
+Local unpublished implementation checkpoint `fb9b34345a234238844f8d0151e54c01d27a29bf`.
 
 Coverage gap identified during the gate: the current stale-result regression releases the
 old request after the new one completes. It does not exercise preservation of a newer
@@ -43,7 +43,7 @@ model cases passed own exit0 in debug and release in finite session32129, includ
 four old open/export success/failure paths while a new request stayed busy. Affected final
 app build passed own exit0 with ARM/minimum26 metadata, local signatures and packaged-worker
 equality; artifact artifacts/setup-app.KxC3wr. These post-gate changes have targeted evidence,
-not a new359-case full-suite declaration. Local source checkpoint pending.
+not a new359-case full-suite declaration. Local unpublished implementation checkpoint `fb9b34345a234238844f8d0151e54c01d27a29bf`.
 
 Related selector full gate32797 failed an existing source-reference release test; unchanged
 four-case release reproduction77654 passed. A long bounded-loopback duration suggests host
