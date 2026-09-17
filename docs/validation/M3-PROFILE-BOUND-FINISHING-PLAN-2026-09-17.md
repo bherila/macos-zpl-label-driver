@@ -46,3 +46,8 @@ ad-hoc signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL
 equality. Local artifact `artifacts/setup-app.w04t7p`. Disclosure marker scan of
 tracked/new files and manual source diff review passed. This is automated evidence
 only; ordinary mechanical integration and prescribed physical gates remain open.
+
+## Source checkpoint
+
+Implementation `7c97afa8df33852f181bcd30f0fc0b59ec6f958e` contains the validated profile-bound planning
+slice. Exact publication/hosted validation remains a separate observation.
