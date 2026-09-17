@@ -241,6 +241,34 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
             let archiveReference = try archives.save(id: "synthetic-framed", revision: 1, output: framed)
             let reopenedStore = try FinishingArtifactStore(root: archiveRoot)
             XCTAssertEqual(try reopenedStore.load(reference: archiveReference, against: framed), artifact)
+            let intents = try FinishingAttemptStore(root: archiveRoot)
+            XCTAssertEqual(try intents.recoveryObservation(reference: archiveReference, against: framed),
+                           .noRecordedIntent)
+            XCTAssertThrowsError(try intents.recordPotentialAttempt(reference: archiveReference, against: changedContext))
+            let cancelledIntent = OfflineRenderWorkerCancellation(); cancelledIntent.cancel()
+            XCTAssertThrowsError(try intents.recordPotentialAttempt(reference: archiveReference,
+                against: framed, cancellation: cancelledIntent))
+            XCTAssertEqual(try intents.recoveryObservation(reference: archiveReference, against: framed),
+                           .noRecordedIntent)
+            // Simulate process death before any send/accepted-byte callback.
+            try intents.recordPotentialAttempt(reference: archiveReference, against: framed)
+            let coldIntents = try FinishingAttemptStore(root: archiveRoot)
+            XCTAssertEqual(try coldIntents.recoveryObservation(reference: archiveReference, against: framed),
+                           .uncertainAfterRecordedIntent)
+            try coldIntents.recordPotentialAttempt(reference: archiveReference, against: framed)
+            XCTAssertEqual(try coldIntents.recoveryObservation(reference: archiveReference, against: framed),
+                           .uncertainAfterRecordedIntent)
+            XCTAssertThrowsError(try coldIntents.recoveryObservation(reference: archiveReference, against: changedContext))
+            let intentFiles = try FileManager.default.contentsOfDirectory(at: archiveRoot.appending(path: "finishing-attempts"),
+                includingPropertiesForKeys: nil).filter { $0.pathExtension == "bin" }
+            XCTAssertEqual(intentFiles.count, 1)
+            let intentFile = try XCTUnwrap(intentFiles.first)
+            let intentBytes = try Data(contentsOf: intentFile)
+            try Data("corrupt".utf8).write(to: intentFile)
+            XCTAssertThrowsError(try coldIntents.recoveryObservation(reference: archiveReference, against: framed)) {
+                XCTAssertEqual($0 as? FinishingAttemptStore.Error, .invalidRecord)
+            }
+            try intentBytes.write(to: intentFile)
             XCTAssertEqual(try reopenedStore.save(id: "synthetic-framed", revision: 1, output: framed), archiveReference)
             XCTAssertThrowsError(try reopenedStore.save(id: "synthetic-framed", revision: 1, output: changedContext)) {
                 XCTAssertEqual($0 as? FinishingArtifactStore.Error, .conflict)
@@ -261,6 +289,13 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
                 uncertainReference = reference
             }
             XCTAssertEqual(try reopenedStore.load(reference: XCTUnwrap(uncertainReference), against: framed), artifact)
+            let uncertainIntentStore = try FinishingAttemptStore(root: archiveRoot, storage: uncertainStorage)
+            let uncertainArtifact = try XCTUnwrap(uncertainReference)
+            XCTAssertThrowsError(try uncertainIntentStore.recordPotentialAttempt(reference: uncertainArtifact, against: framed)) {
+                XCTAssertEqual($0 as? FinishingAttemptStore.Error, .commitUncertain)
+            }
+            XCTAssertEqual(try coldIntents.recoveryObservation(reference: uncertainArtifact, against: framed),
+                           .uncertainAfterRecordedIntent)
             for id in ["synthetic-third", "synthetic-fourth"] { _ = try archives.save(id: id, revision: 1, output: framed) }
             XCTAssertThrowsError(try archives.save(id: "synthetic-fifth", revision: 1, output: framed)) {
                 XCTAssertEqual($0 as? FinishingArtifactStore.Error, .capacityReached)
