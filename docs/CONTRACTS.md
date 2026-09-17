@@ -82,6 +82,32 @@ store lookup discovers the validated actual schema; explicit reference lookup
 still requires exact schema, revision and canonical digest. No migration or
 replacement of version-1 revisions is implicit.
 
+Version 3 adds separately qualified `feedSpeeds` and `backfeedSpeeds` capability
+objects (fact plus bounded choices) and nullable feed/backfeed defaults. Unknown
+and unsupported preserve distinct facts and empty choices; supported choices
+need explicit evidence and intersect the implemented 2..12 ips protocol subset.
+Resolution uses the same per-field precedence. Unspecified feed/backfeed values
+are `notExplicitlyControlled`, never a promise that issuing a legacy `^PRp`
+preserves secondary device settings. Their version3 ticket modes are exact and
+nullable only in that explicit state. Full ticket decoding re-resolves captured
+controls against bound queue/profile defaults and rejects dropping both effective
+secondary values. Selecting either motor speed
+requires a complete resolved print/feed/backfeed tuple; the encoder never fills
+omitted arguments with protocol defaults. Reference GC420d feed/backfeed facts
+remain unknown and cannot be requested silently. No read-only observation enters
+precedence. Other previously unqualified controls remain unavailable.
+
+Virtual queue version 2 and resolved ticket version 3 persist these choices with
+exact field sets. Older versions keep their canonical bytes and reject new
+fields. No queue version 1 binds a version 3 printer profile; an explicit new
+revision/format is required. The preliminary immutable-reference reader and
+full decoder agree on supported queue versions, then full validation against
+actual immutable profiles is still mandatory. New qualified choices reach the
+inert encoder via the same queue defaults used at ticket acceptance; differences
+fail before delivery. The source qualification is a profile declaration, not
+hardware evidence or privileged authorization. No automatic migration or
+physical-control qualification follows from a version change.
+
 PPD/IPP option strings map to typed internal values through a fixed table. Profile display names and job titles never become ZPL syntax. Selectors are IDs, not file paths. Regeneration of PPDs/defaults is transactional and preserves unrelated queues.
 
 ## Copies, ranges and ordering
