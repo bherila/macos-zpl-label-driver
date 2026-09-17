@@ -1,6 +1,6 @@
 # Immutable physical geometry/tracking implementation — 2026-09-17
 
-Current unpublished source binds separately qualified physical limits and defaults
+Published source `65314a16e1b9f6f9e22ab2d5f63c291eb2c65cd1` on PR #81 binds separately qualified physical limits and defaults
 in profile5/queue4/ticket5, resolves each field independently and rejects incomplete
 home/mode/length/conflicting defaults. Gap and continuous mappings are explicit;
 black-mark offset and sensed-stock length remain unavailable. Known containment
@@ -12,6 +12,7 @@ Setup edits retain geometry/tracking/darkness; configured tracking is not curren
 regions whose complete stored/prepared/inert controls agree. Whole-object precedence
 fault reproduced1 failure; restored per-field resolution passes. A profile5 version
 in a queue slot reproduced1 missing rejection, now guarded by slot-specific limits.
+Remote branch and PR head read back at that exact SHA. Hosted run35212808079 is queued, not pass evidence.
 Full CI-equivalent gate passed exit0: 89 Python/231 Core/285 Mac debug/release, independent/inert checks, ad-hoc signatures and packaged-worker equality. See
 `validation/M3-PERSISTED-PHYSICAL-GEOMETRY-2026-09-17.md` for exact limits,
 remaining black-mark/shift/top/thermal/finishing/UI implementation and installed/
