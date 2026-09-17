@@ -34,6 +34,22 @@ final class RawTCPDeliveryTests: XCTestCase {
         XCTAssertNoThrow(try RawTCPEndpoint(host: "::1", port: 19101))
     }
 
+    func testEndpointRejectsURLComponentsWhilePreservingBareHostForms() throws {
+        for host in ["tcp://synthetic.example.test", "synthetic-user@synthetic.example.test",
+                     "synthetic.example.test/path", "synthetic.example.test?option=value",
+                     "synthetic.example.test#fragment", "synthetic.example.test\\path"] {
+            XCTAssertThrowsError(try RawTCPEndpoint(host: host, port: 19101)) {
+                XCTAssertEqual($0 as? RawTCPEndpoint.ValidationError, .invalidHost)
+            }
+        }
+        for host in ["synthetic.example.test", "127.0.0.1", "::1", "fe80::1%en0"] {
+            let endpoint = try RawTCPEndpoint(host: host, port: 19101)
+            XCTAssertEqual(endpoint.host, host)
+            XCTAssertEqual(endpoint.port, 19101)
+            XCTAssertFalse(String(reflecting: endpoint).contains(host))
+        }
+    }
+
     private func completeJob() throws -> PreparedJobPayload {
         let profile = try PrinterProfile.gc420dUSBReference(revision: 29)
         let encoder = try ZPLPreparedLabelEncoder()

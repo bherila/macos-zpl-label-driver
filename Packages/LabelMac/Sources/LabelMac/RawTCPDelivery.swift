@@ -15,10 +15,14 @@ public struct RawTCPEndpoint: Equatable, Sendable, RedactedDiagnosticValue {
     public let port: UInt16
 
     public init(host: String, port: UInt16) throws {
+        // Accept a bare host, not URI user-info, path, query or fragment syntax.
         // Bound encoded input before scalar validation; grapheme count does not
         // bound memory (one cluster may contain arbitrarily many combining marks).
         guard !host.isEmpty, host.utf8.prefix(254).count <= 253,
-              host.unicodeScalars.allSatisfy({ !$0.properties.isWhitespace && !CharacterSet.controlCharacters.contains($0) })
+              host.unicodeScalars.allSatisfy({
+                  !$0.properties.isWhitespace && !CharacterSet.controlCharacters.contains($0)
+                      && !"/@?#\\".unicodeScalars.contains($0)
+              })
         else { throw ValidationError.invalidHost }
         guard port != 0 else { throw ValidationError.invalidPort }
         self.host = host
