@@ -1,6 +1,6 @@
 # Qualified thermal utility drafts — 2026-09-17
 
-Current locally validated source preserves configured transfer/direct defaults, exposes
+Validated source140dd0ec5a7355bedab2cca12929dcd1ff220b1a preserves configured transfer/direct defaults, exposes
 only evidenced model choices, retains incompatible drafts and distinguishes model
 support from declared media/ribbon. Unknown declarations/confirmation flags cannot
 admit defaults or fabricate observations. Native picker/hint and profile7 stock
