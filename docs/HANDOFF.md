@@ -382,3 +382,5 @@ Unpublished width-subset implementation checkpoint `8dcc24141aaa8dbb6ca6aa27aecb
 ## Token-preserving JSON traversal dependency
 
 [Traversal evidence](validation/TOKEN-PRESERVING-JSON-2026-09-17.md) records the internal bounded object/array parser, numeric lexeme retention and adversarial grammar/resource tests. All 291 Core tests passed debug/release. Product codecs are unchanged: the integer identity defect remains open. Next is integration across the enumerated codec sites with original regressions and explicit compatibility/error-contract checks. Manual gates are unchanged.
+
+Unpublished token-traversal implementation checkpoint: `37977fdb1912ece63784ac4af79b6f31b28062b2`. Codec integration remains the next required slice.

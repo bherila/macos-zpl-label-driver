@@ -17,3 +17,5 @@ No queue, privileged operation, device command, printer I/O, manual GUI, merge o
 Packages/LabelCore/Sources/LabelCore/TokenPreservingJSON.swift: c2df3167f8d34586488ebdd3b7640fbd6a30822e000001d88cd90ff89ec3780f
 
 Packages/LabelCore/Tests/LabelCoreTests/TokenPreservingJSONTests.swift: 9f7ac38ae2b29861553f52286abee7326ec315f8ce094bb8344bfc671c1faca5
+
+Local implementation checkpoint: `37977fdb1912ece63784ac4af79b6f31b28062b2`; tested source/regression digests above match the committed files. This is unpublished, with no hosted CI/review claim.
