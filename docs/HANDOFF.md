@@ -18,22 +18,21 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
 - Branch: `codex/m2-ascii-graphic-compression`; open PR81, base
   `codex/m3-control-speed-boundary`. This is stacked unmerged work, not main.
 - Published source/remote/PR equality verified at
-  `60257d17479e734481beaf7862b4d6e48377f569`. Latest published
-  implementation `9a14f80`: exact-context finishing archive serialization.
-- Latest finite900s `bash scripts/ci-swift.sh`, session57062, completed
-  `FULL_GATE_EXIT 0`:89 Python/272 Core/324 native tests in debug/release,
+  `604aef7fdc86413741988803e544a51f11093681`. Latest published
+  implementation `425e584`: bounded immutable finishing archive store.
+- Latest finite900s `bash scripts/ci-swift.sh`, session24242, completed
+  `FULL_GATE_EXIT 0`:103 Python/272 Core/324 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.geRkBj`; no printer accessed.
+  Local artifact: `artifacts/setup-app.jamhiV`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
   accounting detected treating zero known accepted bytes as a retryable send attempt.
-- Hosted run35233437806 completed success at exact eafb564. It covers the inert
-  coordinator checkpoint, not later serialization or the local store slice.
-  New serialization-head run35235059609 is in progress. Poll exact existing handles;
-  do not restart on an observation timeout or equate previous-head checks to new code.
+- Hosted run35236186182 completed success at exact604aef7 (archive store).
+  It does not qualify the local M6 slice. Poll exact existing handles without
+  restarting.
 - The two earlier cloud review passes apply to older base/head pairs. No third pass
   was requested, and these passes are not a verdict on subsequent changes.
 - Local host evidence is macOS27 ARM; minimum-runtime26 and hosted checks are
@@ -78,21 +77,31 @@ Nine restored native focused cases passed; omitting original-source hash failed 
 assertions with identical rasters/files. Full finite900s session1032 passed ownexit0 with the checks above;
 log /tmp/zpl-finishing-artifact-full.log. Source/disclosure review passed with restored
 hash unchanged. Implementation 9a14f80b7efa857f01a98e96a87e79e651501a50 is published;
-exact hosted coverage of serialization remains pending.
+hosted run35235059609 passed at its exact60257d1 checkpoint.
 See [artifact serialization](validation/M3-FINISHING-FRAMED-ARTIFACT-2026-09-17.md).
 The consolidated handoff/history and serialization checkpoints are now pushed.
-The private finishing archive store below remains local awaiting its full gate.
+The private finishing archive store below is also published and hosted-tested.
 
-## Locally validated immutable archive store awaiting publication
+## Published immutable archive store
 
 FinishingArtifactStore now publishes private bounded binary archives using the existing
 immutable directory helper. Typed record-format capacity keeps four-record admission
 and idempotent full-store readback consistent.38combined focused/restored native cases
 passed; JSON-only capacity regression failed four assertions. Full finite900s session57062 passed ownexit0 with the current checks above;
-log /tmp/zpl-finishing-store-full.log. Implementation 425e584c673d6316951be5a7e8c24b7791fd88ba is committed locally;
-hold push until published serialization-head CI finishes;
+log /tmp/zpl-finishing-store-full.log. Implementation 425e584c673d6316951be5a7e8c24b7791fd88ba is published;
+hosted run35236186182 passed at exact604aef7;
 see [store evidence](validation/M3-FINISHING-ARTIFACT-STORE-2026-09-17.md).
 This does not supply durable delivery lifecycle or post-crash replay authorization.
+
+## Locally validated M6 traceability tooling
+
+The read-only report covers all 90 acceptance IDs / 21 requirements. It preserves exact
+prescribed evidence levels, candidate/file bindings and current-failure veto. Explicit
+per-ID ledger is empty; milestone prose/checkmarks cannot qualify rows. 14 focused/restored
+and 103 Python cases passed with independent level/failure/source faults detected.
+Finite full gate session24242 passed own exit0 with 103/272/324 tests and the
+checks above; log /tmp/zpl-traceability-full.log. Source commit pending; [tool guide](TRACEABILITY.md) and
+[evidence](validation/M6-TRACEABILITY-REPORT-2026-09-17.md). No release qualified.
 
 ## Manual Part A and Part B
 
