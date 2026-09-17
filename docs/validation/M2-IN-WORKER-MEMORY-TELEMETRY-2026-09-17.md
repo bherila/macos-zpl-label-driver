@@ -31,3 +31,7 @@ simultaneous process-tree memory, installed throughput or physical delivery.
 No A/I/H/R acceptance was refreshed, no printer queried, and no artifact published.
 The preceding integrated baseline remains a preceding-source result; focused
 checks here are not a new full suite/signature/installation claim.
+
+## Clean committed-source measurement
+
+Raw evidence: M2-IN-WORKER-MEMORY-BASELINE-2026-09-17.json. The default-path harness completed exit0 on clean committed source, one first and five repeat invocations. It binds exact source, CLI and worker hashes and synthetic input hashes. Maximum repeat worker RSS: 18087936 bytes; maximum repeat CLI RSS: 18202624 bytes; repeat p95: 128.568ms. These remain separate per-process observations, not aggregate/physical performance.

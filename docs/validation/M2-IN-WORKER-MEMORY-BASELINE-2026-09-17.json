@@ -1,0 +1,85 @@
+{
+  "cold": {
+    "maximumResidentBytes": 17924096,
+    "milliseconds": 117.98291699960828,
+    "workerMaximumResidentBytes": 17809408
+  },
+  "coldDefinition": "first timed invocation after an untimed release build; filesystem caches are not purged",
+  "environment": {
+    "architecture": "arm64",
+    "macOSBuild": "26A428",
+    "macOSVersion": "27.0",
+    "referenceMachine": "Apple Silicon MacBookPro18,3",
+    "swift": "Apple Swift version 6.4 (swiftlang-6.4.0.34.1 clang-2100.3.34.1)",
+    "xcode": "Xcode 27.0 / Build version 27A266a"
+  },
+  "gitDirty": false,
+  "gitHead": "ab771ff9aa741dafd34aac8a7d7427c2e17e3624",
+  "inputs": {
+    "executable": "Packages/LabelMac/.build/out/Products/Release/label-driver",
+    "executableSHA256": "f88d493e0604d93e0b712da23b1d84ac5313b980fc206693935a3b20e482b2e7",
+    "fixture": "Fixtures/generated/native-vector.pdf",
+    "fixtureSHA256": "24af4c33cd98b4373048c3fdf88085a1da098e7cebc97b147d051fd99ecf5c61",
+    "ticket": "Examples/offline-ticket-v1.json",
+    "ticketSHA256": "d6a74471a2e062f1c048a82c3eaa691914afd3452a2fab1d5fcc6535204df9d3",
+    "workerExecutableSHA256": "9f3256b1022f89ed96c71cc2115bc9cb2ba7c5038747e4dde3783f0eea257fef"
+  },
+  "limitations": [
+    "No scheduler, USB transport, printer mechanics, first-label time, or sustained physical rate is measured.",
+    "This local baseline is not a shared-runner performance threshold."
+  ],
+  "measurementTool": "Python monotonic wall clock around /usr/bin/time -l and label-driver validate; RSS is the command value reported by macOS",
+  "prepared": {
+    "formatScope": "offline-graphics-envelope-not-state-normalized",
+    "heightDots": 1219,
+    "pixels": 991047,
+    "widthDots": 813,
+    "zplBytes": 248814
+  },
+  "rawWarm": [
+    {
+      "maximumResidentBytes": 17940480,
+      "milliseconds": 117.57937500078697
+    },
+    {
+      "maximumResidentBytes": 17907712,
+      "milliseconds": 113.99595798866358
+    },
+    {
+      "maximumResidentBytes": 17973248,
+      "milliseconds": 118.16358400392346
+    },
+    {
+      "maximumResidentBytes": 18038784,
+      "milliseconds": 124.41649999527726
+    },
+    {
+      "maximumResidentBytes": 18202624,
+      "milliseconds": 128.56754199310672
+    }
+  ],
+  "schemaVersion": 1,
+  "scope": "offline-release-render-and-encode-no-transport",
+  "warm": {
+    "maximumMilliseconds": 128.56754199310672,
+    "maximumResidentBytes": 18202624,
+    "medianMilliseconds": 118.16358400392346,
+    "minimumMilliseconds": 113.99595798866358,
+    "p95Milliseconds": 128.56754199310672,
+    "pixelsPerSecondAtP95": 7708376.349398794,
+    "preparedBytesPerSecondAtP95": 1935278.5014225475,
+    "runs": 5
+  },
+  "warmDefinition": "subsequent separate CLI invocations using identical fixture and ticket bytes",
+  "workerMemory": {
+    "maximumWarmResidentBytes": 18087936,
+    "rawWarmResidentBytes": [
+      17825792,
+      17793024,
+      17858560,
+      17924096,
+      18087936
+    ],
+    "scope": "Darwin worker RUSAGE_SELF peak through output preparation; separate from CLI RSS, not aggregate process-tree memory"
+  }
+}
