@@ -72,6 +72,66 @@ final class WorkflowEditorTests: XCTestCase {
         XCTAssertEqual(model.preview?.bitmap.layout.height, 10)
     }
 
+    func testMarginMutationBindsReviewRevisionAndRejectsEmptyDotAreaAtomically() throws {
+        let (model, store) = try makeModel()
+        try model.save()
+        let saved = model.profile
+        try model.refreshPreview()
+        try confirmReview(model)
+        let oldBinding = WorkflowEditorEditBinding(regionID: "selected", editGeneration: model.editGeneration)
+        let unit = saved.outputStock.width.value / 10
+        let margins = try OutputMargins(left: unit, top: 2 * unit, right: 3 * unit, bottom: unit)
+        try model.setOutputMargins(margins, expectedBinding: oldBinding)
+        XCTAssertFalse(model.isSaved)
+        XCTAssertNil(model.preview)
+        XCTAssertEqual(model.unreviewedRegionCount, model.regions.count)
+        XCTAssertEqual(model.profile.schemaVersion, 3)
+        XCTAssertEqual(model.profile.revision, saved.revision + 1)
+        XCTAssertEqual(model.profile.pageRules, saved.pageRules)
+        XCTAssertEqual(try store.load(profileID: saved.id, revision: saved.revision), saved)
+        try model.refreshPreview()
+        try confirmReview(model)
+        let current = model.profile
+        let preview = model.preview
+        let generation = model.editGeneration
+        XCTAssertThrowsError(try model.setOutputMargins(.zero, expectedBinding: oldBinding))
+        XCTAssertThrowsError(try model.setOutputMargins(OutputMargins(left: saved.outputStock.width.value - 0.01, top: 0, right: 0, bottom: 0)))
+        XCTAssertThrowsError(try model.setOutputStock(id: "empty-inset", size: PhysicalSize(
+            width: Millimeters(4 * unit + 0.01), height: saved.outputStock.height)))
+        XCTAssertEqual(model.profile, current)
+        XCTAssertEqual(model.preview, preview)
+        XCTAssertEqual(model.editGeneration, generation)
+        XCTAssertEqual(model.unreviewedRegionCount, 0)
+        try model.save()
+        try model.reloadForCorrection(profileID: current.id, revision: current.revision)
+        XCTAssertEqual(model.profile.outputMargins, margins)
+        XCTAssertEqual(model.profile.schemaVersion, 3)
+    }
+
+    func testCompletedOldMarginWorkerCannotReplaceNewMarginPreview() async throws {
+        let (model, _) = try makeModel()
+        let executable = try worker()
+        let barrier = PreviewBarrier()
+        let obsolete = Task {
+            await model.refreshPreviewInWorker(workerExecutable: executable, deadlineSeconds: 5,
+                afterPreparation: { await barrier.pause() })
+        }
+        let limit = ContinuousClock.now.advanced(by: .seconds(5))
+        while !(await barrier.arrived) && ContinuousClock.now < limit { await Task.yield() }
+        let arrived = await barrier.arrived
+        XCTAssertTrue(arrived)
+        try model.setOutputMargins(OutputMargins(left: 0.5, top: 0.5, right: 0.5, bottom: 0.5))
+        await model.refreshPreviewInWorker(workerExecutable: executable, deadlineSeconds: 5)
+        let prepared = model.preview
+        await barrier.release()
+        await obsolete.value
+        let current = try XCTUnwrap(prepared)
+        XCTAssertEqual(model.preview, current)
+        XCTAssertEqual(current.bitmap.layout.width, 10)
+        XCTAssertFalse(model.isPreparingPreview)
+        XCTAssertNil(model.lastError)
+    }
+
     private func confirmReview(_ model: WorkflowEditorModel) throws {
         try model.confirmSelectedBoundsAndPreviewReviewed(expectedProfile: model.profile, expectedPreview: model.preview,
             expectedEditGeneration: model.editGeneration)

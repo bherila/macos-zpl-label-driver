@@ -211,8 +211,23 @@ public final class WorkflowEditorModel: ObservableObject {
         let nextCanvas = try canvas.replacingPhysicalSize(size)
         var next = try editableDraft()
         try next.setOutputStock(id: id, size: size)
+        _ = try PagePlacementPlanner.plan(source: size, canvas: nextCanvas, policy: .fit,
+            margins: next.profile.outputMargins)
         try replaceDraft(next)
         canvas = nextCanvas
+        cancelPreview()
+        isSaved = false
+    }
+
+    /// Reserved blank area is part of the immutable candidate, not a preview-only setting.
+    public func setOutputMargins(_ margins: OutputMargins,
+                                 expectedBinding: WorkflowEditorEditBinding? = nil) throws {
+        try validateEditBinding(expectedBinding)
+        var next = try editableDraft()
+        try next.setOutputMargins(margins)
+        _ = try PagePlacementPlanner.plan(source: next.profile.outputStock, canvas: canvas,
+            policy: .fit, margins: margins)
+        try replaceDraft(next)
         cancelPreview()
         isSaved = false
     }
@@ -605,6 +620,7 @@ public struct WorkflowEditorView: View {
 
     private var mediaSummary: some View {
         let stock = model.profile.outputStock
+        let margins = model.profile.outputMargins
         let binding = model.selectedRegionID.map {
             WorkflowEditorEditBinding(regionID: $0, editGeneration: model.editGeneration)
         }
@@ -625,6 +641,32 @@ public struct WorkflowEditorView: View {
                     Text("These dimensions change this workflow's label previews. Verify the physical stock and printer limits separately before printing.")
                         .font(.caption)
                 }
+            }
+            GroupBox("Reserved output margins") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        measurementField("Left margin (mm)", value: margins.left) { value in
+                            try model.setOutputMargins(OutputMargins(left: value, top: margins.top,
+                                right: margins.right, bottom: margins.bottom), expectedBinding: binding)
+                        }
+                        measurementField("Top margin (mm)", value: margins.top) { value in
+                            try model.setOutputMargins(OutputMargins(left: margins.left, top: value,
+                                right: margins.right, bottom: margins.bottom), expectedBinding: binding)
+                        }
+                    }
+                    HStack {
+                        measurementField("Right margin (mm)", value: margins.right) { value in
+                            try model.setOutputMargins(OutputMargins(left: margins.left, top: margins.top,
+                                right: value, bottom: margins.bottom), expectedBinding: binding)
+                        }
+                        measurementField("Bottom margin (mm)", value: margins.bottom) { value in
+                            try model.setOutputMargins(OutputMargins(left: margins.left, top: margins.top,
+                                right: margins.right, bottom: value), expectedBinding: binding)
+                        }
+                    }
+                    Text("Margins reserve blank space inside the output stock. Review a new exact preview after changing them; printer calibration must be verified separately.")
+                        .font(.caption)
+                }.disabled(binding == nil)
             }
         }
     }
