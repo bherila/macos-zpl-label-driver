@@ -17,9 +17,11 @@ public struct FinishingRasterPreparation: Equatable, Sendable {
     public let conversion: MonochromeConversion
     public let rasters: [MonochromeBitmap]
     public let binding: FinishingRasterBinding
+    public let controls: ResolvedPrinterControls
 
     public static func prepare(
-        job: ProfileBoundFinishingJobPlan, originalPDF: Data, extraction: ExtractionPlan,
+        job: ProfileBoundFinishingJobPlan, controlRequest: PrinterControlRequest = .init(),
+        workflowDefaults: PrinterControlDefaults = .init(), originalPDF: Data, extraction: ExtractionPlan,
         canvas: DotCanvas, conversion: MonochromeConversion, workerExecutable: URL,
         maximumPackedBytes: Int = FinishingRasterBinding.maximumTotalBytes,
         deadlineSeconds: Double = OfflineRenderWorkerProcess.defaultDeadlineSeconds,
@@ -43,6 +45,8 @@ public struct FinishingRasterPreparation: Equatable, Sendable {
         let (bytes, byteOverflow) = canvas.bitmapLayout.byteCount.multipliedReportingOverflow(
             by: extraction.outputLabels.count)
         guard !byteOverflow, bytes <= maximumPackedBytes else { throw Error.byteLimit }
+        let controls = try job.printer.profile.resolveFinishingControls(plan: job.plan,
+            job: controlRequest, workflowDefaults: workflowDefaults)
         let start = DispatchTime.now().uptimeNanoseconds
         func remaining() throws -> Double {
             guard !cancellation.isCancelled else { throw Error.cancelled }
@@ -59,16 +63,26 @@ public struct FinishingRasterPreparation: Equatable, Sendable {
         var rasters: [MonochromeBitmap] = []
         rasters.reserveCapacity(extraction.outputLabels.count)
         for label in extraction.outputLabels {
-            rasters.append(try OfflineExtractionWorker.render(originalPDF: originalPDF,
+            let bitmap = try OfflineExtractionWorker.render(originalPDF: originalPDF,
                 label: label, canvas: canvas, conversion: conversion, workerExecutable: workerExecutable,
-                deadlineSeconds: remaining(), cancellation: cancellation))
+                deadlineSeconds: remaining(), cancellation: cancellation)
+            if case let .value(geometry) = controls.mediaGeometry {
+                let offsets: OffsetControlRequest?
+                if case let .value(value) = controls.offsets { offsets = value } else { offsets = nil }
+                let tracking: MediaTracking?
+                if case let .value(value) = controls.tracking { tracking = value } else { tracking = nil }
+                try job.printer.profile.capabilities.physicalGeometry.validateRaster(bitmap, request: geometry,
+                    tracking: tracking, trackingFact: job.printer.profile.capabilities.tracking[.continuous]
+                        ?? .init(state: .unknown, evidence: .unobserved), offsets: offsets)
+            }
+            rasters.append(bitmap)
         }
         let binding = try FinishingRasterBinding(job: job, orderedRasters: rasters,
             maximumTotalBytes: maximumPackedBytes, cancellation: cancellation)
         let sourceHash = hash(originalPDF)
         _ = try remaining()
         return Self(sourceSHA256: sourceHash, sourceByteCount: originalPDF.count,
-            extraction: extraction, canvas: canvas, conversion: conversion, rasters: rasters, binding: binding)
+            extraction: extraction, canvas: canvas, conversion: conversion, rasters: rasters, binding: binding, controls: controls)
     }
 
     public func validateSource(originalPDF: Data, extraction: ExtractionPlan,
@@ -77,6 +91,15 @@ public struct FinishingRasterPreparation: Equatable, Sendable {
               self.extraction == extraction, self.canvas == canvas, self.conversion == conversion else {
             throw Error.bindingMismatch
         }
+    }
+
+    /// Re-resolves only against the retained immutable profile and policy. A
+    /// later draft or new revision cannot replace this preparation's controls.
+    public func validateControls(job: PrinterControlRequest,
+                                 workflowDefaults: PrinterControlDefaults = .init()) throws {
+        let expected = try binding.job.printer.profile.resolveFinishingControls(
+            plan: binding.job.plan, job: job, workflowDefaults: workflowDefaults)
+        guard expected == controls else { throw Error.bindingMismatch }
     }
 
     private static func hash(_ data: Data) -> String {

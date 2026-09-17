@@ -1,3 +1,30 @@
+# Effective controls in finishing preparation terminal gate — 2026-09-17
+
+Full finite900s session25902 completed ownexit0:89Python/272Core/323Mac debug/release,132 strict and180 ASCII oracle round trips per mode, finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.yFKWag. No printer accessed.
+Eight restored focused cases passed; omitted equality and home/shift forwarding each
+failed independently then byte-restored. Source/disclosure review passed. Next commit/
+push and verify exact remote/PR head and hosted run. Ordinary mechanical encoding,
+accepted ticket/queue/device/pitch context, cut/file boundaries, peel waits and manual/
+hardware gates remain open. Frozen B unchanged. No merge or binary publication.
+
+Source/disclosure review passed; both restored source hashes unchanged. Same finite
+full-gate session25902 passed272Core debug/release; remaining inert/native/package
+stages live. Keep unpublished until terminal own exit; no full/hosted pass claimed.
+
+Finite900s full gate live session25902; log `/tmp/zpl-finishing-controls-preparation-full.log`.
+Poll same process; no source change since restored focused ownexit0.
+
+# Finishing preparation effective-control integration — 2026-09-17
+
+Local source preparation now resolves valid effective controls before workers,
+retains them with exact profile/policy/source/raster context, and applies qualified
+known containment including offsets. Eight focused/restored cases passed; control
+substitution and home/shift forwarding faults independently failed then byte-restored.
+See validation/M3-FINISHING-PREPARATION-CONTROLS-2026-09-17.md. Next finite900s full
+gate, review/disclosure and same-PR source commit/readback. No accepted queue/ticket/
+device, pitch, mechanical wire/cut/peel or manual/physical acceptance inferred.
+Source remains local only; frozen B unchanged.
+
 # Shared finishing resolution source checkpoint — 2026-09-17
 
 Implementation 74b030ed45766b4e1df0caa35900d9449a68d796 passed the local finite gate recorded below.

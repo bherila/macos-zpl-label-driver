@@ -247,3 +247,9 @@ facts. Effective finishing precedence must match the plan's mode. Normal control
 share ordinary precedence and validation; returned controls retain actual schema8
 and revision. This is offline resolution only: ordinary encoders still reject8,
 and no mode fragment implements cut/file boundaries or peel status handling.
+
+FinishingRasterPreparation resolves and retains those effective controls before
+worker admission, beside its exact profile-bound plan, original-source provenance
+and packed inputs. Revalidation against the retained profile rejects changed
+effective controls; qualified geometry containment includes known home/shift/top
+combinations. Unknown device geometry and physical stock fit remain unproven.
