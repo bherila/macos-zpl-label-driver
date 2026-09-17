@@ -1,0 +1,154 @@
+import CryptoKit
+import Darwin
+import Foundation
+import XCTest
+import LabelCore
+@testable import LabelMac
+
+final class FinishingQueueStoreTests: XCTestCase {
+    private let documented = CapabilityFact(state: .supported,
+        evidence: .documentedModel(sourceID: "synthetic-finishing-queue"))
+    private func profile(maximumBatch: Int = 3, stock: Observation<Bool> = .observed(true, evidence: .reportedInstallation)) throws -> PrinterProfile {
+        let base = try PrinterProfile.gc420dUSBReference(revision: 11)
+        return try .init(schemaVersion: 8, revision: base.revision,
+            capabilities: .init(model: "synthetic-finishing-queue", thermalTransfer: base.capabilities.thermalTransfer,
+                cutter: documented, peeler: documented, rewind: documented, tracking: base.capabilities.tracking,
+                printSpeedChoicesIps: base.capabilities.printSpeedChoicesIps, darkness: documented,
+                directThermal: documented),
+            installedHardware: .init(transport: .usb, selectedFinishing: .tearOff,
+                cutter: .init(state: .supported, evidence: .reportedInstallation),
+                peeler: .init(state: .supported, evidence: .reportedInstallation),
+                observedSpeedIps: nil, observedDarkness: nil, observedTracking: nil),
+            media: base.media, connection: base.connection,
+            configuredDefaults: .init(thermalMethod: .directThermal),
+            thermalMedia: .init(method: .observed(.directThermal, evidence: .reportedInstallation),
+                ribbonPresent: .observed(false, evidence: .reportedInstallation)),
+            finishingConfiguration: .init(finishing: .init(
+                modes: Dictionary(uniqueKeysWithValues: [FinishingMode.tearOff, .cut, .peel, .rewind].map { ($0, documented) }),
+                enabledModes: [.tearOff, .cut, .peel, .rewind], installed: .init(
+                    cutter: .observed(true, evidence: .reportedInstallation),
+                    peeler: .observed(true, evidence: .reportedInstallation),
+                    rewinder: .observed(true, evidence: .reportedInstallation))),
+                stock: .init(media: base.media, compatibleModes: Dictionary(uniqueKeysWithValues:
+                    [FinishingMode.tearOff, .cut, .peel, .rewind].map { ($0, stock) })),
+                schedules: .init(everyLabel: documented, batch: documented, endOfJob: documented,
+                    maximumBatchSize: maximumBatch)))
+    }
+    private func workflow(revision: Int = 1) throws -> WorkflowProfile {
+        let page = try PDFPageBox(originX: 0, originY: 0, width: 288, height: 432)
+        let region = try NormalizedRect(x: 0, y: 0, width: 1, height: 1)
+        return try WorkflowProfile(
+            id: "native-4x6-local", revision: revision,
+            outputStockID: "nominal-4x6",
+            outputStock: PhysicalSize(
+                width: try Millimeters.inches(4), height: try Millimeters.inches(6)
+            ),
+            pageRules: [try WorkflowPageRule(
+                sourcePage: 1,
+                expectedInput: ExpectedInputPage(uprightPhysicalSize: page.effectivePhysicalSize()),
+                disposition: .extract([try ExtractionRegion(
+                    id: "label", normalizedRect: region,
+                    outputOrder: 0
+                )]),
+                structuralAnchors: [try StructuralAnchorExpectation(
+                    id: "border", kind: .border, normalizedRect: region
+                )]
+            )]
+        )
+    }
+
+    private func root() -> URL {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("FinishingQueue-\(UUID().uuidString)")
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        return root
+    }
+    private func digest(_ bytes: Data) -> String {
+        SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+    }
+    private func queue(workflow w: WorkflowProfile, printer p: PrinterProfile,
+                       printerReference: ImmutableProfileReference, workflowHash: String? = nil,
+                       name: String = "Synthetic finishing") throws -> FinishingQueueDefinition {
+        try .init(id: "synthetic-finishing", revision: 1, displayName: name,
+            physicalDevice: .init(sha256: String(repeating: "a", count: 64)),
+            workflowProfile: .init(id: w.id, schemaVersion: w.schemaVersion, revision: w.revision,
+                sha256: workflowHash ?? digest(WorkflowProfileJSON.encode(w))),
+            printerProfile: printerReference, defaultSelection: .init(mode: .cut, schedule: .batch(size: 3, cutRemainderAtJobEnd: true)),
+            workflowDefaults: .init(printSpeedIps: 3, darkness: 0), validatingWorkflow: w, validatingPrinter: p)
+    }
+    func testColdReopenIdempotenceAndConflictPreserveExactPolicy() throws {
+        let r = root(), workflows = try WorkflowProfileStore(root: r), printers = try PrinterProfileStore(root: r)
+        let w = try workflow(), p = try profile()
+        try workflows.save(w); try workflows.confirmForUnattendedUse(w)
+        let pr = try printers.save(id: "synthetic-printer", profile: p)
+        let q = try queue(workflow: w, printer: p, printerReference: pr)
+        let store = try FinishingQueueStore(root: r)
+        let ref = try store.save(q, workflowStore: workflows, printerStore: printers)
+        XCTAssertEqual(try store.save(q, workflowStore: workflows, printerStore: printers), ref)
+        let reopened = try FinishingQueueStore(root: r).load(reference: ref,
+            workflowStore: WorkflowProfileStore(root: r), printerStore: PrinterProfileStore(root: r))
+        XCTAssertEqual(reopened, q)
+        XCTAssertEqual(try reopened.resolve(outputLabelCount: 7, workflow: w, printer: p).plan.cutAfterOutputLabels, [3,6,7])
+        XCTAssertThrowsError(try store.save(queue(workflow: w, printer: p, printerReference: pr, name: "Changed"),
+            workflowStore: workflows, printerStore: printers)) { XCTAssertEqual($0 as? FinishingQueueStore.Error, .conflict) }
+    }
+    func testReferenceDigestsAndCompleteSnapshotsAreIndependentlyCheckedBeforePublication() throws {
+        let r = root(), workflows = try WorkflowProfileStore(root: r), printers = try PrinterProfileStore(root: r)
+        let w = try workflow(), p = try profile()
+        try workflows.save(w); try workflows.confirmForUnattendedUse(w)
+        let pr = try printers.save(id: "synthetic-printer", profile: p), store = try FinishingQueueStore(root: r)
+        let bad = try ImmutableProfileReference(id: pr.id, schemaVersion: pr.schemaVersion, revision: pr.revision, sha256: String(repeating: "0", count:64))
+        XCTAssertThrowsError(try store.save(queue(workflow: w, printer: p, printerReference: bad), workflowStore: workflows, printerStore: printers)) {
+            XCTAssertEqual($0 as? FinishingQueueStore.Error, .printerReferenceMismatch)
+        }
+        XCTAssertThrowsError(try store.save(queue(workflow: w, printer: p, printerReference: pr, workflowHash: String(repeating:"0",count:64)), workflowStore: workflows, printerStore: printers)) {
+            XCTAssertEqual($0 as? FinishingQueueStore.Error, .workflowReferenceMismatch)
+        }
+        XCTAssertThrowsError(try store.save(queue(workflow: w, printer: profile(maximumBatch: 4), printerReference: pr), workflowStore: workflows, printerStore: printers)) {
+            XCTAssertEqual($0 as? FinishingQueueStore.Error, .snapshotMismatch)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: r.appendingPathComponent("finishing-queues").path))
+    }
+    func testUnqualifiedWorkflowNeverPublishes() throws {
+        let r = root(), workflows = try WorkflowProfileStore(root:r), printers = try PrinterProfileStore(root:r)
+        let w = try workflow(), p = try profile(); try workflows.save(w)
+        let pr = try printers.save(id:"synthetic-printer", profile:p)
+        XCTAssertThrowsError(try FinishingQueueStore(root:r).save(queue(workflow:w,printer:p,printerReference:pr), workflowStore:workflows,printerStore:printers)) {
+            XCTAssertEqual($0 as? FinishingQueueStore.Error, .workflowNotQualified)
+        }
+    }
+    func testAlteredArchiveAndSymlinkFailOnColdRead() throws {
+        let r=root(), workflows=try WorkflowProfileStore(root:r), printers=try PrinterProfileStore(root:r)
+        let w=try workflow(), p=try profile(); try workflows.save(w); try workflows.confirmForUnattendedUse(w)
+        let pr=try printers.save(id:"synthetic-printer",profile:p)
+        let store=try FinishingQueueStore(root:r), q=try queue(workflow:w,printer:p,printerReference:pr)
+        let ref=try store.save(q,workflowStore:workflows,printerStore:printers)
+        let path=r.appendingPathComponent("finishing-queues").appendingPathComponent(FinishingQueueStore.fileName(ref))
+        let wrongReference=try FinishingQueueReference(id:ref.id,revision:ref.revision,sha256:String(repeating:"0",count:64))
+        XCTAssertThrowsError(try store.load(reference:wrongReference,workflowStore:workflows,printerStore:printers)) {
+            XCTAssertEqual($0 as? FinishingQueueStore.Error,.referenceMismatch)
+        }
+        let original=try Data(contentsOf:path)
+        try (original+Data([32])).write(to:path)
+        XCTAssertThrowsError(try store.load(reference:ref,workflowStore:workflows,printerStore:printers)) {
+            XCTAssertEqual($0 as? FinishingQueueStore.Error,.referenceMismatch)
+        }
+        try FileManager.default.removeItem(at:path)
+        let target=r.appendingPathComponent("external.json"); try original.write(to:target)
+        try FileManager.default.createSymbolicLink(at:path,withDestinationURL:target)
+        XCTAssertThrowsError(try store.load(reference:ref,workflowStore:workflows,printerStore:printers)) {
+            XCTAssertEqual($0 as? FinishingQueueStore.Error,.cannotRead)
+        }
+    }
+    func testUncertainPublicationCarriesExactColdRecoverableReference() throws {
+        let r=root(), workflows=try WorkflowProfileStore(root:r), printers=try PrinterProfileStore(root:r)
+        let w=try workflow(), p=try profile(); try workflows.save(w); try workflows.confirmForUnattendedUse(w)
+        let pr=try printers.save(id:"synthetic-printer",profile:p), q=try queue(workflow:w,printer:p,printerReference:pr)
+        let expected=try FinishingQueueReference(id:q.id,revision:q.revision,sha256:digest(FinishingQueueJSON.encode(q)))
+        let storage=try PrivateImmutableDirectory(root:r,syncDirectory:{ _ in -1 })
+        let faulty=FinishingQueueStore(root:r,storage:storage)
+        XCTAssertThrowsError(try faulty.save(q,workflowStore:workflows,printerStore:printers)) {
+            XCTAssertEqual($0 as? FinishingQueueStore.Error,.commitUncertain(expected))
+        }
+        XCTAssertEqual(try FinishingQueueStore(root:r).load(reference:expected,workflowStore:workflows,printerStore:printers),q)
+    }
+}

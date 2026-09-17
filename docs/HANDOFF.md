@@ -3154,12 +3154,12 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
   `8c2499783c64b218c289fc50d5bb019b42e8ff8c`. Latest published software
   implementation `42a4cae`: inert durable finishing intent/coordinator integration;
   compatibility inventory and two explicit A assessments are also published.
-- Latest finite900s `bash scripts/ci-swift.sh`, session76703, completed
-  `FULL_GATE_EXIT 0`:104 Python/277 Core/324 native tests in debug/release,
+- Latest completed finite900s `bash scripts/ci-swift.sh`, session41257, completed
+  `FULL_GATE_EXIT 0`:104 Python/279 Core/329 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.gfdEKb`; no printer accessed.
+  Local artifact: `artifacts/setup-app.KNUte4`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
@@ -3308,8 +3308,12 @@ The canonical codec is now implemented locally; seven focused/restored cases pas
 canonical-byte omission failed two assertions. Full gate session28149 passed exit0 with
 104Python/279Core/324Mac debug/release and oracle/inert/signature/packaged checks; see
 [codec evidence](validation/M3-FINISHING-QUEUE-CODEC-2026-09-17.md).
-Next independent slice: canonical bounded private queue persistence with actual reference
-readback, then accepted finishing source/order/pitch/device and durable lifecycle binding.
+Private finishing queue storage is now locally implemented; five focused/restored cases
+passed, including cold recovery of uncertain publication. Snapshot and both digest faults
+independently failed exit1. Full gate session41257 passed exit0 with104Python/279Core/329Mac
+debug/release and oracle/inert/signature/packaged checks; see
+[store evidence](validation/M3-FINISHING-QUEUE-STORE-2026-09-17.md).
+Next independent slice: accepted finishing source/order/pitch/device and durable lifecycle binding.
 
 ## Manual Part A and Part B
 

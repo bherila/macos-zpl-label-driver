@@ -337,3 +337,10 @@ through the offline definition against supplied snapshots. Decode requires exact
 re-encoding bytes, preventing duplicate-key or alternate-encoding identity normalization.
 Reference extraction is preliminary only; independent store resolution and digest checks
 are still mandatory. The codec grants no accepted-job or scheduler authority.
+
+FinishingQueueStore publishes bounded16KiB/256-record immutable offline policies in
+finishing-queues with a separate FinishingQueueReference. Save requires independent exact
+printer/workflow digest resolution, qualified workflow and complete snapshot revalidation.
+Load verifies full record digest before resolving references and canonical reconstruction.
+Conflicts do not overwrite; uncertain publication carries the exact typed recovery reference.
+Storage or recovery does not create installed queues, accepted tickets or replay authority.
