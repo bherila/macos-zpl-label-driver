@@ -1,3 +1,9 @@
+# Profile-bound finishing source checkpoint — 2026-09-17
+
+Implementation `7c97afa8df33852f181bcd30f0fc0b59ec6f958e` is locally validated as recorded below.
+Publish source checkpoint, verify remote/PR equality and observe exact hosted run.
+Remaining ordinary/prepared-order/delivery/manual gates unchanged; frozen B unchanged.
+
 # Profile-bound finishing terminal local gate — 2026-09-17
 
 Full finite CI-equivalent gate passed ownexit0:89Python/270Core/318Mac debug/release
