@@ -1,6 +1,6 @@
 # Exact thermal profile7 persistence — 2026-09-17
 
-Current locally validated source adds required private thermal observations and independent
+Local unpushedb24a618fa421e58e35a30e138e8a59ceb1d83a2e source adds required private thermal observations and independent
 direct-thermal fact, configured-default consumable validation, strict boolean/evidence
 JSON, legacy exactness and utility save/restart preservation. Five initial focused
 Core and8 native editing cases passed ownexit0; sixth Core case adds generic-reference
