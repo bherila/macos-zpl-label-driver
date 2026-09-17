@@ -34,6 +34,26 @@ struct LabelDriverCLI {
     }
 
     static func main() {
+        let args = Array(CommandLine.arguments.dropFirst())
+        if args.first == "finishing-inspect" {
+            let cancellation = OfflineRenderWorkerCancellation()
+            let signals = installCancellationSignals(cancellation)
+            defer { signals.forEach { $0.cancel() } }
+            do {
+                let command = try FinishingInspectionCommand(arguments: Array(args.dropFirst()))
+                let data = try command.report(workerExecutable: renderWorkerExecutable(), cancellation: cancellation)
+                FileHandle.standardOutput.write(data)
+                FileHandle.standardOutput.write(Data("\n".utf8))
+            } catch FinishingInspectionCommand.Error.usage {
+                fail(.usage(usage), json: args.contains("--json"))
+            } catch AcceptedFinishingJob.Error.cancelled {
+                emitError(code: .cancelled, message: "inspection cancelled", json: args.contains("--json"))
+                exit(Exit.cancelled.rawValue)
+            } catch {
+                fail(.input("finishing inspection failed"), json: args.contains("--json"))
+            }
+            return
+        }
         let invocation: Invocation
         do {
             invocation = try parse(Array(CommandLine.arguments.dropFirst()))
@@ -351,6 +371,7 @@ struct LabelDriverCLI {
     Usage:
       label-driver validate INPUT.pdf --job-ticket ticket.json [--json]
       label-driver convert INPUT.pdf --job-ticket ticket.json --output output.zpl --preview-dir directory [--json]
+      label-driver finishing-inspect --catalog directory --accepted-id ID --accepted-sha SHA [--json]
     This offline tool never prints or contacts a printer.
     """
 }

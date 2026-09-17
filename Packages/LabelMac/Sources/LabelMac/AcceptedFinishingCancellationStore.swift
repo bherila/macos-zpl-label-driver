@@ -82,7 +82,7 @@ public struct AcceptedFinishingCancellationStore: @unchecked Sendable {
     }
     private static func read(storage: PrivateImmutableDirectory, reference: AcceptedFinishingReference) throws -> Observation {
         let bytes: Data
-        do { bytes = try storage.read(directory: "accepted-finishing-cancellations", fileName: Self.fileName(reference), maximumBytes: 1024) }
+        do { bytes = try storage.read(directory: "accepted-finishing-cancellations", fileName: Self.fileName(reference), maximumBytes: 1024, createDirectoryIfMissing: false) }
         catch PrivateImmutableDirectory.Error.notFound { return .noRecordedRequest }
         catch { throw Self.map(error) }
         guard bytes == Self.record(reference) else { throw Error.invalidRecord }

@@ -47,7 +47,7 @@ public struct AcceptedFinishingAttemptStore: @unchecked Sendable {
                      deadlineSeconds: deadlineSeconds, cancellation: cancellation)
         try Self.check(start: start, deadline: deadlineSeconds, cancellation: cancellation)
         let bytes: Data
-        do { bytes = try storage.read(directory: "accepted-finishing-attempts", fileName: Self.fileName(reference), maximumBytes: 1024) }
+        do { bytes = try storage.read(directory: "accepted-finishing-attempts", fileName: Self.fileName(reference), maximumBytes: 1024, createDirectoryIfMissing: false) }
         catch PrivateImmutableDirectory.Error.notFound {
             try Self.check(start: start, deadline: deadlineSeconds, cancellation: cancellation)
             return .noRecordedIntent

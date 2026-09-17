@@ -685,4 +685,50 @@ final class FinishingQueueStoreTests: XCTestCase {
             XCTAssertEqual($0 as? AcceptedFinishingJob.Error,.cancelled)
         }
     }
+    func testFinishingInspectionUsesVerifiedRecordAndReportsUnknownHardwareWithoutPublishingIntent() throws {
+        let (job,ref,workflows,printers,queues,worker,token)=try cancellableAcceptedFixture()
+        let args=["--catalog",workflows.root.path,"--accepted-id",ref.acceptanceID,"--accepted-sha",ref.sha256,"--json"]
+        let command=try FinishingInspectionCommand(arguments:args)
+        var result=try XCTUnwrap(JSONSerialization.jsonObject(with:command.report(workerExecutable:worker)) as? [String:Any])
+        XCTAssertEqual(result["outputLabelCount"] as? Int,4)
+        XCTAssertEqual(result["hardwareCompletion"] as? String,"unknown")
+        XCTAssertEqual(result["localIntent"] as? String,"no-recorded-intent")
+        XCTAssertEqual(result["automaticReplayAuthorized"] as? Bool,false)
+        func invoke(_ arguments:[String]) throws -> (Int32,Data,Data) {
+            let process=Process(), output=Pipe(), errors=Pipe()
+            process.executableURL=worker.deletingLastPathComponent().appendingPathComponent("label-driver")
+            process.arguments=["finishing-inspect"]+arguments
+            process.standardOutput=output;process.standardError=errors
+            try process.run()
+            let end=Date().addingTimeInterval(75)
+            while process.isRunning && Date()<end { Thread.sleep(forTimeInterval:0.01) }
+            if process.isRunning { kill(process.processIdentifier,SIGKILL) }
+            process.waitUntilExit()
+            return (process.terminationStatus,output.fileHandleForReading.readDataToEndOfFile(),errors.fileHandleForReading.readDataToEndOfFile())
+        }
+        let (code,stdout,stderr)=try invoke(args)
+        XCTAssertEqual(code,0);XCTAssertTrue(stderr.isEmpty)
+        let actual=try XCTUnwrap(JSONSerialization.jsonObject(with:stdout) as? [String:Any])
+        XCTAssertEqual(actual["localIntent"] as? String,"no-recorded-intent")
+        XCTAssertEqual(actual["outputLabelCount"] as? Int,4)
+        var wrong=args;wrong[5]=String(repeating:"0",count:64)
+        let (badCode,badOutput,badErrors)=try invoke(wrong)
+        XCTAssertEqual(badCode,65);XCTAssertTrue(badOutput.isEmpty)
+        XCTAssertFalse(String(decoding:badErrors,as:UTF8.self).contains(workflows.root.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath:workflows.root.appendingPathComponent("accepted-finishing-attempts").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath:workflows.root.appendingPathComponent("accepted-finishing-cancellations").path))
+        try AcceptedFinishingAttemptStore(root:workflows.root).recordPotentialAttempt(reference:ref,against:job,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        try AcceptedFinishingCancellationStore(root:workflows.root).request(reference:ref,against:job,token:token,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        result=try XCTUnwrap(JSONSerialization.jsonObject(with:command.report(workerExecutable:worker)) as? [String:Any])
+        XCTAssertEqual(result["localIntent"] as? String,"uncertain-after-recorded-intent")
+        XCTAssertEqual(result["cancellationRequested"] as? Bool,true)
+        XCTAssertNil(result["token"]);XCTAssertNil(result["catalog"])
+        XCTAssertThrowsError(try FinishingInspectionCommand(arguments:args+["--json"]))
+        let missing=workflows.root.appendingPathComponent("missing-catalog")
+        let absent=try FinishingInspectionCommand(arguments:["--catalog",missing.path,"--accepted-id",ref.acceptanceID,"--accepted-sha",ref.sha256])
+        XCTAssertThrowsError(try absent.report(workerExecutable:worker))
+        XCTAssertFalse(FileManager.default.fileExists(atPath:missing.path))
+    }
 }

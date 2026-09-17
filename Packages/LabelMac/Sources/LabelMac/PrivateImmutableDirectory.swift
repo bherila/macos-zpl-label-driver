@@ -202,8 +202,8 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
         }
     }
 
-    func read(directory name: String, fileName: String, maximumBytes: Int) throws -> Data {
-        try withDirectory(name) { directory in
+    func read(directory name: String, fileName: String, maximumBytes: Int, createDirectoryIfMissing: Bool = true) throws -> Data {
+        try withDirectory(name, createIfMissing: createDirectoryIfMissing) { directory in
             try read(
                 directoryDescriptor: directory,
                 fileName: fileName,
@@ -263,19 +263,23 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
     private func withDirectory<T>(
         _ name: String,
         syncRootAfterBody: Bool = false,
+        createIfMissing: Bool = true,
         body: (Int32) throws -> T
     ) throws -> T {
         let rootDescriptor = open(root.path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard rootDescriptor >= 0 else { throw Error.cannotOpen }
         defer { close(rootDescriptor) }
         try Self.validateDirectory(rootDescriptor)
-        if mkdirat(rootDescriptor, name, 0o700) != 0, errno != EEXIST {
+        if createIfMissing, mkdirat(rootDescriptor, name, 0o700) != 0, errno != EEXIST {
             throw Error.cannotCreate
         }
         let directory = openat(
             rootDescriptor, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
         )
-        guard directory >= 0 else { throw Error.cannotOpen }
+        guard directory >= 0 else {
+            if !createIfMissing, errno == ENOENT { throw Error.notFound }
+            throw Error.cannotOpen
+        }
         defer { close(directory) }
         try Self.validateDirectory(directory)
         let result = try body(directory)

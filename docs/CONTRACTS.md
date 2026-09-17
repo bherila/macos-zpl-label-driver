@@ -402,3 +402,9 @@ AcceptedFinishingRecovery revalidates durable accepted identity and both store c
 under one finite aggregate budget. Cancellation is reported separately from intent; recorded
 intent always remains uncertain. Observations are not atomic admission snapshots and grant
 no completion, delivery or replay authority. Concurrent requests require execution polling.
+
+finishing-inspect reopens exact accepted references and reports bounded scalar/hash recovery
+metadata. It emits no printer payload and never infers hardware completion or replay authority.
+Both accepted intent and cancellation recovery reads open existing namespaces without creating
+them; missing namespaces yield absence only after independently verified accepted context.
+Existing publication paths retain explicit namespace creation and durability barriers.
