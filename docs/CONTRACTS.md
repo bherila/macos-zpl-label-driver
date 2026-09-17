@@ -285,3 +285,9 @@ validated kernel lease through every file and wait, with bounded cooperative dea
 cancellation and scope-exit release. Caller-provided coordination is simulator input;
 production must derive identity from an accepted immutable ticket and verify actual
 file/status behavior. Its synthetic confirmed result is never hardware evidence.
+
+FinishingFramedArtifact is a bounded version1 archive of exact preparation context and
+separately tagged ordered files/status requirements. Reopen requires independently supplied
+immutable context and canonical byte equality; external lengths/counts never authorize
+allocation. Archives do not manufacture accepted tickets, hardware receipts or replay
+authority. Private immutable publication and durable recovery remain separate work.

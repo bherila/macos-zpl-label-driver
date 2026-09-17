@@ -20,12 +20,12 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
 - Published source/remote/PR equality verified at
   `eafb5644df2073ce859f98c540ccbb5128325f6a`. Latest implementation commit
   `3a5b79a`: finite inert finishing coordinator and lease-lifetime tests.
-- Latest finite900s `bash scripts/ci-swift.sh`, session42783, completed
+- Latest finite900s `bash scripts/ci-swift.sh`, session1032, completed
   `FULL_GATE_EXIT 0`:89 Python/272 Core/324 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.DeJXCW`; no printer accessed.
+  Local artifact: `artifacts/setup-app.hSSAIH`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
@@ -70,6 +70,19 @@ Read the current finishing evidence in
 [delivery accounting](validation/M3-FINISHING-DELIVERY-ACCOUNTING-2026-09-17.md), and
 [inert lease execution](validation/M3-INERT-FINISHING-LEASE-2026-09-17.md).
 
+## Local artifact slice awaiting source publication
+
+FinishingFramedArtifact now serializes exact immutable context plus separate ordered
+files/status requirements. Reopen compares canonical bytes against independently supplied
+context; it never parses attacker-controlled counts or manufactures replay authority.
+Nine restored native focused cases passed; omitting original-source hash failed four
+assertions with identical rasters/files. Full finite900s session1032 passed ownexit0 with the checks above;
+log /tmp/zpl-finishing-artifact-full.log. Source/disclosure review passed with restored
+hash unchanged. Next commit locally; hold push until the published checkpoint CI finishes.
+See [artifact serialization](validation/M3-FINISHING-FRAMED-ARTIFACT-2026-09-17.md).
+The consolidated handoff/history commit is local and not yet pushed; wait for the
+published checkpoint's hosted result before pushing new work.
+
 ## Manual Part A and Part B
 
 The maintainer reported issue80 Part A passed with the corrected local editor artifact
@@ -100,7 +113,7 @@ Part B alone does not accept the production adapter or complete M1.
 
 ## Remaining implementation and evidence
 
-Next independent software work: durable framed-artifact binding and conservative
+Next independent software work: private durable framed-artifact publication and conservative
 restart recovery; persistent exact-profile output qualifications; accepted finishing
 queue/ticket/device and qualified-pitch binding; actual bounded file/status provider
 integration retaining ownership throughout waits. These must reuse established

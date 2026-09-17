@@ -197,7 +197,8 @@
         "docs/validation/M3-INERT-FINISHING-LEASE-2026-09-17.md (finite discard coordinator holds shared kernel lease through file/status/cut/final peel waits; nine focused/restored native cases passed, early-release fault failed45assertions; full local89/272/324 debug/release gate passed ownexit0 plus independent/inert/signature/packaged checks; hosted pending; actual accepted device/status/file/persistence and installed/physical gates open)",
         "3a5b79a6d543c749fb6998379af594c70582d84f (inert finishing lease source checkpoint; local89/272/324 full gate passed; exact hosted/readback pending)",
         "d02212eff311358675ea3bb65a1f7389f64e3240 (finishing delivery accounting source checkpoint; local89/272/324 full gate passed; hosted/readback pending)",
-        "b76cfd3903d05076ded9074a3e3d3ae06b847d3c (qualified finishing framing source checkpoint; local 89/272/324 full gate passed; hosted/readback pending)"
+        "b76cfd3903d05076ded9074a3e3d3ae06b847d3c (qualified finishing framing source checkpoint; local 89/272/324 full gate passed; hosted/readback pending)",
+        "docs/validation/M3-FINISHING-FRAMED-ARTIFACT-2026-09-17.md (bounded exact-context version1 archive preserves ordered file/status boundaries; nine focused/restored native cases passed, omitted source hash fault failed four assertions with identical files; full local89/272/324 debug/release gate passed ownexit0 plus independent/inert/signature/packaged checks; exact hosted pending; durable publication/recovery and accepted admission remain open)"
       ],
       "blockers": []
     },
