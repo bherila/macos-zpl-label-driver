@@ -1,3 +1,14 @@
+# Control coverage audit and next implementation — 2026-09-17
+
+Source inspection at published df657e9 identifies the full ordinary control gap:
+only tear-off and print speed are currently emitted; darkness/tracking/geometry
+fail explicitly and feed/backfeed speeds have no typed request/default fields.
+See `validation/M3-CONTROL-COVERAGE-AUDIT-2026-09-17.md`. M3-AC03 stays unchecked.
+Next independent slice is cited offline typed control representation/validation,
+including all snapshot/codec boundaries, while preserving unqualified production
+reference rejection. Actual backend/USB integration still follows ADR 0003 and
+M1 evidence. B candidate unchanged. No broad completion claim.
+
 # Current offline status decoder slice — 2026-09-17
 
 On the existing PR #81 branch, a pure bounded legacy ~HS decoder exposes typed
@@ -11,8 +22,10 @@ independent flags; zero-batch status does not confirm or replay a transmitted jo
 See `validation/M3-OFFLINE-HOST-STATUS-2026-09-17.md` and R44 provenance.
 Full local checks passed exit0: 89Python/197Core/273Mac debug/release, both
 independent oracles, twelve CLI cases and inert/signature/packaged checks.
-Publication waits for preceding exact406d6a4 hosted run35203016675, which
-remains active; no later-source hosted/independent review claim. Actual GC420d
+Published at df657e9 on PR #81 after preceding exact406d6a4 hosted
+run35203016675 passed, including packaged worker equality and native checks.
+New status-source hosted checks remain pending; no later-source independent
+review claim. Actual GC420d
 status/channel/freshness/coordinator and physical evidence remain unobserved.
 Additional partial M3-AC01/09/12 only. Frozen B candidate unchanged; no privilege,
 queue, device, merge, third review request or binary release action.
