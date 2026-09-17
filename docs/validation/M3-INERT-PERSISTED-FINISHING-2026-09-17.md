@@ -30,7 +30,7 @@ Finite 900-second full gate session64896 completed FULL_GATE_EXIT 0:
 oracle round trips per mode, finite benchmark/inert ABI/pipeline checks, ARM/minimum26
 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged
 worker PBM/ZPL equality. Log /tmp/zpl-persisted-finishing-full.log; local artifact
-artifacts/setup-app.thCaUD. No printer accessed. Source checkpoint pending.
+artifacts/setup-app.thCaUD. No printer accessed. Implementation source 42a4caec2fb28ce8e752860cf494ddf9c37c6b69; committed locally, hosted coverage pending.
 
 Accepted finishing ticket/device identity, authoritative status, durable progress/completion,
 real scheduler retry semantics and cross-process installed ownership remain open. These
