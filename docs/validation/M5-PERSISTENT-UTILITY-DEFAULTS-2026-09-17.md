@@ -66,3 +66,9 @@ Full keyboard/VoiceOver and GUI save/reopen walkthrough are NOT RUN. Actual sens
 unit limits, USB and alternating physical output remain prescribed hardware gates.
 Thermal/finishing policy integration remains independent work. B's frozen approved
 candidate stays unchanged. No administrator/queue/printer action, merge or binary release.
+
+## Source checkpoint
+
+Source cacca166ce0b62df7e2ab3299a96b63e1f927c7e pushed and remote branch/PR81
+head read back equal. Hosted run35216715041 observed in progress, not pass
+evidence. Preceding8b70383 run35216048756 passed at its exact source.
