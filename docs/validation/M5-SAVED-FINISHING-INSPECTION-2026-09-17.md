@@ -76,3 +76,9 @@ Use synthetic records only and keep the frozen Part B candidate separate.
 ## Export disclosure follow-on
 
 The native folder chooser now explicitly discloses that packed previews contain label content and a manifest with document hashes, and requests review before sharing. The disclosure appears before the user chooses Export Here. A finite300-second release build of label-printer-setup passed exit0. This one-string UI change did not change export bytes or consent mechanics; no redundant text-matching test was added. Native display/layout and keyboard/VoiceOver remain NOT RUN. No M5-AC09 acceptance or whole-source ledger refresh is inferred from this build.
+
+## Chooser failure authority
+
+2026-09-17 saved-job chooser non-cancellation failures now invalidate pending work and clear the previous verified selection/export authority with a redacted error; user cancellation preserves selection. Three release model tests passed; omission of selected=nil produced the expected no-export assertion failure, exact restoration passed all three. Release app build passed. Native chooser/error/VoiceOver NOT RUN; no new acceptance or device I/O.
+
+Nearest independent constraint: a failed file selection cannot leave an earlier accepted record usable by export, even when its summary is hidden. The regression starts with a verified record and successful export, reports chooser failure, and attempts export to a fresh target; no directory may appear. Raw chooser errors are never interpolated into status text. Pending request tokens are invalidated through the existing cancellation boundary.

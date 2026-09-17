@@ -30,6 +30,12 @@ public struct FinishingInspectionView: View {
         }
         .fileImporter(isPresented: $importing,
             allowedContentTypes: [UTType(filenameExtension: "bin") ?? .data], allowsMultipleSelection: false) { result in
+            if case let .failure(error) = result {
+                let failure = error as NSError
+                if failure.domain != NSCocoaErrorDomain || failure.code != NSUserCancelledError {
+                    model.selectionFailed()
+                }
+            }
             if case let .success(files) = result, let file = files.first {
                 Task {
                     let scoped = file.startAccessingSecurityScopedResource()

@@ -47,6 +47,12 @@ public final class FinishingInspectionModel: ObservableObject {
         cancellation?.cancel(); cancellation = nil; request = nil; isBusy = false
         status = "Operation cancelled. Existing exported files are preserved."
     }
+    /// A chooser failure is not a verified selection. Invalidate pending work and
+    /// discard the previous export authority without displaying private error data.
+    public func selectionFailed() {
+        cancel(); selected = nil; summary = nil
+        status = "Saved job could not be opened. Choose the file again. No printer action was taken."
+    }
     public func open(_ file: URL) async {
         cancel(); selected = nil; summary = nil; status = nil
         let token = UUID(), cancellation = OfflineRenderWorkerCancellation()
