@@ -23,7 +23,7 @@ refusal (exit73, preserved output). Finite180-second bounds per mode.
 The preceding app gate14214 passed104Python/281Core/358Mac debug/release and independent/
 inert/signature/packaged checks; it does not cover this later fix. App-specific post-gate
 three model cases passed debug/release and final app build32129 passed; these are distinct
-checkpoints. Source checkpoint pending. Later CLI signature verification is not claimed by the
+checkpoints. Unpublished implementation checkpoint `9ae4776ffdc0e26c2b38e64f42d7ddde62e7b845`. Later CLI signature verification is not claimed by the
 preceding app-build evidence; no new full360-case suite declaration.
 
 Installed scheduler, native GUI/accessibility, minimum-runtime26, identified USB unit/status,
