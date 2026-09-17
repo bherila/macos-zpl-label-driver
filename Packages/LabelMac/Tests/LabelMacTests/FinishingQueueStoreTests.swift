@@ -8,10 +8,10 @@ import LabelCore
 final class FinishingQueueStoreTests: XCTestCase {
     private let documented = CapabilityFact(state: .supported,
         evidence: .documentedModel(sourceID: "synthetic-finishing-queue"))
-    private func profile(maximumBatch: Int = 3, stock: Observation<Bool> = .observed(true, evidence: .reportedInstallation)) throws -> PrinterProfile {
+    private func profile(maximumBatch: Int = 3, model: String = "synthetic-finishing-queue", stock: Observation<Bool> = .observed(true, evidence: .reportedInstallation)) throws -> PrinterProfile {
         let base = try PrinterProfile.gc420dUSBReference(revision: 11)
         return try .init(schemaVersion: 8, revision: base.revision,
-            capabilities: .init(model: "synthetic-finishing-queue", thermalTransfer: base.capabilities.thermalTransfer,
+            capabilities: .init(model: model, thermalTransfer: base.capabilities.thermalTransfer,
                 cutter: documented, peeler: documented, rewind: documented, tracking: base.capabilities.tracking,
                 printSpeedChoicesIps: base.capabilities.printSpeedChoicesIps, darkness: documented,
                 directThermal: documented),
@@ -150,5 +150,59 @@ final class FinishingQueueStoreTests: XCTestCase {
             XCTAssertEqual($0 as? FinishingQueueStore.Error,.commitUncertain(expected))
         }
         XCTAssertEqual(try FinishingQueueStore(root:r).load(reference:expected,workflowStore:workflows,printerStore:printers),q)
+    }
+    func testNativePitchIsBoundToExactVerifiedProfileAndDevice() throws {
+        let r=root(), printers=try PrinterProfileStore(root:r), w=try workflow(), p=try profile()
+        let pr=try printers.save(id:"synthetic-printer",profile:p)
+        let stored=try printers.load(id:pr.id,revision:pr.revision)
+        let device=try PhysicalDeviceCoordinationID(sha256:String(repeating:"a",count:64))
+        let pitch=try DotResolution(xDotsPerMillimeter:8,yDotsPerMillimeter:8)
+        let geometry=try FinishingDeviceGeometry(printer:stored,physicalDevice:device,
+            nativePitch:.observed(pitch,evidence:.documentedModel(sourceID:"synthetic-native-pitch")))
+        let q=try queue(workflow:w,printer:p,printerReference:pr)
+        let canvas=try geometry.canvas(for:q,workflow:w)
+        XCTAssertEqual(canvas.width,813); XCTAssertEqual(canvas.height,1219)
+        XCTAssertEqual(canvas.resolution,pitch)
+        try geometry.validate(canvas:canvas,queue:q,workflow:w)
+        let nominal=try DotCanvas(physicalSize:w.outputStock,
+            resolution:DotResolution(xDotsPerMillimeter:203/25.4,yDotsPerMillimeter:203/25.4))
+        XCTAssertThrowsError(try geometry.validate(canvas:nominal,queue:q,workflow:w))
+        let alias=try FinishingDeviceGeometry(printer:stored,
+            physicalDevice:.init(sha256:String(repeating:"b",count:64)),
+            nativePitch:.observed(pitch,evidence:.reportedInstallation))
+        XCTAssertThrowsError(try alias.canvas(for:q,workflow:w))
+        let forged=StoredPrinterProfile(reference:try .init(id:pr.id,schemaVersion:8,revision:pr.revision,
+            sha256:String(repeating:"0",count:64)),profile:p)
+        XCTAssertThrowsError(try FinishingDeviceGeometry(printer:forged,physicalDevice:device,
+            nativePitch:.observed(pitch,evidence:.reportedInstallation)))
+    }
+    func testUnknownPitchAndInvalidModelProvenanceRemainRejected() throws {
+        let r=root(), printers=try PrinterProfileStore(root:r), p=try profile()
+        let pr=try printers.save(id:"synthetic-printer",profile:p), stored=try printers.load(id:pr.id,revision:pr.revision)
+        let device=try PhysicalDeviceCoordinationID(sha256:String(repeating:"a",count:64))
+        let pitch=try DotResolution(xDotsPerMillimeter:8,yDotsPerMillimeter:8)
+        for observation in [Observation<DotResolution>.unobserved,
+            .observed(pitch,evidence:.unobserved), .observed(pitch,evidence:.documentedModel(sourceID:"../unsafe"))] {
+            XCTAssertThrowsError(try FinishingDeviceGeometry(printer:stored,physicalDevice:device,nativePitch:observation))
+        }
+        let old=try PrinterProfile.gc420dUSBReference()
+        let oldRef=try printers.save(id:"synthetic-legacy",profile:old)
+        XCTAssertThrowsError(try FinishingDeviceGeometry(printer:printers.load(id:oldRef.id,revision:oldRef.revision),
+            physicalDevice:device,nativePitch:.observed(pitch,evidence:.reportedInstallation)))
+    }
+    func testGC420dNativePitchNeverUsesNominal203DPI() throws {
+        let r=root(), printers=try PrinterProfileStore(root:r), p=try profile(model:"GC420d")
+        let pr=try printers.save(id:"synthetic-gc420d",profile:p), stored=try printers.load(id:pr.id,revision:pr.revision)
+        let device=try PhysicalDeviceCoordinationID(sha256:String(repeating:"a",count:64))
+        for (x,y) in [(203/25.4,203/25.4),(8.0,7.0)] {
+            XCTAssertThrowsError(try FinishingDeviceGeometry(printer:stored,physicalDevice:device,
+                nativePitch:.observed(DotResolution(xDotsPerMillimeter:x,yDotsPerMillimeter:y),
+                    evidence:.documentedModel(sourceID:"R26")))) {
+                XCTAssertEqual($0 as? FinishingDeviceGeometry.Error,.modelPitchMismatch)
+            }
+        }
+        let native=try DotResolution(xDotsPerMillimeter:8,yDotsPerMillimeter:8)
+        XCTAssertEqual(try FinishingDeviceGeometry(printer:stored,physicalDevice:device,
+            nativePitch:.observed(native,evidence:.documentedModel(sourceID:"R26"))).resolution,native)
     }
 }
