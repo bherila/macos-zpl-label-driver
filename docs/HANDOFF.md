@@ -3151,22 +3151,23 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
 - Branch: `codex/m2-ascii-graphic-compression`; open PR81, base
   `codex/m3-control-speed-boundary`. This is stacked unmerged work, not main.
 - Published source/remote/PR equality verified at
-  `385a545613793ce436eecdd70de0cd13106610c1`. Latest published
-  implementation `3c96e68`: conservative durable finishing attempt intent.
-- Latest finite900s `bash scripts/ci-swift.sh`, session64896, completed
-  `FULL_GATE_EXIT 0`:103 Python/272 Core/324 native tests in debug/release,
+  `fc24c3da3315a06f9f586a485b873761998e1a31`. Latest published software
+  implementation `42a4cae`: inert durable finishing intent/coordinator integration;
+  compatibility inventory and two explicit A assessments are also published.
+- Latest finite900s `bash scripts/ci-swift.sh`, session76225, completed
+  `FULL_GATE_EXIT 0`:104 Python/272 Core/324 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.thCaUD`; no printer accessed.
+  Local artifact: `artifacts/setup-app.w0DWyo`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
   accounting detected treating zero known accepted bytes as a retryable send attempt.
 - Hosted run35236186182 completed success at exact604aef7 (archive store).
-  M6-head run35237535380 passed at exact51d9e2a. Attempt-store run35238690886
-  is queued at exact385a545; it does not qualify the local coordinator integration.
-  Poll exact handles without restarting.
+  Attempt-store run35238690886 passed at exact385a545. New coordinator/evidence
+  run35240005700 is in progress at exactfc24c3d; it does not qualify the local
+  CI-history slice. Poll exact handles without restarting.
 - The two earlier cloud review passes apply to older base/head pairs. No third pass
   was requested, and these passes are not a verdict on subsequent changes.
 - Local host evidence is macOS27 ARM; minimum-runtime26 and hosted checks are
@@ -3280,6 +3281,17 @@ evaluated source bind these two declarations. Focused26Core tests passed exit0 a
 inputs match the previous passing full gate. No integration/H/R criterion is promoted.
 See [assessments](validation/M3-PER-ID-AUTOMATED-ASSESSMENTS-2026-09-17.md).
 Global qualification remains incomplete and semantic review remains required.
+
+## Local source-history inputs for CI qualification
+
+Native CI and both compatibility candidates now fetch full history, matching the existing
+preflight checkout. A real-Git regression enumerates all four settings, rejects a missing
+ancestor, and recognizes evidence-only ancestry. Removing Intel candidate history failed
+exit1; restored15focused/full104Python cases passed own exit0. Finite native full gate session76225 passed FULL_GATE_EXIT0 with104/272/324 tests and
+the checks above; log /tmp/zpl-traceability-history-full.log;
+see [history evidence](validation/M6-TRACEABILITY-CI-HISTORY-2026-09-17.md).
+Older source assessments are intentionally stale after this workflow/test change; reassess
+against the new checkpoint after validation. Never exempt CI inputs from source binding.
 
 ## Manual Part A and Part B
 

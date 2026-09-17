@@ -157,3 +157,47 @@ class TraceabilityReportTests(unittest.TestCase):
         with self.assertRaises(ValueError): reporter.build_report(self.root, self.sha)
         self.records *= 257
         with self.assertRaises(ValueError): self.report()
+
+    def test_qualifying_ci_checkouts_preserve_real_evidence_ancestry(self):
+        subprocess.run(['git', '-C', str(self.root), 'init', '-q'], check=True)
+        def commit():
+            subprocess.run(['git', '-C', str(self.root), 'add', '.'], check=True)
+            subprocess.run(['git', '-C', str(self.root), '-c', 'user.name=Synthetic',
+                            '-c', 'user.email=agent@example.test', '-c', 'commit.gpgsign=false',
+                            '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false',
+                            'commit', '-qm', 'Synthetic evidence checkpoint'], check=True)
+            return subprocess.check_output(['git', '-C', str(self.root), 'rev-parse', 'HEAD'], text=True).strip()
+        evaluated = commit()
+        for record in self.records:
+            record['sourceSHA'] = evaluated
+        self.ledger()
+        current = commit()
+        repository = Path(__file__).resolve().parents[2]
+        import re
+        settings = []
+        for workflow in ['ci.yml', 'compatibility.yml']:
+            text = (repository / '.github/workflows' / workflow).read_text()
+            for block in re.split(r'(?m)^\s+- uses: actions/checkout@', text)[1:]:
+                found = re.search(r'(?m)^\s+fetch-depth: (\d+)\s*$', block)
+                settings.append((workflow, int(found.group(1)) if found else 1))
+        self.assertEqual(len(settings), 4)  # Preflight, native CI and both compatibility candidates.
+        with tempfile.TemporaryDirectory() as checkouts:
+            def clone(name, depth):
+                destination = Path(checkouts) / name
+                args = ['git', 'clone', '-q']
+                if depth:
+                    args += ['--depth', str(depth)]
+                subprocess.run(args + [self.root.as_uri(), str(destination)], check=True, timeout=10)
+                return destination
+            shallow = clone('missing-ancestor', 1)
+            self.assertFalse(reporter.source_is_unchanged(shallow, evaluated, current))
+            incomplete = reporter.build_report(shallow, current,
+                source_matches=lambda sha: reporter.source_is_unchanged(shallow, sha, current))
+            self.assertFalse(incomplete['readyForMaintainerReview'])
+            for index, (workflow, depth) in enumerate(settings):
+                with self.subTest(workflow=workflow, checkout=index):
+                    checkout = clone('configured-' + str(index), depth)
+                    self.assertTrue(reporter.source_is_unchanged(checkout, evaluated, current))
+                    report = reporter.build_report(checkout, current,
+                        source_matches=lambda sha: reporter.source_is_unchanged(checkout, sha, current))
+                    self.assertTrue(report['readyForMaintainerReview'])
