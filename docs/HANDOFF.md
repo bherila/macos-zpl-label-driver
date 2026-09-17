@@ -400,3 +400,7 @@ Unpublished token-traversal implementation checkpoint: `37977fdb1912ece63784ac4a
 ## Full-scope gap audit and next implementation
 
 [All 21 mandatory requirements](validation/FULL-SCOPE-GAP-AUDIT-2026-09-17.md) retain explicit completion gaps. The next independent slice is the missing cited control protocol table for tracking, dimensions, offsets and qualified finishing; current source has emitted commands but only five structured metadata rows. Production installer/helper/USB/queue integration remains pending the actual ADR 0003 admission boundary, rather than falsely labeled implemented. Hosted PR81 checks still apply only to published 3047f78. No goal completion/block claim.
+
+## Complete control protocol metadata
+
+[Protocol table evidence](validation/M3-CONTROL-PROTOCOL-TABLE-2026-09-17.md) fills the concrete table gap for all twelve documented kinds and four qualified finishing modes. Explicit range/model-limit fields retain independent bounds and unverified persistence. Offline ^MMC and native ^MMD/~JK are distinguished. Core 301 debug/release and accelerator passed before the final metadata-only cut-row refinement; final two coverage tests passed both modes afterward. Prior full native/ledger evidence is historical after source changes. Next is a current M3-AC03 semantic assessment, without promoting physical state-isolation or production adapter claims.
