@@ -74,3 +74,10 @@ Implementation source5698f2f34ba5322af9bb86789033cd952806d204 contains this
 validated slice. Publication/readback and hosted CI are separate checkpoints;
 no hosted pass for this source is claimed here. Precedingbe681ca hosted
 run35218292332 last observed in progress before this checkpoint.
+
+## Publication readback
+
+Source5698f2f/documentation checkpoint8eca8efae392b2f8a6bbe20f0ae0fdf22527b5b7
+pushed; remote branch andPR81 read back equal to8eca8ef. Exact hosted
+run35218734631 observed queued, not pass evidence. Priorbe681ca
+run35218292332 last observed live; preceding4970335 run35217368100 passed.

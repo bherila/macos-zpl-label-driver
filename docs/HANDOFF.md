@@ -1,3 +1,30 @@
+# Qualified thermal utility drafts — 2026-09-17
+
+Current locally validated source preserves configured transfer/direct defaults, exposes
+only evidenced model choices, retains incompatible drafts and distinguishes model
+support from declared media/ribbon. Unknown declarations/confirmation flags cannot
+admit defaults or fabricate observations. Native picker/hint and profile7 stock
+text are explicit; legacy GC420d remains direct-only. Initial37 focused cases passed
+ownexit0 including five new thermal cases; support-fact assertions added before
+native full-gate compilation. Full finite CI-equivalent gate passed ownexit0:89Python/256Core/313Mac
+debug/release plus independent/inert/signature/packaged checks. Forced-direct
+thermal regression failed ownexit1; source restored byte-for-byte and all37
+focused cases passed ownexit0. See
+`validation/M5-QUALIFIED-THERMAL-EDITING-2026-09-17.md`. Manual GUI/accessibility,
+finishing, M1/installed/USB/physical gates remain open. Published8eca8ef thermal job
+binding remote/PR81 confirmed; hosted35218734631 last observed live. No printer/
+admin/merge/binary release; frozen B unchanged.
+
+# Thermal job publication readback — 2026-09-17
+
+Source5698f2f/checkpoint8eca8efae392b2f8a6bbe20f0ae0fdf22527b5b7 pushed.
+Remote branch andPR81 head read back equal to8eca8ef. Exact hosted35218734631
+observed queued, not pass evidence. Priorbe681ca run35218292332 last live;
+preceding4970335 run35217368100 passed. Full local gate89/256/308 ownexit0 and
+restored256Core ownexit0 remain automated evidence only. Next qualified thermal
+utility editing/finishing; installed/M1/GUI/USB/physical gates remain open.
+No printer/admin/merge/binary release. Part B unchanged.
+
 # Immutable thermal jobs — 2026-09-17
 
 Validated source5698f2f34ba5322af9bb86789033cd952806d204 adds queue6/ticket7 thermal defaults/references, explicit

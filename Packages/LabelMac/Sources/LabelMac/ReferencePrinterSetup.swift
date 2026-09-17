@@ -28,6 +28,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
     public enum GeometryField: String, CaseIterable, Sendable { case width, length, homeX, homeY }
     public enum MotorSpeedKind: Equatable, Sendable { case print, feed, backfeed }
     public enum Error: Swift.Error, Equatable, Sendable {
+        case unavailableThermalMethod(ThermalMethod)
         case invalidOffsetText(OffsetField)
         case invalidGeometryText(GeometryField)
         case unavailableTracking(MediaTracking)
@@ -40,6 +41,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
 
     @Published public var offsetDraft: [OffsetField: String] = [:]
     @Published public var geometryDraft: [GeometryField: String] = [:]
+    @Published public private(set) var selectedThermalMethod: ThermalMethod?
     @Published public private(set) var selectedTracking: MediaTracking?
     public let profile: PrinterProfile
     @Published public var stockLoadedConfirmed = false
@@ -51,6 +53,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
 
     init(profile: PrinterProfile) {
         self.profile = profile
+        selectedThermalMethod = profile.configuredDefaults.thermalMethod
         selectedTracking = profile.configuredDefaults.tracking
         selectedDarkness = profile.configuredDefaults.darkness
         selectedSpeedIps = profile.configuredDefaults.printSpeedIps
@@ -60,6 +63,59 @@ public final class ReferencePrinterSetupModel: ObservableObject {
 
     public static func gc420dUSB() throws -> ReferencePrinterSetupModel {
         ReferencePrinterSetupModel(profile: try .gc420dUSBReference())
+    }
+
+    public var thermalMethodChoices: [ThermalMethod] {
+        guard profile.schemaVersion == 7 else { return [.directThermal] }
+        return [ThermalMethod.directThermal, .thermalTransfer].filter {
+            let fact = $0 == .directThermal ? profile.capabilities.directThermal : profile.capabilities.thermalTransfer
+            return fact.state == .supported && fact.evidence != .unobserved
+        }
+    }
+
+    public func selectThermalMethod(_ value: ThermalMethod?) throws {
+        if let value, !thermalMethodChoices.contains(value) { throw Error.unavailableThermalMethod(value) }
+        selectedThermalMethod = value
+    }
+
+    public func thermalMethodLabel(_ value: ThermalMethod) -> String {
+        value == .directThermal ? "Direct thermal" : "Thermal transfer"
+    }
+
+    public var thermalFacts: [PrinterSetupFact] {
+        guard profile.schemaVersion == 7 else { return [] }
+        let media: PrinterSetupFact
+        switch profile.thermalMedia.method {
+        case .unobserved:
+            media = .init(id: "thermal-media", label: "Declared thermal media", value: "Unknown", status: .unknown)
+        case let .observed(value, evidence):
+            media = .init(id: "thermal-media", label: "Declared thermal media",
+                value: thermalMethodLabel(value) + (evidence == .reportedInstallation ? " (installation declaration)" : " (not verified installation)"),
+                status: evidence == .reportedInstallation ? .configured : .unknown)
+        }
+        let ribbon: PrinterSetupFact
+        switch profile.thermalMedia.ribbonPresent {
+        case .unobserved:
+            ribbon = .init(id: "thermal-ribbon", label: "Declared ribbon", value: "Unknown", status: .unknown)
+        case let .observed(present, evidence):
+            ribbon = .init(id: "thermal-ribbon", label: "Declared ribbon",
+                value: (present ? "Present" : "Absent") + (evidence == .reportedInstallation ? " (installation declaration)" : " (not verified installation)"),
+                status: evidence == .reportedInstallation ? .configured : .unknown)
+        }
+        func support(_ method: ThermalMethod, fact: CapabilityFact) -> PrinterSetupFact {
+            let id = method == .directThermal ? "thermal-direct-support" : "thermal-transfer-support"
+            let label = thermalMethodLabel(method) + " model support"
+            switch fact.state {
+            case .unsupported: return .init(id: id, label: label, value: "Unsupported", status: .unavailable)
+            case .unknown: return .init(id: id, label: label, value: "Unknown", status: .unknown)
+            case .supported:
+                return .init(id: id, label: label,
+                    value: fact.evidence == .unobserved ? "Not evidenced" : "Supported by profile evidence; physical behavior unverified",
+                    status: fact.evidence == .unobserved ? .unknown : .configured)
+            }
+        }
+        return [support(.directThermal, fact: profile.capabilities.directThermal),
+                support(.thermalTransfer, fact: profile.capabilities.thermalTransfer), media, ribbon]
     }
 
     public var trackingChoices: [MediaTracking] {
@@ -267,7 +323,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
 
     public func workflowDefaults() throws -> PrinterControlRequest {
         let resolved = try profile.resolveControls(job: .init(
-            thermalMethod: .directThermal, finishing: .tearOff,
+            thermalMethod: selectedThermalMethod, finishing: .tearOff,
             printSpeedIps: selectedSpeedIps, feedSpeedIps: selectedFeedSpeedIps,
             backfeedSpeedIps: selectedBackfeedSpeedIps, darkness: selectedDarkness,
             tracking: selectedTracking, mediaGeometry: geometryRequest(), offsets: offsetRequest()))
@@ -284,7 +340,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         if case let .value(value) = resolved.tracking { tracking = value } else { tracking = nil }
         let geometry: MediaGeometryRequest?
         if case let .value(value) = resolved.mediaGeometry { geometry = value } else { geometry = nil }
-        return .init(thermalMethod: .directThermal, finishing: .tearOff,
+        return .init(thermalMethod: { if case let .value(value) = resolved.thermalMethod { return value }; return nil }(), finishing: .tearOff,
                      printSpeedIps: printSpeed, feedSpeedIps: resolved.feedSpeedIps.explicitValue,
                      backfeedSpeedIps: resolved.backfeedSpeedIps.explicitValue, darkness: darkness,
                      tracking: tracking, mediaGeometry: geometry,
@@ -293,7 +349,17 @@ public final class ReferencePrinterSetupModel: ObservableObject {
 
     public var validationMessage: String? {
         do { _ = try workflowDefaults(); return nil }
-        catch PrinterProfileError.incompleteMotorSpeeds {
+        catch ThermalControlQualification.Error.explicitMethodRequired {
+            return "Choose a qualified thermal method or use an explicit configured default."
+        } catch ThermalControlQualification.Error.unverifiedMedia {
+            return "This profile needs an installation declaration for loaded thermal media. Draft choices do not verify media."
+        } catch ThermalControlQualification.Error.incompatibleMedia {
+            return "The selected thermal method does not match this profile’s declared loaded media."
+        } catch ThermalControlQualification.Error.unverifiedRibbon {
+            return "This profile needs an installation declaration for ribbon presence. Unknown is not absent."
+        } catch ThermalControlQualification.Error.incompatibleRibbon {
+            return "Thermal transfer requires declared ribbon presence; direct thermal requires declared absence."
+        } catch PrinterProfileError.incompleteMotorSpeeds {
             return "Choose print, feed and backfeed speeds together, or use a complete configured default."
         } catch OffsetControlQualification.Error.blackMarkOffsetRequired {
             return "Enter a qualified black-mark offset in dots, including zero when explicitly intended."
@@ -377,7 +443,8 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         [
             .init(id: "model", label: "Model", value: profile.capabilities.model, status: .configured),
             .init(id: "transport", label: "Transport", value: "USB — device not discovered", status: .unknown),
-            .init(id: "stock", label: "Stock", value: "4 × 6 in pre-cut direct thermal", status: .configured),
+            .init(id: "stock", label: "Stock", value: profile.schemaVersion == 7 ? "Physical stock verification required" : "4 × 6 in pre-cut direct thermal",
+                  status: profile.schemaVersion == 7 ? .unknown : .configured),
             .init(id: "finishing", label: "Finishing", value: "Tear-off", status: .configured),
             .init(id: "cutter", label: "Cutter", value: "Unavailable on selected setup", status: .unavailable),
             .init(id: "peeler", label: "Peeler", value: "Not qualified", status: .unknown),
@@ -400,13 +467,27 @@ public struct ReferencePrinterSetupView: View {
         GroupBox("Reference printer setup") {
             VStack(alignment: .leading, spacing: 10) {
                 Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
-                    ForEach(model.facts) { fact in
+                    ForEach(model.facts + model.thermalFacts) { fact in
                         GridRow {
                             Text(fact.label).fontWeight(.semibold)
                             Label(fact.value, systemImage: symbol(for: fact.status))
                                 .accessibilityLabel("\(fact.label): \(fact.value)")
                         }
                     }
+                }
+                if model.profile.schemaVersion == 7 {
+                    Picker("Draft thermal method", selection: Binding<ThermalMethod?>(
+                        get: { model.selectedThermalMethod },
+                        set: { try? model.selectThermalMethod($0) }
+                    )) {
+                        Text("Use configured default").tag(ThermalMethod?.none)
+                        ForEach(model.thermalMethodChoices, id: \.rawValue) { method in
+                            Text(model.thermalMethodLabel(method)).tag(ThermalMethod?.some(method))
+                        }
+                    }
+                    .accessibilityHint("Changes the utility draft only. Model support and declared media and ribbon must match; no printer settings change.")
+                    Text("Method choices do not change or verify declared consumables. Changing loaded media or ribbon requires a separately verified profile revision.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 speedPicker(.print, label: "Draft print speed for this setup session")
                 if !model.speedChoices(for: .feed).isEmpty {
@@ -479,7 +560,9 @@ public struct ReferencePrinterSetupView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Toggle("I loaded 4 × 6 inch pre-cut direct-thermal labels", isOn: $model.stockLoadedConfirmed)
+                Toggle(model.profile.schemaVersion == 7
+                    ? "I verified loaded stock matches this profile’s declared thermal media"
+                    : "I loaded 4 × 6 inch pre-cut direct-thermal labels", isOn: $model.stockLoadedConfirmed)
                 Toggle("This printer is in tear-off mode with no cutter", isOn: $model.tearOffConfirmed)
 
                 Text("Offline workflow editing is available without a printer. These confirmations apply to installation/printing readiness; do not check them unless you have verified the actual printer and stock.")
