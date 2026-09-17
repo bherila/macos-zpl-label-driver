@@ -1,3 +1,20 @@
+# Offline motor default editor — 2026-09-17
+
+Current source preserves configured print/feed/backfeed defaults while editing,
+exposes separate qualified choice sets and validates effective tuples against
+the ordinary encoder. Incomplete drafts remain editable but block installation
+readiness even with synthetic observed identity and confirmed stock/tear-off.
+Fallback labels describe configured defaults or no explicit setting; they do
+not promise unchanged physical state. The actual readiness reason is exposed.
+
+Old-code regression reproduced six assertion failures; nine focused native
+tests passed. Full CI-equivalent validation passed exit0: 89 Python / 210 Core / 278 Mac debug/release; both 132 original and 180 ASCII oracle round-trips, 12 finite benchmark CLI cases, 15 inert CUPS ABI cases, native builds, nested local-ad-hoc signatures, ARM/minimum26 and packaged PBM/ZPL equality. See
+`validation/M5-MOTOR-DEFAULT-EDITING-2026-09-17.md`. Partial M5-AC04/10 and
+M3-AC02/03 only. No manual GUI/accessibility/queue/physical evidence.
+Preceding published4a647fe hosted35207150736 completed successfully at that
+exact head. This new editor source is not covered by that hosted checkpoint
+or the two earlier cloud review passes. Frozen Part B is unchanged.
+
 # Next model-backed control evidence — 2026-09-17
 
 Public GC420d User Guide P1052685-001, printed pages30 and84, explicitly lists
