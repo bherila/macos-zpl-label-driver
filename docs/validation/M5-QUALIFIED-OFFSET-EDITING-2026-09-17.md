@@ -1,7 +1,7 @@
 # Qualified signed offset draft editing — 2026-09-17
 
 Partial automated implementation for M5-AC04/10 and M3-AC02/03/11. No manual
-acceptance completion. Current unpublished source adds offset drafts to the setup
+acceptance completion. Published8b70383 source adds offset drafts to the setup
 model and view, using the profile6 model intervals already bound into immutable jobs.
 
 ## Independent constraint and behavior
@@ -49,3 +49,7 @@ Persistent native profile/default management, system-dialog exposure, thermal an
 finishing integration remain implementation work. M1 production adapter/helper/
 lifecycle needs its prescribed evidence. Model capabilities and actual stock/state
 must be qualified before physical claims. No merge or binary publication.
+
+## Source checkpoint
+
+Remote branch/PR81 head read back at `8b703834aa98c47d6425daf3e46dc45932aa39da`. Hosted run35216048756 observed in progress, not pass evidence. Preceding272fc90 run35215154447 passed exact source before this push.

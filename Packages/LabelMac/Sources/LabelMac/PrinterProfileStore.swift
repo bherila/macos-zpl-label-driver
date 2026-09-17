@@ -11,6 +11,8 @@ public struct StoredPrinterProfile: Equatable, Sendable {
 /// returned here is the only printer reference accepted by VirtualQueueStore.
 public struct PrinterProfileStore: @unchecked Sendable {
     public enum Error: Swift.Error, Equatable, Sendable {
+        case catalogCapacityReached
+        case publicationBusy
         case cannotCreateStore
         case cannotOpenStore
         case unsafeStoreDirectory
@@ -52,7 +54,8 @@ public struct PrinterProfileStore: @unchecked Sendable {
                 bytes,
                 directory: "printer-profiles",
                 fileName: Self.fileName(id, profile.revision),
-                maximumBytes: PrinterProfileJSON.maximumBytes
+                maximumBytes: PrinterProfileJSON.maximumBytes,
+                maximumRecords: 256
             )
         } catch PrivateImmutableDirectory.Error.conflict {
             throw Error.profileConflict
@@ -108,6 +111,27 @@ public struct PrinterProfileStore: @unchecked Sendable {
         return StoredPrinterProfile(reference: reference, profile: profile)
     }
 
+    /// Bounded private revisions for one exact profile identity. This is a
+    /// point-in-time catalog, not a reservation for a subsequent revision.
+    public func savedProfiles(id: String, maximumProfiles: Int = 256) throws -> [StoredPrinterProfile] {
+        do { _ = try ImmutableProfileReference(id: id, revision: 1, sha256: String(repeating: "0", count: 64)) }
+        catch { throw Error.profileIdentityMismatch }
+        let records: [(name: String, data: Data)]
+        do {
+            records = try storage.catalog(directory: "printer-profiles", maximumRecords: maximumProfiles,
+                maximumRecordBytes: PrinterProfileJSON.maximumBytes, maximumTotalBytes: 8 * 1024 * 1024)
+        } catch { throw Self.mapStorage(error) }
+        let prefix = Self.digest(Data(id.utf8)) + "-r"
+        return try records.filter { $0.name.hasPrefix(prefix) }.map { record in
+            let profile: PrinterProfile
+            do { profile = try PrinterProfileJSON.decode(record.data) } catch { throw Error.cannotRead }
+            guard record.name == Self.fileName(id, profile.revision),
+                  try PrinterProfileJSON.encode(profile) == record.data else { throw Error.profileIdentityMismatch }
+            return StoredPrinterProfile(reference: try ImmutableProfileReference(id: id,
+                schemaVersion: profile.schemaVersion, revision: profile.revision, sha256: Self.digest(record.data)), profile: profile)
+        }.sorted { $0.profile.revision > $1.profile.revision }
+    }
+
     static func fileName(_ id: String, _ revision: Int) -> String {
         "\(digest(Data(id.utf8)))-r\(revision).json"
     }
@@ -121,7 +145,9 @@ public struct PrinterProfileStore: @unchecked Sendable {
         case .cannotCreate: .cannotCreateStore
         case .cannotOpen: .cannotOpenStore
         case .unsafeDirectory: .unsafeStoreDirectory
-        case .cannotWrite, .commitUncertain, .conflict, .recordCapacityReached, .publicationBusy: .cannotWrite
+        case .cannotWrite, .commitUncertain, .conflict: .cannotWrite
+        case .recordCapacityReached: .catalogCapacityReached
+        case .publicationBusy: .publicationBusy
         case .cannotRead, .notFound, .none: .cannotRead
         }
     }
