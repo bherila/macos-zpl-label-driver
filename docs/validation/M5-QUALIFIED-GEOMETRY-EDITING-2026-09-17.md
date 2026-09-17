@@ -1,7 +1,7 @@
 # Qualified physical geometry draft editing — 2026-09-17
 
 Partial implementation evidence for M5-AC04/10 and M3-AC02/03/11. No integration
-acceptance is checked by this automated slice. Source is currently unpublished.
+acceptance is checked by this automated slice. Source published on existing PR81; see checkpoint below.
 
 ## Constraint and behavior
 
@@ -41,9 +41,13 @@ installed system dialog, Tahoe 26 host, USB or physical output was run in this s
 
 ## Remaining gates and next step
 
-Push the reviewed source slice on existing PR81 after the previous exact-head hosted run terminates; do not cancel that validation for this checkpoint.
+Preceding exact-head hosted run35212808079 passed at65314a1 before this source push.
 Native profile import/save and complete workflow/default management remain work;
 these session drafts are not persistent printer settings. Blank inherits a value; clearing an inherited continuous length is not represented by this draft API, so changing to gap fails explicitly rather than removing that length. Black-mark offset,
 shift/top, thermal/finishing integration and model qualification remain work.
 M1 adapter/helper/install design requires real scheduler evidence. Part B retains
 its approved frozen candidate and single-discard-job budget. No merge/binary release.
+
+## Source checkpoint
+
+Remote branch and PR head read back at `a2de872bb116628f2787ba4b25a22f6da5a8ebbd`. Hosted run `35213680526` observed queued, not pass evidence. No merge or binary release.
