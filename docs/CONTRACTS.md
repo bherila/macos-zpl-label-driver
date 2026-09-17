@@ -422,3 +422,90 @@ saved-job UI action provides hardware completion, printing or automatic replay a
 ## Private render-worker memory observation
 
 Result schema1 may optionally carry workerMaximumResidentBytes: positive integer at most1TiB, or omitted/null when unavailable. It is Darwin RUSAGE_SELF peak through output preparation, not aggregate process-tree memory, readiness, completion or allocation permission. The parent validates the scalar before returning artifacts; invalid values fail. CLI/benchmark expose only this bounded scalar and retain unknown as null. Measurement does not insert a parent process or weaken worker PID/deadline/ownership checks.
+
+
+## Private offline worker admission and artifact binding
+
+This protocol serves unprivileged local analysis/rendering of the original PDF.
+It is not a public profile schema, printer command interface, scheduler admission
+or a grant of device authority. The parent stages immutable source/ticket bytes
+in an owned private scratch directory and invokes only the fixed render or
+analysis operation. Child failure, cancellation and deadline checks precede
+successful result admission; cancellation/deadline are checked again afterward.
+The child's sanitized failure vocabulary contains no paths, document payload,
+barcode values or underlying framework error descriptions.
+
+### Integer token admission
+
+Before Foundation Codable decoding, WorkerProtocolJSON checks these seventeen
+integer paths using bounded token-preserving JSON parsing:
+
+| Message | Integer paths |
+|---|---|
+| Conversion ticket | schemaVersion; pageNumber; conversion.cutoff; extraction.rotation |
+| Render result | schemaVersion; widthDots; heightDots; zplBytes; previewBytes; workerMaximumResidentBytes |
+| Failure | schemaVersion |
+| Layout request | schemaVersion; maximumPages; structuralPages[*]; barcodePages[*] |
+| Layout result | schemaVersion; pages[*].rotation |
+
+A present non-null integer field must have an exactly integral numeric token
+representable as Int. Booleans, strings, fractions rounded toward integers by
+Foundation, out-of-range values and duplicate decoded JSON keys are rejected.
+Exactly integral decimal/exponent spellings remain admitted. Missing fields,
+container types and required-versus-optional null behavior remain Codable's
+responsibility; geometry remains Double. This precheck does not canonicalize
+wire bytes or establish integer identity for other Codable consumers.
+Message-specific schema, ranges and combination checks still apply afterward.
+
+### Successful raster artifacts
+
+Render result schema1 admits positive width/height, bounded byte counts and the
+optional memory observation defined above. Result/ticket reads are capped at
+64 KiB each; ZPL and PBM reads at64 MiB each. These are private protocol caps,
+not a replacement for narrower rendering/model limits.
+
+Both ordinary and extraction parents use WorkerBitmapBinding. Each dimension
+must be1..32000, within the implemented diagnostic encoder subset. Bounds-checked
+BitmapLayout must admit the packed allocation before an Array is made. PBM has
+exact header `P4\nWIDTH HEIGHT\n`, exact packed body length and white row-padding
+bits. Actual file lengths must equal the admitted metadata. Regenerating
+ZPLGraphicEncoder.diagnosticFormat from that same packed body must reproduce
+all returned ZPL bytes exactly. This diagnostic envelope does not normalize
+production settings and must not be promoted to production print output.
+
+The ordinary successful-result parent also reconstructs DotCanvas from the
+original immutable ticket's physical size and independent X/Y resolution.
+Both returned dimensions must equal the requested rounded canvas. Extraction
+retains its plan-bound expected-canvas check and may impose the smaller exact
+packed-byte budget. Neither parent rescales a mismatched artifact to accept it.
+Internal bitmap/ZPL equality and canvas binding do not prove an arbitrary child
+faithfully rendered the PDF; original-source rendering and native fixture
+oracles remain separate requirements. Parent re-encoding adds bounded work and
+does not refresh performance qualification.
+
+### Layout analysis results
+
+Layout output is capped at2 MiB. Its schema must match the request and its
+sourceSHA256 the original staged bytes. It returns a nonempty ordered page list
+within the requested page limit; all explicitly requested page indices must
+exist. Anchor presence must match the requested structural-analysis set,
+including explicit empty observations. Each analyzed page has at most256 anchors
+and the result at most4096 total. Barcode-like locations are admitted only on
+explicitly requested barcode pages using protocol schema2, with the independent
+QuartzBarcodeAnalyzer observation cap; border-only schema1 cannot acknowledge
+that request. Unknown anchor kinds are rejected. PDF boxes, physical sizes and
+normalized anchor rectangles pass their own geometry validation.
+
+The returned source hash binds the claimed result to staged bytes; it does not
+independently prove the child returned every source page. Do not equate that
+check with physical extraction qualification or permission to discard pages.
+
+Implementation: [integer admission](../Packages/LabelMac/Sources/LabelMac/WorkerProtocolJSON.swift),
+[shared bitmap binding](../Packages/LabelMac/Sources/LabelMac/WorkerBitmapBinding.swift),
+[ordinary parent](../Packages/LabelMac/Sources/LabelMac/OfflineRenderWorker.swift),
+[layout parent](../Packages/LabelMac/Sources/LabelMac/OfflineLayoutWorker.swift).
+Regression evidence: [integer admission](validation/M3-WORKER-INTEGER-ADMISSION-2026-09-17.md),
+[bitmap binding](validation/M3-WORKER-BITMAP-BINDING-2026-09-17.md),
+[request canvas](validation/M3-WORKER-REQUEST-CANVAS-2026-09-17.md).
+These source-bound historical receipts do not constitute a new whole-source
+M3-AC12 assessment or installed privileged-path qualification.
