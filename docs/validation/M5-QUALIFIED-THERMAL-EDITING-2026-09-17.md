@@ -60,3 +60,11 @@ isolation remain open. Source compilation and inert encoding do not prove actual
 media/ribbon state or printing. No printer/admin/merge/release/binary publication.
 Part B frozen candidate unchanged. Protocol semantics retain public R45 provenance
 and the immutable thermal policy/job binding evidence; no new device command.
+
+## Source checkpoint
+
+Implementation source140dd0ec5a7355bedab2cca12929dcd1ff220b1a contains this
+validated slice. Publication and exact-head hosted results are separate evidence;
+no hosted pass claimed here. Previous8eca8ef hosted35218734631 last observed
+in progress. Next: finishing/accessory policies and native management; manual
+GUI/accessibility/M1/physical gates remain unchanged.
