@@ -187,3 +187,20 @@ and original packed graphics. Both direct and prepared bitmap encoding check the
 same necessary known extent/home containment, using guarded subtraction. Unknown
 shift/top/current state and stock-versus-printable extent are not invented values
 or physical validation. Complete jobs reject mixed geometry on one profile revision.
+
+## Qualified offsets in immutable jobs
+
+Private profile6/queue5/ticket6 extend the preceding exact formats with nullable
+`offsets` defaults and setting values. The exact three fields are
+`blackMarkOffsetDots`, `shiftLeftDots` and `labelTopDots`; each resolves independently
+at job, workflow, configured-profile precedence. Profile capabilities carry exact
+`blackMark`, `shiftLeft`, `labelTop` declarations with independently evidenced
+`fact` and nullable `minimumDots`/`maximumDots`. Unknown/unsupported intervals have
+both endpoints absent; supported intervals require both bounded endpoints.
+Black-mark mode requires a qualified explicit offset, including explicit zero.
+Other modes cannot retain mark offsets; sensed modes cannot inherit continuous
+length. Legacy versions cannot bind these controls or new reference versions.
+Both prepared and direct encoders check known signed home/shift/top placement
+against controlled dimensions before original graphics. Overflow, negative known
+origin and far-edge clipping fail. Unknown device state remains unknown, and this
+necessary packed-raster check is not evidence of physical printable bounds.

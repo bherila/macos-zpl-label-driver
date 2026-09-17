@@ -22,7 +22,7 @@ public struct ImmutableProfileReference: Equatable, Sendable {
         guard VirtualQueueDefinition.isSelector(id) else {
             throw VirtualQueueError.invalidSelector(id)
         }
-        guard (1...5).contains(schemaVersion), revision > 0 else {
+        guard (1...6).contains(schemaVersion), revision > 0 else {
             throw VirtualQueueError.invalidRevision
         }
         guard VirtualQueueDefinition.isSHA256(sha256) else { throw VirtualQueueError.invalidDigest }
@@ -65,7 +65,7 @@ public struct VirtualQueueDefinition: Equatable, Sendable {
         workflowDefaults: PrinterControlRequest,
         validatingAgainst profile: PrinterProfile
     ) throws {
-        guard (1...4).contains(schemaVersion), revision > 0 else { throw VirtualQueueError.invalidRevision }
+        guard (1...5).contains(schemaVersion), revision > 0 else { throw VirtualQueueError.invalidRevision }
         guard Self.isSelector(id) else { throw VirtualQueueError.invalidSelector(id) }
         guard !displayName.isEmpty, displayName.utf8.count <= 128,
               displayName.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }) else {
@@ -80,15 +80,16 @@ public struct VirtualQueueDefinition: Equatable, Sendable {
             throw VirtualQueueError.invalidDefaults
         }
         _ = try profile.resolveControls(job: workflowDefaults)
-        guard schemaVersion == 4 || profile.schemaVersion <= 4 else { throw VirtualQueueError.invalidDefaults }
+        guard schemaVersion == 5 || (profile.schemaVersion <= 5 && workflowDefaults.offsets == nil) else { throw VirtualQueueError.invalidDefaults }
+        guard schemaVersion >= 4 || profile.schemaVersion <= 4 else { throw VirtualQueueError.invalidDefaults }
         guard schemaVersion >= 3 || (profile.schemaVersion <= 3 && workflowDefaults.darkness == nil) else {
             throw VirtualQueueError.invalidDefaults
         }
         guard workflowDefaults.thermalMethod == .directThermal,
               workflowDefaults.finishing == .tearOff,
               (schemaVersion >= 3 || workflowDefaults.darkness == nil),
-              (schemaVersion == 4 || workflowDefaults.tracking == nil),
-              (schemaVersion == 4 || workflowDefaults.mediaGeometry == nil) else {
+              (schemaVersion >= 4 || workflowDefaults.tracking == nil),
+              (schemaVersion >= 4 || workflowDefaults.mediaGeometry == nil) else {
             throw VirtualQueueError.invalidDefaults
         }
         self.schemaVersion = schemaVersion
@@ -184,10 +185,11 @@ public enum VirtualQueueJSON {
             defaults["feedSpeedIps"] = queue.workflowDefaults.feedSpeedIps.map { $0 as Any } ?? NSNull()
             defaults["backfeedSpeedIps"] = queue.workflowDefaults.backfeedSpeedIps.map { $0 as Any } ?? NSNull()
             if queue.schemaVersion >= 3 { defaults["darkness"] = queue.workflowDefaults.darkness.map { $0 as Any } ?? NSNull() }
-            if queue.schemaVersion == 4 {
+            if queue.schemaVersion >= 4 {
                 defaults["tracking"] = queue.workflowDefaults.tracking.map { $0.rawValue as Any } ?? NSNull()
                 defaults["mediaGeometry"] = PrivatePhysicalGeometryJSON.encode(queue.workflowDefaults.mediaGeometry)
             }
+            if queue.schemaVersion == 5 { defaults["offsets"] = PrivateOffsetJSON.encode(queue.workflowDefaults.offsets) }
             root["defaults"] = defaults
         }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
@@ -213,13 +215,14 @@ public enum VirtualQueueJSON {
                 "workflowProfile", "printerProfile", "defaults",
             ])
             let version = try integer(root, "schemaVersion")
-            guard (1...4).contains(version) else {
+            guard (1...5).contains(version) else {
                 throw VirtualQueueJSONError.unsupportedSchema
             }
             var keys: Set<String> = ["thermalMethod", "finishing", "printSpeedIps"]
             if version >= 2 { keys.formUnion(["feedSpeedIps", "backfeedSpeedIps"]) }
             if version >= 3 { keys.insert("darkness") }
-            if version == 4 { keys.formUnion(["tracking", "mediaGeometry"]) }
+            if version >= 4 { keys.formUnion(["tracking", "mediaGeometry"]) }
+            if version == 5 { keys.insert("offsets") }
             let defaults = try object(try required(root, "defaults"), allowed: keys)
             guard try string(defaults, "thermalMethod") == "directThermal",
                   try string(defaults, "finishing") == "tearOff" else {
@@ -244,9 +247,10 @@ public enum VirtualQueueJSON {
                     thermalMethod: .directThermal, finishing: .tearOff, printSpeedIps: speed,
                     feedSpeedIps: feed, backfeedSpeedIps: backfeed,
                     darkness: version >= 3 ? try optionalSpeed(defaults, "darkness") : nil,
-                    tracking: version == 4 && !(try required(defaults, "tracking") is NSNull)
+                    tracking: version >= 4 && !(try required(defaults, "tracking") is NSNull)
                         ? try decodeTracking(defaults) : nil,
-                    mediaGeometry: version == 4 ? try PrivatePhysicalGeometryJSON.decode(required(defaults, "mediaGeometry")) : nil
+                    mediaGeometry: version >= 4 ? try PrivatePhysicalGeometryJSON.decode(required(defaults, "mediaGeometry")) : nil,
+                    offsets: version == 5 ? try PrivateOffsetJSON.decode(required(defaults, "offsets")) : nil
                 ),
                 validatingAgainst: profile
             )
@@ -272,7 +276,7 @@ public enum VirtualQueueJSON {
             "schemaVersion", "id", "revision", "displayName", "physicalDeviceSHA256",
             "workflowProfile", "printerProfile", "defaults",
         ])
-        guard (1...4).contains(try integer(root, "schemaVersion")) else {
+        guard (1...5).contains(try integer(root, "schemaVersion")) else {
             throw VirtualQueueJSONError.unsupportedSchema
         }
         do { return try decodeReference(required(root, "printerProfile")) }

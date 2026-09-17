@@ -730,6 +730,33 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         XCTAssertEqual(result.delivery, .transmitted(byteCount: stored.bytes.count))
     }
 
+    func testQualifiedOffsetsBindStoredTicketAndEveryOriginalPDFLabel() throws {
+        let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
+        let fixture = try makeFixture(workflowSource: original, regionCount: 2, qualifiedMotorSpeeds: true,
+                                      qualifiedDarkness: true, qualifiedOffsets: true)
+        let path = fixture.root.appending(path: "synthetic-offset-source.pdf")
+        try original.write(to: path, options: .withoutOverwriting)
+        let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+        let result = try fixture.pipeline.run(queueID: "shipping-native", sourcePDFDescriptor: descriptor,
+            acceptanceID: "synthetic-offset-bound", cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario(maximumChunkBytes: 4_096))
+        let bundle = try fixture.jobs.load(acceptanceID: result.acceptanceID, queueStore: fixture.queues,
+            workflowStore: fixture.workflows, printerStore: fixture.printers)
+        XCTAssertEqual(bundle.ticket.schemaVersion, 6)
+        XCTAssertEqual(bundle.ticket.printerProfile.schemaVersion, 6)
+        XCTAssertEqual(bundle.ticket.queue.schemaVersion, 5)
+        XCTAssertEqual(bundle.ticket.controls.offsets, .value(.init(shiftLeftDots: 0, labelTopDots: 1)))
+        let stored = try AcceptedJobStateStore(acceptedJobStore: fixture.jobs).loadPrepared(
+            acceptanceID: result.acceptanceID, queueStore: fixture.queues, workflowStore: fixture.workflows, printerStore: fixture.printers)
+        XCTAssertEqual(stored.resolvedControls, bundle.ticket.controls)
+        let text = String(decoding: stored.bytes, as: UTF8.self)
+        XCTAssertEqual(text.components(separatedBy: "^MNN\n^LL1300\n^PW813\n^LH0,0\n^LS0\n^LT1\n").count - 1, 2)
+        XCTAssertFalse(text.contains("^LT0\n"))
+        XCTAssertEqual(result.delivery, .transmitted(byteCount: stored.bytes.count))
+    }
+
     private func makeFixture(
         workflowSource: Data,
         regionCount: Int = 1,
@@ -742,8 +769,10 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         queueID: String = "shipping-native",
         qualifiedMotorSpeeds: Bool = false,
         qualifiedDarkness: Bool = false,
-        qualifiedGeometry: Bool = false
+        qualifiedGeometry: Bool = false,
+        qualifiedOffsets: Bool = false
     ) throws -> Fixture {
+        let geometryEnabled = qualifiedGeometry || qualifiedOffsets
         let root = FileManager.default.temporaryDirectory.appending(
             path: "SyntheticInertJobPipeline-\(UUID().uuidString)"
         )
@@ -812,9 +841,9 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
             evidence: .documentedModel(sourceID: "synthetic-speed-fixture"))
         func geometryLimit(_ value: Int) -> QualifiedDotLimit { .init(fact: speedFact, maximumDots: value) }
         var tracking = c.tracking
-        if qualifiedGeometry { tracking[.continuous] = speedFact }
-        let printer = try (qualifiedMotorSpeeds || qualifiedDarkness || qualifiedGeometry) ? PrinterProfile(
-            schemaVersion: qualifiedGeometry ? 5 : (qualifiedDarkness ? 4 : 3), revision: 1,
+        if geometryEnabled { tracking[.continuous] = speedFact }
+        let printer = try (qualifiedMotorSpeeds || qualifiedDarkness || geometryEnabled) ? PrinterProfile(
+            schemaVersion: qualifiedOffsets ? 6 : (geometryEnabled ? 5 : (qualifiedDarkness ? 4 : 3)), revision: 1,
             // Hypothetical test qualification only. Preserve the pipeline's
             // documented GC420d pitch guard; do not admit an unknown model.
             capabilities: PrinterCapabilities(model: "GC420d",
@@ -823,20 +852,23 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
                 darkness: qualifiedDarkness ? .init(state: .supported, evidence: .documentedModel(sourceID: "R45")) : c.darkness,
                 feedSpeeds: qualifiedMotorSpeeds ? .init(fact: speedFact, choicesIps: [2, 4]) : .unverified,
                 backfeedSpeeds: qualifiedMotorSpeeds ? .init(fact: speedFact, choicesIps: [2, 3]) : .unverified,
-                physicalGeometry: qualifiedGeometry ? .init(width: geometryLimit(832), continuousLength: geometryLimit(1_500),
-                    homeX: geometryLimit(100), homeY: geometryLimit(200)) : .unverified),
+                physicalGeometry: geometryEnabled ? .init(width: geometryLimit(832), continuousLength: geometryLimit(1_500),
+                    homeX: geometryLimit(100), homeY: geometryLimit(200)) : .unverified,
+                offsets: qualifiedOffsets ? .init(blackMark: .init(fact: speedFact, range: -10...20),
+                    shiftLeft: .init(fact: speedFact, range: -30...40), labelTop: .init(fact: speedFact, range: -5...6)) : .unverified),
             installedHardware: baseline.installedHardware, media: baseline.media,
             connection: baseline.connection,
             configuredDefaults: .init(printSpeedIps: 3, feedSpeedIps: qualifiedMotorSpeeds ? 2 : nil,
                 backfeedSpeedIps: qualifiedMotorSpeeds ? 2 : nil, darkness: qualifiedDarkness ? 10 : nil,
-                tracking: qualifiedGeometry ? .continuous : nil,
-                mediaGeometry: qualifiedGeometry ? MediaGeometryRequest(widthDots: 832, lengthDots: 1_400, originXDot: 0, originYDot: 0) : nil)) : baseline
+                tracking: geometryEnabled ? .continuous : nil,
+                mediaGeometry: geometryEnabled ? MediaGeometryRequest(widthDots: 832, lengthDots: 1_400, originXDot: 0, originYDot: 0) : nil,
+                offsets: qualifiedOffsets ? .init(shiftLeftDots: 0, labelTopDots: 0) : nil)) : baseline
         let printerReference = try printers.save(id: "gc420d-usb", profile: printer)
         let physicalDevice = try PhysicalDeviceCoordinationID(
             sha256: String(repeating: "d", count: 64)
         )
         let queue = try VirtualQueueDefinition(
-            schemaVersion: qualifiedGeometry ? 4 : (qualifiedDarkness ? 3 : (qualifiedMotorSpeeds ? 2 : 1)),
+            schemaVersion: qualifiedOffsets ? 5 : (geometryEnabled ? 4 : (qualifiedDarkness ? 3 : (qualifiedMotorSpeeds ? 2 : 1))),
             id: queueID, revision: 1,
             displayName: "Synthetic native labels",
             physicalDevice: physicalDevice,
@@ -849,8 +881,9 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
                 feedSpeedIps: qualifiedMotorSpeeds ? 4 : nil,
                 backfeedSpeedIps: qualifiedMotorSpeeds ? 3 : nil,
                 darkness: qualifiedDarkness ? 20 : nil,
-                tracking: qualifiedGeometry ? .continuous : nil,
-                mediaGeometry: qualifiedGeometry ? MediaGeometryRequest(widthDots: 813, lengthDots: 1_300) : nil
+                tracking: geometryEnabled ? .continuous : nil,
+                mediaGeometry: geometryEnabled ? MediaGeometryRequest(widthDots: 813, lengthDots: 1_300) : nil,
+                offsets: qualifiedOffsets ? .init(labelTopDots: 1) : nil
             ),
             validatingAgainst: printer
         )

@@ -27,6 +27,7 @@ public struct PrinterControlDefaults: Equatable, Sendable {
     public var darkness: Int?
     public var tracking: MediaTracking?
     public var mediaGeometry: MediaGeometryRequest?
+    public var offsets: OffsetControlRequest?
 
     public init(
         thermalMethod: ThermalMethod? = nil,
@@ -36,7 +37,8 @@ public struct PrinterControlDefaults: Equatable, Sendable {
         backfeedSpeedIps: Int? = nil,
         darkness: Int? = nil,
         tracking: MediaTracking? = nil,
-        mediaGeometry: MediaGeometryRequest? = nil
+        mediaGeometry: MediaGeometryRequest? = nil,
+        offsets: OffsetControlRequest? = nil
     ) {
         self.thermalMethod = thermalMethod
         self.finishing = finishing
@@ -46,6 +48,7 @@ public struct PrinterControlDefaults: Equatable, Sendable {
         self.darkness = darkness
         self.tracking = tracking
         self.mediaGeometry = mediaGeometry
+        self.offsets = offsets
     }
 }
 
@@ -60,13 +63,14 @@ public struct ResolvedPrinterControls: Equatable, Sendable {
     public let darkness: ResolvedSetting<Int>
     public let tracking: ResolvedSetting<MediaTracking>
     public let mediaGeometry: ResolvedSetting<MediaGeometryRequest>
+    public let offsets: ResolvedSetting<OffsetControlRequest>
 
     init(profileSchemaVersion: Int, profileRevision: Int,
          thermalMethod: ResolvedSetting<ThermalMethod>, finishing: ResolvedSetting<FinishingMode>,
          printSpeedIps: ResolvedSetting<Int>, feedSpeedIps: ResolvedMotorSpeed = .notExplicitlyControlled,
          backfeedSpeedIps: ResolvedMotorSpeed = .notExplicitlyControlled,
          darkness: ResolvedSetting<Int>, tracking: ResolvedSetting<MediaTracking>,
-         mediaGeometry: ResolvedSetting<MediaGeometryRequest>) {
+         mediaGeometry: ResolvedSetting<MediaGeometryRequest>, offsets: ResolvedSetting<OffsetControlRequest> = .leaveUnchanged) {
         self.profileSchemaVersion = profileSchemaVersion
         self.profileRevision = profileRevision
         self.thermalMethod = thermalMethod
@@ -77,6 +81,7 @@ public struct ResolvedPrinterControls: Equatable, Sendable {
         self.darkness = darkness
         self.tracking = tracking
         self.mediaGeometry = mediaGeometry
+        self.offsets = offsets
     }
 }
 
@@ -112,6 +117,15 @@ public extension PrinterProfile {
                                       originXDot: field(\.originXDot), originYDot: field(\.originYDot))
         } else { mediaGeometry = nil }
 
+        let offsets: OffsetControlRequest?
+        if job.offsets != nil || workflowDefaults.offsets != nil || configuredDefaults.offsets != nil {
+            func field(_ key: KeyPath<OffsetControlRequest, Int?>) -> Int? {
+                job.offsets?[keyPath: key] ?? workflowDefaults.offsets?[keyPath: key] ?? configuredDefaults.offsets?[keyPath: key]
+            }
+            offsets = .init(blackMarkOffsetDots: field(\.blackMarkOffsetDots), shiftLeftDots: field(\.shiftLeftDots),
+                            labelTopDots: field(\.labelTopDots))
+        } else { offsets = nil }
+
         try validate(.init(
             thermalMethod: thermal,
             finishing: finishing,
@@ -120,7 +134,7 @@ public extension PrinterProfile {
             backfeedSpeedIps: backfeed,
             darkness: darkness,
             tracking: tracking,
-            mediaGeometry: mediaGeometry
+            mediaGeometry: mediaGeometry, offsets: offsets
         ))
         return ResolvedPrinterControls(
             profileSchemaVersion: schemaVersion,
@@ -132,7 +146,8 @@ public extension PrinterProfile {
             backfeedSpeedIps: backfeed.map(ResolvedMotorSpeed.value) ?? .notExplicitlyControlled,
             darkness: darkness.map(ResolvedSetting.value) ?? .leaveUnchanged,
             tracking: tracking.map(ResolvedSetting.value) ?? .leaveUnchanged,
-            mediaGeometry: mediaGeometry.map(ResolvedSetting.value) ?? .leaveUnchanged
+            mediaGeometry: mediaGeometry.map(ResolvedSetting.value) ?? .leaveUnchanged,
+            offsets: offsets.map(ResolvedSetting.value) ?? .leaveUnchanged
         )
     }
 }

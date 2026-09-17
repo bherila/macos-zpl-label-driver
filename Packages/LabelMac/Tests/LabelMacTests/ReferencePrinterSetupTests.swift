@@ -254,19 +254,22 @@ final class ReferencePrinterSetupTests: XCTestCase {
         XCTAssertEqual(profile.configuredDefaults.darkness, 15)
     }
 
-    private func geometryProfile(defaults: PrinterControlDefaults? = nil) throws -> PrinterProfile {
+    private func geometryProfile(defaults: PrinterControlDefaults? = nil, qualifiedOffsets: Bool = false) throws -> PrinterProfile {
         let b = try darknessProfile(defaultValue: 15)
         let c = b.capabilities
         let fact = CapabilityFact(state: .supported, evidence: .documentedModel(sourceID: "synthetic-geometry-fixture"))
         var tracking = c.tracking; tracking[.continuous] = fact
         func limit(_ value: Int) -> QualifiedDotLimit { .init(fact: fact, maximumDots: value) }
         let geometry = try MediaGeometryRequest(widthDots: 20, lengthDots: 10, originXDot: 1, originYDot: 1)
-        return try PrinterProfile(schemaVersion: 5, revision: b.revision,
+        return try PrinterProfile(schemaVersion: qualifiedOffsets ? 6 : 5, revision: b.revision,
             capabilities: .init(model: c.model, thermalTransfer: c.thermalTransfer, cutter: c.cutter, peeler: c.peeler,
                 rewind: c.rewind, tracking: tracking, printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: c.darkness,
-                physicalGeometry: .init(width: limit(832), continuousLength: limit(1500), homeX: limit(100), homeY: limit(200))),
+                physicalGeometry: .init(width: limit(832), continuousLength: limit(1500), homeX: limit(100), homeY: limit(200)),
+                offsets: qualifiedOffsets ? .init(shiftLeft: .init(fact: fact, range: -30...40),
+                    labelTop: .init(fact: fact, range: -5...6)) : .unverified),
             installedHardware: b.installedHardware, media: b.media, connection: b.connection,
-            configuredDefaults: defaults ?? .init(printSpeedIps: 3, darkness: 15, tracking: .continuous, mediaGeometry: geometry))
+            configuredDefaults: defaults ?? .init(printSpeedIps: 3, darkness: 15, tracking: .continuous, mediaGeometry: geometry,
+                offsets: qualifiedOffsets ? .init(shiftLeftDots: 0, labelTopDots: 0) : nil))
     }
 
     func testProfileFiveOfflineSpeedEditRetainsGeometryTrackingAndDarkness() throws {
@@ -364,6 +367,19 @@ final class ReferencePrinterSetupTests: XCTestCase {
         XCTAssertEqual(model.facts.first { $0.id == "geometry-homeX" }?.status, .configured)
         let reference = try ReferencePrinterSetupModel.gc420dUSB()
         XCTAssertEqual(reference.facts.first { $0.id == "geometry-homeX" }?.status, .unknown)
+    }
+
+    func testSchemaSixSetupEditsRetainIndependentlyBoundOffsets() throws {
+        let profile = try geometryProfile(qualifiedOffsets: true)
+        let model = ReferencePrinterSetupModel(profile: profile)
+        model.geometryDraft[.homeX] = "0"
+        try model.selectSpeed(4)
+        let defaults = try model.workflowDefaults()
+        XCTAssertEqual(defaults.offsets, .init(shiftLeftDots: 0, labelTopDots: 0))
+        XCTAssertEqual(defaults.printSpeedIps, 4)
+        XCTAssertEqual(defaults.mediaGeometry?.originXDot, 0)
+        XCTAssertEqual(model.geometryRange(for: .width), 2...832)
+        XCTAssertEqual(profile.configuredDefaults.mediaGeometry?.originXDot, 1)
     }
 
 }

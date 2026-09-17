@@ -1,6 +1,20 @@
+# Immutable offset binding and known placement — 2026-09-17
+
+Current unpublished source adds profile6/queue5/ticket6 exact qualification/default
+persistence, per-field offset precedence, explicit mark mode/offset qualification,
+ordinary encoding before graphics and shared signed packed-raster containment.
+Legacy schemas/reference qualification remain unchanged.242 Core and21 focused
+native/setup cases passed exit0, including two original-PDF inert output regions
+whose stored/prepared offsets agree. Full finite CI-equivalent gate passed ownexit0:89Python/242Core/292Mac debug/release plus independent/inert/signature/packaged checks. Ignored-offset fault failed1 case/nine assertions; byte-for-byte restoration and full242Core positive verified.
+See `validation/M3-PERSISTED-OFFSETS-2026-09-17.md`. Offset selectors/native persistent
+default management, thermal/finishing, M1 adapter/install and physical gates remain.
+Precedinga2de872 hosted35213680526 passed exact source; prerequisite64272f0 remote/PR
+readback confirmed, hosted35214380345 live, not pass evidence. No third cloud review,
+printer/admin action, merge or binary release. Part B frozen candidate unchanged.
+
 # Independently qualified offset policy — 2026-09-17
 
-Current unpublished policy separately qualifies model intervals for black-mark
+Published64272f0 policy separately qualifies model intervals for black-mark
 offset, horizontal shift and label top; explicit zero survives, unsupported/unknown
 intervals stay absent, black-mark mode requires explicit offset plus separate
 tracking qualification. Five focused Core cases passed exit0. Full finite gate

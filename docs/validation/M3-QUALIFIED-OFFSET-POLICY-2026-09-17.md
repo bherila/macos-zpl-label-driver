@@ -1,7 +1,7 @@
 # Independently qualified offset policy — 2026-09-17
 
 Partial M3-AC02/03/11 implementation evidence. No new acceptance completion.
-Current unpublished source adds a typed request and separate qualification policy
+Published64272f0 source adds a typed request and separate qualification policy
 for black-mark offset, horizontal label shift and label top. Each model interval
 requires its own supported evidenced fact. Unknown/unsupported intervals must be
 absent; they never become a numeric zero or an accepted protocol-wide interval.
@@ -39,3 +39,7 @@ and packed-raster containment integration before production placement claims.
 Unknown home/top/shift/device state is not a proved physical printable rectangle.
 No reset/calibration/save/erase/firmware, printer I/O, queue/admin action or physical
 label occurred. No merge or binary release. Part B's frozen bytes are unchanged.
+
+## Source checkpoint
+
+Source `64272f0333a8802b521366a3defefd2b134ea8c3` remote branch/PR81 head read back equal. Hosted run35214380345 observed in progress, not pass evidence. Precedinga2de872 run35213680526 passed at that exact source.

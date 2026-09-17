@@ -169,6 +169,7 @@ public struct PrinterCapabilities: Equatable, Sendable {
     public let darkness: CapabilityFact
     public let feedSpeeds: QualifiedSpeedChoices
     public let physicalGeometry: PhysicalGeometryQualification
+    public let offsets: OffsetControlQualification
     public let backfeedSpeeds: QualifiedSpeedChoices
 
     public init(
@@ -182,7 +183,8 @@ public struct PrinterCapabilities: Equatable, Sendable {
         darkness: CapabilityFact,
         feedSpeeds: QualifiedSpeedChoices = .unverified,
         backfeedSpeeds: QualifiedSpeedChoices = .unverified,
-        physicalGeometry: PhysicalGeometryQualification = .unverified
+        physicalGeometry: PhysicalGeometryQualification = .unverified,
+        offsets: OffsetControlQualification = .unverified
     ) {
         self.model = model
         self.thermalTransfer = thermalTransfer
@@ -195,6 +197,7 @@ public struct PrinterCapabilities: Equatable, Sendable {
         self.feedSpeeds = feedSpeeds
         self.backfeedSpeeds = backfeedSpeeds
         self.physicalGeometry = physicalGeometry
+        self.offsets = offsets
     }
 }
 
@@ -249,7 +252,7 @@ public struct PrinterProfile: Equatable, Sendable {
         connection: ConnectionConfiguration,
         configuredDefaults: PrinterControlDefaults = .init()
     ) throws {
-        guard (1...5).contains(schemaVersion), revision > 0,
+        guard (1...6).contains(schemaVersion), revision > 0,
               schemaVersion >= 2 || configuredDefaults == .init() else {
             throw PrinterProfileError.invalidProfileVersion
         }
@@ -264,10 +267,14 @@ public struct PrinterProfile: Equatable, Sendable {
                configuredDefaults.feedSpeedIps == nil && configuredDefaults.backfeedSpeedIps == nil) else {
             throw PrinterProfileError.invalidProfileVersion
         }
-        guard schemaVersion == 5 || capabilities.physicalGeometry == .unverified else {
+        guard schemaVersion >= 5 || capabilities.physicalGeometry == .unverified else {
             throw PrinterProfileError.invalidProfileVersion
         }
         try capabilities.physicalGeometry.validateDeclaration()
+        guard schemaVersion == 6 || (capabilities.offsets == .unverified && configuredDefaults.offsets == nil) else {
+            throw PrinterProfileError.invalidProfileVersion
+        }
+        try capabilities.offsets.validateDeclaration()
         for speeds in [capabilities.feedSpeeds, capabilities.backfeedSpeeds] {
             guard speeds.choicesIps.count <= 11,
                   speeds.choicesIps.allSatisfy({ (2...12).contains($0) }),
@@ -296,7 +303,7 @@ public struct PrinterProfile: Equatable, Sendable {
             feedSpeedIps: configuredDefaults.feedSpeedIps,
             backfeedSpeedIps: configuredDefaults.backfeedSpeedIps,
             darkness: configuredDefaults.darkness, tracking: configuredDefaults.tracking,
-            mediaGeometry: configuredDefaults.mediaGeometry))
+            mediaGeometry: configuredDefaults.mediaGeometry, offsets: configuredDefaults.offsets))
     }
 
     private static func isSafeModelIdentifier(_ model: String) -> Bool {
@@ -362,6 +369,7 @@ public struct PrinterControlRequest: Equatable, Sendable {
     public var darkness: Int?
     public var tracking: MediaTracking?
     public var mediaGeometry: MediaGeometryRequest?
+    public var offsets: OffsetControlRequest?
 
     public init(
         thermalMethod: ThermalMethod? = nil,
@@ -371,7 +379,8 @@ public struct PrinterControlRequest: Equatable, Sendable {
         backfeedSpeedIps: Int? = nil,
         darkness: Int? = nil,
         tracking: MediaTracking? = nil,
-        mediaGeometry: MediaGeometryRequest? = nil
+        mediaGeometry: MediaGeometryRequest? = nil,
+        offsets: OffsetControlRequest? = nil
     ) {
         self.thermalMethod = thermalMethod
         self.finishing = finishing
@@ -381,6 +390,7 @@ public struct PrinterControlRequest: Equatable, Sendable {
         self.darkness = darkness
         self.tracking = tracking
         self.mediaGeometry = mediaGeometry
+        self.offsets = offsets
     }
 }
 
@@ -430,15 +440,23 @@ public extension PrinterProfile {
             }
         }
         if let tracking = request.tracking {
-            guard schemaVersion == 5, tracking != .blackMark,
+            guard schemaVersion >= 5, (tracking != .blackMark || schemaVersion == 6),
                   let fact = capabilities.tracking[tracking], fact.state == .supported,
                   fact.evidence != .unobserved else { throw PrinterProfileError.unavailableTracking(tracking) }
             if tracking == .continuous && request.mediaGeometry?.lengthDots == nil {
                 throw PhysicalGeometryQualification.Error.continuousLengthRequired
             }
         }
+        if request.tracking == .blackMark && request.offsets?.blackMarkOffsetDots == nil {
+            throw OffsetControlQualification.Error.blackMarkOffsetRequired
+        }
+        if let offsets = request.offsets {
+            guard schemaVersion == 6 else { throw PrinterProfileError.invalidProfileVersion }
+            _ = try capabilities.offsets.controls(for: offsets, tracking: request.tracking,
+                trackingFact: capabilities.tracking[.blackMark] ?? .init(state: .unknown, evidence: .unobserved))
+        }
         if let geometry = request.mediaGeometry {
-            guard schemaVersion == 5 else { throw PrinterProfileError.unavailableMediaGeometry }
+            guard schemaVersion >= 5 else { throw PrinterProfileError.unavailableMediaGeometry }
             _ = try capabilities.physicalGeometry.controls(for: geometry, tracking: request.tracking,
                 trackingFact: capabilities.tracking[.continuous] ?? .init(state: .unknown, evidence: .unobserved))
         }
