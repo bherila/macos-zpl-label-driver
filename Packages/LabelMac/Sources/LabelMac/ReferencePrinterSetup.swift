@@ -24,8 +24,11 @@ public struct PrinterSetupFact: Equatable, Identifiable, Sendable {
 
 @MainActor
 public final class ReferencePrinterSetupModel: ObservableObject {
+    public enum GeometryField: String, CaseIterable, Sendable { case width, length, homeX, homeY }
     public enum MotorSpeedKind: Equatable, Sendable { case print, feed, backfeed }
     public enum Error: Swift.Error, Equatable, Sendable {
+        case invalidGeometryText(GeometryField)
+        case unavailableTracking(MediaTracking)
         case unavailableDarkness
         case unsupportedDarkness(Int)
         case unsupportedSpeed(Int)
@@ -33,6 +36,8 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         case unsupportedMotorSpeed(MotorSpeedKind, Int)
     }
 
+    @Published public var geometryDraft: [GeometryField: String] = [:]
+    @Published public private(set) var selectedTracking: MediaTracking?
     public let profile: PrinterProfile
     @Published public var stockLoadedConfirmed = false
     @Published public var tearOffConfirmed = false
@@ -43,6 +48,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
 
     init(profile: PrinterProfile) {
         self.profile = profile
+        selectedTracking = profile.configuredDefaults.tracking
         selectedDarkness = profile.configuredDefaults.darkness
         selectedSpeedIps = profile.configuredDefaults.printSpeedIps
         selectedFeedSpeedIps = profile.configuredDefaults.feedSpeedIps
@@ -51,6 +57,64 @@ public final class ReferencePrinterSetupModel: ObservableObject {
 
     public static func gc420dUSB() throws -> ReferencePrinterSetupModel {
         ReferencePrinterSetupModel(profile: try .gc420dUSBReference())
+    }
+
+    public var trackingChoices: [MediaTracking] {
+        guard profile.schemaVersion == 5 else { return [] }
+        return [MediaTracking.gap, .continuous].filter {
+            guard let fact = profile.capabilities.tracking[$0] else { return false }
+            return fact.state == .supported && fact.evidence != .unobserved
+        }
+    }
+
+    public func selectTracking(_ value: MediaTracking?) throws {
+        if let value, !trackingChoices.contains(value) { throw Error.unavailableTracking(value) }
+        selectedTracking = value
+    }
+
+    public func geometryRange(for field: GeometryField) -> ClosedRange<Int>? {
+        guard profile.schemaVersion == 5 else { return nil }
+        let p = profile.capabilities.physicalGeometry
+        let limit: QualifiedDotLimit
+        let minimum: Int
+        switch field {
+        case .width: limit = p.width; minimum = 2
+        case .length: limit = p.continuousLength; minimum = 1
+        case .homeX: limit = p.homeX; minimum = 0
+        case .homeY: limit = p.homeY; minimum = 0
+        }
+        guard limit.fact.state == .supported, limit.fact.evidence != .unobserved,
+              let maximum = limit.maximumDots else { return nil }
+        return minimum...maximum
+    }
+
+    public func geometryDefaultLabel(for field: GeometryField) -> String {
+        let g = profile.configuredDefaults.mediaGeometry
+        let value: Int?
+        switch field {
+        case .width: value = g?.widthDots
+        case .length: value = g?.lengthDots
+        case .homeX: value = g?.originXDot
+        case .homeY: value = g?.originYDot
+        }
+        if let value { return "Configured default: \(value) dots" }
+        return "No configured default"
+    }
+
+    private func geometryRequest() throws -> MediaGeometryRequest? {
+        func value(_ field: GeometryField) throws -> Int? {
+            let text = geometryDraft[field, default: ""].trimmingCharacters(in: .whitespacesAndNewlines)
+            if text.isEmpty { return nil }
+            // Preserve invalid input as a draft; never turn parsing failure into inheritance.
+            guard let value = Int(text), let range = geometryRange(for: field), range.contains(value) else {
+                throw Error.invalidGeometryText(field)
+            }
+            return value
+        }
+        let width = try value(.width), length = try value(.length)
+        let x = try value(.homeX), y = try value(.homeY)
+        guard width != nil || length != nil || x != nil || y != nil else { return nil }
+        return try .init(widthDots: width, lengthDots: length, originXDot: x, originYDot: y)
     }
 
     public var darknessChoices: [Int] {
@@ -157,7 +221,8 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         let resolved = try profile.resolveControls(job: .init(
             thermalMethod: .directThermal, finishing: .tearOff,
             printSpeedIps: selectedSpeedIps, feedSpeedIps: selectedFeedSpeedIps,
-            backfeedSpeedIps: selectedBackfeedSpeedIps, darkness: selectedDarkness))
+            backfeedSpeedIps: selectedBackfeedSpeedIps, darkness: selectedDarkness,
+            tracking: selectedTracking, mediaGeometry: geometryRequest()))
         // Validate against the actual current ordinary encoder as well as
         // supplied profile declarations; this is bounded memory work, no I/O.
         _ = try ZPLControlEncoder().encode(resolved)
@@ -181,6 +246,14 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         do { _ = try workflowDefaults(); return nil }
         catch PrinterProfileError.incompleteMotorSpeeds {
             return "Choose print, feed and backfeed speeds together, or use a complete configured default."
+        } catch Error.invalidGeometryText {
+            return "Enter whole dots within the qualified range, or leave the field blank to use its configured default."
+        } catch PhysicalGeometryQualification.Error.incompleteHome {
+            return "Choose both label-home coordinates, or use a complete configured default."
+        } catch PhysicalGeometryQualification.Error.continuousLengthRequired {
+            return "Continuous tracking requires a qualified label length in dots."
+        } catch PhysicalGeometryQualification.Error.continuousModeRequired {
+            return "A label length requires continuous tracking. An inherited length is still effective."
         } catch {
             return "The selected control combination is unavailable in this profile."
         }
@@ -205,6 +278,27 @@ public final class ReferencePrinterSetupModel: ObservableObject {
             value: "No configured default; current setting unknown", status: .unknown)
     }
 
+    private var geometryFacts: [PrinterSetupFact] {
+        GeometryField.allCases.map { field in
+            let label: String
+            let fact: CapabilityFact
+            let p = profile.capabilities.physicalGeometry
+            switch field {
+            case .width: label = "Print width"; fact = p.width.fact
+            case .length: label = "Continuous label length"; fact = p.continuousLength.fact
+            case .homeX: label = "Label home X"; fact = p.homeX.fact
+            case .homeY: label = "Label home Y"; fact = p.homeY.fact
+            }
+            if let range = geometryRange(for: field) {
+                return .init(id: "geometry-\(field.rawValue)", label: label,
+                    value: "Qualified range: \(range.lowerBound)–\(range.upperBound) dots; current setting unknown", status: .configured)
+            }
+            return .init(id: "geometry-\(field.rawValue)", label: label,
+                value: fact.state == .unsupported ? "Unavailable in this profile" : "Not qualified; current setting unknown",
+                status: fact.state == .unsupported ? .unavailable : .unknown)
+        }
+    }
+
     public var facts: [PrinterSetupFact] {
         [
             .init(id: "model", label: "Model", value: profile.capabilities.model, status: .configured),
@@ -217,7 +311,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
             motorFact(id: "backfeedSpeed", label: "Backfeed speed", capability: profile.capabilities.backfeedSpeeds),
             darknessFact,
             trackingFact,
-        ]
+        ] + geometryFacts
     }
 }
 
@@ -261,6 +355,35 @@ public struct ReferencePrinterSetupView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                if !model.trackingChoices.isEmpty {
+                    Picker("Draft media tracking", selection: Binding(
+                        get: { model.selectedTracking }, set: { try? model.selectTracking($0) }
+                    )) {
+                        Text("Use configured tracking default").tag(MediaTracking?.none)
+                        ForEach(model.trackingChoices, id: \.self) { tracking in
+                            Text(tracking == .gap ? "Gap / web sensing" : "Continuous").tag(MediaTracking?.some(tracking))
+                        }
+                    }
+                    .accessibilityHint("This chooses a draft control. The printer’s current tracking setting is unknown.")
+                    Text("Black-mark tracking is unavailable until its offset is qualified.").font(.caption)
+                }
+                ForEach(ReferencePrinterSetupModel.GeometryField.allCases, id: \.self) { field in
+                    if let range = model.geometryRange(for: field) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            TextField(geometryLabel(field), text: Binding(
+                                get: { model.geometryDraft[field, default: ""] },
+                                set: { model.geometryDraft[field] = $0 }
+                            ), prompt: Text(model.geometryDefaultLabel(for: field)))
+                            .accessibilityHint("Whole dots from \(range.lowerBound) through \(range.upperBound). Blank uses the configured default. No printer setting is changed.")
+                            Text("\(range.lowerBound)–\(range.upperBound) dots. Blank: \(model.geometryDefaultLabel(for: field)).")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                if model.profile.schemaVersion == 5 {
+                    Text("Physical geometry is separate from source-page crop and loaded stock. Current device geometry remains unknown.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
                 if let message = model.validationMessage {
                     Label(message, systemImage: "exclamationmark.triangle")
                         .accessibilityLabel(message)
@@ -281,6 +404,15 @@ public struct ReferencePrinterSetupView: View {
                     .accessibilityLabel(model.installationReadinessMessage)
             }
             .padding(4)
+        }
+    }
+
+    private func geometryLabel(_ field: ReferencePrinterSetupModel.GeometryField) -> String {
+        switch field {
+        case .width: "Draft print width (dots)"
+        case .length: "Draft continuous label length (dots)"
+        case .homeX: "Draft label home X (dots)"
+        case .homeY: "Draft label home Y (dots)"
         }
     }
 
