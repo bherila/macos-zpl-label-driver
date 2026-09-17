@@ -306,7 +306,8 @@
         "docs/validation/EXACT-JSON-INTEGER-TOKENS-2026-09-17.md (internal exact numeric-token converter; 287 Core tests debug/release and accelerator passed; codecs not integrated and identity defect remains open)",
         "docs/validation/TOKEN-PRESERVING-JSON-2026-09-17.md (internal bounded JSON traversal retaining numeric lexemes; 291 Core tests debug/release; product codec integration and original identity repair still open)",
         "docs/validation/EXACT-JSON-INTEGER-CODECS-2026-09-17.md (exact numeric token admission across seven manual codecs, private geometry/offset readers and native qualification manifest; 299 Core and 21 native store tests debug/release passed; complete native baseline pending)",
-        "docs/validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished b12e65a63cfebcce3625a249975e837dbb0bc2ee; full native CI sequence exit 0; 106 Python/299 Core/364 native debug/release, oracle/ABI/signature/packaged fidelity; manual and physical gates unchanged)"
+        "docs/validation/M2-M5-EXACT-JSON-INTEGRATED-BASELINE-2026-09-17.md (clean unpublished b12e65a63cfebcce3625a249975e837dbb0bc2ee; full native CI sequence exit 0; 106 Python/299 Core/364 native debug/release, oracle/ABI/signature/packaged fidelity; manual and physical gates unchanged)",
+        "docs/validation/M4-EDITOR-ACTION-ERROR-MESSAGES-2026-09-17.md (local unpublishedf14b71c18368a4008c007783e0de07f24e3c563e; fixed localized editor action failures redact arbitrary details, distinguish uncertain save, preserve draft state;21native debug/release,106Python/preflight passed; GUI/accessibility acceptance remains open)"
       ],
       "blockers": []
     },
