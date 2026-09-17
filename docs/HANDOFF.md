@@ -1,6 +1,6 @@
 # Qualified thermal consumable policy — 2026-09-17
 
-Current locally validated source adds independent model/matching loaded-media/ribbon
+Local unpushed62dd3c5000ac746e79c2e28c9157eb19d5c1d09a source adds independent model/matching loaded-media/ribbon
 validation and bounded offline thermal fragments. Four focused tests passed
 own exit0; full finite CI-equivalent gate passed own exit0:89Python/246Core/306Mac
 debug/release plus independent/inert/signature/packaged checks. Ribbon-check fault

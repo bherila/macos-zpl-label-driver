@@ -42,3 +42,10 @@ controls. Finishing/accessory policies and production adapter remain unfinished.
 Physical consumable verification, device behavior, GUI/accessibility and M1
 scheduler/helper evidence remain NOT RUN. No printer I/O, administrator action,
 merge, release or binary publication occurred. Part B remains frozen unchanged.
+
+## Source checkpoint
+
+Locally committed source62dd3c5000ac746e79c2e28c9157eb19d5c1d09a is not yet
+pushed. Previous persistence sourcecacca166ce0b62df7e2ab3299a96b63e1f927c7e
+remote/PR81 head confirmed equal; exact hosted run35216715041 in progress.
+Preceding8b70383 run35216048756 passed. No hosted thermal-policy pass is claimed.
