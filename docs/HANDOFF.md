@@ -362,3 +362,7 @@ Unpublished width-subset implementation checkpoint `8dcc24141aaa8dbb6ca6aa27aecb
 ## Legacy status grammar follow-on
 
 [Function-setting validation](validation/M3-STATUS-FUNCTION-BUDGET-2026-09-17.md) records the eight-bit boundary regression and fix. All 283 Core tests passed debug/release; the debug accelerator and release setup-app build passed. This advances status validation without a complete M3-AC12 assessment. No printer query or physical evidence was added. Next: assess the remaining control/status requirements against current source while preserving the frozen M1 Part B candidate.
+
+## Late TCP callback regression
+
+[Terminal-state ordering](validation/M3-TCP-LATE-CALLBACKS-2026-09-17.md) adds finite adversarial coverage for late callbacks after three admitted-send failures. A queued observer proves all late events were processed before the stored-result/count assertions. This advances automated M3-AC05 coverage without claiming complete network or installed scheduler acceptance. The frozen manual candidate and device-I/O budget remain unchanged.

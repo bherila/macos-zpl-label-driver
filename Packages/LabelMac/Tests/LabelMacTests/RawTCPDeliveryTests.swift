@@ -324,6 +324,65 @@ final class RawTCPDeliveryTests: XCTestCase {
         XCTAssertEqual(result.value, .cancelledAfterSendAttempt)
     }
 
+    func testLateCallbacksCannotReviveSettledSendOrCompleteTwice() async throws {
+        for outcome in [RawTCPAttemptResult.timedOutAfterSendAttempt,
+                        .cancelledAfterSendAttempt, .sendFailedAfterAttempt] {
+            let admitted = expectation(description: "send admitted")
+            let settled = expectation(description: "first terminal result")
+            let drained = expectation(description: "late callback queue drained")
+            let observedAfterDrain = LockedBox<RawTCPAttemptResult?>(nil)
+            let callback = LockedBox<(@Sendable (Bool) -> Void)?>(nil)
+            let completions = LockedBox(0)
+            let sends = LockedBox(0)
+            let cancellations = LockedBox(0)
+            let result = LockedBox<RawTCPAttemptResult?>(nil)
+            let machine = RawTCPAttemptStateMachine(
+                startTransport: {},
+                send: { completion in
+                    sends.value += 1
+                    callback.value = completion
+                    admitted.fulfill()
+                },
+                cancelTransport: { cancellations.value += 1 })
+            machine.setCompletion { value in
+                completions.value += 1
+                if completions.value == 1 {
+                    result.value = value
+                    settled.fulfill()
+                }
+            }
+            machine.start()
+            machine.ready()
+            await fulfillment(of: [admitted], timeout: 1)
+            switch outcome {
+            case .timedOutAfterSendAttempt: machine.timedOut()
+            case .cancelledAfterSendAttempt: machine.cancelled()
+            default: machine.connectionEnded()
+            }
+            await fulfillment(of: [settled], timeout: 1)
+            let lateCompletion = try XCTUnwrap(callback.value)
+            lateCompletion(true)
+            lateCompletion(false)
+            machine.connectionEnded()
+            machine.ready()
+            machine.timedOut()
+            machine.cancelled()
+            machine.start()
+            // Registration is serialized after all late events. It observes
+            // the stored result and proves those events have been processed.
+            machine.setCompletion { value in
+                observedAfterDrain.value = value
+                drained.fulfill()
+            }
+            await fulfillment(of: [drained], timeout: 1)
+            XCTAssertEqual(observedAfterDrain.value, outcome)
+            XCTAssertEqual(result.value, outcome)
+            XCTAssertEqual(completions.value, 1)
+            XCTAssertEqual(cancellations.value, 1)
+            XCTAssertEqual(sends.value, 1)
+        }
+    }
+
     func testCancellationBeforeReadyDoesNotInvokeSend() async {
         let settled = expectation(description: "attempt settled")
         let sendCalls = LockedBox(0)
