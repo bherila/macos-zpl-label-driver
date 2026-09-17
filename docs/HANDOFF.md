@@ -157,8 +157,10 @@ ancestor, and recognizes evidence-only ancestry. Removing Intel candidate histor
 exit1; restored15focused/full104Python cases passed own exit0. Finite native full gate session76225 passed FULL_GATE_EXIT0 with104/272/324 tests and
 the checks above; log /tmp/zpl-traceability-history-full.log;
 see [history evidence](validation/M6-TRACEABILITY-CI-HISTORY-2026-09-17.md).
-Older source assessments are intentionally stale after this workflow/test change; reassess
-against the new checkpoint after validation. Never exempt CI inputs from source binding.
+Implementation b4eb3bc8ef7bae8a63bd14f021c4502be0b097df committed locally, push/hosted validation pending.
+After the passing full gate, M3-AC01/04 implementation/test hashes were checked unchanged
+and fresh A records bind this source and new gate evidence. Earlier records remain
+historical. Never exempt CI inputs from source binding; integration/H/R stay pending.
 
 ## Manual Part A and Part B
 
