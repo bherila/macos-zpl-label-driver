@@ -1,3 +1,34 @@
+# Next model-backed control evidence — 2026-09-17
+
+Public GC420d User Guide P1052685-001, printed pages30 and84, explicitly lists
+~SD as the darkness control (official `gc420d-ug-en.pdf`, indexed primary source
+checked live). Combined with R45 integer command semantics and additive ^MD,
+this provides a model-backed basis for the next ordinary darkness integration.
+It does not establish the installed current value or physical quality. Do not
+copy the published nominal default into observations. Next slice must carry
+qualified darkness through defaults/private schemas/queue/ticket/encoder and
+normalize relative adjustment when setting an explicit absolute value. No
+factory profile, acceptance box or support row is promoted by this research.
+Refined persisted motor-source full gate passed separately.
+
+# Qualified persisted motor speed implementation — 2026-09-17
+
+Separate qualified feed/backfeed capabilities/defaults now resolve per field,
+persist in explicit profile3/queue2/ticket3 formats, bind immutable prepared jobs
+and reach the native inert pipeline as one complete ^PR tuple. Legacy bytes and
+unknown reference facts remain unchanged. 210Core debug tests and the earlier new native
+case passed; missing-workflow handoff and preliminary-reader regressions were
+reproduced then restored/fixed. Initial full gate passed89/209/274 before refinement. The two-test secondary
+state/default-drop regression reproduced3 failures; refined motor metadata now
+uses notExplicitlyControlled and decoded controls must match effective bound
+defaults. All210Core tests pass; refined full native gate passed exit0:89/210/274debug/release plus both oracles,
+twelve CLI cases, inert ABI/pipeline, native/signature/ARM/min26/packaged equality. See
+`validation/M3-PERSISTED-MOTOR-SPEEDS-2026-09-17.md` for exact boundaries and
+remaining gates. Additional partial M3-AC02/03/11,M2-AC08,M4-AC12 only; no
+physical isolation/qualification or production adapter claim. B remains frozen.
+Preceding published436f413 hosted run35205027228 passed; new source not covered
+by that checkpoint or the earlier final cloud review.
+
 # Offline documented control encoder — 2026-09-17
 
 Published source436f413 on PR #81; changed-head hosted run35205027228 is

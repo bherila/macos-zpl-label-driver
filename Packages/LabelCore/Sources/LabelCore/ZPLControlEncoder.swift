@@ -23,6 +23,11 @@ public struct ZPLControlProtocol: Equatable, Sendable {
         self.notes = notes
     }
 
+    public static let qualifiedMotorSpeedTuple: ZPLControlProtocol = .init(
+        option: "printSpeedIps/feedSpeedIps/backfeedSpeedIps", command: "^PRp,s,b", sourceID: "R45",
+        lifetime: .applicationUntilReissuedOrPowerOff,
+        notes: "All three values explicit; feed/backfeed need separate profile qualification. Reference remains unknown.")
+
     public static let gc420dBaseline: [ZPLControlProtocol] = [
         .init(option: "printSpeedIps", command: "^PRp", sourceID: "R11",
               lifetime: .applicationUntilReissuedOrPowerOff,
@@ -39,6 +44,8 @@ public enum ZPLControlEncodingError: Error, Equatable, Sendable {
     case unqualifiedTracking
     case unsupportedThermalMethod
     case unsupportedFinishing
+    case incompleteMotorSpeeds
+    case unqualifiedMotorSpeeds
     case outputLimit
 }
 
@@ -74,9 +81,24 @@ public struct ZPLControlEncoder: Sendable {
             throw ZPLControlEncodingError.unsupportedPrintSpeed(speed)
         }
 
+        var motorBytes: Data?
+        if controls.feedSpeedIps != .notExplicitlyControlled || controls.backfeedSpeedIps != .notExplicitlyControlled {
+            guard controls.profileSchemaVersion == 3 else { throw ZPLControlEncodingError.unqualifiedMotorSpeeds }
+            guard case let .value(printSpeed) = controls.printSpeedIps,
+                  case let .value(feedSpeed) = controls.feedSpeedIps,
+                  case let .value(backfeedSpeed) = controls.backfeedSpeedIps else {
+                throw ZPLControlEncodingError.incompleteMotorSpeeds
+            }
+            motorBytes = try ZPLDocumentedControlEncoder().encode(
+                [.printRate(printIps: printSpeed, feedIps: feedSpeed, backfeedIps: backfeedSpeed)],
+                qualification: [.printRate: .supported],
+                limits: .init(printSpeedChoicesIps: [printSpeed], feedSpeedChoicesIps: [feedSpeed],
+                              backfeedSpeedChoicesIps: [backfeedSpeed]))
+        }
         var output = Data()
         if controls.finishing == .value(.tearOff) { output.append(contentsOf: "^MMT\n".utf8) }
-        if case let .value(speed) = controls.printSpeedIps {
+        if let motorBytes { output.append(motorBytes) }
+        else if case let .value(speed) = controls.printSpeedIps {
             output.append(contentsOf: "^PR\(speed)\n".utf8)
         }
         guard output.count <= maxOutputBytes else { throw ZPLControlEncodingError.outputLimit }

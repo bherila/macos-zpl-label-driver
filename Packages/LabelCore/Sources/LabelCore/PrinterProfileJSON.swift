@@ -29,17 +29,25 @@ public enum PrinterProfileJSON {
         var root: [String: Any] = [
             "schemaVersion": profile.schemaVersion,
             "revision": profile.revision,
-            "capabilities": encodeCapabilities(profile.capabilities),
+            "capabilities": encodeCapabilities(profile.capabilities, version: profile.schemaVersion),
             "installedHardware": encodeInstalled(profile.installedHardware),
             "media": encodeMedia(profile.media),
             "connection": encodeConnection(profile.connection),
         ]
-        if profile.schemaVersion == 2 {
+        if profile.schemaVersion >= 2 {
             root["configuredDefaults"] = [
                 "thermalMethod": profile.configuredDefaults.thermalMethod.map { $0.rawValue as Any } ?? NSNull(),
                 "finishing": profile.configuredDefaults.finishing.map { $0.rawValue as Any } ?? NSNull(),
                 "printSpeedIps": profile.configuredDefaults.printSpeedIps.map { $0 as Any } ?? NSNull(),
             ]
+        }
+        if profile.schemaVersion == 3 {
+            guard var defaults = root["configuredDefaults"] as? [String: Any] else {
+                throw PrinterProfileJSONError.invalidValue("configuredDefaults")
+            }
+            defaults["feedSpeedIps"] = profile.configuredDefaults.feedSpeedIps.map { $0 as Any } ?? NSNull()
+            defaults["backfeedSpeedIps"] = profile.configuredDefaults.backfeedSpeedIps.map { $0 as Any } ?? NSNull()
+            root["configuredDefaults"] = defaults
         }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
         guard data.count <= maximumBytes else { throw PrinterProfileJSONError.outputTooLarge }
@@ -62,17 +70,18 @@ public enum PrinterProfileJSON {
                 throw PrinterProfileJSONError.invalidType("object")
             }
             let version = try integer(dictionary, "schemaVersion")
-            guard (1...2).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
+            guard (1...3).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
             var keys: Set<String> = [
                 "schemaVersion", "revision", "capabilities", "installedHardware",
                 "media", "connection",
             ]
-            if version == 2 { keys.insert("configuredDefaults") }
+            if version >= 2 { keys.insert("configuredDefaults") }
             let root = try object(raw, allowed: keys)
             var defaults = PrinterControlDefaults()
-            if version == 2 {
-                let value = try object(required(root, "configuredDefaults"),
-                    allowed: ["thermalMethod", "finishing", "printSpeedIps"])
+            if version >= 2 {
+                var defaultKeys: Set<String> = ["thermalMethod", "finishing", "printSpeedIps"]
+                if version == 3 { defaultKeys.formUnion(["feedSpeedIps", "backfeedSpeedIps"]) }
+                let value = try object(required(root, "configuredDefaults"), allowed: defaultKeys)
                 if !(try required(value, "thermalMethod") is NSNull) {
                     defaults.thermalMethod = try enumeration(value, "thermalMethod", ThermalMethod.self)
                 }
@@ -80,11 +89,15 @@ public enum PrinterProfileJSON {
                     defaults.finishing = try enumeration(value, "finishing", FinishingMode.self)
                 }
                 defaults.printSpeedIps = try optionalInteger(value, "printSpeedIps")
+                if version == 3 {
+                    defaults.feedSpeedIps = try optionalInteger(value, "feedSpeedIps")
+                    defaults.backfeedSpeedIps = try optionalInteger(value, "backfeedSpeedIps")
+                }
             }
             return try PrinterProfile(
                 schemaVersion: version,
                 revision: integer(root, "revision"),
-                capabilities: decodeCapabilities(try required(root, "capabilities")),
+                capabilities: decodeCapabilities(try required(root, "capabilities"), version: version),
                 installedHardware: decodeInstalled(try required(root, "installedHardware")),
                 media: decodeMedia(try required(root, "media")),
                 connection: decodeConnection(try required(root, "connection")),
@@ -94,12 +107,12 @@ public enum PrinterProfileJSON {
         catch { throw PrinterProfileJSONError.invalidValue("profile") }
     }
 
-    private static func encodeCapabilities(_ value: PrinterCapabilities) -> [String: Any] {
+    private static func encodeCapabilities(_ value: PrinterCapabilities, version: Int) -> [String: Any] {
         var tracking: [String: Any] = [:]
         for choice in [MediaTracking.gap, .blackMark, .continuous] {
             tracking[choice.rawValue] = value.tracking[choice].map(encodeFact) ?? NSNull()
         }
-        return [
+        var result: [String: Any] = [
             "model": value.model,
             "thermalTransfer": encodeFact(value.thermalTransfer),
             "cutter": encodeFact(value.cutter),
@@ -109,13 +122,35 @@ public enum PrinterProfileJSON {
             "printSpeedChoicesIps": value.printSpeedChoicesIps.sorted(),
             "darkness": encodeFact(value.darkness),
         ]
+        if version == 3 {
+            result["feedSpeeds"] = encodeSpeedChoices(value.feedSpeeds)
+            result["backfeedSpeeds"] = encodeSpeedChoices(value.backfeedSpeeds)
+        }
+        return result
+    }
+
+    private static func encodeSpeedChoices(_ value: QualifiedSpeedChoices) -> [String: Any] {
+        ["fact": encodeFact(value.fact), "choicesIps": value.choicesIps.sorted()]
+    }
+
+    private static func decodeSpeedChoices(_ raw: Any) throws -> QualifiedSpeedChoices {
+        let value = try object(raw, allowed: ["fact", "choicesIps"])
+        guard let array = try required(value, "choicesIps") as? [Any], array.count <= 11 else {
+            throw PrinterProfileJSONError.invalidValue("choicesIps")
+        }
+        let choices = try array.map { try integerValue($0, "choicesIps") }
+        guard Set(choices).count == choices.count else {
+            throw PrinterProfileJSONError.invalidValue("choicesIps")
+        }
+        return QualifiedSpeedChoices(fact: try decodeFact(required(value, "fact")), choicesIps: Set(choices))
     }
 
     private static func validateForEncoding(_ profile: PrinterProfile) throws {
         let capabilities = profile.capabilities
         for fact in [
             capabilities.thermalTransfer, capabilities.cutter, capabilities.peeler,
-            capabilities.rewind, capabilities.darkness,
+            capabilities.rewind, capabilities.darkness, capabilities.feedSpeeds.fact,
+            capabilities.backfeedSpeeds.fact,
         ] + Array(capabilities.tracking.values) {
             try validateEvidence(fact.evidence)
         }
@@ -147,11 +182,11 @@ public enum PrinterProfileJSON {
         }
     }
 
-    private static func decodeCapabilities(_ raw: Any) throws -> PrinterCapabilities {
-        let value = try object(raw, allowed: [
-            "model", "thermalTransfer", "cutter", "peeler", "rewind", "tracking",
-            "printSpeedChoicesIps", "darkness",
-        ])
+    private static func decodeCapabilities(_ raw: Any, version: Int) throws -> PrinterCapabilities {
+        var keys: Set<String> = ["model", "thermalTransfer", "cutter", "peeler", "rewind", "tracking",
+                                 "printSpeedChoicesIps", "darkness"]
+        if version == 3 { keys.formUnion(["feedSpeeds", "backfeedSpeeds"]) }
+        let value = try object(raw, allowed: keys)
         let trackingObject = try object(try required(value, "tracking"), allowed: [
             MediaTracking.gap.rawValue, MediaTracking.blackMark.rawValue,
             MediaTracking.continuous.rawValue,
@@ -177,7 +212,9 @@ public enum PrinterProfileJSON {
             rewind: try decodeFact(required(value, "rewind")),
             tracking: tracking,
             printSpeedChoicesIps: Set(speeds),
-            darkness: try decodeFact(required(value, "darkness"))
+            darkness: try decodeFact(required(value, "darkness")),
+            feedSpeeds: version == 3 ? try decodeSpeedChoices(required(value, "feedSpeeds")) : .unverified,
+            backfeedSpeeds: version == 3 ? try decodeSpeedChoices(required(value, "backfeedSpeeds")) : .unverified
         )
     }
 

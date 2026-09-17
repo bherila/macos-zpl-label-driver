@@ -114,6 +114,8 @@ public struct ResolvedJobTicket: Equatable, Sendable {
             thermalMethod: queueDefinition.workflowDefaults.thermalMethod,
             finishing: queueDefinition.workflowDefaults.finishing,
             printSpeedIps: queueDefinition.workflowDefaults.printSpeedIps,
+            feedSpeedIps: queueDefinition.workflowDefaults.feedSpeedIps,
+            backfeedSpeedIps: queueDefinition.workflowDefaults.backfeedSpeedIps,
             darkness: queueDefinition.workflowDefaults.darkness,
             tracking: queueDefinition.workflowDefaults.tracking,
             mediaGeometry: queueDefinition.workflowDefaults.mediaGeometry
@@ -122,7 +124,7 @@ public struct ResolvedJobTicket: Equatable, Sendable {
         do { controls = try printerProfile.resolveControls(job: explicitControls, workflowDefaults: defaults) }
         catch { throw ResolvedJobTicketError.invalidControls }
         return try ResolvedJobTicket(
-            schemaVersion: 2,
+            schemaVersion: queueDefinition.schemaVersion == 2 || printerProfile.schemaVersion == 3 ? 3 : 2,
             acceptanceID: acceptanceID,
             cancellationSHA256: cancellationSHA256,
             activeSelectionGeneration: activeSelection.generation,
@@ -169,12 +171,16 @@ public struct ResolvedJobTicket: Equatable, Sendable {
         outputLabels: [ResolvedOutputLabel],
         skippedPages: [ResolvedSkippedPage]
     ) throws {
-        guard schemaVersion == 2 else { throw ResolvedJobTicketError.unsupportedSchema }
+        guard (2...3).contains(schemaVersion) else { throw ResolvedJobTicketError.unsupportedSchema }
+        guard schemaVersion == 3 || (printerProfile.schemaVersion <= 2 && queue.schemaVersion == 1 &&
+              controls.feedSpeedIps == .notExplicitlyControlled && controls.backfeedSpeedIps == .notExplicitlyControlled) else {
+            throw ResolvedJobTicketError.invalidControls
+        }
         guard VirtualQueueDefinition.isSelector(acceptanceID),
               VirtualQueueDefinition.isSHA256(cancellationSHA256)
         else { throw ResolvedJobTicketError.invalidIdentity }
         guard activeSelectionGeneration > 0,
-              workflowProfile.schemaVersion == 2, (1...2).contains(printerProfile.schemaVersion),
+              workflowProfile.schemaVersion == 2, (1...3).contains(printerProfile.schemaVersion),
               controls.profileSchemaVersion == printerProfile.schemaVersion,
               controls.profileRevision == printerProfile.revision else {
             throw ResolvedJobTicketError.invalidReference
@@ -282,7 +288,7 @@ public enum ResolvedJobTicketJSON {
                 "scaling": ticket.transformOwnership.rawValue,
             ],
             "monochromeConversion": encodeConversion(ticket.monochromeConversion),
-            "controls": encodeControls(ticket.controls),
+            "controls": encodeControls(ticket.controls, version: ticket.schemaVersion),
             "outputLabels": ticket.outputLabels.map {
                 ["sourcePage": $0.sourcePage, "regionID": $0.regionID]
             },
@@ -352,8 +358,22 @@ public enum ResolvedJobTicketJSON {
             throw ResolvedJobTicketError.invalidImaging
         }
         try validateTicketPlan(ticket, workflowProfile: workflowProfile)
-        do { try printerProfile.validate(controlRequest(ticket.controls)) }
-        catch { throw ResolvedJobTicketError.invalidControls }
+        do {
+            let request = controlRequest(ticket.controls)
+            try printerProfile.validate(request)
+            let defaults = PrinterControlDefaults(
+                thermalMethod: queueDefinition.workflowDefaults.thermalMethod,
+                finishing: queueDefinition.workflowDefaults.finishing,
+                printSpeedIps: queueDefinition.workflowDefaults.printSpeedIps,
+                feedSpeedIps: queueDefinition.workflowDefaults.feedSpeedIps,
+                backfeedSpeedIps: queueDefinition.workflowDefaults.backfeedSpeedIps,
+                darkness: queueDefinition.workflowDefaults.darkness,
+                tracking: queueDefinition.workflowDefaults.tracking,
+                mediaGeometry: queueDefinition.workflowDefaults.mediaGeometry)
+            guard ticket.controls == (try printerProfile.resolveControls(job: request, workflowDefaults: defaults)) else {
+                throw ResolvedJobTicketError.invalidControls
+            }
+        } catch { throw ResolvedJobTicketError.invalidControls }
         return ticket
     }
 
@@ -376,7 +396,8 @@ public enum ResolvedJobTicketJSON {
                 "copyOwnership", "pageRangeOwnership", "transformOwnership",
                 "monochromeConversion", "controls", "outputLabels", "skippedPages",
             ])
-            guard try integer(root, "schemaVersion") == 2 else {
+            let version = try integer(root, "schemaVersion")
+            guard (2...3).contains(version) else {
                 throw ResolvedJobTicketError.unsupportedSchema
             }
             let source = try object(try required(root, "source"), keys: [
@@ -402,7 +423,7 @@ public enum ResolvedJobTicketJSON {
                 return ResolvedSkippedPage(sourcePage: try integer(value, "sourcePage"), reason: reason)
             }
             return try ResolvedJobTicket(
-                schemaVersion: 2,
+                schemaVersion: version,
                 acceptanceID: string(root, "acceptanceID"),
                 cancellationSHA256: string(root, "cancellationSHA256"),
                 activeSelectionGeneration: integer(root, "activeSelectionGeneration"),
@@ -426,7 +447,7 @@ public enum ResolvedJobTicketJSON {
                 monochromeConversion: decodeConversion(
                     try required(root, "monochromeConversion")
                 ),
-                controls: decodeControls(try required(root, "controls")),
+                controls: decodeControls(try required(root, "controls"), version: version),
                 outputLabels: output,
                 skippedPages: skipped
             )
@@ -548,8 +569,8 @@ public enum ResolvedJobTicketJSON {
         }
     }
 
-    private static func encodeControls(_ value: ResolvedPrinterControls) -> [String: Any] {
-        [
+    private static func encodeControls(_ value: ResolvedPrinterControls, version: Int) -> [String: Any] {
+        var result: [String: Any] = [
             "profileSchemaVersion": value.profileSchemaVersion,
             "profileRevision": value.profileRevision,
             "thermalMethod": encodeRequired(value.thermalMethod),
@@ -559,19 +580,26 @@ public enum ResolvedJobTicketJSON {
             "tracking": encodeOptionalTracking(value.tracking),
             "mediaGeometry": encodeGeometry(value.mediaGeometry),
         ]
+        if version == 3 {
+            result["feedSpeedIps"] = encodeMotorSpeed(value.feedSpeedIps)
+            result["backfeedSpeedIps"] = encodeMotorSpeed(value.backfeedSpeedIps)
+        }
+        return result
     }
 
-    private static func decodeControls(_ raw: Any) throws -> ResolvedPrinterControls {
-        let value = try object(raw, keys: [
-            "profileSchemaVersion", "profileRevision", "thermalMethod", "finishing",
-            "printSpeedIps", "darkness", "tracking", "mediaGeometry",
-        ])
+    private static func decodeControls(_ raw: Any, version: Int) throws -> ResolvedPrinterControls {
+        var keys: Set<String> = ["profileSchemaVersion", "profileRevision", "thermalMethod", "finishing",
+                                 "printSpeedIps", "darkness", "tracking", "mediaGeometry"]
+        if version == 3 { keys.formUnion(["feedSpeedIps", "backfeedSpeedIps"]) }
+        let value = try object(raw, keys: keys)
         return ResolvedPrinterControls(
             profileSchemaVersion: try integer(value, "profileSchemaVersion"),
             profileRevision: try integer(value, "profileRevision"),
             thermalMethod: try decodeRequired(value, "thermalMethod", ThermalMethod.init(rawValue:)),
             finishing: try decodeRequired(value, "finishing", FinishingMode.init(rawValue:)),
             printSpeedIps: try decodeOptionalInt(value, "printSpeedIps"),
+            feedSpeedIps: version == 3 ? try decodeMotorSpeed(value, "feedSpeedIps") : .notExplicitlyControlled,
+            backfeedSpeedIps: version == 3 ? try decodeMotorSpeed(value, "backfeedSpeedIps") : .notExplicitlyControlled,
             darkness: try decodeOptionalInt(value, "darkness"),
             tracking: try decodeOptional(value, "tracking", MediaTracking.init(rawValue:)),
             mediaGeometry: try decodeGeometry(try required(value, "mediaGeometry"))
@@ -583,6 +611,8 @@ public enum ResolvedJobTicketJSON {
             thermalMethod: value(controls.thermalMethod),
             finishing: value(controls.finishing),
             printSpeedIps: value(controls.printSpeedIps),
+            feedSpeedIps: controls.feedSpeedIps.explicitValue,
+            backfeedSpeedIps: controls.backfeedSpeedIps.explicitValue,
             darkness: value(controls.darkness),
             tracking: value(controls.tracking),
             mediaGeometry: value(controls.mediaGeometry)
@@ -599,6 +629,24 @@ public enum ResolvedJobTicketJSON {
         switch value {
         case let .value(value): ["mode": "value", "value": value.rawValue]
         case .leaveUnchanged: ["mode": "leaveUnchanged", "value": NSNull()]
+        }
+    }
+
+    private static func encodeMotorSpeed(_ value: ResolvedMotorSpeed) -> Any {
+        switch value {
+        case let .value(value): ["mode": "value", "value": value]
+        case .notExplicitlyControlled: ["mode": "notExplicitlyControlled", "value": NSNull()]
+        }
+    }
+
+    private static func decodeMotorSpeed(_ root: [String: Any], _ key: String) throws -> ResolvedMotorSpeed {
+        let value = try setting(root, key)
+        switch try string(value, "mode") {
+        case "notExplicitlyControlled":
+            guard try required(value, "value") is NSNull else { throw ResolvedJobTicketError.invalidControls }
+            return .notExplicitlyControlled
+        case "value": return .value(try integer(value, "value"))
+        default: throw ResolvedJobTicketError.invalidControls
         }
     }
 

@@ -143,6 +143,21 @@ public struct ConnectionConfiguration: Equatable, Sendable {
     }
 }
 
+/// Separately qualified motor speeds. Unknown and unsupported both have no
+/// choices, but retain distinct facts. Profile construction validates this.
+public struct QualifiedSpeedChoices: Equatable, Sendable {
+    public let fact: CapabilityFact
+    public let choicesIps: Set<Int>
+
+    public init(fact: CapabilityFact, choicesIps: Set<Int>) {
+        self.fact = fact
+        self.choicesIps = choicesIps
+    }
+
+    public static let unverified = Self(
+        fact: .init(state: .unknown, evidence: .unobserved), choicesIps: [])
+}
+
 public struct PrinterCapabilities: Equatable, Sendable {
     public let model: String
     public let thermalTransfer: CapabilityFact
@@ -152,6 +167,8 @@ public struct PrinterCapabilities: Equatable, Sendable {
     public let tracking: [MediaTracking: CapabilityFact]
     public let printSpeedChoicesIps: Set<Int>
     public let darkness: CapabilityFact
+    public let feedSpeeds: QualifiedSpeedChoices
+    public let backfeedSpeeds: QualifiedSpeedChoices
 
     public init(
         model: String,
@@ -161,7 +178,9 @@ public struct PrinterCapabilities: Equatable, Sendable {
         rewind: CapabilityFact,
         tracking: [MediaTracking: CapabilityFact],
         printSpeedChoicesIps: Set<Int>,
-        darkness: CapabilityFact
+        darkness: CapabilityFact,
+        feedSpeeds: QualifiedSpeedChoices = .unverified,
+        backfeedSpeeds: QualifiedSpeedChoices = .unverified
     ) {
         self.model = model
         self.thermalTransfer = thermalTransfer
@@ -171,6 +190,8 @@ public struct PrinterCapabilities: Equatable, Sendable {
         self.tracking = tracking
         self.printSpeedChoicesIps = printSpeedChoicesIps
         self.darkness = darkness
+        self.feedSpeeds = feedSpeeds
+        self.backfeedSpeeds = backfeedSpeeds
     }
 }
 
@@ -225,8 +246,8 @@ public struct PrinterProfile: Equatable, Sendable {
         connection: ConnectionConfiguration,
         configuredDefaults: PrinterControlDefaults = .init()
     ) throws {
-        guard (1...2).contains(schemaVersion), revision > 0,
-              schemaVersion == 2 || configuredDefaults == .init() else {
+        guard (1...3).contains(schemaVersion), revision > 0,
+              schemaVersion >= 2 || configuredDefaults == .init() else {
             throw PrinterProfileError.invalidProfileVersion
         }
         guard Self.isSafeModelIdentifier(capabilities.model) else {
@@ -234,6 +255,20 @@ public struct PrinterProfile: Equatable, Sendable {
         }
         guard capabilities.printSpeedChoicesIps.allSatisfy({ $0 > 0 }) else {
             throw PrinterProfileError.invalidPrintSpeedChoice
+        }
+        guard schemaVersion == 3 ||
+              (capabilities.feedSpeeds == .unverified && capabilities.backfeedSpeeds == .unverified &&
+               configuredDefaults.feedSpeedIps == nil && configuredDefaults.backfeedSpeedIps == nil) else {
+            throw PrinterProfileError.invalidProfileVersion
+        }
+        for speeds in [capabilities.feedSpeeds, capabilities.backfeedSpeeds] {
+            guard speeds.choicesIps.count <= 11,
+                  speeds.choicesIps.allSatisfy({ (2...12).contains($0) }),
+                  speeds.fact.state == .supported
+                    ? (!speeds.choicesIps.isEmpty && speeds.fact.evidence != .unobserved)
+                    : speeds.choicesIps.isEmpty else {
+                throw PrinterProfileError.invalidMotorSpeedCapability
+            }
         }
         guard installedHardware.observedSpeedIps.map({ $0 > 0 }) ?? true else {
             throw PrinterProfileError.invalidInstalledPrintSpeed
@@ -251,6 +286,8 @@ public struct PrinterProfile: Equatable, Sendable {
         try validate(.init(thermalMethod: configuredDefaults.thermalMethod,
             finishing: configuredDefaults.finishing,
             printSpeedIps: configuredDefaults.printSpeedIps,
+            feedSpeedIps: configuredDefaults.feedSpeedIps,
+            backfeedSpeedIps: configuredDefaults.backfeedSpeedIps,
             darkness: configuredDefaults.darkness, tracking: configuredDefaults.tracking,
             mediaGeometry: configuredDefaults.mediaGeometry))
     }
@@ -267,6 +304,12 @@ public enum PrinterProfileError: Error, Equatable, Sendable {
     case invalidProfileVersion
     case invalidModelIdentifier
     case invalidPrintSpeedChoice
+    case invalidMotorSpeedCapability
+    case unavailableFeedSpeed(CapabilityState)
+    case unavailableBackfeedSpeed(CapabilityState)
+    case unsupportedFeedSpeed(Int)
+    case unsupportedBackfeedSpeed(Int)
+    case incompleteMotorSpeeds
     case invalidInstalledPrintSpeed
     case inconsistentConnectionTransport
     case unsupportedThermalMethod(ThermalMethod)
@@ -306,6 +349,8 @@ public struct PrinterControlRequest: Equatable, Sendable {
     public var thermalMethod: ThermalMethod?
     public var finishing: FinishingMode?
     public var printSpeedIps: Int?
+    public var feedSpeedIps: Int?
+    public var backfeedSpeedIps: Int?
     public var darkness: Int?
     public var tracking: MediaTracking?
     public var mediaGeometry: MediaGeometryRequest?
@@ -314,6 +359,8 @@ public struct PrinterControlRequest: Equatable, Sendable {
         thermalMethod: ThermalMethod? = nil,
         finishing: FinishingMode? = nil,
         printSpeedIps: Int? = nil,
+        feedSpeedIps: Int? = nil,
+        backfeedSpeedIps: Int? = nil,
         darkness: Int? = nil,
         tracking: MediaTracking? = nil,
         mediaGeometry: MediaGeometryRequest? = nil
@@ -321,6 +368,8 @@ public struct PrinterControlRequest: Equatable, Sendable {
         self.thermalMethod = thermalMethod
         self.finishing = finishing
         self.printSpeedIps = printSpeedIps
+        self.feedSpeedIps = feedSpeedIps
+        self.backfeedSpeedIps = backfeedSpeedIps
         self.darkness = darkness
         self.tracking = tracking
         self.mediaGeometry = mediaGeometry
@@ -340,6 +389,28 @@ public extension PrinterProfile {
         }
         if let speed = request.printSpeedIps, !capabilities.printSpeedChoicesIps.contains(speed) {
             throw PrinterProfileError.unsupportedPrintSpeed(speed)
+        }
+        if let speed = request.feedSpeedIps {
+            guard capabilities.feedSpeeds.fact.state == .supported else {
+                throw PrinterProfileError.unavailableFeedSpeed(capabilities.feedSpeeds.fact.state)
+            }
+            guard capabilities.feedSpeeds.choicesIps.contains(speed) else {
+                throw PrinterProfileError.unsupportedFeedSpeed(speed)
+            }
+        }
+        if let speed = request.backfeedSpeedIps {
+            guard capabilities.backfeedSpeeds.fact.state == .supported else {
+                throw PrinterProfileError.unavailableBackfeedSpeed(capabilities.backfeedSpeeds.fact.state)
+            }
+            guard capabilities.backfeedSpeeds.choicesIps.contains(speed) else {
+                throw PrinterProfileError.unsupportedBackfeedSpeed(speed)
+            }
+        }
+        if request.feedSpeedIps != nil || request.backfeedSpeedIps != nil {
+            guard request.printSpeedIps != nil, request.feedSpeedIps != nil,
+                  request.backfeedSpeedIps != nil else {
+                throw PrinterProfileError.incompleteMotorSpeeds
+            }
         }
         if request.darkness != nil { throw PrinterProfileError.unavailableDarkness }
         if let tracking = request.tracking {
