@@ -474,3 +474,7 @@ Local unpublished d86206a2bb5721c36569f5f7100c5b58c3facb66 documents the impleme
 ## Editor model stock/canvas binding
 
 [Editor receipt](validation/M4-EDITOR-STOCK-CANVAS-2026-09-17.md) records unpublished86ed052. Stock model edits prepare validated candidate/canvas atomically, cancel stale previews and invalidate review; saved correction reload rebuilds matching geometry.21editor tests debug/release passed, including real-worker obsolete-stock completion. Next: native explicit-unit stock controls and coherent bootstrap stock policy without physical qualification or relaxed limits. Full suite/signature/manual evidence not refreshed; frozen candidate unchanged.
+
+## Native stock controls and changed-stock reopening
+
+[Receipt](validation/M4-STOCK-CONTROLS-REOPENING-2026-09-17.md) evaluates unpublisheded50407. Explicit-mm stock fields use generation-bound model edits; bootstrap admits bounded changed stock for offline unreviewed correction, preserving detector/planner and physical qualification boundaries. Saved changed stock previously failed to reopen; regression reproduced1failure. Final35native editor/bootstrap tests both/106Python/preflight and local signed app setup-app.ngHpWz packaged fidelity passed. No visual/VoiceOver/installed/physical evidence or acceptance refresh. Next: current integrated source baseline and whole media/privacy reconciliation. Frozen manual candidate unchanged.
