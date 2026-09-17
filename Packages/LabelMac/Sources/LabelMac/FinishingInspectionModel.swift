@@ -45,13 +45,13 @@ public final class FinishingInspectionModel: ObservableObject {
     }
     public func cancel() {
         cancellation?.cancel(); cancellation = nil; request = nil; isBusy = false
-        status = "Operation cancelled. Existing exported files are preserved."
+        status = String(localized: "Operation cancelled. Existing exported files are preserved.")
     }
     /// A chooser failure is not a verified selection. Invalidate pending work and
     /// discard the previous export authority without displaying private error data.
     public func selectionFailed() {
         cancel(); selected = nil; summary = nil
-        status = "Saved job could not be opened. Choose the file again. No printer action was taken."
+        status = String(localized: "Saved job could not be opened. Choose the file again. No printer action was taken.")
     }
     public func open(_ file: URL) async {
         cancel(); selected = nil; summary = nil; status = nil
@@ -65,10 +65,10 @@ public final class FinishingInspectionModel: ObservableObject {
             try Task.checkCancellation()
             guard request == token else { return }
             selected = result.0; summary = result.1
-            status = "Saved job verified. Hardware completion is unknown."
+            status = String(localized: "Saved job verified. Hardware completion is unknown.")
         } catch {
             guard request == token else { return }
-            status = "Saved job could not be verified. No printer action was taken."
+            status = String(localized: "Saved job could not be verified. No printer action was taken.")
         }
     }
     public func exportPreviews(toNewDirectory destination: URL) async {
@@ -82,13 +82,13 @@ public final class FinishingInspectionModel: ObservableObject {
             try await withTaskCancellationHandler(operation: { try await operation.value }, onCancel: { cancellation.cancel(); operation.cancel() })
             try Task.checkCancellation()
             guard request == token else { return }
-            status = "Exact packed previews exported. Nothing was printed."
+            status = String(localized: "Exact packed previews exported. Nothing was printed.")
         } catch {
             guard request == token else { return }
             if error as? PackedFinishingPreviewExport.Error == .commitUncertain {
-                status = "Export durability is uncertain. Preserve the output and review it before retrying."
+                status = String(localized: "Export durability is uncertain. Preserve the output and review it before retrying.")
             } else {
-                status = "Preview export did not complete. Existing output is preserved."
+                status = String(localized: "Preview export did not complete. Existing output is preserved.")
             }
         }
     }

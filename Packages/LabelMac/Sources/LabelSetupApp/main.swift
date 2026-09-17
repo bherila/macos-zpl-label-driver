@@ -44,7 +44,7 @@ final class SetupAppController: ObservableObject {
         } catch {
             documents = nil
             printerDefaults = nil
-            self.error = "Local setup storage could not be initialized. Check access to the app’s local data folder."
+            self.error = String(localized: "Local setup storage could not be initialized. Check access to the app’s local data folder.")
         }
     }
 

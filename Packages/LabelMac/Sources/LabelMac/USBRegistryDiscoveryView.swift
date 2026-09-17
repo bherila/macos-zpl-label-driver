@@ -34,16 +34,16 @@ public final class USBRegistryDiscoveryModel: ObservableObject {
                 ? "No printer-class USB interfaces were exposed by this registry scan. This is not proof of physical disconnection."
                 : "Printer-class USB interfaces observed. Model, stable identity and transport remain unqualified."
             if result.unreadableInterfaceClasses > 0 {
-                status = "Some USB interface metadata was unreadable. This scan cannot establish printer absence; no stable identity was qualified."
+                status = String(localized: "Some USB interface metadata was unreadable. This scan cannot establish printer absence; no stable identity was qualified.")
             }
         } catch {
             guard request == token else { return }
             switch error {
-            case is CancellationError: status = "USB discovery cancelled."
-            case USBRegistryDiscovery.Error.changed: status = "USB registry changed during discovery. Refresh before selecting an observation."
-            case USBRegistryDiscovery.Error.interfaceLimit: status = "USB discovery exceeded its interface limit. No partial scan was accepted."
-            case USBRegistryDiscovery.Error.unreadablePrinterMetadata: status = "Printer-class USB metadata could not be validated. No identity was qualified."
-            default: status = "Read-only USB discovery unavailable. No identity was qualified."
+            case is CancellationError: status = String(localized: "USB discovery cancelled.")
+            case USBRegistryDiscovery.Error.changed: status = String(localized: "USB registry changed during discovery. Refresh before selecting an observation.")
+            case USBRegistryDiscovery.Error.interfaceLimit: status = String(localized: "USB discovery exceeded its interface limit. No partial scan was accepted.")
+            case USBRegistryDiscovery.Error.unreadablePrinterMetadata: status = String(localized: "Printer-class USB metadata could not be validated. No identity was qualified.")
+            default: status = String(localized: "Read-only USB discovery unavailable. No identity was qualified.")
             }
         }
     }

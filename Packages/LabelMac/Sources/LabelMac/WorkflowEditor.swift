@@ -164,7 +164,7 @@ public final class WorkflowEditorModel: ObservableObject {
         } catch {
             guard sourceRequest == request, selectedRegionID == selection,
                   !Task.isCancelled, !cancellation.isCancelled else { return }
-            sourcePreviewError = "Source reference could not be prepared."
+            sourcePreviewError = String(localized: "Source reference could not be prepared.")
         }
     }
 
@@ -369,7 +369,7 @@ public final class WorkflowEditorModel: ObservableObject {
             guard previewRequest == request, selectedRegionID == selection,
                   profile == snapshot else { return }
             if !Task.isCancelled && !cancellation.isCancelled {
-                lastError = "Preview could not be prepared."
+                lastError = String(localized: "Preview could not be prepared.")
             }
         }
     }
