@@ -1,3 +1,19 @@
+# Immutable thermal jobs — 2026-09-17
+
+Current locally validated source adds queue6/ticket7 thermal defaults/references, explicit
+profile7 method requirement and ordinary per-label ^MTD/^MTT with declared consumables
+in prepared/delivery snapshots. Legacy formats/bytes and GC420d transfer rejection
+remain unchanged. All256Core and52 focused native cases passed ownexit0, including
+original-PDF two-label direct-thermal inert transmission. Full finite CI-equivalent
+gate passed ownexit0:89Python/256Core/308Mac debug/release plus independent/inert/
+signature/packaged checks. Omitted ordinary thermal command fault failed both
+method assertions; source byte-for-byte restored and all256Core passed ownexit0. See `validation/M3-IMMUTABLE-THERMAL-JOBS-2026-09-17.md`. Qualified thermal
+utility controls, finishing, M1/installed/GUI/USB/physical qualification remain open.
+Preceding profile sourceb24a618/checkpointbe681ca pushed; remote/PR81 exact
+readback confirmed, hosted35218292332 live, not pass evidence. Preceding4970335
+hosted35217368100 passed exact source. No physical/admin/merge/
+binary action; B unchanged.
+
 # Exact thermal profile7 persistence — 2026-09-17
 
 Local unpushedb24a618fa421e58e35a30e138e8a59ceb1d83a2e source adds required private thermal observations and independent

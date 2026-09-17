@@ -116,41 +116,47 @@ final class PrinterDefaultsEditingModelTests: XCTestCase {
         XCTAssertEqual(first.savedProfiles.first?.reference, newer)
     }
 
-    func testQualifiedSchemaSixSaveAndRestartRetainAllIndependentDefaults() throws {
-        let b = try PrinterProfile.gc420dUSBReference(revision: 7)
-        let c = b.capabilities
-        let fact = CapabilityFact(state: .supported, evidence: .documentedModel(sourceID: "synthetic-default-fixture"))
-        var tracking = c.tracking; tracking[.continuous] = fact
-        func limit(_ value: Int) -> QualifiedDotLimit { .init(fact: fact, maximumDots: value) }
-        let profile = try PrinterProfile(schemaVersion: 6, revision: 7,
-            capabilities: .init(model: c.model, thermalTransfer: c.thermalTransfer, cutter: c.cutter, peeler: c.peeler,
-                rewind: c.rewind, tracking: tracking, printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: fact,
-                feedSpeeds: .init(fact: fact, choicesIps: [2, 4]), backfeedSpeeds: .init(fact: fact, choicesIps: [2, 3]),
-                physicalGeometry: .init(width: limit(832), continuousLength: limit(1500), homeX: limit(100), homeY: limit(200)),
-                offsets: .init(shiftLeft: .init(fact: fact, range: -30...40), labelTop: .init(fact: fact, range: -5...6))),
-            installedHardware: b.installedHardware, media: b.media, connection: b.connection,
-            configuredDefaults: .init(printSpeedIps: 3, feedSpeedIps: 4, backfeedSpeedIps: 3, darkness: 15,
-                tracking: .continuous, mediaGeometry: MediaGeometryRequest(widthDots: 832, lengthDots: 1300, originXDot: 0, originYDot: 0),
-                offsets: .init(shiftLeftDots: 0, labelTopDots: 0)))
-        let store = try PrinterProfileStore(root: root())
-        let model = try PrinterDefaultsEditingModel(store: store, profileID: "synthetic-printer", initialProfile: profile)
-        try model.setup.selectSpeed(4)
-        try model.setup.selectDarkness(0)
-        model.setup.geometryDraft[.width] = "813"
-        model.setup.offsetDraft[.labelTop] = "1"
-        let expected = try model.setup.workflowDefaults()
-        let reference = try model.save()
-        XCTAssertEqual(reference.schemaVersion, 6)
-        let saved = try store.load(reference: reference)
-        XCTAssertEqual(saved.capabilities, profile.capabilities)
-        XCTAssertEqual(saved.media, profile.media)
-        XCTAssertEqual(saved.connection, profile.connection)
-        let restarted = try PrinterDefaultsEditingModel(store: store, profileID: "synthetic-printer", initialProfile: profile)
-        XCTAssertEqual(try restarted.setup.workflowDefaults(), expected)
-        XCTAssertEqual(saved.configuredDefaults.darkness, 0)
-        XCTAssertEqual(saved.configuredDefaults.offsets, .init(shiftLeftDots: 0, labelTopDots: 1))
-        XCTAssertEqual(profile.configuredDefaults.darkness, 15)
-        XCTAssertEqual(profile.configuredDefaults.offsets?.labelTopDots, 0)
+    func testQualifiedSchemasSixAndSevenSaveAndRestartRetainAllIndependentDefaults() throws {
+        for version in [6, 7] {
+            let b = try PrinterProfile.gc420dUSBReference(revision: 7)
+            let c = b.capabilities
+            let fact = CapabilityFact(state: .supported, evidence: .documentedModel(sourceID: "synthetic-default-fixture"))
+            var tracking = c.tracking; tracking[.continuous] = fact
+            func limit(_ value: Int) -> QualifiedDotLimit { .init(fact: fact, maximumDots: value) }
+            let profile = try PrinterProfile(schemaVersion: version, revision: 7,
+                capabilities: .init(model: c.model, thermalTransfer: c.thermalTransfer, cutter: c.cutter, peeler: c.peeler,
+                    rewind: c.rewind, tracking: tracking, printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: fact,
+                    feedSpeeds: .init(fact: fact, choicesIps: [2, 4]), backfeedSpeeds: .init(fact: fact, choicesIps: [2, 3]),
+                    physicalGeometry: .init(width: limit(832), continuousLength: limit(1500), homeX: limit(100), homeY: limit(200)),
+                    offsets: .init(shiftLeft: .init(fact: fact, range: -30...40), labelTop: .init(fact: fact, range: -5...6)),
+                    directThermal: version == 7 ? fact : .init(state: .unknown, evidence: .unobserved)),
+                installedHardware: b.installedHardware, media: b.media, connection: b.connection,
+                configuredDefaults: .init(thermalMethod: version == 7 ? .directThermal : nil, printSpeedIps: 3, feedSpeedIps: 4, backfeedSpeedIps: 3, darkness: 15,
+                    tracking: .continuous, mediaGeometry: MediaGeometryRequest(widthDots: 832, lengthDots: 1300, originXDot: 0, originYDot: 0),
+                    offsets: .init(shiftLeftDots: 0, labelTopDots: 0)),
+                thermalMedia: version == 7 ? .init(method: .observed(.directThermal, evidence: .reportedInstallation),
+                    ribbonPresent: .observed(false, evidence: .reportedInstallation)) : .unobserved)
+            let store = try PrinterProfileStore(root: root())
+            let model = try PrinterDefaultsEditingModel(store: store, profileID: "synthetic-printer", initialProfile: profile)
+            try model.setup.selectSpeed(4)
+            try model.setup.selectDarkness(0)
+            model.setup.geometryDraft[.width] = "813"
+            model.setup.offsetDraft[.labelTop] = "1"
+            let expected = try model.setup.workflowDefaults()
+            let reference = try model.save()
+            XCTAssertEqual(reference.schemaVersion, version)
+            let saved = try store.load(reference: reference)
+            XCTAssertEqual(saved.capabilities, profile.capabilities)
+            XCTAssertEqual(saved.media, profile.media)
+            XCTAssertEqual(saved.thermalMedia, profile.thermalMedia)
+            XCTAssertEqual(saved.connection, profile.connection)
+            let restarted = try PrinterDefaultsEditingModel(store: store, profileID: "synthetic-printer", initialProfile: profile)
+            XCTAssertEqual(try restarted.setup.workflowDefaults(), expected)
+            XCTAssertEqual(saved.configuredDefaults.darkness, 0)
+            XCTAssertEqual(saved.configuredDefaults.offsets, .init(shiftLeftDots: 0, labelTopDots: 1))
+            XCTAssertEqual(profile.configuredDefaults.darkness, 15)
+            XCTAssertEqual(profile.configuredDefaults.offsets?.labelTopDots, 0)
+        }
     }
 
     func testThermalProfileSaveAndStartupPreserveReportedConsumablesAndQualification() throws {

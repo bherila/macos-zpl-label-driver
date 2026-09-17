@@ -127,9 +127,14 @@ Earlier schemas retain their original keys and reject the new declarations.
 A configured thermal method requires independently evidenced model support and
 matching installation-reported consumables. Observed ribbon is a strict JSON
 boolean; absent observation is not false. Generic immutable profile references
-admit7 for storage, while current queue1..5/ticket2..6 admission retains its own
-printer-role bound. Profile7 ordinary job binding/encoding remains unfinished;
-persistence alone does not enable thermal-transfer jobs or qualify a printer.
+admit7 for storage, while queue1..5/ticket2..6 retain their own printer-role bounds. Queue6 adds
+nullable typed thermal defaults for configured inheritance and admits profile7.
+Ticket7 binds these references and effective method; full decoding re-resolves
+immutable defaults and rejects forged or dropped controls. Profile7 requires an
+explicit method from job/workflow/configured layers, not legacy substitution.
+Ordinary encoding reissues ^MTD/^MTT per label only for validated profile7 controls;
+legacy bytes remain exact. Prepared/delivery snapshots preserve declared thermal
+consumables. This is supplied qualification, not physical state-isolation proof.
 Utility save/reopen preserves these declarations; it does not modify live state.
 
 PPD/IPP option strings map to typed internal values through a fixed table. Profile display names and job titles never become ZPL syntax. Selectors are IDs, not file paths. Regeneration of PPDs/defaults is transactional and preserves unrelated queues.
