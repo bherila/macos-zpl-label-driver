@@ -277,21 +277,24 @@ Part B alone does not accept the production adapter or complete M1.
 
 ## Remaining implementation and evidence
 
-Next independent software work: validate the local intent/coordinator integration,
-then accepted-context framed-artifact binding and durable lifecycle/restart recovery; persistent exact-profile output qualifications; accepted finishing
-queue/ticket/device and qualified-pitch binding; actual bounded file/status provider
-integration retaining ownership throughout waits. These must reuse established
-immutable stores and coordination invariants, not manufacture accepted-device authority
-from the private utility catalog or flatten finishing files into raw TCP bytes.
+The separate finishing path now has typed queue definitions and immutable stores,
+original-PDF acceptance, qualified device geometry, preparation, accepted-context
+framing, durable attempt intent and cancellation, inert coordination, restart
+observation, inspection, and exact packed-preview export. Ordinary queue/ticket
+schemas still reject finishing profiles by design; the separate finishing route
+must not be flattened into the ordinary raw delivery path. See the current
+[software assessment](validation/M0-M2-CURRENT-SOFTWARE-ASSESSMENT-2026-09-17.md)
+and the finishing evidence linked above. These components establish software and
+inert behavior, not installed scheduler or physical device authority.
 
-Accepted-context gap inspection: VirtualQueueDefinition admits schemas1–6 and profile1–7,
-with tear-off defaults; ResolvedJobTicket admits schemas2–7 and independently checks queue/
-printer references in its initializer. Finishing profile8 cannot enter either path. The
-next admission slice must extend typed queue/defaults and ticket serialization/validation,
-then store/load and preparation binding together, with regressions for every reference,
-mode/schedule/output-order/source/device/cancellation combination. Preserve ordinary role
-rejection until the separate finishing path is complete; M1 privilege/backend identity
-still requires its prescribed real scheduler evidence before production assumptions.
+Copy-order audit at the unchanged source checkpoint: 23 focused portable tests
+passed (ordering, both extraction planner entry points, prepared encoder/payload).
+Assertions cover collated and uncollated order, source selection before copies,
+upstream-expanded duplicates, and exact output count/order. Ordinary prepared
+formats do not emit quantity commands; finishing framing emits quantity one per
+already ordered raster. M2-AC08 remains unaccepted because real M1 scheduler
+ownership has not been observed. Next work is a deliberate audit of the remaining
+software criteria and integration gaps, rather than rebuilding these components.
 
 
 Manual M1 must establish actual scheduler fidelity/options, sandbox/helper identity,
