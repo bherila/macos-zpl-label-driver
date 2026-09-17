@@ -165,7 +165,7 @@ public enum WorkflowProfileJSON {
         case "extract":
             guard dispositionRaw["reason"] == nil else { throw WorkflowProfileJSONError.unknownField }
             let regionsRaw = try array(dispositionRaw, "regions")
-            guard !regionsRaw.isEmpty, regionsRaw.count <= 256 else {
+            guard !regionsRaw.isEmpty, regionsRaw.count <= WorkflowPageRule.maximumRegionsPerPage else {
                 throw WorkflowProfileJSONError.invalidValue("regions")
             }
             disposition = .extract(try regionsRaw.map(decodeRegion))

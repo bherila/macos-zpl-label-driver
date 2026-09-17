@@ -125,6 +125,8 @@ public struct ExpectedInputPage: Equatable, Sendable {
 }
 
 public struct WorkflowPageRule: Equatable, Sendable {
+    /// Shared admission limit for typed construction, editing and JSON import.
+    public static let maximumRegionsPerPage = 256
     public let sourcePage: Int
     public let expectedInput: ExpectedInputPage
     public let disposition: WorkflowPageDisposition
@@ -140,7 +142,8 @@ public struct WorkflowPageRule: Equatable, Sendable {
               Set(structuralAnchors.map(\.id)).count == structuralAnchors.count else {
             throw ExtractionPlanError.invalidProfile
         }
-        if case let .extract(regions) = disposition, regions.isEmpty {
+        if case let .extract(regions) = disposition,
+           regions.isEmpty || regions.count > Self.maximumRegionsPerPage {
             throw ExtractionPlanError.invalidProfile
         }
         self.sourcePage = sourcePage

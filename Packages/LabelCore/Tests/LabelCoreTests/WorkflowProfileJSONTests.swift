@@ -22,6 +22,26 @@ final class WorkflowProfileJSONTests: XCTestCase {
         }
     }
 
+    func testTypedPageRegionLimitMatchesImportAndBoundaryRoundTrip() throws {
+        let original = try profile()
+        let regions = try (0..<257).map { index in
+            try ExtractionRegion(id: "region-\(index)",
+                normalizedRect: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+                outputOrder: index)
+        }
+        let boundaryRule = try WorkflowPageRule(sourcePage: 1,
+            expectedInput: original.pageRules[0].expectedInput,
+            disposition: .extract(Array(regions.prefix(256))))
+        let boundary = try WorkflowProfile(id: "boundary-regions", revision: 1,
+            outputStockID: original.outputStockID, outputStock: original.outputStock,
+            pageRules: [boundaryRule])
+        XCTAssertEqual(try WorkflowProfileJSON.decode(WorkflowProfileJSON.encode(boundary)), boundary)
+        XCTAssertThrowsError(try WorkflowPageRule(sourcePage: 1,
+            expectedInput: boundaryRule.expectedInput, disposition: .extract(regions))) {
+            XCTAssertEqual($0 as? ExtractionPlanError, .invalidProfile)
+        }
+    }
+
     private func profile() throws -> WorkflowProfile {
         let letter = PhysicalSize(
             width: try Millimeters.inches(8.5), height: try Millimeters.inches(11)

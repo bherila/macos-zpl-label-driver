@@ -104,7 +104,7 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
             guard case let .extract(regions) = rule.disposition,
                   regions.contains(where: { $0.id == id }) else { return rule }
             // Match the public profile decoder's per-page region bound.
-            guard regions.count < 256 else { throw ExtractionPlanError.invalidProfile }
+            guard regions.count < WorkflowPageRule.maximumRegionsPerPage else { throw ExtractionPlanError.invalidProfile }
             return try replacing(rule, disposition: .extract(regions + [copy]))
         }
         let next = try replacingProfile(pageRules: assigningOrders(rules, ordered: ordered))

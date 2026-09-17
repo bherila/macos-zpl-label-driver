@@ -366,3 +366,7 @@ Unpublished width-subset implementation checkpoint `8dcc24141aaa8dbb6ca6aa27aecb
 ## Late TCP callback regression
 
 [Terminal-state ordering](validation/M3-TCP-LATE-CALLBACKS-2026-09-17.md) adds finite adversarial coverage for late callbacks after three admitted-send failures. A queued observer proves all late events were processed before the stored-result/count assertions. This advances automated M3-AC05 coverage without claiming complete network or installed scheduler acceptance. The frozen manual candidate and device-I/O budget remain unchanged.
+
+## Typed extraction region admission
+
+[Shared page-region budget](validation/M4-TYPED-REGION-LIMIT-2026-09-17.md) fixes a typed profile that could be exported but not imported. Model, JSON importer and editor now share the existing 256-region limit; rejection is explicit. All 284 Core and 31 native editor tests passed debug/release; the debug accelerator passed. No manual editor, scheduler or physical gate was promoted. Next: inspect remaining profile/planning requirements and production integration dependencies rather than carry historical acceptance forward.
