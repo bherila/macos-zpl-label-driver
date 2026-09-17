@@ -1,3 +1,8 @@
+# Effective-control preparation source checkpoint — 2026-09-17
+
+Implementation 6baef390eeea89b90e711125eed8ffb68bf90bbb passed the recorded local finite gate.
+Next verify pushed source/PR equality and hosted run. No merge/binary release.
+
 # Effective controls in finishing preparation terminal gate — 2026-09-17
 
 Full finite900s session25902 completed ownexit0:89Python/272Core/323Mac debug/release,132 strict and180 ASCII oracle round trips per mode, finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.yFKWag. No printer accessed.
