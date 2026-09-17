@@ -138,4 +138,47 @@ final class PrinterProfileStoreTests: XCTestCase {
     private static func digest(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
+    func testBoundedCatalogUsesExactIdentityAndCanonicalRevisionNames() throws {
+        let store = try PrinterProfileStore(root: temporaryRoot())
+        let first = try store.save(id: "synthetic-printer", profile: profile(revision: 7))
+        let second = try store.save(id: "synthetic-printer", profile: profile(revision: 8))
+        _ = try store.save(id: "another-printer", profile: profile(revision: 9))
+        XCTAssertEqual(try store.savedProfiles(id: "synthetic-printer").map(\.reference), [second, first])
+        XCTAssertTrue(try store.savedProfiles(id: "absent-printer").isEmpty)
+        XCTAssertThrowsError(try store.savedProfiles(id: "synthetic-printer", maximumProfiles: 2))
+        XCTAssertThrowsError(try store.savedProfiles(id: "../printer"))
+        let target = store.root.appending(path: "printer-profiles").appending(path: PrinterProfileStore.fileName("synthetic-printer", 7))
+        try PrinterProfileJSON.encode(profile(revision: 10)).write(to: target)
+        XCTAssertThrowsError(try store.savedProfiles(id: "synthetic-printer"))
+    }
+
+    func testCatalogRejectsNoncanonicalRecordBytesAndSymlinkSubstitution() throws {
+        let store = try PrinterProfileStore(root: temporaryRoot())
+        let reference = try store.save(id: "synthetic-printer", profile: profile())
+        let target = store.root.appending(path: "printer-profiles").appending(path: PrinterProfileStore.fileName(reference.id, reference.revision))
+        let bytes = try Data(contentsOf: target)
+        try (bytes + Data("\n".utf8)).write(to: target)
+        XCTAssertThrowsError(try store.savedProfiles(id: reference.id))
+        try FileManager.default.removeItem(at: target)
+        let outside = store.root.appending(path: "synthetic-outside.json")
+        try bytes.write(to: outside)
+        XCTAssertEqual(symlink(outside.path, target.path), 0)
+        XCTAssertThrowsError(try store.savedProfiles(id: reference.id))
+    }
+
+    func testCapacityAdmissionPreservesExistingRecordsAndIdempotentReadback() throws {
+        let store = try PrinterProfileStore(root: temporaryRoot())
+        var first: ImmutableProfileReference?
+        for revision in 1...256 {
+            let reference = try store.save(id: "synthetic-printer", profile: profile(revision: revision))
+            if revision == 1 { first = reference }
+        }
+        XCTAssertEqual(try store.savedProfiles(id: "synthetic-printer").count, 256)
+        XCTAssertThrowsError(try store.save(id: "synthetic-printer", profile: profile(revision: 257))) {
+            XCTAssertEqual($0 as? PrinterProfileStore.Error, .catalogCapacityReached)
+        }
+        XCTAssertEqual(try store.save(id: "synthetic-printer", profile: profile(revision: 1)), first)
+        XCTAssertEqual(try store.load(reference: XCTUnwrap(first)), try profile(revision: 1))
+    }
+
 }

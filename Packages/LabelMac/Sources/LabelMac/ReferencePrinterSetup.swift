@@ -475,7 +475,7 @@ public struct ReferencePrinterSetupView: View {
                     Label(message, systemImage: "exclamationmark.triangle")
                         .accessibilityLabel(message)
                 }
-                Text("A later queue-management step will save the selected default. No printer setting is changed here.")
+                Text("These choices edit utility drafts. Saving a revision does not change the printer’s current settings.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 

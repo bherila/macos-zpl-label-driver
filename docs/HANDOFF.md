@@ -1,6 +1,22 @@
+# Persistent immutable utility defaults — 2026-09-17
+
+Current unpublished source adds native save/reopen/refresh, latest canonical startup
+restore and private bounded profile catalog. Saves capture all effective defaults,
+preserve qualification and old revisions, advance beyond historical/latest revision
+and replace the model only after exact readback. Invalid/uncertain operations retain
+draft; no automatic retry. Fifteen focused tests passed ownexit0, including schema6
+geometry/offset/motor/darkness zero, historical/restart, nested observation and full
+capacity/symlink/canonical protections. Full finite CI-equivalent gate passed ownexit0:89Python/242Core/306Mac debug/release plus independent/inert/signature/packaged checks. See
+`validation/M5-PERSISTENT-UTILITY-DEFAULTS-2026-09-17.md`. Utility user storage is not
+privileged spooler/installed queue management. GUI/accessibility/M1/hardware gates
+remain, plus thermal/finishing work. Preceding offset editor8b70383 published and fully validated89/242/296; remote/PR
+exact readback confirmed, new35216048756 hosted live, not pass evidence.
+Preceding272fc90 hosted35215154447 passed exact source. No printer/
+admin/merge/binary action. B frozen bytes unchanged.
+
 # Qualified signed offset utility drafts — 2026-09-17
 
-Current unpublished setup source adds independently qualified black-mark/shift/top
+Published8b70383 setup source adds independently qualified black-mark/shift/top
 signed whole-dot drafts, configured inheritance, explicit zero and retained invalid
 text with actionable errors. Mark mode/offset combination is validated. Bound
 geometry/motor/darkness and reference unknown qualification survive.24focused setup
