@@ -64,3 +64,7 @@ finishing policies remain separate controls requiring their own evidence.
 
 Sensed-stock length, physical state isolation, actual printer memory/model bounds,
 USB/accepted adapter and installed/GUI evidence remain open. Part B stays frozen.
+
+Published source `b9c6e5c7e93f029e60916a6b91fab772018eff66`; remote/PR head read back
+exact. Changed-head hosted35211447478 live. Precedingcd86738 hosted35210640524
+passed separately. No cloud verdict covers this source.
