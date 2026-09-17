@@ -416,6 +416,13 @@ public extension PrinterProfile {
     /// involved. An absent field means leave the corresponding device setting
     /// unchanged; it is never converted to a guessed current value.
     func validate(_ request: PrinterControlRequest) throws {
+        if let finishing = request.finishing, finishing != .tearOff {
+            throw PrinterProfileError.unsupportedFinishing(finishing)
+        }
+        try validateNonFinishingControls(request)
+    }
+
+    internal func validateNonFinishingControls(_ request: PrinterControlRequest) throws {
         if let method = request.thermalMethod {
             if schemaVersion >= 7 {
                 _ = try ThermalControlQualification(directThermal: capabilities.directThermal,
@@ -424,9 +431,6 @@ public extension PrinterProfile {
             } else if method == .thermalTransfer {
                 throw PrinterProfileError.unsupportedThermalMethod(method)
             }
-        }
-        if let finishing = request.finishing, finishing != .tearOff {
-            throw PrinterProfileError.unsupportedFinishing(finishing)
         }
         if let speed = request.printSpeedIps, !capabilities.printSpeedChoicesIps.contains(speed) {
             throw PrinterProfileError.unsupportedPrintSpeed(speed)

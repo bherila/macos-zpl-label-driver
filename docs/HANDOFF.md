@@ -1,3 +1,30 @@
+# Shared finishing resolution terminal gate — 2026-09-17
+
+Full finite900s session15513 completed ownexit0:89Python/272Core/323Mac debug/release,132 strict and180 ASCII oracle round trips per mode, finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.GmXaIw. No printer accessed.
+Six restored focused cases passed; normal-validation omission failed12 assertions and
+policy-equality omission failed2. Source/disclosure review passed. Next commit/push
+and verify remote/PR equality and exact hosted run. Mechanical encoding, accepted
+queue/ticket/device context, qualified pitch/framing/cut/peel and manual/physical gates
+remain open. Frozen B unchanged. No merge or binary publication.
+
+Shared finishing resolution source/disclosure review passed; restored SHA unchanged.
+Same finite full-gate session15513 passed272Core debug/release; native/package stages
+remain live. Source remains local only; no full pass or hosted pass claimed.
+
+Full finite900s gate live under session15513, log `/tmp/zpl-finishing-resolution-full.log`.
+Poll the same handle; source unchanged since restored focused result.
+
+# Shared finishing control resolution — 2026-09-17
+
+Local schema8 offline resolution checks the complete stored finishing policy and
+selected effective mode, then shares normal control precedence/validation with
+ordinary jobs. Ordinary profile8 encoders remain gated. Six focused/restored cases
+passed; omitting normal validation failed12 assertions, policy equality failed2.
+See validation/M3-FINISHING-CONTROL-RESOLUTION-2026-09-17.md. Next finite900s full
+gate, source/disclosure review and same-PR commit/readback. No mechanical encoding,
+accepted queue/ticket/device binding or manual/physical acceptance inferred.
+Frozen B unchanged; source remains local/unpushed.
+
 # Original-source preparation source checkpoint — 2026-09-17
 
 Implementation 181cf15534dd60c98e3b7c1978accbeaa6d2e575 passed the local finite gate documented below.

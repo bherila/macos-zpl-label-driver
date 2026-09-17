@@ -238,3 +238,12 @@ resolution/encoding, including bitmap encoding and profile preparation. Persiste
 success does not enable mechanical actions or establish physical cut/file-boundary
 semantics. Finishing job/schema/normalization/delivery integration remains required
 before removing this gate.
+
+### Offline finishing control resolution
+
+`PrinterProfile.resolveFinishingControls` requires a schema8 stored configuration
+that reproduces the entire supplied FinishingJobPlan, including unselected policy
+facts. Effective finishing precedence must match the plan's mode. Normal controls
+share ordinary precedence and validation; returned controls retain actual schema8
+and revision. This is offline resolution only: ordinary encoders still reject8,
+and no mode fragment implements cut/file boundaries or peel status handling.
