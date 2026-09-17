@@ -418,3 +418,7 @@ Saved finishing inspection UI verifies full accepted context after file selectio
 alone is lookup, never admission. Async UI publication belongs to the current request UUID.
 Export revalidates the exact reference and preserves output on uncertain durability; no
 saved-job UI action provides hardware completion, printing or automatic replay authority.
+
+## Private render-worker memory observation
+
+Result schema1 may optionally carry workerMaximumResidentBytes: positive integer at most1TiB, or omitted/null when unavailable. It is Darwin RUSAGE_SELF peak through output preparation, not aggregate process-tree memory, readiness, completion or allocation permission. The parent validates the scalar before returning artifacts; invalid values fail. CLI/benchmark expose only this bounded scalar and retain unknown as null. Measurement does not insert a parent process or weaken worker PID/deadline/ownership checks.

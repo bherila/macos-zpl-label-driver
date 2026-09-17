@@ -17,7 +17,13 @@ final class OfflineRenderWorkerTests: XCTestCase {
             root.appending(path: "Packages/LabelMac/.build/arm64-apple-macosx/debug/label-render-worker"),
             root.appending(path: "Packages/LabelMac/.build/arm64-apple-macosx/release/label-render-worker"),
         ]
-        guard let executable = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) else {
+        #if DEBUG
+        let configuration = "debug"
+        #else
+        let configuration = "release"
+        #endif
+        let matchingCandidates = candidates.filter { $0.path.contains("/" + configuration + "/") }
+        guard let executable = matchingCandidates.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) else {
             throw TestError.unavailable
         }
         return executable
@@ -46,8 +52,32 @@ final class OfflineRenderWorkerTests: XCTestCase {
         XCTAssertEqual(output.result.heightDots, 10)
         XCTAssertEqual(output.result.zplBytes, output.zpl.count)
         XCTAssertEqual(output.result.previewBytes, output.previewPBM.count)
+        let resident = try XCTUnwrap(output.result.workerMaximumResidentBytes)
+        XCTAssertGreaterThan(resident, 0)
+        XCTAssertLessThanOrEqual(resident, OfflineRenderWorkerResult.maximumReportedResidentBytes)
         XCTAssertTrue(String(decoding: output.zpl, as: UTF8.self).hasPrefix("^XA\n"))
         XCTAssertTrue(String(decoding: output.previewPBM.prefix(2), as: UTF8.self) == "P4")
+    }
+
+    func testWorkerMemoryMetadataRejectsInvalidValuesBeforeReturningPayload() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: directory) }
+        for value in [0, -1, OfflineRenderWorkerResult.maximumReportedResidentBytes + 1] {
+            let worker = directory.appendingPathComponent("inert-worker-\(value)")
+            let metadata = "{\"schemaVersion\":1,\"widthDots\":1,\"heightDots\":1,\"zplBytes\":0,\"previewBytes\":0,\"workerMaximumResidentBytes\":\(value)}"
+            let script = "#!/bin/sh\numask 077\nprintf '%s' '" + metadata + "' > \"$2/result.json\"\n: > \"$2/prepared.zpl\"\n: > \"$2/preview.pbm\"\n"
+            try Data(script.utf8).write(to: worker)
+            try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: worker.path)
+            XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(originalPDF: Data([1]),
+                ticketJSON: ticket, workerExecutable: worker, deadlineSeconds: 5)) {
+                XCTAssertEqual($0 as? OfflineRenderWorkerProcess.Error, .invalidResult)
+            }
+        }
+        let legacy = try JSONDecoder().decode(OfflineRenderWorkerResult.self,
+            from: Data("{\"schemaVersion\":1,\"widthDots\":1,\"heightDots\":1,\"zplBytes\":0,\"previewBytes\":0}".utf8))
+        XCTAssertNil(legacy.workerMaximumResidentBytes)
     }
 
     func testDeadlineTerminatesOwnedWorkerWithoutReturningArtifacts() throws {

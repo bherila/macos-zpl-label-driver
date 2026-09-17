@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIXTURE = ROOT / "Fixtures/generated/native-vector.pdf"
 DEFAULT_TICKET = ROOT / "Examples/offline-ticket-v1.json"
 DEFAULT_EXECUTABLE = (
-    ROOT / "Packages/LabelMac/.build/arm64-apple-macosx/release/label-driver"
+    ROOT / "Packages/LabelMac/.build/release/label-driver"
 )
 REAL_PATTERN = re.compile(r"^\s*([0-9]+(?:\.[0-9]+)?)\s+real\b", re.MULTILINE)
 RSS_PATTERN = re.compile(r"^\s*(\d+)\s+maximum resident set size\b", re.MULTILINE)
@@ -106,6 +106,15 @@ def relative(path: Path) -> str:
         return path.name
 
 
+def worker_resident_bytes(payload: dict[str, Any]) -> int | None:
+    value = payload.get("workerMaximumResidentBytes")
+    if value is None:
+        return None
+    if type(value) is not int or not 1 <= value <= 1 << 40:
+        raise ValueError("invalid worker resident-memory telemetry")
+    return value
+
+
 def run_once(executable: Path, fixture: Path, ticket: Path) -> tuple[dict[str, Any], float, int]:
     started = time.perf_counter()
     result = bounded_run(
@@ -127,6 +136,7 @@ def run_once(executable: Path, fixture: Path, ticket: Path) -> tuple[dict[str, A
     payload = json.loads(result.stdout)
     if payload.get("status") != "prepared" or payload.get("printerIOPerformed") is not False:
         raise RuntimeError("benchmark command did not produce an offline prepared result")
+    worker_resident_bytes(payload)
     _, rss = parse_time_output(result.stderr)
     return payload, elapsed, rss
 
@@ -177,6 +187,7 @@ def main() -> int:
     )
     warm_seconds: list[float] = []
     warm_rss: list[int] = []
+    warm_worker_rss: list[int | None] = []
     expected = {
         key: cold_payload[key]
         for key in ("widthDots", "heightDots", "zplBytes", "formatScope")
@@ -188,6 +199,7 @@ def main() -> int:
             raise RuntimeError("prepared result changed between benchmark runs")
         warm_seconds.append(seconds)
         warm_rss.append(rss)
+        warm_worker_rss.append(worker_resident_bytes(payload))
 
     pixels = int(expected["widthDots"]) * int(expected["heightDots"])
     prepared_bytes = int(expected["zplBytes"])
@@ -218,8 +230,14 @@ def main() -> int:
         "cold": {
             "milliseconds": cold_seconds * 1000,
             "maximumResidentBytes": cold_rss,
+            "workerMaximumResidentBytes": worker_resident_bytes(cold_payload),
         },
         "warm": summarize(warm_seconds, warm_rss, prepared_bytes, pixels),
+        "workerMemory": {
+            "scope": "Darwin worker RUSAGE_SELF peak through output preparation; separate from CLI RSS, not aggregate process-tree memory",
+            "maximumWarmResidentBytes": max(warm_worker_rss) if all(value is not None for value in warm_worker_rss) else None,
+            "rawWarmResidentBytes": warm_worker_rss,
+        },
         "rawWarm": [
             {"milliseconds": seconds * 1000, "maximumResidentBytes": rss}
             for seconds, rss in zip(warm_seconds, warm_rss, strict=True)

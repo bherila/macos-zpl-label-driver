@@ -26,7 +26,13 @@ final class QuartzPDFRendererTests: XCTestCase {
             root.appending(path: "Packages/LabelMac/.build/arm64-apple-macosx/debug/label-driver"),
             root.appending(path: "Packages/LabelMac/.build/arm64-apple-macosx/release/label-driver"),
         ]
-        guard let executable = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) else {
+        #if DEBUG
+        let configuration = "debug"
+        #else
+        let configuration = "release"
+        #endif
+        let matchingCandidates = candidates.filter { $0.path.contains("/" + configuration + "/") }
+        guard let executable = matchingCandidates.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) else {
             throw TestError.unavailable
         }
         return executable

@@ -35,6 +35,15 @@ class BenchmarkOfflineTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 benchmark.bounded_run([sys.executable, "-c", "pass"], timeout=timeout)
 
+    def test_worker_memory_is_bounded_optional_and_never_manufactured_zero(self) -> None:
+        self.assertIsNone(benchmark.worker_resident_bytes({}))
+        self.assertIsNone(benchmark.worker_resident_bytes({"workerMaximumResidentBytes": None}))
+        for value in [1, 12345678, 1 << 40]:
+            self.assertEqual(benchmark.worker_resident_bytes({"workerMaximumResidentBytes": value}), value)
+        for value in [0, -1, (1 << 40) + 1, True, "123", 1.5]:
+            with self.assertRaises(ValueError):
+                benchmark.worker_resident_bytes({"workerMaximumResidentBytes": value})
+
     def test_parses_macos_time_output(self) -> None:
         stderr = """
                 0.12 real         0.02 user         0.01 sys

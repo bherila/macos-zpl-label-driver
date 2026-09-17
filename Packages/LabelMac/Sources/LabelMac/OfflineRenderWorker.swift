@@ -9,13 +9,17 @@ public struct OfflineRenderWorkerResult: Codable, Equatable, Sendable {
     public let heightDots: Int
     public let zplBytes: Int
     public let previewBytes: Int
+    /// Darwin RUSAGE_SELF peak through output preparation; nil is unavailable.
+    public let workerMaximumResidentBytes: Int?
+    public static let maximumReportedResidentBytes = 1 << 40
 
-    public init(widthDots: Int, heightDots: Int, zplBytes: Int, previewBytes: Int) {
+    public init(widthDots: Int, heightDots: Int, zplBytes: Int, previewBytes: Int, workerMaximumResidentBytes: Int? = nil) {
         self.schemaVersion = 1
         self.widthDots = widthDots
         self.heightDots = heightDots
         self.zplBytes = zplBytes
         self.previewBytes = previewBytes
+        self.workerMaximumResidentBytes = workerMaximumResidentBytes
     }
 }
 
@@ -216,7 +220,8 @@ public enum OfflineRenderWorkerProcess {
             guard result.schemaVersion == 1,
                   result.widthDots > 0, result.heightDots > 0,
                   result.zplBytes >= 0, result.zplBytes <= maximumZPLBytes,
-                  result.previewBytes >= 0, result.previewBytes <= maximumPreviewBytes else {
+                  result.previewBytes >= 0, result.previewBytes <= maximumPreviewBytes,
+                  result.workerMaximumResidentBytes.map({ (1...OfflineRenderWorkerResult.maximumReportedResidentBytes).contains($0) }) ?? true else {
                 throw Error.invalidResult
             }
             let zpl = try readPrivateRegularFile(
@@ -256,7 +261,8 @@ public enum OfflineRenderWorkerProcess {
             widthDots: prepared.bitmap.layout.width,
             heightDots: prepared.bitmap.layout.height,
             zplBytes: prepared.zpl.count,
-            previewBytes: preview.count
+            previewBytes: preview.count,
+            workerMaximumResidentBytes: currentWorkerMaximumResidentBytes()
         )
         let resultData = try JSONEncoder.sorted.encode(result)
         guard resultData.count <= maximumResultBytes else { throw Error.outputLimitExceeded }
@@ -266,6 +272,15 @@ public enum OfflineRenderWorkerProcess {
     /// Records only an allowlisted category after a failed worker job. The
     /// nonzero process status remains authoritative; malformed failure metadata
     /// is ignored by the parent in favor of a generic worker failure.
+    /// Apple XNU getrusage(2): ru_maxrss is bytes on Darwin, not Linux KiB.
+    /// https://github.com/apple/darwin-xnu/blob/main/bsd/man/man2/getrusage.2
+    private static func currentWorkerMaximumResidentBytes() -> Int? {
+        var usage = rusage()
+        guard getrusage(RUSAGE_SELF, &usage) == 0,
+              (1...OfflineRenderWorkerResult.maximumReportedResidentBytes).contains(usage.ru_maxrss) else { return nil }
+        return usage.ru_maxrss
+    }
+
     public static func recordFailure(_ error: Swift.Error, in directory: URL) throws {
         try validatePrivateScratchDirectory(directory)
         let failure = classifyFailure(error)

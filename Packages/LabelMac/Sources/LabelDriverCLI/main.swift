@@ -290,6 +290,7 @@ struct LabelDriverCLI {
                 "heightDots": prepared.result.heightDots,
                 "zplBytes": prepared.zpl.count,
                 "previewIsExactPackedBitmap": true,
+                "workerMaximumResidentBytes": prepared.result.workerMaximumResidentBytes.map { $0 as Any } ?? NSNull(),
                 "renderIsolation": "subprocess",
                 "renderDeadlineSeconds": Int(OfflineRenderWorkerProcess.defaultDeadlineSeconds),
                 "wroteFiles": wroteFiles,
