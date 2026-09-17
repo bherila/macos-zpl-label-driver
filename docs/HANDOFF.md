@@ -18,21 +18,21 @@ Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and valida
 - Branch: `codex/m2-ascii-graphic-compression`; open PR81, base
   `codex/m3-control-speed-boundary`. This is stacked unmerged work, not main.
 - Published source/remote/PR equality verified at
-  `604aef7fdc86413741988803e544a51f11093681`. Latest published
-  implementation `425e584`: bounded immutable finishing archive store.
-- Latest finite900s `bash scripts/ci-swift.sh`, session24242, completed
+  `51d9e2ae56cc6ace723a2c9a2746f92f1f3b7f28`. Latest published
+  implementation `9475574`: source-bound read-only acceptance traceability.
+- Latest finite900s `bash scripts/ci-swift.sh`, session87410, completed
   `FULL_GATE_EXIT 0`:103 Python/272 Core/324 native tests in debug/release,
   132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
   ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
   unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
-  Local artifact: `artifacts/setup-app.jamhiV`; no printer accessed.
+  Local artifact: `artifacts/setup-app.PozJuX`; no printer accessed.
 - Restored focused tests passed after independent fault checks. Early lease release
   before status waits failed45assertions. Previous framing faults detected quantity2,
   ordinary cutter-mode substitution and omitted complete-profile binding; delivery
   accounting detected treating zero known accepted bytes as a retryable send attempt.
 - Hosted run35236186182 completed success at exact604aef7 (archive store).
-  It does not qualify the local M6 slice. Poll exact existing handles without
-  restarting.
+  M6-head run35237535380 is currently in progress at exact51d9e2a. It does
+  not qualify the local attempt-store slice. Poll exact handles without restarting.
 - The two earlier cloud review passes apply to older base/head pairs. No third pass
   was requested, and these passes are not a verdict on subsequent changes.
 - Local host evidence is macOS27 ARM; minimum-runtime26 and hosted checks are
@@ -103,6 +103,17 @@ Finite full gate session24242 passed own exit0 with 103/272/324 tests and the
 checks above; log /tmp/zpl-traceability-full.log. Implementation 947557476c5f4dd52dcd87d8600cd1089de5ada7 committed locally; exact hosted coverage pending; [tool guide](TRACEABILITY.md) and
 [evidence](validation/M6-TRACEABILITY-REPORT-2026-09-17.md). No release qualified.
 
+## Local conservative finishing attempt intent
+
+FinishingAttemptStore adds bounded immutable intent tied to the independently revalidated
+archive reference/context. Cold reopen preserves uncertainty without any byte callback;
+absence is observation only, never retry authorization. All four modes exercise cold reopen,
+idempotence, corrupt/context/cancel rejection and uncertain sync. Nine focused cases passed;
+missing-intent fault failed exit1 and restored nine cases passed exit0; finite full gate session87410 passed FULL_GATE_EXIT 0 with 103/272/324 tests and
+the checks above; log /tmp/zpl-finishing-intent-full.log. Source commit pending.
+See [intent evidence](validation/M3-FINISHING-ATTEMPT-INTENT-2026-09-17.md).
+Accepted lifecycle/device binding and sender integration remain open.
+
 ## Manual Part A and Part B
 
 The maintainer reported issue80 Part A passed with the corrected local editor artifact
@@ -133,8 +144,9 @@ Part B alone does not accept the production adapter or complete M1.
 
 ## Remaining implementation and evidence
 
-Next independent software work: accepted-context framed-artifact binding and conservative
-durable lifecycle/restart recovery; persistent exact-profile output qualifications; accepted finishing
+Next independent software work: connect conservative attempt intent to the inert
+coordinator under its existing lease before first discard; then accepted-context
+framed-artifact binding and durable lifecycle/restart recovery; persistent exact-profile output qualifications; accepted finishing
 queue/ticket/device and qualified-pitch binding; actual bounded file/status provider
 integration retaining ownership throughout waits. These must reuse established
 immutable stores and coordination invariants, not manufacture accepted-device authority
@@ -144,9 +156,9 @@ Manual M1 must establish actual scheduler fidelity/options, sandbox/helper ident
 backend lifetime and retry behavior before production adapter assumptions. Installed
 queue management, privileged authorization/lifecycle, restart repair and system-dialog
 visibility remain open. GUI/accessibility and compatibility/release matrices also remain
-open. M6 traceability/evidence-integrity tooling is an independent safe next slice;
-it must reject empty/blocked evidence rather than promoting local compilation to
-installation or hardware qualification. M6 is not implemented/accepted simply because local builds pass.
+open. M6 traceability/evidence-integrity tooling is implemented; deliberate per-ID
+evidence backfill and semantic review remain open. Empty/blocked evidence cannot
+promote local compilation to installation or hardware qualification. M6 is not implemented/accepted simply because local builds pass.
 
 Physical qualification requires separately authorized named hardware and finite label/
 command budget. GC420d USB4×6pre-cut tear-off/no cutter is the primary target; retain
