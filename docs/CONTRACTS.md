@@ -351,3 +351,12 @@ on both axes. Canvas construction binds exact queue reference/domain, complete p
 workflow snapshots and reported stock, using native pitch and existing bounds. Canvas
 revalidation requires full equality. Documentary/reported declarations do not prove a
 discovered unit, physical qualification, scheduler acceptance or transmission authority.
+
+AcceptedFinishingJob accepts only original PDF bytes through verified private queue/profile
+references and an explicit geometry snapshot. Worker-observed pages feed extraction; all
+source pages are checked even when an explicit range excludes them. Both extraction entry
+points filter ranges before copy expansion and retain selected non-label accounting. The
+immutable value owns original bytes/hash, complete expanded plan, copy/range ownership and
+resolved controls. Preparation cannot replace those values and verifies its result. Intake
+is offlineCLI; durable acceptance, installed scheduler admission, active queue generation,
+identified unit correspondence and device delivery authority remain separate contracts.

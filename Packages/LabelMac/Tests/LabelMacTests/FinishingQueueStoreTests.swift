@@ -67,13 +67,14 @@ final class FinishingQueueStoreTests: XCTestCase {
     }
     private func queue(workflow w: WorkflowProfile, printer p: PrinterProfile,
                        printerReference: ImmutableProfileReference, workflowHash: String? = nil,
-                       name: String = "Synthetic finishing") throws -> FinishingQueueDefinition {
+                       name: String = "Synthetic finishing",
+                       defaults: PrinterControlDefaults = .init(printSpeedIps: 3, darkness: 0)) throws -> FinishingQueueDefinition {
         try .init(id: "synthetic-finishing", revision: 1, displayName: name,
             physicalDevice: .init(sha256: String(repeating: "a", count: 64)),
             workflowProfile: .init(id: w.id, schemaVersion: w.schemaVersion, revision: w.revision,
                 sha256: workflowHash ?? digest(WorkflowProfileJSON.encode(w))),
             printerProfile: printerReference, defaultSelection: .init(mode: .cut, schedule: .batch(size: 3, cutRemainderAtJobEnd: true)),
-            workflowDefaults: .init(printSpeedIps: 3, darkness: 0), validatingWorkflow: w, validatingPrinter: p)
+            workflowDefaults: defaults, validatingWorkflow: w, validatingPrinter: p)
     }
     func testColdReopenIdempotenceAndConflictPreserveExactPolicy() throws {
         let r = root(), workflows = try WorkflowProfileStore(root: r), printers = try PrinterProfileStore(root: r)
@@ -204,5 +205,78 @@ final class FinishingQueueStoreTests: XCTestCase {
         let native=try DotResolution(xDotsPerMillimeter:8,yDotsPerMillimeter:8)
         XCTAssertEqual(try FinishingDeviceGeometry(printer:stored,physicalDevice:device,
             nativePitch:.observed(native,evidence:.documentedModel(sourceID:"R26"))).resolution,native)
+    }
+    private func originalSource() throws -> (Data,URL) {
+        var repository=URL(fileURLWithPath:#filePath)
+        for _ in 0..<5 { repository.deleteLastPathComponent() }
+        #if DEBUG
+        let configuration="debug"
+        #else
+        let configuration="release"
+        #endif
+        return (try Data(contentsOf:repository.appendingPathComponent("Fixtures/generated/native-vector.pdf")),
+            repository.appendingPathComponent("Packages/LabelMac/.build/\(configuration)/label-render-worker"))
+    }
+    private func acceptanceSetup() throws -> (WorkflowProfileStore,PrinterProfileStore,FinishingQueueStore,FinishingQueueReference,FinishingDeviceGeometry,Data,URL) {
+        let (source,worker)=try originalSource()
+        let pages=try OfflineLayoutWorker.analyze(originalPDF:source,structuralPages:[1],workerExecutable:worker)
+        let border=try XCTUnwrap(pages[0].anchors?.first { $0.kind == .border })
+        let p=try profile(), r=root(), workflows=try WorkflowProfileStore(root:r), printers=try PrinterProfileStore(root:r)
+        let w=try WorkflowProfile(id:"synthetic-original",revision:1,outputStockID:"nominal-4x6",outputStock:workflow().outputStock,
+            pageRules:[WorkflowPageRule(sourcePage:1,expectedInput:ExpectedInputPage(uprightPhysicalSize:pages[0].pageBox.effectivePhysicalSize()),
+                disposition:.extract([ExtractionRegion(id:"left",normalizedRect:NormalizedRect(x:0,y:0,width:0.5,height:1),outputOrder:0),
+                                      ExtractionRegion(id:"right",normalizedRect:NormalizedRect(x:0.5,y:0,width:0.5,height:1),outputOrder:1)]),
+                structuralAnchors:[StructuralAnchorExpectation(id:"border",kind:.border,normalizedRect:border.normalizedRect)])])
+        try workflows.save(w); try workflows.confirmForUnattendedUse(w)
+        let pr=try printers.save(id:"synthetic-printer",profile:p), store=try FinishingQueueStore(root:r)
+        let q=try queue(workflow:w,printer:p,printerReference:pr,defaults:.init(printSpeedIps:3,darkness:9))
+        let ref=try store.save(q,workflowStore:workflows,printerStore:printers)
+        let geometry=try FinishingDeviceGeometry(printer:printers.load(id:pr.id,revision:pr.revision),physicalDevice:q.physicalDevice,
+            nativePitch:.observed(DotResolution(xDotsPerMillimeter:1,yDotsPerMillimeter:1),evidence:.documentedModel(sourceID:"synthetic-pitch")))
+        return (workflows,printers,store,ref,geometry,source,worker)
+    }
+    func testOriginalFinishingAcceptanceOwnsOrderAndPreparationUsesSameSnapshot() throws {
+        let (workflows,printers,store,ref,geometry,source,worker)=try acceptanceSetup()
+        for collated in [true,false] {
+            let accepted=try AcceptedFinishingJob.accept(acceptanceID:"synthetic-accepted",cancellationSHA256:String(repeating:"c",count:64),
+                queueReference:ref,queueStore:store,workflowStore:workflows,printerStore:printers,geometry:geometry,originalPDF:source,
+                copyOwnership:.engine(copies:2,collated:collated),pageRangeOwnership:.engine(selectedSourcePages:[1]),
+                controls:.init(darkness:0),workerExecutable:worker)
+            XCTAssertEqual(accepted.sourceSHA256,digest(source))
+            XCTAssertEqual(accepted.originalPDF,source)
+            XCTAssertEqual(accepted.extraction.outputLabels.map(\.regionID),collated ? ["left","right","left","right"] : ["left","left","right","right"])
+            XCTAssertEqual(accepted.job.plan.cutAfterOutputLabels,[3,4])
+            XCTAssertEqual(accepted.controls.darkness,.value(0))
+            XCTAssertEqual(accepted.intakeProvenance,.offlineCLI)
+            if collated {
+                let prepared=try accepted.prepare(workerExecutable:worker)
+                XCTAssertEqual(prepared.extraction,accepted.extraction)
+                XCTAssertEqual(prepared.binding.job,accepted.job)
+                XCTAssertEqual(prepared.controls,accepted.controls)
+                XCTAssertEqual(prepared.rasters.count,4)
+            }
+        }
+    }
+    func testFinishingAcceptanceRejectsInvalidControlsBeforeWorkerAndInvalidOwnership() throws {
+        let (workflows,printers,store,ref,geometry,source,worker)=try acceptanceSetup()
+        XCTAssertThrowsError(try AcceptedFinishingJob.accept(acceptanceID:"synthetic-accepted",cancellationSHA256:String(repeating:"c",count:64),
+            queueReference:ref,queueStore:store,workflowStore:workflows,printerStore:printers,geometry:geometry,originalPDF:source,
+            copyOwnership:.upstreamAlreadyExpanded,pageRangeOwnership:.upstreamAlreadyApplied,controls:.init(finishing:.peel),
+            workerExecutable:URL(fileURLWithPath:"/nonexistent-worker"))) {
+            XCTAssertEqual($0 as? FinishingQueueDefinition.Error,.selectionMismatch)
+        }
+        for pages in [[1,1],[2]] {
+            XCTAssertThrowsError(try AcceptedFinishingJob.accept(acceptanceID:"synthetic-accepted",cancellationSHA256:String(repeating:"c",count:64),
+                queueReference:ref,queueStore:store,workflowStore:workflows,printerStore:printers,geometry:geometry,originalPDF:source,
+                copyOwnership:.upstreamAlreadyExpanded,pageRangeOwnership:.engine(selectedSourcePages:pages),workerExecutable:worker)) {
+                XCTAssertEqual($0 as? AcceptedFinishingJob.Error,.invalidOwnership)
+            }
+        }
+        let cancellation=OfflineRenderWorkerCancellation(); cancellation.cancel()
+        XCTAssertThrowsError(try AcceptedFinishingJob.accept(acceptanceID:"synthetic-accepted",cancellationSHA256:String(repeating:"c",count:64),
+            queueReference:ref,queueStore:store,workflowStore:workflows,printerStore:printers,geometry:geometry,originalPDF:source,
+            copyOwnership:.upstreamAlreadyExpanded,pageRangeOwnership:.upstreamAlreadyApplied,workerExecutable:worker,cancellation:cancellation)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJob.Error,.cancelled)
+        }
     }
 }

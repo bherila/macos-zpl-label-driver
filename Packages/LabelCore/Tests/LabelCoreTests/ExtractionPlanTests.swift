@@ -151,4 +151,46 @@ final class ExtractionPlanTests: XCTestCase {
             XCTAssertEqual($0 as? ExtractionPlanError, .invalidCopyPolicy)
         }
     }
+    func testPageRangesPrecedeCopiesInBothPlannerEntryPointsAndRetainSelectedNonlabels() throws {
+        let profile = try WorkflowProfile(id: "range-copies", revision: 1, outputStockID: "stock", outputStock: stock,
+            pageRules: [rule(page: 1, disposition: .extract([region("A",0),region("B",1)])),
+                        rule(page: 2, disposition: .extract([region("C",2)])),
+                        rule(page: 3, disposition: .skip(.customsForm))])
+        let pages = try [page(),page(),page()]
+        let analyzed = try pages.map { try AnalyzedSourcePage(pageBox:$0,anchors:nil) }
+        for collated in [true,false] {
+            let expected = collated ? ["A","B","A","B"] : ["A","A","B","B"]
+            let direct = try ExtractionPlanner.plan(sourcePages:pages,profile:profile,
+                selectedSourcePages:[1,3],copyPolicy:.engine(copies:2,collated:collated))
+            let observed = try ExtractionPlanner.plan(analyzedPages:analyzed,profile:profile,
+                selectedSourcePages:[1,3],copyPolicy:.engine(copies:2,collated:collated))
+            XCTAssertEqual(direct,observed)
+            XCTAssertEqual(direct.outputLabels.map(\.regionID),expected)
+            XCTAssertEqual(direct.sourcePageCount,3)
+            XCTAssertEqual(direct.skippedPages.map(\.sourcePage),[3])
+            XCTAssertTrue(try ExtractionPlanner.plan(sourcePages:pages,profile:profile,
+                selectedSourcePages:[1]).skippedPages.isEmpty)
+            XCTAssertTrue(try ExtractionPlanner.plan(analyzedPages:analyzed,profile:profile,
+                selectedSourcePages:[1]).skippedPages.isEmpty)
+        }
+    }
+    func testExplicitRangeCannotHideUnexpectedSourcePagesOrInvalidUnselectedGeometry() throws {
+        let one = try WorkflowProfile(id:"range-source",revision:1,outputStockID:"stock",outputStock:stock,
+            pageRules:[rule(page:1,disposition:.extract([region("A",0)]))])
+        XCTAssertThrowsError(try ExtractionPlanner.plan(sourcePages:[page(),page()],profile:one,selectedSourcePages:[1])) {
+            XCTAssertEqual($0 as? ExtractionPlanError,.unaccountedSourcePage(2))
+        }
+        let two = try WorkflowProfile(id:"range-full",revision:1,outputStockID:"stock",outputStock:stock,
+            pageRules:[rule(page:1,disposition:.extract([region("A",0)])),
+                       rule(page:2,disposition:.extract([region("B",1)]))])
+        let wrong = try PDFPageBox(originX:0,originY:0,width:300,height:300)
+        XCTAssertThrowsError(try ExtractionPlanner.plan(sourcePages:[page(),wrong],profile:two,selectedSourcePages:[1])) {
+            XCTAssertEqual($0 as? ExtractionPlanError,.inputGeometryMismatch(page:2))
+        }
+        for selection in [Set<Int>(),[0],[3]] {
+            XCTAssertThrowsError(try ExtractionPlanner.plan(sourcePages:[page(),page()],profile:two,selectedSourcePages:selection)) {
+                XCTAssertEqual($0 as? ExtractionPlanError,.invalidPageSelection)
+            }
+        }
+    }
 }
