@@ -3211,7 +3211,8 @@ context; it never parses attacker-controlled counts or manufactures replay autho
 Nine restored native focused cases passed; omitting original-source hash failed four
 assertions with identical rasters/files. Full finite900s session1032 passed ownexit0 with the checks above;
 log /tmp/zpl-finishing-artifact-full.log. Source/disclosure review passed with restored
-hash unchanged. Next commit locally; hold push until the published checkpoint CI finishes.
+hash unchanged. Implementation 9a14f80b7efa857f01a98e96a87e79e651501a50 is committed locally;
+hold push until the published checkpoint CI finishes.
 See [artifact serialization](validation/M3-FINISHING-FRAMED-ARTIFACT-2026-09-17.md).
 The consolidated handoff/history commit is local and not yet pushed; wait for the
 published checkpoint's hosted result before pushing new work.
