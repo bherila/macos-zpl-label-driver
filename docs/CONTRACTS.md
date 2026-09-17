@@ -291,3 +291,10 @@ separately tagged ordered files/status requirements. Reopen requires independent
 immutable context and canonical byte equality; external lengths/counts never authorize
 allocation. Archives do not manufacture accepted tickets, hardware receipts or replay
 authority. Private immutable publication and durable recovery remain separate work.
+
+FinishingArtifactStore publishes at most four private immutable96MiB binary archives
+using the shared directory publication lock/durability and no-overwrite rules. The helper
+counts its explicit closed record format; existing JSON publishers keep their defaults.
+Uncertain publication exposes the exact selector for explicit readback. Cold reopen
+requires exact reference and independently bound context; storage creates no accepted
+device/ticket, status receipt or automatic post-crash replay authority.
