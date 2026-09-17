@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import signal
 import statistics
 import subprocess
 import sys
@@ -66,8 +67,36 @@ def summarize(seconds: list[float], rss_bytes: list[int], prepared_bytes: int, p
     }
 
 
+def bounded_run(arguments: list[str], *, timeout: float) -> subprocess.CompletedProcess[str]:
+    """Bound an owned offline command, including children holding its output pipes."""
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("invalid command timeout")
+    process = subprocess.Popen(arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, start_new_session=True)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        try:
+            process.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+            if process.stdout:
+                process.stdout.close()
+            if process.stderr:
+                process.stderr.close()
+        raise RuntimeError("offline command exceeded its finite timeout") from None
+    return subprocess.CompletedProcess(arguments, process.returncode, stdout, stderr)
+
+
 def checked_output(arguments: list[str]) -> str:
-    return subprocess.run(arguments, check=True, capture_output=True, text=True).stdout.strip()
+    result = bounded_run(arguments, timeout=30)
+    result.check_returncode()
+    return result.stdout.strip()
 
 
 def relative(path: Path) -> str:
@@ -79,7 +108,7 @@ def relative(path: Path) -> str:
 
 def run_once(executable: Path, fixture: Path, ticket: Path) -> tuple[dict[str, Any], float, int]:
     started = time.perf_counter()
-    result = subprocess.run(
+    result = bounded_run(
         [
             "/usr/bin/time",
             "-l",
@@ -90,8 +119,7 @@ def run_once(executable: Path, fixture: Path, ticket: Path) -> tuple[dict[str, A
             str(ticket),
             "--json",
         ],
-        capture_output=True,
-        text=True,
+        timeout=120,
     )
     elapsed = time.perf_counter() - started
     if result.returncode != 0:

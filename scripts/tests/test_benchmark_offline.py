@@ -3,6 +3,9 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import unittest
+import sys
+import tempfile
+import time
 
 
 MODULE_PATH = Path(__file__).resolve().parents[1] / "benchmark_offline.py"
@@ -13,6 +16,25 @@ SPEC.loader.exec_module(benchmark)
 
 
 class BenchmarkOfflineTests(unittest.TestCase):
+    def test_timeout_stops_child_holding_pipes_after_parent_exit(self) -> None:
+        # Killing only the parent is insufficient: it has already exited while
+        # its child retains stdout and would otherwise publish a delayed marker.
+        with tempfile.TemporaryDirectory() as directory:
+            marker = Path(directory) / "child-survived"
+            child = "import time; from pathlib import Path; time.sleep(1); Path(" + repr(str(marker)) + ").write_text('unexpected')"
+            parent = "import subprocess,sys; subprocess.Popen([sys.executable,'-c'," + repr(child) + "])"
+            started = time.monotonic()
+            with self.assertRaisesRegex(RuntimeError, "finite timeout"):
+                benchmark.bounded_run([sys.executable, "-c", parent], timeout=0.2)
+            self.assertLess(time.monotonic() - started, 2)
+            time.sleep(1.1)
+            self.assertFalse(marker.exists())
+        result = benchmark.bounded_run([sys.executable, "-c", "print('ok')"], timeout=5)
+        self.assertEqual((result.returncode, result.stdout.strip()), (0, "ok"))
+        for timeout in [0, -1, float("inf"), float("nan")]:
+            with self.assertRaises(ValueError):
+                benchmark.bounded_run([sys.executable, "-c", "pass"], timeout=timeout)
+
     def test_parses_macos_time_output(self) -> None:
         stderr = """
                 0.12 real         0.02 user         0.01 sys

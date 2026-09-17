@@ -31,3 +31,9 @@ workflow throughput and physical delivery remain unmeasured here.
 Procedure: `python3 scripts/benchmark_offline.py --runs 5` with an explicit
 current signed CLI path, and exclusive output in a temporary directory.
 The committed raw JSON is the authoritative measurement artifact.
+
+## Harness deadline follow-on
+
+2026-09-17 offline benchmark now bounds each conversion at120s and metadata probes at30s; timeout kills the owned process group, including children holding pipes after parent exit. Four focused tests and full105 Python tests passed exit0; removing group cleanup caused the expected child-survival assertion failure, exact restoration passed. Actual finite six-invocation current signed CLI benchmark passed exit0 with unchanged output. No aggregate memory, scheduler, GUI, printer or new acceptance evidence.
+
+Nearest independent constraint: an exited benchmark wrapper may leave a child holding captured output pipes, so a finite timeout must terminate the owned process group rather than only the wrapper PID. The synthetic regression uses an exited parent plus a delayed child marker; no transport is opened. Cleanup never targets unrelated groups. Each conversion has an explicit120-second deadline and timeout cleanup waits are finite. This does not claim to control descendants that deliberately leave the group.
