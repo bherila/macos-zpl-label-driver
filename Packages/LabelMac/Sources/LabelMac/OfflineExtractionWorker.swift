@@ -46,20 +46,11 @@ public enum OfflineExtractionWorker {
     }
 
     static func validate(output: OfflineRenderWorkerOutput, canvas: DotCanvas) throws -> MonochromeBitmap {
-        let header = Data("P4\n\(canvas.width) \(canvas.height)\n".utf8)
-        guard output.result.widthDots == canvas.width, output.result.heightDots == canvas.height,
-              output.previewPBM.starts(with: header),
-              output.previewPBM.count - header.count == canvas.bitmapLayout.byteCount else {
+        guard output.result.widthDots == canvas.width, output.result.heightDots == canvas.height else {
             throw Error.invalidWorkerBitmap
         }
         do {
-            let bitmap = try MonochromeBitmap(width: canvas.width, height: canvas.height,
-                bytes: Array(output.previewPBM.dropFirst(header.count)),
-                maxByteCount: canvas.bitmapLayout.byteCount)
-            guard try ZPLGraphicEncoder().diagnosticFormat(bitmap) == output.zpl else {
-                throw Error.invalidWorkerBitmap
-            }
-            return bitmap
+            return try WorkerBitmapBinding.validate(output, maximumPackedBytes: canvas.bitmapLayout.byteCount)
         } catch { throw Error.invalidWorkerBitmap }
     }
 }

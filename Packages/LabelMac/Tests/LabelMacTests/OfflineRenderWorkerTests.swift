@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import LabelCore
 @testable import LabelMac
 
 final class OfflineRenderWorkerTests: XCTestCase {
@@ -97,6 +98,47 @@ final class OfflineRenderWorkerTests: XCTestCase {
             XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(originalPDF: Data([1]),
                 ticketJSON: ticket, workerExecutable: worker, deadlineSeconds: 5)) {
                 XCTAssertEqual($0 as? OfflineRenderWorkerProcess.Error, .invalidResult)
+            }
+        }
+    }
+
+    func testParentRejectsWorkerBitmapAndZPLSubstitutionDespiteMatchingByteCounts() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let black = try MonochromeBitmap(width: 8, height: 1, bytes: [0x80])
+        let narrow = try MonochromeBitmap(width: 1, height: 1, bytes: [0x80])
+        let zpl = try ZPLGraphicEncoder().diagnosticFormat(black)
+        let good = black.pbmData()
+        var white = good; white[white.count - 1] = 0
+        var padding = narrow.pbmData(); padding[padding.count - 1] = 0x81
+        let cases: [(Int, Data, Data, Bool)] = [
+            (8, good, zpl, true), (8, white, zpl, false),
+            (9, good, zpl, false), (1, padding, try ZPLGraphicEncoder().diagnosticFormat(narrow), false)]
+        for (index, value) in cases.enumerated() {
+            let (width, preview, commands, valid) = value
+            let previewFile = directory.appendingPathComponent("fixture-preview-\(index)")
+            let zplFile = directory.appendingPathComponent("fixture-zpl-\(index)")
+            try preview.write(to: previewFile); try commands.write(to: zplFile)
+            let result = OfflineRenderWorkerResult(widthDots: width, heightDots: 1,
+                zplBytes: commands.count, previewBytes: preview.count)
+            let metadata = String(decoding: try JSONEncoder().encode(result), as: UTF8.self)
+            func quoted(_ path: String) -> String { "'" + path.replacingOccurrences(of: "'", with: "'\"'\"'") + "'" }
+            let script = "#!/bin/sh\numask 077\nprintf '%s' '" + metadata + "' > \"$2/result.json\"\ncp "
+                + quoted(zplFile.path) + " \"$2/prepared.zpl\"\ncp " + quoted(previewFile.path) + " \"$2/preview.pbm\"\n"
+            let worker = directory.appendingPathComponent("inert-worker-\(index)")
+            try Data(script.utf8).write(to: worker)
+            try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: worker.path)
+            if valid {
+                let output = try OfflineRenderWorkerProcess.run(originalPDF: Data([1]),
+                    ticketJSON: ticket, workerExecutable: worker, deadlineSeconds: 5)
+                XCTAssertEqual(output.previewPBM, good); XCTAssertEqual(output.zpl, zpl)
+            } else {
+                XCTAssertThrowsError(try OfflineRenderWorkerProcess.run(originalPDF: Data([1]),
+                    ticketJSON: ticket, workerExecutable: worker, deadlineSeconds: 5)) {
+                    XCTAssertEqual($0 as? OfflineRenderWorkerProcess.Error, .invalidResult)
+                }
             }
         }
     }

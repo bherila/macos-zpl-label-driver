@@ -233,7 +233,9 @@ public enum OfflineRenderWorkerProcess {
             guard zpl.count == result.zplBytes, preview.count == result.previewBytes else {
                 throw Error.invalidResult
             }
-            return OfflineRenderWorkerOutput(result: result, zpl: zpl, previewPBM: preview)
+            let output = OfflineRenderWorkerOutput(result: result, zpl: zpl, previewPBM: preview)
+            _ = try WorkerBitmapBinding.validate(output)
+            return output
         } catch let error as Error {
             throw error
         } catch {
