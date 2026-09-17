@@ -1,4 +1,5 @@
 import Foundation
+import Dispatch
 import LabelCore
 #if canImport(Darwin)
 import Darwin
@@ -6,8 +7,61 @@ import Darwin
 import Glibc
 #endif
 
+// Finite encoding-only comparison on synthetic packed 4x6 input. No files,
+// parser, queue, transport or printer capability qualification is involved.
+func encodingBenchmark(_ arguments: [String]) throws {
+    guard arguments.count == 5, ["plain", "ascii"].contains(arguments[2]),
+          ["white", "checker", "analytic"].contains(arguments[3]),
+          let iterations = Int(arguments[4]), (1...100).contains(iterations) else {
+        throw NSError(domain: "Invalid finite encoding benchmark arguments", code: 2)
+    }
+    let width = 813, height = 1219
+    let layout = try BitmapLayout(width: width, height: height)
+    var bytes = [UInt8](repeating: 0, count: layout.byteCount)
+    for y in 0..<height {
+        for x in 0..<width {
+            let black: Bool
+            switch arguments[3] {
+            case "white": black = false
+            case "checker": black = (x + y) % 2 == 0
+            default:
+                black = x == 0 || x == width - 1 || y == 0 || y == height - 1
+                    || ((x * 17 + y * 31) % 113 < 11)
+            }
+            if black { bytes[y * layout.bytesPerRow + x / 8] |= UInt8(0x80 >> (x % 8)) }
+        }
+    }
+    let bitmap = try MonochromeBitmap(width: width, height: height, bytes: bytes)
+    let encoder = try ZPLGraphicEncoder()
+    func encode() throws -> Data {
+        if arguments[2] == "ascii" { return try encoder.compressedDiagnosticFormat(bitmap) }
+        return try encoder.diagnosticFormat(bitmap)
+    }
+    let expected = try encode() // Untimed warm-up; retain exact bytes as oracle.
+    var nanoseconds: [UInt64] = []
+    for _ in 0..<iterations {
+        let started = DispatchTime.now().uptimeNanoseconds
+        let result = try encode()
+        let elapsed = DispatchTime.now().uptimeNanoseconds - started
+        guard elapsed > 0, result == expected else {
+            throw NSError(domain: "Unstable encoding benchmark result", code: 2)
+        }
+        nanoseconds.append(elapsed)
+    }
+    let report: [String: Any] = ["schemaVersion": 1, "scope": "offline-encoding-no-transport",
+        "encoding": arguments[2], "pattern": arguments[3], "iterations": iterations,
+        "widthDots": width, "heightDots": height, "packedBytes": layout.byteCount,
+        "outputBytes": expected.count, "encodingNanoseconds": nanoseconds]
+    let json = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
+    FileHandle.standardOutput.write(json + Data([10]))
+}
+
 // Developer-only offline vector producer. No input-document parser or transport.
 do {
+    if CommandLine.arguments.dropFirst().first == "--benchmark-encoding" {
+        try encodingBenchmark(CommandLine.arguments)
+        exit(0)
+    }
     guard CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--vectors-dir" else {
         throw NSError(domain: "Usage: label-core-lab --vectors-dir NEW_DIRECTORY", code: 2)
     }
