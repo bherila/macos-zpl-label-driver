@@ -1,3 +1,97 @@
+# Manifest verification under one shared deadline — 2026-09-18
+
+Source on `claude/funny-gauss-9euxrr`, over `main` `78acd9b`. One focused slice closing issue #91.
+Two files change, both portable Python, so this is verified by running it rather than by hosted CI.
+
+## What this fixes
+
+`manifest_describes_tree` in `scripts/traceability_report.py` hashed every manifest entry in its own
+`git cat-file blob` subprocess carrying an independent 30-second timeout. A valid manifest may hold
+`MAXIMUM_MANIFEST_ENTRIES` (4096) entries, and `source_is_unchanged` is called once per evidence
+record bound to a distinct ancestor revision, each walking a full manifest. So the walk was bounded
+at 4096 × 30s = **34.1 hours per revision**, inside a `build_report` budget of 60 seconds whose
+`check_budget()` was only consulted *between* its own calls — never during the loop that could
+outlast it by three orders of magnitude.
+
+The practical failure was a manifest-only change timing out the CI job instead of producing the
+bounded rejection the exemption is meant to fail closed with.
+
+## The change
+
+A `Deadline` carries one wall-clock budget for a whole report. `timeout(ceiling)` returns the smaller
+of the call's own ceiling and what is actually left, or `None` once it is spent, so no single
+subprocess can outlive the report that started it. It is threaded through `build_report` →
+`source_matches` → `source_is_unchanged` → `manifest_describes_tree` → `manifest_entries`, and drawn
+once per hashed entry inside the loop.
+
+Exhausting it returns `False`, never `True`: a manifest too large to verify in the remaining budget
+denies the exemption rather than inheriting it, so it can never silently keep an older record
+current. `build_report` now shares its clock with `source_matches` instead of measuring only the gaps
+between its own checks — option 2 from the issue, which is the smallest change that preserves the
+existing fail-closed semantics.
+
+The callback signature becomes `source_matches(sha, deadline)`; the five existing test call sites and
+`main()` are updated to thread it rather than discard it.
+
+## Tests actually run
+
+Linux x86_64, Python 3: **108 tests pass, 0 failures** (105 before; 3 added). `check_repo.py` passes.
+`python3 scripts/traceability_report.py` still exits 0 and emits the same 21 requirements and 90
+acceptance rows, with `readyForMaintainerReview` unchanged at `false`.
+
+The three added tests are:
+
+- `test_manifest_verification_is_bounded_by_the_shared_report_budget` — the same tree and manifest
+  that verify under a live budget fail closed under a spent one. The hash loop specifically is proven
+  bounded with a `Deadline` subclass that grants a fixed number of draws: this fixture needs exactly
+  five (two `manifest_entries` calls, one `--batch-check`, two hashed entries), so four must return
+  `False` rather than assume the unhashed entry.
+- `test_per_entry_timeouts_never_exceed_what_is_left_of_the_report` — the ceiling caps, the remaining
+  budget caps, the smaller wins, and a spent or negative budget yields `None`.
+- `test_report_budget_covers_time_spent_inside_source_matches` — the callback receives the same
+  `Deadline` instance `build_report` enforces, and an already-spent one raises rather than completing.
+
+A mutation removing the loop's budget check — restoring the independent `timeout=30` — fails
+`test_manifest_verification_is_bounded_by_the_shared_report_budget`, so the regression catches the
+defect it was written for rather than only exercising the new API.
+
+## Observed but not fixed here
+
+`MANIFEST.sha256` has drifted again: **31 of its 347 entries carry digests that do not match their
+path's content at `78acd9b`**, including `PDFPageGeometry.swift`, `OfflineConversion.swift`,
+`LabelDriverCLI/main.swift` and six `LabelCoreTests` files. Confirmed pre-existing — the unmodified
+`manifest_describes_tree` returns `False` for `78acd9b` against itself, exactly as the changed one
+does, so this slice neither causes nor masks it.
+
+The practical impact today is nil, because the ledger holds only two records and both are already
+stale on other grounds. But it is the same silent drift #85 corrected once and issue #87 is about,
+and it will invalidate evidence records as soon as any are recorded. Reported rather than fixed: a
+bulk digest refresh is bookkeeping this slice should not smuggle in, and #87's open question is what
+the manifest is *for*. Neither file changed here is in the manifest, so nothing needed refreshing.
+
+## Changed requirements
+
+None. No acceptance row advances — this is a CI robustness bound on a read-only reporting script.
+Installation, scheduler, GUI, hardware and release rows are untouched and remain NOT RUN.
+
+## Blockers and next step
+
+Unblocked follow-ups, in the order they are worth taking:
+
+- **#97** — `finishing-preview` runs four accepted-job analyses under two uncoordinated 60-second
+  clocks. The same shape as this slice, one layer up, and the `Deadline` idea transfers; but it is
+  LabelMac, which does not build on Linux, so hosted CI is the only gate.
+- **#87** — manifest scope. Needs a maintainer decision (whole-tree control, archive-scoped, or
+  retire) before the 31 stale entries above are worth touching; #91's bound makes option 1 cheaper
+  than it was.
+- **#93 gap 2** and **#101** — both need a human security pass, and both record that an explicit
+  `@codex security review` request reliably starts a *code* review instead.
+
+Still the standing blocker: the M1 administrator discard experiment (#80 §B) has never been run.
+R10 — the acquisition-ownership defect that gated it — landed in `d29b482`, 70 commits ago. Every
+source-level finding from that review (R10–R14) is closed and verified at this head; what remains is
+a human at a Mac, not more offline work.
+
 # Editable output stock and margins — 2026-09-18
 
 Source `809192f98e4ec478d1d6acbdd7e445b316acc127` on `claude/determined-sagan-frse18`, over `main` `10fd18c`. The slice opened at
