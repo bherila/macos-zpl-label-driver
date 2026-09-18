@@ -11,10 +11,10 @@ IDs, both at stale source SHAs. `traceability_report.py` counts a criterion only
 checked **and** a digest-bound record is current, so the report read 0 of 21 requirements and 0
 criteria satisfied.
 
-Eight records now satisfy their criteria: M2-AC01, M2-AC04, M2-AC05, M2-AC06, M2-AC13, M3-AC01,
-M3-AC02 and M3-AC04. The report reads **0 of 21 requirements and 8 criteria**, with distinct pending
-acceptance IDs at 75 of 82 mapped. Seven of the eight satisfied criteria are requirement-mapped;
-`M2-AC06` is not, which is why eight records move seven pending IDs.
+Seven records now satisfy their criteria: M2-AC01, M2-AC04, M2-AC05, M2-AC06, M2-AC13, M3-AC01 and
+M3-AC02. The report reads **0 of 21 requirements and 7 criteria**, with distinct pending acceptance
+IDs at 76 of 82 mapped. Six of the seven satisfied criteria are requirement-mapped; `M2-AC06` is not,
+which is why seven records move six pending IDs.
 
 **No requirement is satisfied, and that is the corrected result.** An earlier revision of this slice
 claimed F04, which needs M3-AC01, M3-AC02 and M3-AC03. Review withdrew M3-AC03 and F04 went with it;
@@ -26,7 +26,7 @@ the reference profile to constrain pitch, and `gc420dUSBReference` carries no `D
 `dotsPerMillimeter` and no native-pitch field, so a caller can pair it with an arbitrary raster pitch.
 Its checkbox is cleared too, because leaving it set restates the unsupported claim this ledger exists
 to settle. That is a pre-existing declaration the evidence does not support, not a regression here.
-`M3-AC03` went the same way for the reason below.
+`M3-AC03` and `M3-AC04` went the same way, for the reasons below.
 
 The batch was chosen by what can be **executed here**, not by what is easiest to assert. Every cited
 suite was run before its record was written — 138 LabelCore tests across nineteen cited suites, inside
@@ -90,6 +90,21 @@ reading is convenient and wrong: `^MMD`, `^MMP,N` and `~JK` are protocol mapping
 Keeping the requirement would have meant arguing for the claim rather than the evidence, which is the
 failure mode this ledger exists to make impossible.
 
+**Round 6 took M3-AC04 as well, and the lesson is about consistency.** The criterion forbids reset,
+calibrate, save, erase and firmware commands in ordinary output. Ordinary output for a cut, peel or
+rewind job is also constructed by `FinishingFramedOutput.swift`, so a destructive command introduced
+there would leave every bound artifact green. This exact gap was noticed while answering round 5 and
+waved through on the grounds that the LabelMac literals are enumerable and currently contain none of
+those families. That is inspection, not executed evidence — the weaker standard, applied one round
+after the stronger one withdrew M3-AC03 for the same defect. Noticing a problem and arguing it down
+is worse than not noticing it, because the record then carries a considered false claim. M3-AC04 is
+withdrawn and tracked in #103 with M3-AC03.
+
+Round 6 also corrected two documentation slips: the execution document still said it covered "all
+nine" records after one was withdrawn, and it claimed F07, which maps only to M2-AC07, M2-AC12 and
+M6-AC09 — none of them in this run. The requirements these IDs actually map to are F03, F04, F06, F09
+and F20.
+
 **M3-AC03 was declared complete here and then withdrawn.** `03f38af` landed
 `ZPLControlProtocolCoverage` and deliberately deferred the declaration to this issue, and all seven
 categories are indeed mapped with `sourceID`s resolving to real `docs/REFERENCES.md` entries. What
@@ -136,8 +151,8 @@ bound `78acd9b` only in documentation, so no Swift or Python source differs betw
 
 What this does not establish. Recording evidence is a maintainer declaration with checked references,
 which is what the report itself says — not independent semantic verification, and not hardware.
-M3-AC03 now needs a hosted macOS run too, for the LabelMac finishing mapping. Eleven other checked
-criteria stay deliberately unrecorded because their evidence cannot be executed here:
+M3-AC03 and M3-AC04 now need a hosted macOS run too, for the LabelMac finishing paths. Eleven other
+checked criteria stay deliberately unrecorded because their evidence cannot be executed here:
 M2-AC02, M4-AC02, M4-AC04 and M4-AC07 rest on LabelMac suites that do not build on Linux; M2-AC12 is
 level I and needs a named reference Mac; M4-AC03, M4-AC05, M4-AC08, M4-AC13 and M5-AC12 need their
 mapping derived from documents naming types since renamed. Hardware and release criteria remain

@@ -2,10 +2,12 @@
 
 - Date/time and operator: 2026-09-18, automated Claude session, unattended
 - Exact repository commit SHA: `78acd9bde132211e0af9fdba01b9795f5d98d35b`
-- Related requirement and acceptance IDs: F07, M2-AC01, M2-AC04, M2-AC05,
-  M2-AC06, M2-AC13, M3-AC01, M3-AC02, M3-AC04 — that is, every record currently
-  in `docs/ACCEPTANCE-EVIDENCE.json`. M3-AC03 is **not** among them; see
-  Limitations.
+- Related requirement and acceptance IDs: M2-AC01, M2-AC04, M2-AC05, M2-AC06,
+  M2-AC13, M3-AC01 and M3-AC02 — that is, every record currently in
+  `docs/ACCEPTANCE-EVIDENCE.json`. The requirements those IDs map to in
+  `docs/requirements.json` are F03, F04, F06, F09 and F20; M2-AC06 maps to none.
+  M3-AC03 and M3-AC04 are **not** among them; see Limitations. This run
+  contributes nothing to F07, which maps only to M2-AC07, M2-AC12 and M6-AC09.
 - Evidence level: A
 - Status: PASS
 - macOS/Linux, architecture, Swift, Xcode/SDK, runner image (as applicable):
@@ -37,7 +39,7 @@ overflowing-corner admission changes landed, and M3-AC01 and M3-AC04 cited a
 2026-09-17 per-ID assessment taken before the documented-control encoder grew
 its darkness, thermal, tracking, dimension and offset paths. A digest proves
 which source is present, not that it passed. This document is therefore the
-current execution artifact for **all nine** records, which is possible because
+current execution artifact for **all seven** records, which is possible because
 the command below runs the whole package, not a selected subset.
 
 The following was executed with the Swift 6.1.2 toolchain on `PATH`:
@@ -111,8 +113,10 @@ stand in for, cut schedules with an explicit remainder policy, per-mode stock
 declarations that installed accessories do not waive, and malformed batch
 declarations that must not turn unknown into unlimited.
 
-For M3-AC04, `ZPLDocumentedControlEncoderTests` is the negative coverage on the
-*current* control paths:
+M3-AC04 is withdrawn for the reason in Limitations. The relevant coverage is
+recorded here anyway, because it is real and it will matter when that record is
+rebuilt on a hosted run: `ZPLDocumentedControlEncoderTests` is the negative
+coverage on the *current* LabelCore control paths:
 `testAlternateDarknessAndThermalMappingHaveNoPersistentOrCopyCommands` asserts
 the exact emitted text for darkness, thermal-transfer and gap-tracking
 combinations and then asserts the absence of `^JU`, `~JC`, `~JA`, `^PQ`, `^MMC`,
@@ -163,6 +167,17 @@ so neither is bound, and a regression in the production finishing mapping would
 not be caught by anything this document certifies. M3-AC03 therefore needs a
 hosted macOS run before it can be declared complete, and its checkbox is cleared
 rather than left set behind Linux-only evidence.
+
+**M3-AC04 is withdrawn for the same reason.** Ordinary output for a cut, peel or
+rewind job is also constructed by `FinishingFramedOutput.swift`, including the
+mode command and the delayed-cut trigger files. A persistent or destructive
+command introduced into that framing path would leave every artifact this
+document certifies green, because no LabelMac test ran here. Its literals are
+enumerable and currently contain no reset, calibrate, save, erase or firmware
+command, but inspecting literals is not the executed evidence the criterion
+needs, and accepting it would apply a weaker standard than the one that
+withdrew M3-AC03 one round earlier. Both records need the hosted macOS run
+tracked in #103.
 
 This is Linux, Swift 6.1.2, evidence level A only. It qualifies the portable
 `LabelCore` engine and the Python oracles. It does not qualify Core Graphics
