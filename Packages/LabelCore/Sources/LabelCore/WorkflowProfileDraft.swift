@@ -5,6 +5,7 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
         case revisionOverflow
         case regionNotFound(String)
         case invalidDestination
+        case lastRegionOnPage
     }
 
     public private(set) var profile: WorkflowProfile
@@ -81,6 +82,66 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
     }
 
     public func validatedProfile() -> WorkflowProfile { profile }
+
+    /// An explicit starting copy for another label on the same sheet. The user
+    /// must set its bounds; overlap is not interpreted as automatic detection.
+    public mutating func duplicateRegion(id: String, newID: String) throws {
+        var ordered = orderedRegions
+        guard let index = ordered.firstIndex(where: { $0.id == id }) else {
+            throw Error.regionNotFound(id)
+        }
+        guard !ordered.contains(where: { $0.id == newID }) else {
+            throw ExtractionPlanError.invalidProfile
+        }
+        let original = ordered[index]
+        let copy = try ExtractionRegion(id: newID, normalizedRect: original.normalizedRect,
+            rotation: original.rotation, scalePolicy: original.scalePolicy, outputOrder: 0)
+        ordered.insert(copy, at: index + 1)
+        let rules = try profile.pageRules.map { rule -> WorkflowPageRule in
+            guard case let .extract(regions) = rule.disposition,
+                  regions.contains(where: { $0.id == id }) else { return rule }
+            // Match the public profile decoder's per-page region bound.
+            guard regions.count < 256 else { throw ExtractionPlanError.invalidProfile }
+            return try replacing(rule, disposition: .extract(regions + [copy]))
+        }
+        let next = try replacingProfile(pageRules: assigningOrders(rules, ordered: ordered))
+        _ = try WorkflowProfileJSON.encode(next)
+        profile = next
+    }
+
+    /// Removing a last region must never silently convert a page into a skip.
+    public mutating func removeRegion(id: String) throws {
+        guard orderedRegions.contains(where: { $0.id == id }) else {
+            throw Error.regionNotFound(id)
+        }
+        let rules = try profile.pageRules.map { rule -> WorkflowPageRule in
+            guard case let .extract(regions) = rule.disposition,
+                  regions.contains(where: { $0.id == id }) else { return rule }
+            guard regions.count > 1 else { throw Error.lastRegionOnPage }
+            return try replacing(rule, disposition: .extract(regions.filter { $0.id != id }))
+        }
+        profile = try replacingProfile(pageRules: assigningOrders(rules,
+            ordered: orderedRegions.filter { $0.id != id }))
+    }
+
+    private var orderedRegions: [ExtractionRegion] {
+        profile.pageRules.flatMap { rule -> [ExtractionRegion] in
+            if case let .extract(regions) = rule.disposition { return regions }
+            return []
+        }.sorted { $0.outputOrder < $1.outputOrder }
+    }
+
+    private func assigningOrders(_ rules: [WorkflowPageRule], ordered: [ExtractionRegion]) throws -> [WorkflowPageRule] {
+        let orders = Dictionary(uniqueKeysWithValues: ordered.enumerated().map { ($0.element.id, $0.offset) })
+        return try rules.map { rule in
+            guard case let .extract(regions) = rule.disposition else { return rule }
+            return try replacing(rule, disposition: .extract(regions.map { region in
+                try ExtractionRegion(id: region.id, normalizedRect: region.normalizedRect,
+                    rotation: region.rotation, scalePolicy: region.scalePolicy,
+                    outputOrder: orders[region.id]!)
+            }))
+        }
+    }
 
     private func replacingProfile(pageRules: [WorkflowPageRule]) throws -> WorkflowProfile {
         try WorkflowProfile(
