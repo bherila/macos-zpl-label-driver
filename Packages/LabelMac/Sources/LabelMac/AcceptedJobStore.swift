@@ -9,6 +9,15 @@ public struct AcceptedJobBundle: Equatable, Sendable {
     public let sourcePDF: Data
 }
 
+/// Bounded, read-only discovery of the private accepted-job namespace. Job
+/// identities are returned for in-process reconciliation and must not be
+/// written to general logs.
+public struct AcceptedJobInventorySnapshot: Equatable, Sendable {
+    public let acceptanceIDs: [String]
+    public let stagedArtifactCount: Int
+    public let invalidArtifactCount: Int
+}
+
 private final class AcceptedJobDirectoryCapability: @unchecked Sendable {
     let descriptor: Int32
 
@@ -32,6 +41,10 @@ public struct AcceptedJobStore: @unchecked Sendable {
         case cannotRead
         case cannotWrite
         case commitUncertain
+        case invalidInventoryLimit
+        case inventoryLimitExceeded
+        case inventorySourceLimitExceeded
+        case inventoryPreparedLimitExceeded
         case jobConflict
         case jobIdentityMismatch
         case sourceMismatch
@@ -242,6 +255,129 @@ public struct AcceptedJobStore: @unchecked Sendable {
         )
     }
 
+    /// Inventories final and unpublished staging entries through the pinned
+    /// store-directory capability. It never deletes, repairs, or changes a job.
+    /// Invalid entries are counted rather than silently treated as absent.
+    /// Concurrent publication may change what is observed; this is not an
+    /// atomic namespace snapshot or permission to discard upstream jobs.
+    public func inventory(
+        maximumEntries: Int = 4_096,
+        maximumSourceBytes: Int = 512 * 1024 * 1024,
+        maximumPreparedBytes: Int = 512 * 1024 * 1024,
+        queueStore: VirtualQueueStore,
+        workflowStore: WorkflowProfileStore,
+        printerStore: PrinterProfileStore
+    ) throws -> AcceptedJobInventorySnapshot {
+        guard (1...4_096).contains(maximumEntries),
+              (1...(1024 * 1024 * 1024)).contains(maximumSourceBytes),
+              (1...(1024 * 1024 * 1024)).contains(maximumPreparedBytes) else {
+            throw Error.invalidInventoryLimit
+        }
+        return try withStoreDirectory { directory in
+            let scanDescriptor = openat(
+                directory, ".", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+            )
+            guard scanDescriptor >= 0 else { throw Error.cannotRead }
+            guard let stream = fdopendir(scanDescriptor) else {
+                close(scanDescriptor)
+                throw Error.cannotRead
+            }
+            defer { closedir(stream) }
+
+            var acceptanceIDs: [String] = []
+            var stagedArtifactCount = 0
+            var invalidArtifactCount = 0
+            var entryCount = 0
+            var remainingSourceBytes = maximumSourceBytes
+            var remainingPreparedBytes = maximumPreparedBytes
+            while true {
+                errno = 0
+                guard let entry = readdir(stream) else {
+                    guard errno == 0 else { throw Error.cannotRead }
+                    break
+                }
+                guard let name = Self.entryName(entry) else {
+                    entryCount += 1
+                    guard entryCount <= maximumEntries else {
+                        throw Error.inventoryLimitExceeded
+                    }
+                    invalidArtifactCount += 1
+                    continue
+                }
+                if name == "." || name == ".." { continue }
+                entryCount += 1
+                guard entryCount <= maximumEntries else {
+                    throw Error.inventoryLimitExceeded
+                }
+                if name.hasPrefix(".tmp-") {
+                    if Self.isStagingDirectoryName(name),
+                       Self.isOwnedPrivateDirectory(parent: directory, name: name) {
+                        stagedArtifactCount += 1
+                    } else {
+                        invalidArtifactCount += 1
+                    }
+                    continue
+                }
+                guard Self.isPublishedDirectoryName(name) else {
+                    invalidArtifactCount += 1
+                    continue
+                }
+                do {
+                    let declaredSourceBytes = try declaredSourceByteCount(
+                        directory: directory, name: name
+                    )
+                    guard declaredSourceBytes <= remainingSourceBytes else {
+                        throw Error.inventorySourceLimitExceeded
+                    }
+                    // Reserve the read budget before source ingestion, even
+                    // if subsequent source/state validation fails.
+                    remainingSourceBytes -= declaredSourceBytes
+                    let bytes = try readBundleBytes(
+                        directory: directory,
+                        name: name,
+                        maximumSourceBytes: declaredSourceBytes
+                    )
+                    if let preparedCount = Self.preparedByteCount(bytes.state.phase) {
+                        guard preparedCount <= PreparedJobPayload.maximumBytes else {
+                            throw Error.cannotRead
+                        }
+                        guard preparedCount <= remainingPreparedBytes else {
+                            throw Error.inventoryPreparedLimitExceeded
+                        }
+                        remainingPreparedBytes -= preparedCount
+                    }
+                    let acceptanceID = try ResolvedJobTicketJSON.acceptanceID(bytes.ticket)
+                    guard Self.directoryName(acceptanceID) == name else {
+                        throw Error.jobIdentityMismatch
+                    }
+                    let ticket = try validateTicket(
+                        bytes.ticket, sourcePDF: bytes.source,
+                        expectedAcceptanceID: acceptanceID,
+                        queueStore: queueStore, workflowStore: workflowStore,
+                        printerStore: printerStore
+                    )
+                    let ticketDigest = Self.digest(bytes.ticket)
+                    guard bytes.state.acceptanceID == ticket.acceptanceID,
+                          bytes.state.acceptedTicketSHA256 == ticketDigest else {
+                        throw Error.jobIdentityMismatch
+                    }
+                    acceptanceIDs.append(ticket.acceptanceID)
+                } catch Error.inventorySourceLimitExceeded {
+                    throw Error.inventorySourceLimitExceeded
+                } catch Error.inventoryPreparedLimitExceeded {
+                    throw Error.inventoryPreparedLimitExceeded
+                } catch {
+                    invalidArtifactCount += 1
+                }
+            }
+            return AcceptedJobInventorySnapshot(
+                acceptanceIDs: acceptanceIDs.sorted(),
+                stagedArtifactCount: stagedArtifactCount,
+                invalidArtifactCount: invalidArtifactCount
+            )
+        }
+    }
+
     func loadBundle(
         from bundle: Int32,
         acceptanceID: String,
@@ -385,7 +521,9 @@ public struct AcceptedJobStore: @unchecked Sendable {
     }
 
     private func readBundleBytes(
-        directory: Int32, name: String
+        directory: Int32,
+        name: String,
+        maximumSourceBytes: Int? = nil
     ) throws -> (ticket: Data, source: Data, state: AcceptedJobStateRecord) {
         let bundle = openat(directory, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
         guard bundle >= 0 else { throw Error.cannotRead }
@@ -395,9 +533,17 @@ public struct AcceptedJobStore: @unchecked Sendable {
                 name: "ticket.json", directory: bundle,
                 maximumBytes: ResolvedJobTicketJSON.maximumBytes
             )
+        if let maximumSourceBytes {
+            let declaredSourceBytes: Int
+            do { declaredSourceBytes = try ResolvedJobTicketJSON.sourceByteCount(ticket) }
+            catch { throw Error.cannotRead }
+            guard declaredSourceBytes <= maximumSourceBytes else {
+                throw Error.inventorySourceLimitExceeded
+            }
+        }
         let source = try Self.read(
                 name: "source.pdf", directory: bundle,
-                maximumBytes: ResolvedJobTicket.maximumSourceBytes
+                maximumBytes: maximumSourceBytes ?? ResolvedJobTicket.maximumSourceBytes
             )
         let stateBytes = try Self.read(
             name: "state.json", directory: bundle,
@@ -417,6 +563,21 @@ public struct AcceptedJobStore: @unchecked Sendable {
         return (ticket, source, state)
     }
 
+    private func declaredSourceByteCount(directory: Int32, name: String) throws -> Int {
+        let bundle = openat(
+            directory, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard bundle >= 0 else { throw Error.cannotRead }
+        defer { close(bundle) }
+        try Self.validateDirectory(bundle)
+        let ticket = try Self.read(
+            name: "ticket.json", directory: bundle,
+            maximumBytes: ResolvedJobTicketJSON.maximumBytes
+        )
+        do { return try ResolvedJobTicketJSON.sourceByteCount(ticket) }
+        catch { throw Error.cannotRead }
+    }
+
     private static func validateSource(
         _ sourcePDF: Data, ticket: ResolvedJobTicket
     ) throws {
@@ -434,6 +595,47 @@ public struct AcceptedJobStore: @unchecked Sendable {
         )) != nil else {
             throw Error.jobIdentityMismatch
         }
+    }
+
+    private static func entryName(_ entry: UnsafeMutablePointer<dirent>) -> String? {
+        let length = Int(entry.pointee.d_namlen)
+        guard length > 0, length <= Int(MAXNAMLEN) else { return nil }
+        return withUnsafePointer(to: entry.pointee.d_name) { name in
+            name.withMemoryRebound(to: UInt8.self, capacity: length) { bytes in
+                String(bytes: UnsafeBufferPointer(start: bytes, count: length), encoding: .utf8)
+            }
+        }
+    }
+
+    private static func isPublishedDirectoryName(_ value: String) -> Bool {
+        value.utf8.count == 64 && value.utf8.allSatisfy {
+            (48...57).contains($0) || (97...102).contains($0)
+        }
+    }
+
+    private static func preparedByteCount(_ phase: AcceptedJobPhase) -> Int? {
+        switch phase {
+        case let .prepared(_, count), let .waiting(_, count),
+             let .transmitting(_, count, _), let .transmitted(_, count),
+             let .deviceConfirmed(_, count), let .uncertain(_, count, _):
+            return count
+        case .accepted, .failedBeforeTransmission, .cancelledBeforeTransmission:
+            return nil
+        }
+    }
+
+    private static func isStagingDirectoryName(_ value: String) -> Bool {
+        guard value.utf8.count == 41, value.hasPrefix(".tmp-") else { return false }
+        return UUID(uuidString: String(value.dropFirst(5))) != nil
+    }
+
+    private static func isOwnedPrivateDirectory(parent: Int32, name: String) -> Bool {
+        let descriptor = openat(
+            parent, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC
+        )
+        guard descriptor >= 0 else { return false }
+        defer { close(descriptor) }
+        return (try? validateDirectory(descriptor)) != nil
     }
 
     private static func write(
