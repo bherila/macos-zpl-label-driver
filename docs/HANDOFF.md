@@ -1362,6 +1362,39 @@ debug and release, all 139 LabelMac tests in debug and release, 132 independent
 round trips, all ABI/inert-pipeline checks, and local ad-hoc product signature
 verification. Per the two-pass policy, no third review will be requested.
 
+At `65dce21`, the first restart-recovery primitive reconciles one known
+accepted-job ID without adding scheduler or printer I/O. It validates the exact
+prepared artifact and acquires the same ticket-derived physical-device lease
+as delivery before converting an abandoned `transmitting` record to terminal
+`uncertain`, preserving the last known accepted-byte count. A held lease leaves
+state unchanged; prepared/waiting jobs remain merely ready, and terminal
+transmitted/device-confirmed/uncertain evidence is read without replay or
+mutation. Four regressions bring LabelMac to 143 tests in debug and release.
+The complete exact-head gate also passes 64 Python tests, 165 LabelCore tests in
+debug and release, 132 independent round trips, all ABI/inert-pipeline checks,
+and local ad-hoc product signature verification. This is partial automated
+M3-AC09 evidence only: installed restart discovery, worker IPC, scheduler retry
+mapping, transport, USB, and physical output remain unverified.
+
+First-review remediation `75fca07` closes the ready-to-transmitting race. A
+deterministic barrier advances the job after recovery's first read; the second
+read now routes the observed transmitting state through the same physical-device
+lease rather than returning an ownership-blind error. The focused recovery set
+and all 144 LabelMac tests pass in debug and release. The exact-head complete
+gate also passes 64 Python tests, 165 LabelCore tests in debug and release, 132
+independent round trips, all ABI/inert-pipeline checks, and local ad-hoc product
+signature verification. The second/final review is next.
+
+Second/final review remediation `616a5d8` handles cancellation and pre-send
+failure published between the same two reads. Recovery boundedly reloads the
+monotonic lifecycle and returns the newer payload-free terminal outcome rather
+than surfacing an avoidable invalid-state error. Two deterministic regressions
+bring LabelMac to 146 tests in debug and release; the complete exact-head gate
+again passes 64 Python tests, 165 LabelCore tests in debug and release, 132
+independent round trips, every ABI/inert-pipeline check, and local ad-hoc
+signature verification. Both permitted review passes are now reconciled; no
+third review will be requested.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
