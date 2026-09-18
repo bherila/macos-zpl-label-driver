@@ -13,7 +13,7 @@ M3-AC02, M3-AC03, M3-AC04 and M3-AC13. The report reads **1 of 21 requirements (
 criteria**, with pending acceptance IDs down from 82 to 78.
 
 The batch was chosen by what can be **executed here**, not by what is easiest to assert. Every cited
-suite was run before its record was written — 104 LabelCore tests across fourteen suites, 0 failures,
+suite was run before its record was written — 104 LabelCore tests across thirteen suites, 0 failures,
 plus the 14-test independent Python oracle backing M2-AC13's 813×1219 dot arithmetic. No record rests
 on a checkbox alone. M3-AC01 and M3-AC04 keep the maintainer's curated file lists from the stale
 records; only their source SHA and digests are refreshed.
@@ -34,7 +34,7 @@ that, which is why the records stay current.
 Changed requirements: F04 is satisfied. M2 imaging-engine and M3 printer-controls gain executed
 acceptance evidence. No milestone is declared complete.
 
-Tests actually run. Linux x86_64 Swift 6.1.2: the fourteen cited LabelCore suites, 104 tests, 0
+Tests actually run. Linux x86_64 Swift 6.1.2: the thirteen cited LabelCore suites, 104 tests, 0
 failures; `scripts/tests/test_reference_target.py`, 14 tests, OK; `check_repo.py` passed.
 
 What this does not establish. Recording evidence is a maintainer declaration with checked references,

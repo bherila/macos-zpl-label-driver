@@ -21,7 +21,7 @@ Evidence levels: **A** automated; **C** repository/CI/configuration inspection; 
 | [ ] | M3-AC10 | Finishing behavior | H | Each advertised cut policy and peel wait/resume behavior is observed on matching installed hardware. |
 | [ ] | M3-AC11 | State isolation | H | Alternating workflows with different supported settings produce intended results without accidental inheritance. |
 | [ ] | M3-AC12 | Privacy and permissions | A | Endpoints/status frames/options are validated; logs and IPC do not expose private identities or allow arbitrary commands. |
-| [x] | M3-AC13 | Installed GC420d constraints | A | Reference profile constrains pitch/speeds/direct-thermal/tear-off, rejects absent-cutter and disabled-peeler requests, preserves unknown sensing/current values, and never substitutes network transport for USB. Evidence: [2026-09-15 automated controls](../../validation/M3-AUTOMATED-CONTROLS-2026-09-15.md). |
+| [ ] | M3-AC13 | Installed GC420d constraints | A | Reference profile constrains pitch/speeds/direct-thermal/tear-off, rejects absent-cutter and disabled-peeler requests, preserves unknown sensing/current values, and never substitutes network transport for USB. Evidence: [2026-09-15 automated controls](../../validation/M3-AUTOMATED-CONTROLS-2026-09-15.md). |
 
 ## Completion rules
 

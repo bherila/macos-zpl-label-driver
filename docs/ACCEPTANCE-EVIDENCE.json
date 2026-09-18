@@ -216,6 +216,22 @@
         {
           "path": "docs/validation/M3-AUTOMATED-CONTROLS-2026-09-15.md",
           "sha256": "afc8b4d9884724012e6f384fae2fc2826be9303ab718455253adb5670ec8d324"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/MotorSpeedIntegrationTests.swift",
+          "sha256": "1ac6a652127e27ac355714d105c329d4469b96defeada6305280580eaa9dfd52"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/DarknessIntegrationTests.swift",
+          "sha256": "b13a06b5dcea2578788d7eb3650c704bbb5cb11dac395ecb32291979b84b53cc"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/PhysicalGeometryQualificationTests.swift",
+          "sha256": "637a60a2f93de4f25621bca25e72311e43fa4a83d18ca3463b0b20362dd0f795"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/OffsetControlQualificationTests.swift",
+          "sha256": "94e921cc275ac6b21bab62e8f33878860447b2d9df491f875eff74e73315efca"
         }
       ]
     },
@@ -223,7 +239,7 @@
       "acceptanceID": "M3-AC03",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "1383ec8c895494a7e6f2e3660a3b5be43288e13b",
+      "sourceSHA": "78acd9bde132211e0af9fdba01b9795f5d98d35b",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/ZPLControlProtocolCoverage.swift",
@@ -296,36 +312,6 @@
         {
           "path": "docs/validation/M3-PER-ID-AUTOMATED-ASSESSMENTS-2026-09-17.md",
           "sha256": "25991cbba66cf5cb077c1f56dfdef7a4e6ca06dc1fbd6af8cecd24c75287c0c4"
-        }
-      ]
-    },
-    {
-      "acceptanceID": "M3-AC13",
-      "level": "A",
-      "state": "pass",
-      "sourceSHA": "78acd9bde132211e0af9fdba01b9795f5d98d35b",
-      "implementation": [
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/PrinterProfile.swift",
-          "sha256": "9dae83691c47950fec1db1e00d5dc66525b7e2a2b6faad487d2760f8eb3c96ca"
-        },
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/ReferenceWorkflows.swift",
-          "sha256": "6a340812e71b0e9eaf5f77f8431066f8903f91d6d84b19aa86fc1c98194d2c20"
-        }
-      ],
-      "evidence": [
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/PrinterProfileTests.swift",
-          "sha256": "0a488f9692306b204d470f2860dd6508c86f854de3ac31df532404bd3d3ccacc"
-        },
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/ReferenceWorkflowsTests.swift",
-          "sha256": "949de717f659a24d059c607cfb6970814e72a5f26983afa4de3a28b89b60f1f5"
-        },
-        {
-          "path": "docs/validation/M3-AUTOMATED-CONTROLS-2026-09-15.md",
-          "sha256": "afc8b4d9884724012e6f384fae2fc2826be9303ab718455253adb5670ec8d324"
         }
       ]
     }
