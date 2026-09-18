@@ -30,6 +30,23 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+Native location-only barcode integration reuses the corrected Quartz analysis
+raster and existing deadline-supervised child. Explicit version-2 requests bind
+barcode facts to requested pages; default border-only behavior stays version 1.
+Saved-profile reopening and synthetic accepted/prepared/inert delivery now request
+the detector where immutable barcode checks require it. Thirty-seven focused
+native tests pass, including independent supplied QR placement, observed-empty
+instructions, unchanged original-source prepared bytes and pre-acceptance mismatch
+rejection. Implementation `7dd55d3` passed the full combined local gate exit 0:
+67 Python, 173 LabelCore and 243 LabelMac tests in debug/release, both accelerator
+modes, independent/inert checks, local signatures and packaged-worker PBM/ZPL
+equality. Own hosted/review are pending; network-disabled,
+minimum-runtime, GUI and physical acceptance remain open. No payload fields are
+read and no barcode bounds become a guessed crop. See
+`validation/M4-NATIVE-BARCODE-LOCATIONS-2026-09-16.md`.
+The earlier owned barcode stash has been restored after the placement local gate
+passed; it is not an outstanding recovery item.
+
 Placement implementation `38fcee1` passed the full local gate exit 0:
 67/173/237 debug/release, both accelerator modes, independent/inert checks,
 local-ad-hoc signatures and packaged-worker PBM/ZPL equality. This clears the
@@ -47,8 +64,8 @@ The original fixture and corrected actual Quartz image were visually inspected;
 no physical/scanner result follows. Full combined local gate and preceding
 exact-head hosted CI passed as recorded above; correction review remains pending.
 See `validation/M2-EXPLICIT-QUARTZ-PLACEMENT-2026-09-16.md`.
-Barcode worker WIP is preserved in an owned local stash and paused until this
-shared fidelity fix is validated. Parent #62 exact 4a39317 hosted 35098760337
+The barcode work resumed after the shared fidelity fix passed and is now committed;
+there is no outstanding stash. Parent #62 exact 4a39317 hosted 35098760337
 passed; second review is clean at unchanged base/head and both findings resolved.
 
 PR #62 first-review remediation invalidates displayed draft edit callbacks when

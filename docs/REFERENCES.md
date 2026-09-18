@@ -257,3 +257,18 @@ permits successful empty matching with a null iterator. Public USB host class
 and matching-property constants are in `usb/IOUSBHostFamilyDefinitions.h`.
 Enumeration does not establish stable physical identity, device access, model
 qualification, printer status or transmission. No implementation is bundled.
+
+<a id="r36"></a>
+## R36 — Apple Vision barcode locations
+
+[VNDetectBarcodesRequest](https://developer.apple.com/documentation/vision/vndetectbarcodesrequest),
+[request symbologies](https://developer.apple.com/documentation/vision/vndetectbarcodesrequest/symbologies),
+and [Vision coordinate systems, WWDC24](https://developer.apple.com/videos/play/wwdc2024/10163/).
+
+Public system-framework API, revision 3, with an explicitly selected Code128/QR
+subset. Vision locations use normalized lower-left coordinates; the project
+converts them to its upright top-left geometry. Product code reads locations
+and symbology only, never barcode payload values or descriptors. A location is
+candidate evidence, not a label boundary, validated barcode or carrier identity.
+No independent third-party implementation or model is bundled. API documentation
+does not establish network-disabled runtime or physical scanning acceptance.

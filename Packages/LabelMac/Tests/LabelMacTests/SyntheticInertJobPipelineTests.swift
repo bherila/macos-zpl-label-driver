@@ -109,6 +109,54 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         ))
     }
 
+    func testBarcodeLocationValidationFeedsOriginalPreparedBytesAndRejectsChangedAnchor() throws {
+        let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
+        let analyzed = try OfflineLayoutWorker.analyze(originalPDF: original,
+            structuralPages: [1], workerExecutable: renderWorkerExecutable(), barcodePages: [1], deadlineSeconds: 5)
+        let barcode = try XCTUnwrap(analyzed[0].anchors?.first { $0.kind == .barcodeLike })
+        var outputs: [Data] = []
+        let expectations: [ObservedPageAnchor?] = [nil, barcode]
+        for expectation in expectations {
+            let fixture = try makeFixture(workflowSource: original, anchorOverride: expectation)
+            let path = fixture.root.appending(path: "synthetic-barcode-source.pdf")
+            try original.write(to: path, options: .withoutOverwriting)
+            let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+            XCTAssertGreaterThanOrEqual(descriptor, 0)
+            defer { close(descriptor) }
+            let result = try fixture.pipeline.run(queueID: "shipping-native",
+                sourcePDFDescriptor: descriptor, acceptanceID: "synthetic-barcode-bound",
+                cancellationToken: Data("synthetic cancellation capability".utf8),
+                scenario: try InertDeliveryScenario(), preparationDeadlineSeconds: 5)
+            XCTAssertEqual(result.outputLabelCount, 1)
+            XCTAssertEqual(result.delivery, .transmitted(byteCount: result.preparedByteCount))
+            let prepared = try AcceptedJobStateStore(acceptedJobStore: fixture.jobs).loadPrepared(
+                acceptanceID: result.acceptanceID, queueStore: fixture.queues,
+                workflowStore: fixture.workflows, printerStore: fixture.printers)
+            outputs.append(prepared.bytes)
+            XCTAssertEqual(try fixture.jobs.load(acceptanceID: result.acceptanceID,
+                queueStore: fixture.queues, workflowStore: fixture.workflows,
+                printerStore: fixture.printers).sourcePDF, original)
+        }
+        XCTAssertEqual(outputs[0], outputs[1], "location analysis must not replace the original print source")
+
+        let wrong = ObservedPageAnchor(kind: .barcodeLike,
+            normalizedRect: try NormalizedRect(x: 0.1, y: 0.1, width: 0.1, height: 0.1))
+        let rejected = try makeFixture(workflowSource: original, anchorOverride: wrong)
+        let path = rejected.root.appending(path: "synthetic-layout-mismatch.pdf")
+        try original.write(to: path, options: .withoutOverwriting)
+        let descriptor = open(path.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+        XCTAssertGreaterThanOrEqual(descriptor, 0)
+        defer { close(descriptor) }
+        XCTAssertThrowsError(try rejected.pipeline.run(queueID: "shipping-native",
+            sourcePDFDescriptor: descriptor, acceptanceID: "synthetic-barcode-rejected",
+            cancellationToken: Data("synthetic cancellation capability".utf8),
+            scenario: try InertDeliveryScenario(), preparationDeadlineSeconds: 5)) {
+            XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, .layoutRejected)
+        }
+        XCTAssertThrowsError(try rejected.jobs.load(acceptanceID: "synthetic-barcode-rejected",
+            queueStore: rejected.queues, workflowStore: rejected.workflows, printerStore: rejected.printers))
+    }
+
     func testRetryableWaitingStateResumesThroughPipelineEntryPoint() throws {
         let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
         let fixture = try makeFixture(workflowSource: original)
@@ -415,7 +463,8 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         regionCount: Int = 1,
         maximumPreparedBytes: Int = PreparedJobPayload.maximumBytes,
         useMismatchedOutputStock: Bool = false,
-        workerOverride: URL? = nil
+        workerOverride: URL? = nil,
+        anchorOverride: ObservedPageAnchor? = nil
     ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory.appending(
             path: "SyntheticInertJobPipeline-\(UUID().uuidString)"
@@ -437,7 +486,7 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         let analyzed = try QuartzStructuralAnalyzer.analyzeBorders(
             originalPDF: workflowSource, pageNumber: 1
         )
-        let observed = try XCTUnwrap(analyzed.anchors?.first)
+        let observed = try anchorOverride ?? XCTUnwrap(analyzed.anchors?.first)
         let stock = if useMismatchedOutputStock {
             PhysicalSize(
                 width: try Millimeters.inches(2),

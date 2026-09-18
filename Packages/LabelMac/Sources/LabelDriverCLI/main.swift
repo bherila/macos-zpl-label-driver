@@ -292,6 +292,7 @@ struct LabelDriverCLI {
 
     private static func workerFailureMessage(_ code: OfflineRenderWorkerFailure.Code) -> String {
         switch code {
+        case .layoutDetectorUnavailable: "local layout detector unavailable"
         case .jobTicketInvalid: "invalid job ticket"
         case .inputUnsupported: "unsupported or malformed PDF"
         case .inputEncrypted: "encrypted PDF is not supported"
