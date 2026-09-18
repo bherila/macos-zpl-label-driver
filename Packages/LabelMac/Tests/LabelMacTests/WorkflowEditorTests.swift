@@ -12,6 +12,74 @@ final class WorkflowEditorTests: XCTestCase {
             expectedEditGeneration: model.editGeneration)
     }
 
+    func testStaleDisplayedMeasurementCannotEditNewlySelectedRegion() throws {
+        let (model, _) = try makeModel()
+        try model.addRegionOnSelectedPage()
+        let otherID = try XCTUnwrap(model.selectedRegionID)
+        model.selectedRegionID = "selected"
+        let binding = WorkflowEditorEditBinding(regionID: "selected", editGeneration: model.editGeneration)
+        let displayedCallback = {
+            try model.setSelectedRegionMillimeters(left: 0.2, top: 0.2, width: 2, height: 2,
+                expectedBinding: binding)
+        }
+        let displayedGeneration = model.editGeneration
+        model.selectedRegionID = otherID
+        let before = model.profile
+        XCTAssertEqual(model.editGeneration, displayedGeneration)
+        XCTAssertThrowsError(try displayedCallback())
+        XCTAssertEqual(model.profile, before)
+        XCTAssertEqual(model.editGeneration, displayedGeneration)
+    }
+
+    func testSavingInvalidatesDisplayedDraftCallbackWithoutCreatingCorrection() throws {
+        let (model, store) = try makeModel()
+        let original = model.profile
+        let binding = WorkflowEditorEditBinding(regionID: "selected", editGeneration: model.editGeneration)
+        try model.save()
+        let savedGeneration = model.editGeneration
+        XCTAssertEqual(savedGeneration, binding.editGeneration + 1)
+        XCTAssertThrowsError(try model.setSelectedRegionMillimeters(
+            left: 0.2, top: 0.2, width: 2, height: 2, expectedBinding: binding)) {
+            XCTAssertEqual($0 as? WorkflowEditorModel.Error, .editSnapshotChanged)
+        }
+        XCTAssertTrue(model.isSaved)
+        XCTAssertEqual(model.profile, original)
+        XCTAssertEqual(model.editGeneration, savedGeneration)
+        XCTAssertEqual(try store.load(profileID: original.id, revision: original.revision), original)
+        try model.save()
+        XCTAssertEqual(model.editGeneration, savedGeneration)
+    }
+
+    func testDisplayedEditGenerationRejectsUndoAndStaleRegionActionsWithoutMutation() throws {
+        let (model, _) = try makeModel()
+        let old = WorkflowEditorEditBinding(regionID: "selected", editGeneration: model.editGeneration)
+        let initial = model.profile
+        try model.setSelectedRotation(.degrees90)
+        try model.setSelectedRotation(.degrees0)
+        XCTAssertEqual(model.profile, initial)
+        let generation = model.editGeneration
+        let rect = try NormalizedRect(x: 0.1, y: 0.1, width: 0.5, height: 0.5)
+        let actions: [() throws -> Void] = [
+            { try model.setSelectedRotation(.degrees270, expectedBinding: old) },
+            { try model.moveSelected(by: 0, expectedBinding: old) },
+            { try model.addRegionOnSelectedPage(expectedBinding: old) },
+            { try model.removeSelectedRegion(expectedBinding: old) },
+            { try model.updateSelectedRegion(rect, expectedRegionID: "selected", expectedBinding: old) }
+        ]
+        for action in actions {
+            XCTAssertThrowsError(try action()) {
+                XCTAssertEqual($0 as? WorkflowEditorModel.Error, .editSnapshotChanged)
+            }
+            XCTAssertEqual(model.profile, initial)
+            XCTAssertEqual(model.editGeneration, generation)
+            XCTAssertEqual(model.selectedRegionID, "selected")
+        }
+        let current = WorkflowEditorEditBinding(regionID: "selected", editGeneration: generation)
+        try model.setSelectedRotation(.degrees90, expectedBinding: current)
+        XCTAssertEqual(model.regions.first?.rotation, .degrees90)
+        XCTAssertEqual(model.editGeneration, generation + 1)
+    }
+
     func testSavedDrawAndNumericalEditsPublishNewRevisionWithoutOverwriting() throws {
         let (model, store) = try makeModel()
         let original = model.profile
