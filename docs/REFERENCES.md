@@ -272,3 +272,20 @@ and symbology only, never barcode payload values or descriptors. A location is
 candidate evidence, not a label boundary, validated barcode or carrier identity.
 No independent third-party implementation or model is bundled. API documentation
 does not establish network-disabled runtime or physical scanning acceptance.
+
+<a id="r37"></a>
+## R37 — Apple user-initiated clipboard writing
+
+[Universal Clipboard](https://support.apple.com/en-gb/102430) describes automatic
+sharing with nearby configured devices. App-local behavior does not guarantee
+that OS services or clipboard managers keep copied text on one machine.
+
+[NSPasteboard](https://developer.apple.com/documentation/appkit/nspasteboard/)
+and [setString(_:forType:)](https://developer.apple.com/documentation/appkit/nspasteboard/setstring(_:fortype:)).
+
+Public AppKit system-framework APIs used only for an explicit offline diagnostics
+copy action. The fixed report contains state flags, not document data, identifiers,
+paths or raw exceptions. Copying replaces clipboard contents, which other apps
+may read; it is not private storage or an automatic export. No clipboard contents
+are read and no third-party implementation is bundled. Documentation and unit
+tests do not establish actual GUI/clipboard operation or full diagnostic acceptance.

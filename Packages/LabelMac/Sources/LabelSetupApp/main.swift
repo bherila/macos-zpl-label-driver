@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Combine
 import SwiftUI
 import UniformTypeIdentifiers
@@ -8,6 +9,7 @@ import LabelMac
 final class SetupAppController: ObservableObject {
     @Published var error: String?
     @Published var scratchWarning: String?
+    @Published var diagnosticCopyStatus: String?
 
     let documents: WorkflowDocumentOpeningModel?
     let printerSetup: ReferencePrinterSetupModel?
@@ -42,6 +44,15 @@ final class SetupAppController: ObservableObject {
         }
     }
 
+    func copyOfflineDiagnostics() {
+        let report = OfflineSetupDiagnostics(documents: documents,
+            setupAvailable: printerSetup != nil, setupErrorPresent: error != nil,
+            scratchWarningPresent: scratchWarning != nil)
+        NSPasteboard.general.clearContents()
+        diagnosticCopyStatus = NSPasteboard.general.setString(report.text, forType: .string)
+            ? "Offline diagnostics copied. Review before sharing; this is not installation or printer acceptance."
+            : "Offline diagnostics could not be copied. No document or printer data was exported."
+    }
 }
 
 struct SetupRootView: View {
@@ -58,6 +69,16 @@ struct SetupRootView: View {
                     ReferencePrinterSetupView(model: printerSetup)
                 }
                 USBRegistryDiscoveryView(model: controller.usbDiscovery)
+                GroupBox("Offline diagnostics") {
+                    VStack(alignment: .leading) {
+                        Button("Copy Offline Diagnostics") { controller.copyOfflineDiagnostics() }
+                        Text("Copies only offline state flags, without PDFs, paths, profile or printer identifiers, or error details. This replaces the clipboard contents; other apps and system clipboard services may share copied text. The app does not upload the report.")
+                            .font(.caption)
+                        if let status = controller.diagnosticCopyStatus {
+                            Text(status).accessibilityLabel(status)
+                        }
+                    }
+                }
                 Group {
                     if let documents = controller.documents {
                         SetupDocumentView(documents: documents,

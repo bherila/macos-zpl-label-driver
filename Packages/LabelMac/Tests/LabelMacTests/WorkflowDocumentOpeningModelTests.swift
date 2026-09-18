@@ -5,6 +5,30 @@ import LabelCore
 
 @MainActor
 final class WorkflowDocumentOpeningModelTests: XCTestCase {
+    func testOfflineDiagnosticsTracksRealManualEditorPreviewWithoutExportingIdentity() async throws {
+        let model = WorkflowDocumentOpeningModel(store: try store(), workerExecutable: try worker())
+        func snapshot() -> OfflineSetupDiagnostics {
+            OfflineSetupDiagnostics(documents: model, setupAvailable: true,
+                setupErrorPresent: false, scratchWarningPresent: false)
+        }
+        XCTAssertFalse(snapshot().editorAvailable)
+        model.open(fixture("letter-one"), mode: .manual)
+        await model.currentOpeningTask?.value
+        let editor = try XCTUnwrap(model.editor)
+        XCTAssertTrue(snapshot().editorAvailable)
+        XCTAssertTrue(snapshot().manualDraft)
+        XCTAssertFalse(snapshot().savedRevision)
+        XCTAssertFalse(snapshot().exactPreviewAvailable)
+        await editor.refreshPreviewInWorker(workerExecutable: try worker())
+        XCTAssertNotNil(editor.preview)
+        XCTAssertTrue(snapshot().exactPreviewAvailable)
+        try editor.save()
+        XCTAssertTrue(snapshot().savedRevision)
+        XCTAssertFalse(snapshot().text.contains(editor.profile.id))
+        XCTAssertFalse(snapshot().text.contains("letter-one"))
+        XCTAssertLessThan(snapshot().text.utf8.count, 1_024)
+    }
+
     func testDefinitionTransferPreservesCurrentOriginalEditorAndLocalApproval() async throws {
         let store = try store()
         let model = WorkflowDocumentOpeningModel(store: store, workerExecutable: try worker())
