@@ -37,6 +37,7 @@ public final class WorkflowEditorModel: ObservableObject {
     private let canvas: DotCanvas
     private let store: WorkflowProfileStore
     public let isManualDraft: Bool
+    public let isReopenedWorkflow: Bool
 
     public init(
         draft: WorkflowProfileDraft,
@@ -44,7 +45,8 @@ public final class WorkflowEditorModel: ObservableObject {
         analyzedPages: [AnalyzedSourcePage],
         canvas: DotCanvas,
         store: WorkflowProfileStore,
-        isManualDraft: Bool = false
+        isManualDraft: Bool = false,
+        isReopenedWorkflow: Bool = false
     ) {
         self.draft = draft
         self.originalPDF = originalPDF
@@ -52,6 +54,7 @@ public final class WorkflowEditorModel: ObservableObject {
         self.canvas = canvas
         self.store = store
         self.isManualDraft = isManualDraft
+        self.isReopenedWorkflow = isReopenedWorkflow
         self.selectedRegionID = Self.regions(in: draft.profile).first?.id
     }
 
@@ -294,7 +297,7 @@ public final class WorkflowEditorModel: ObservableObject {
     }
 
     private func editableDraft() throws -> WorkflowProfileDraft {
-        isSaved ? try WorkflowProfileDraft(nextRevisionOf: profile) : draft
+        isSaved ? try store.correctionDraft(for: profile) : draft
     }
 
     public func approveForUnattendedUse() throws {
@@ -304,7 +307,7 @@ public final class WorkflowEditorModel: ObservableObject {
 
     public func reloadForCorrection(profileID: String, revision: Int) throws {
         let stored = try store.load(profileID: profileID, revision: revision)
-        draft = try WorkflowProfileDraft(nextRevisionOf: stored)
+        draft = try store.correctionDraft(for: stored)
         cancelPreview()
         selectedRegionID = Self.regions(in: draft.profile).first?.id
         preview = nil
@@ -348,7 +351,10 @@ public struct WorkflowEditorView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 mediaSummary
-                if model.isManualDraft {
+                if model.isReopenedWorkflow {
+                    Text("Saved workflow reopened for correction as a new revision. Review this PDF and the exact label previews before saving. Earlier revisions and their qualifications are unchanged.")
+                        .accessibilityLabel("Reopened workflow requires review of its new revision")
+                } else if model.isManualDraft {
                     Text("Manual extraction: no label crop was chosen automatically. Each starting region covers its full source page. Set the label bounds and review the exact preview; this draft has no unattended qualification.")
                         .accessibilityLabel("Manual extraction requires region and preview review")
                 }

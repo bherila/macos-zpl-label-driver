@@ -14,6 +14,8 @@ public enum WorkflowEditorBootstrap {
         case noBorderCandidate(page: Int)
         case ambiguousBorderCandidates(page: Int)
         case mixedReferenceGeometry
+        case unsupportedOutputStock
+        case unsupportedLayoutDetector
     }
 
     public static func makeModel(
@@ -43,29 +45,61 @@ public enum WorkflowEditorBootstrap {
         originalPDF: Data, store: WorkflowProfileStore, workerExecutable: URL,
         maximumPages: Int = 32, deadlineSeconds: Double = 60,
         cancellation: OfflineRenderWorkerCancellation = .init(),
-        mode: WorkflowOpeningMode = .assisted
+        mode: WorkflowOpeningMode = .assisted,
+        savedProfile: WorkflowProfile? = nil
     ) async throws -> WorkflowEditorModel {
         guard (1...32).contains(maximumPages) else { throw QuartzStructuralAnalyzer.Error.invalidLimits }
         guard deadlineSeconds.isFinite, deadlineSeconds > 0, deadlineSeconds <= 60 else {
             throw OfflineRenderWorkerProcess.Error.invalidDeadline
         }
+        if let savedProfile {
+            let reference = try ReferenceWorkflowDefinition.gc420dInitialSet()[0]
+            // Only the currently configured 4x6 setup is wired into this UI.
+            // Permit floating-point representation differences, not another stock.
+            guard savedProfile.outputStockID == reference.outputStockID,
+                  abs(savedProfile.outputStock.width.value - reference.outputStock.width.value) <= 1e-6,
+                  abs(savedProfile.outputStock.height.value - reference.outputStock.height.value) <= 1e-6 else {
+                throw Error.unsupportedOutputStock
+            }
+            guard savedProfile.pageRules.allSatisfy({ rule in
+                rule.structuralAnchors.allSatisfy { $0.kind == .border }
+            }) else { throw Error.unsupportedLayoutDetector }
+        }
         let deadline = ContinuousClock.now.advanced(by: .nanoseconds(Int64(deadlineSeconds * 1e9)))
-        let analyzed = try await withTaskCancellationHandler {
+        let preparation = try await withTaskCancellationHandler {
             try await Task.detached {
+                let correction = try savedProfile.map { try store.correctionDraft(for: $0) }
                 let parts = ContinuousClock.now.duration(to: deadline).components
                 let remaining = Double(parts.seconds) + Double(parts.attoseconds) / 1e18
                 guard remaining > 0 else { throw OfflineRenderWorkerProcess.Error.timedOut }
-                return try OfflineLayoutWorker.analyze(originalPDF: originalPDF, structuralPages: [],
+                let structuralPages = savedProfile?.pageRules.filter { !$0.structuralAnchors.isEmpty }
+                    .map(\.sourcePage).sorted() ?? []
+                let analyzed = try OfflineLayoutWorker.analyze(originalPDF: originalPDF, structuralPages: structuralPages,
                     workerExecutable: workerExecutable, maximumSourcePages: maximumPages,
-                    analyzeAllPages: mode == .assisted, deadlineSeconds: min(remaining, 60), cancellation: cancellation)
+                    analyzeAllPages: savedProfile == nil && mode == .assisted,
+                    deadlineSeconds: min(remaining, 60), cancellation: cancellation)
+                return (analyzed, correction)
             }.value
         } onCancel: {
             cancellation.cancel()
         }
         try Task.checkCancellation()
         guard !cancellation.isCancelled else { throw OfflineRenderWorkerProcess.Error.cancelled }
-        let model = try makeModel(originalPDF: originalPDF, store: store,
-                                  analyzedPages: analyzed, maximumPages: maximumPages, mode: mode)
+        let (analyzed, correction) = preparation
+        let model: WorkflowEditorModel
+        if let savedProfile {
+            _ = try ExtractionPlanner.plan(analyzedPages: analyzed, profile: savedProfile)
+            let canvas = try DotCanvas(physicalSize: savedProfile.outputStock,
+                resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+            guard let correction else { throw WorkflowProfileStore.Error.profileIdentityMismatch }
+            model = WorkflowEditorModel(draft: correction,
+                originalPDF: originalPDF, analyzedPages: analyzed, canvas: canvas, store: store,
+                isManualDraft: savedProfile.pageRules.contains { $0.structuralAnchors.isEmpty },
+                isReopenedWorkflow: true)
+        } else {
+            model = try makeModel(originalPDF: originalPDF, store: store,
+                analyzedPages: analyzed, maximumPages: maximumPages, mode: mode)
+        }
         guard ContinuousClock.now < deadline else { throw OfflineRenderWorkerProcess.Error.timedOut }
         return model
     }

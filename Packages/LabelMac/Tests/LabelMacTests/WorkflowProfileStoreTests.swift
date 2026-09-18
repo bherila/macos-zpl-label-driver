@@ -47,6 +47,115 @@ final class WorkflowProfileStoreTests: XCTestCase {
         XCTAssertFalse(WorkflowProfileStore.profileFileName(value.id, value.revision).contains("/"))
     }
 
+    func testCatalogListsCanonicalImmutableRevisionsAndIgnoresStaging() throws {
+        let root = try temporaryRoot()
+        let store = try WorkflowProfileStore(root: root)
+        XCTAssertEqual(try store.savedWorkflows(), [])
+        for revision in [1, 3, 2] { try store.save(profile(revision: revision)) }
+        try Data("unpublished".utf8).write(to: root.appending(path: "profiles/.tmp-synthetic.json"))
+        let entries = try store.savedWorkflows()
+        XCTAssertEqual(entries.map { $0.profile.revision }, [3, 2, 1])
+        XCTAssertEqual(Set(entries.map(\.id)).count, 3)
+        for entry in entries {
+            XCTAssertEqual(try store.load(profileID: entry.profile.id, revision: entry.profile.revision), entry.profile)
+            XCTAssertNil(try store.qualification(for: entry.profile))
+        }
+        XCTAssertThrowsError(try store.savedWorkflows(maximumProfiles: 2))
+        XCTAssertThrowsError(try store.savedWorkflows(maximumProfiles: 0))
+    }
+
+    func testCatalogRejectsMisnamedNoncanonicalAndUnsafeRecords() throws {
+        let root = try temporaryRoot()
+        let store = try WorkflowProfileStore(root: root)
+        let value = try profile()
+        try store.save(value)
+        let directory = root.appending(path: "profiles")
+        let actual = directory.appending(path: WorkflowProfileStore.profileFileName(value.id, value.revision))
+        let foreign = directory.appending(path: "misnamed.json")
+        try WorkflowProfileJSON.encode(value).write(to: foreign)
+        XCTAssertThrowsError(try store.savedWorkflows())
+        try FileManager.default.removeItem(at: foreign)
+        try FileManager.default.createSymbolicLink(at: foreign, withDestinationURL: actual)
+        XCTAssertThrowsError(try store.savedWorkflows())
+        try FileManager.default.removeItem(at: foreign)
+        XCTAssertEqual(link(actual.path, foreign.path), 0)
+        XCTAssertThrowsError(try store.savedWorkflows())
+        try FileManager.default.removeItem(at: foreign)
+        try FileManager.default.createDirectory(at: foreign, withIntermediateDirectories: false)
+        XCTAssertThrowsError(try store.savedWorkflows())
+        try FileManager.default.removeItem(at: foreign)
+        var noncanonical = try WorkflowProfileJSON.encode(value)
+        noncanonical.append(0x20)
+        try noncanonical.write(to: actual)
+        XCTAssertThrowsError(try store.savedWorkflows())
+        XCTAssertThrowsError(try store.load(profileID: value.id, revision: value.revision)) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .profileIdentityMismatch)
+        }
+        try Data(repeating: 0, count: WorkflowProfileJSON.maximumBytes + 1).write(to: actual)
+        XCTAssertThrowsError(try store.savedWorkflows())
+    }
+
+    func testCatalogTotalByteBudgetIsEnforcedBeforeReadingRecord() throws {
+        let root = try temporaryRoot()
+        let store = try WorkflowProfileStore(root: root)
+        let value = try profile()
+        try store.save(value)
+        let storage = try PrivateImmutableDirectory(root: root)
+        let count = try WorkflowProfileJSON.encode(value).count
+        XCTAssertThrowsError(try storage.catalog(directory: "profiles", maximumRecords: 1,
+            maximumRecordBytes: WorkflowProfileJSON.maximumBytes, maximumTotalBytes: count - 1))
+        XCTAssertEqual(try storage.catalog(directory: "profiles", maximumRecords: 1,
+            maximumRecordBytes: WorkflowProfileJSON.maximumBytes, maximumTotalBytes: count).count, 1)
+    }
+
+    func testHistoricalCorrectionCopiesSelectedDefinitionBeyondLatestSameIdentity() throws {
+        let store = try WorkflowProfileStore(root: temporaryRoot())
+        let selected = try profile(revision: 1)
+        let latest = try profile(revision: 7, x: 0.2)
+        let unrelated = try WorkflowProfile(id: "other-workflow", revision: 99,
+            outputStockID: selected.outputStockID, outputStock: selected.outputStock,
+            pageRules: selected.pageRules)
+        try store.save(selected)
+        try store.save(latest)
+        try store.save(unrelated)
+        let correction = try store.correctionDraft(for: selected)
+        XCTAssertEqual(correction.profile.id, selected.id)
+        XCTAssertEqual(correction.profile.revision, 8)
+        XCTAssertEqual(correction.profile.pageRules, selected.pageRules)
+        XCTAssertNotEqual(correction.profile.pageRules, latest.pageRules)
+        try store.save(correction.profile)
+        XCTAssertEqual(try store.load(profileID: selected.id, revision: 1), selected)
+        XCTAssertEqual(try store.load(profileID: latest.id, revision: 7), latest)
+        XCTAssertThrowsError(try store.correctionDraft(for: profile(revision: 1, x: 0.3)))
+    }
+
+    func testCatalogFIFORejectionWithAndWithoutWriterHasHardSubprocessDeadline() throws {
+        let root = try temporaryRoot()
+        let store = try WorkflowProfileStore(root: root)
+        try store.save(profile())
+        let fifo = root.appending(path: "profiles/fifo.json")
+        XCTAssertEqual(mkfifo(fifo.path, 0o600), 0)
+        for hasWriter in [false, true] {
+            let writer = hasWriter ? Darwin.open(fifo.path, O_RDWR | O_NONBLOCK | O_CLOEXEC) : -1
+            defer { if writer >= 0 { close(writer) } }
+            if hasWriter { XCTAssertGreaterThanOrEqual(writer, 0) }
+            let process = Process()
+            process.executableURL = Bundle(for: Self.self).bundleURL.deletingLastPathComponent()
+                .appending(path: "label-driver-diagnostics")
+            process.arguments = ["--workflow-catalog", root.path]
+            process.standardOutput = FileHandle.nullDevice
+            process.standardError = FileHandle.nullDevice
+            let exited = XCTestExpectation(description: "catalog FIFO rejected")
+            process.terminationHandler = { _ in exited.fulfill() }
+            try process.run()
+            let result = XCTWaiter.wait(for: [exited], timeout: 2)
+            if result != .completed, process.isRunning { process.terminate() }
+            XCTAssertEqual(result, .completed)
+            process.waitUntilExit()
+            XCTAssertEqual(process.terminationStatus, 65)
+        }
+    }
+
     func testSameIdentityWithDifferentBytesIsAConflict() throws {
         let store = try WorkflowProfileStore(root: temporaryRoot())
         try store.save(profile())
