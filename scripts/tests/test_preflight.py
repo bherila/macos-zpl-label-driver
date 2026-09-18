@@ -14,6 +14,15 @@ class PreflightTests(unittest.TestCase):
     def test_documentation_only(self):
         self.assertFalse(needs_swift(["README.md", "docs/ARCHITECTURE.md"]))
 
+    def test_documentation_with_manifest(self):
+        self.assertFalse(needs_swift(["MANIFEST.sha256", "README.md", "docs/PROGRESS.json"]))
+
+    def test_manifest_never_hides_substantive_or_unknown_changes(self):
+        self.assertTrue(needs_swift(["MANIFEST.sha256"]))
+        for name in ["Packages/LabelCore/Package.swift", ".github/workflows/ci.yml", "Profiles/new.json"]:
+            with self.subTest(name=name):
+                self.assertTrue(needs_swift(["MANIFEST.sha256", "README.md", name]))
+
     def test_code_change(self):
         self.assertTrue(needs_swift(["README.md", "Packages/LabelCore/Package.swift"]))
 
