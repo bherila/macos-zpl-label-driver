@@ -30,6 +30,30 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+The new developer-only readback helper reuses native CUPS, with a verified local
+socket, controlled environment, cumulative 20-second/output bounds and immutable
+read-only request literals. It can inspect only absent experimental queue or
+the exact expected held PDF; no mutations exist. All 15 final focused Python tests,
+including the real native Unix-socket HTTP fixture, and the live absent-queue
+query passed. First full `66ab5db` gate passed 81/178/258 debug/release, but a
+subsequent thrown termination fault reproduced an unbounded context-wait fallback.
+Explicit bounded cleanup corrects it, with distinct termination-unconfirmed
+failure and closed pipes. Corrected full gate at `eb46f13` passed exit 0:
+82 Python/178 Core/258 Mac debug/release, both accelerator runs, inert ABI and
+pipeline checks, local signatures and packaged-worker PBM/ZPL equality. Own
+hosted run 35115902706 passed at published `03992fd`: fetched logs verify the
+same native counts, accelerator/inert checks, signatures and packaged equality.
+First review is clean at base `fa6c247` / head `03992fd`, with reviewer thumbs-up
+and no findings/threads. No merge. Actual held-job mode remains
+NOT RUN. See `validation/M1-READONLY-IPP-READBACK-2026-09-16.md`.
+
+Parent #72 exact `fa6c247` hosted 35112614847 passed with 178 Core/258 Mac
+debug/release, 12 filter ABI cases per mode, signatures and packaged equality.
+First review is clean at base `889472c`, no threads/findings; no merge. The private
+warning-filter candidate checks pass, but noninteractive OS authorization is
+unavailable. No administrator apply, queue/job or device I/O occurred. These
+terminal results supersede the historical pending publication entries below.
+
 The current M1 preparation slice corrects a real observability mismatch: the
 host uses LogLevel warn, but the previous INFO filter marker is documented as
 error-log-visible only at debug2. The discard-only filter now warns once that
