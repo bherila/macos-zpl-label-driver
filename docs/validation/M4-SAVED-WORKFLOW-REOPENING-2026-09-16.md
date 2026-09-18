@@ -65,6 +65,13 @@ offline-edit gating requires physical stock/tear-off confirmations; do not inven
 those observations merely to test offline editing. Separating that gate and
 resolving accessibility lookup are the next connected slice.
 
+Later correction: requiring the returned element's AXRole identified it as
+AXApplication, not AXWindow. Traversal exposed menus only. The earlier nonempty
+AXWindows response does not prove a window. Direct and new-instance Launch
+Services startup both failed the stronger window check, with no control actions.
+Follow-up exact-namespace inventory found no remaining test app instances.
+See M5-OFFLINE-EDITOR-READINESS-2026-09-16.md; GUI acceptance remains unproven.
+
 Parent PR #55 at `55dd7d2` has passing hosted run 35084288575 and a clean first
 review. These do not establish this slice's hosted or GUI acceptance.
 

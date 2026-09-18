@@ -33,7 +33,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
     @Published public var tearOffConfirmed = false
     @Published public private(set) var selectedSpeedIps: Int?
 
-    private init(profile: PrinterProfile) {
+    init(profile: PrinterProfile) {
         self.profile = profile
     }
 
@@ -42,12 +42,14 @@ public final class ReferencePrinterSetupModel: ObservableObject {
     }
 
     public var speedChoices: [Int] { profile.capabilities.printSpeedChoicesIps.sorted() }
-    public var canEditOfflineWorkflows: Bool { stockLoadedConfirmed && tearOffConfirmed }
+    /// Editing/rendering a draft performs no device I/O and must not require
+    /// asserting observations of hardware that may not be attached.
+    public var canEditOfflineWorkflows: Bool { true }
 
     /// A reported transport is not a discovered device. Installation remains
     /// unavailable until a later bounded discovery flow supplies an identity.
     public var canInstallQueue: Bool {
-        guard canEditOfflineWorkflows else { return false }
+        guard stockLoadedConfirmed && tearOffConfirmed else { return false }
         if case .observed = profile.connection.stableIdentity { return true }
         return false
     }
@@ -118,6 +120,10 @@ public struct ReferencePrinterSetupView: View {
 
                 Toggle("I loaded 4 × 6 inch pre-cut direct-thermal labels", isOn: $model.stockLoadedConfirmed)
                 Toggle("This printer is in tear-off mode with no cutter", isOn: $model.tearOffConfirmed)
+
+                Text("Offline workflow editing is available without a printer. These confirmations apply to installation/printing readiness; do not check them unless you have verified the actual printer and stock.")
+                    .font(.caption)
+                    .accessibilityLabel("Offline editing does not require hardware confirmation. Installation and printing readiness still do.")
 
                 Label(
                     model.canInstallQueue
