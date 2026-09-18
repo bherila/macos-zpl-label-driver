@@ -109,6 +109,32 @@ public enum QuartzPDFRenderer {
         }
     }
 
+    public static func documentPageBoxes(
+        originalPDF: Data,
+        maximumInputBytes: Int = 100 * 1024 * 1024,
+        maximumSourcePages: Int = 1_000
+    ) throws -> [PDFPageBox] {
+        guard maximumInputBytes > 0, maximumSourcePages > 0 else { throw Error.invalidLimits }
+        guard originalPDF.count <= maximumInputBytes else {
+            throw Error.inputTooLarge(actual: originalPDF.count, limit: maximumInputBytes)
+        }
+        guard let provider = CGDataProvider(data: originalPDF as CFData),
+              let document = CGPDFDocument(provider) else {
+            throw Error.malformedOrUnsupportedPDF
+        }
+        guard !document.isEncrypted || document.isUnlocked else { throw Error.encryptedPDF }
+        guard document.numberOfPages > 0, document.numberOfPages <= maximumSourcePages else {
+            throw Error.sourcePageLimitExceeded(actual: document.numberOfPages, limit: maximumSourcePages)
+        }
+        return try (1...document.numberOfPages).map { pageNumber in
+            guard let page = document.page(at: pageNumber) else {
+                throw Error.pageOutOfRange(requested: pageNumber, pageCount: document.numberOfPages)
+            }
+            do { return try geometry(of: page) }
+            catch { throw Error.invalidPageGeometry }
+        }
+    }
+
     public static func render(_ request: Request) throws -> GrayscaleBitmap {
         guard request.maximumInputBytes > 0, request.maximumSourcePages > 0, request.maximumPixels > 0 else {
             throw Error.invalidLimits

@@ -23,4 +23,9 @@ file "$bin_dir/label-render-worker"
 lipo -archs "$bin_dir/label-driver"
 lipo -archs "$bin_dir/label-render-worker"
 bash scripts/sign-local-diagnostic.sh
-# M1–M5: add actual products/tests/signing as introduced. No installation or device I/O.
+if bash scripts/build-local-app.sh --signing-mode developer-id; then
+  echo "Developer-ID mode unexpectedly succeeded without configured credentials." >&2
+  exit 1
+fi
+bash scripts/build-local-app.sh
+# No installation or device I/O is performed here.

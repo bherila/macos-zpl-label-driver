@@ -935,6 +935,22 @@ in both configurations. This is partial M4-AC01/06/09/12 evidence only: the
 components still need a signed setup-app host, document-open flow, hands-on
 keyboard/accessibility evidence, queue binding, and installed recovery proof.
 
+At `75c2aee`, M5 gained its first native SwiftUI app host and a bounded local
+PDF-open path. Native 4x6 pages become full-page drafts without requiring an
+artificial border; Letter and A4 pages use the existing bounded structural
+analyzer; ambiguous two-label sheets, mixed page geometry, unexpected pages,
+and over-cap documents fail before a draft is created. The app reuses the M4
+editor, immutable profile store, original-PDF renderer, and exact packed
+preview, while save and unattended approval remain separate. Seven focused
+bootstrap tests and the complete CI-equivalent sequence pass with 130 LabelCore
+and 70 LabelMac tests in both configurations. The release app bundle is thin
+ARM64 with macOS 26.0 minimum, explicitly labeled local-ad-hoc, and verified
+after signing both its executable and containing bundle. An explicit future
+Developer-ID selection fails before build/signing rather than downgrading.
+This closes M5-AC12 at automated level only. The app has not been installed or
+launched for hands-on UI, accessibility, quarantine, helper, scheduler,
+restart, or physical-printer acceptance.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
