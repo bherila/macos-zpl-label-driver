@@ -8,11 +8,16 @@ import LabelMac
 final class SetupAppController: ObservableObject {
     @Published var editor: WorkflowEditorModel?
     @Published var error: String?
+    @Published var scratchWarning: String?
 
     private let store: WorkflowProfileStore?
     let printerSetup: ReferencePrinterSetupModel?
+    let previewWorkerExecutable = (Bundle.main.executableURL?.deletingLastPathComponent()
+        ?? Bundle.main.bundleURL.appending(path: "Contents/MacOS"))
+        .appending(path: "label-render-worker")
 
     init() {
+        scratchWarning = OfflineRenderWorkerProcess.scratchRecoveryWarning()
         do {
             let setup = try ReferencePrinterSetupModel.gc420dUSB()
             let support = try FileManager.default.url(
@@ -58,12 +63,16 @@ struct SetupRootView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                if let warning = controller.scratchWarning {
+                    Text(warning).foregroundStyle(.orange)
+                        .accessibilityLabel(warning)
+                }
                 if let printerSetup = controller.printerSetup {
                     ReferencePrinterSetupView(model: printerSetup)
                 }
                 Group {
                     if let editor = controller.editor {
-                        WorkflowEditorView(model: editor)
+                        WorkflowEditorView(model: editor, workerExecutable: controller.previewWorkerExecutable)
                     } else {
                         ContentUnavailableView {
                             Label("Create a label workflow", systemImage: "printer")

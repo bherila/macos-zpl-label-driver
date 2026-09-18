@@ -1542,8 +1542,37 @@ analysis and all label workers, with distinct processing interruption errors.
 It does not renew time per label, manufacture persisted cancellation, or promise
 to interrupt filesystem calls. Twenty-nine focused tests passed; the full local
 gate passed 67/166/167 debug/release with all independent and signing checks;
-hosted/review evidence is pending in
+hosted run `35075349804` and independent review passed exact code head `769f0c6`.
+Counts/signatures were confirmed in logs. Evidence is recorded in
 `M3-SHARED-PREPARATION-BUDGET-2026-09-16.md`.
+
+The setup Preview button now runs original-PDF extraction in the bounded child
+off the main actor, with cancellation and request/profile/selection-bound stale
+result protection. Nine focused tests passed, including a completed-real-result
+race. The app includes/signs the worker and requires a synthetic packaged-worker
+equality smoke. Full local validation passed 67/166/172 debug/release, all
+independent/inert checks, nested signatures and packaged-worker equality.
+Hosted/review and all GUI evidence remain pending in
+`M4-ISOLATED-EDITOR-PREVIEW-2026-09-16.md`. PDF opening/bootstrap remains
+in-process; no scheduler or physical acceptance follows.
+
+PR #50's first independent review found that parent-only deadlines could leave
+an orphaned native worker after app termination. The same-branch remediation
+adds child-owned finite supervision and nonce/inode-bound scratch ownership with
+shared writer locks and conservative bounded startup recovery. Five focused
+native tests pass, including actual parent termination and independent timeout.
+Full local validation passed 67/166/177 debug/release, independent oracle/ABI/inert
+checks, ad-hoc signatures, and packaged-worker equality. Second review and hosted
+exact-head CI remain pending; details and limitations
+are in `M4-WORKER-LIFETIME-2026-09-16.md`. Hosted run `35076644936` passed the
+earlier `77874a3` head but does not validate this remediation.
+
+PR #50's second review completed at `6ff328a` with one genuine ancillary-recovery
+failure issue. Recovery now returns a sanitized nonthrowing warning outside the
+controller's setup initialization. Six focused native tests pass; full local
+validation of this follow-up passed 67/166/178 debug/release with independent
+checks, signatures and packaged-worker equality. The existing hosted run remains live;
+it is not restarted or claimed terminal. No third review is requested.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository

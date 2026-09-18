@@ -146,6 +146,8 @@ public enum OfflineRenderWorkerProcess {
 
         let scratch = try makePrivateScratchDirectory()
         defer { try? FileManager.default.removeItem(at: scratch) }
+        let ownership = try RenderWorkerScratch.install(in: scratch)
+        defer { close(ownership.descriptor) }
         do {
             try writePrivate(originalPDF, to: scratch.appending(path: inputFilename))
             try writePrivate(ticketJSON, to: scratch.appending(path: ticketFilename))
@@ -155,7 +157,12 @@ public enum OfflineRenderWorkerProcess {
 
         let process = Process()
         process.executableURL = workerExecutable
-        process.arguments = [operationFlag, scratch.path]
+        let parts = clock.now.duration(to: deadline).components
+        let remaining = Double(parts.seconds) + Double(parts.attoseconds) / 1e18
+        guard remaining > 0 else { throw Error.timedOut }
+        process.arguments = [operationFlag, scratch.path, "--parent-pid", String(getpid()),
+                             "--deadline-seconds", String(min(remaining, 60)),
+                             "--ownership-token", ownership.token]
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
@@ -186,6 +193,7 @@ public enum OfflineRenderWorkerProcess {
         guard !cancellation.isCancelled else { throw Error.cancelled }
         guard clock.now < deadline else { throw Error.timedOut }
         guard process.terminationReason == .exit, process.terminationStatus == 0 else {
+            if process.terminationReason == .exit, process.terminationStatus == 124 { throw Error.timedOut }
             if process.terminationReason == .exit, let failure = try? readFailure(in: scratch) {
                 throw Error.jobRejected(code: failure.code)
             }

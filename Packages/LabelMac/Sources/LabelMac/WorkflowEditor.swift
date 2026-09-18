@@ -15,10 +15,16 @@ public struct WorkflowEditorRegion: Identifiable, Equatable, Sendable {
 @MainActor
 public final class WorkflowEditorModel: ObservableObject {
     @Published public private(set) var draft: WorkflowProfileDraft
-    @Published public var selectedRegionID: String?
+    @Published public var selectedRegionID: String? {
+        didSet { if selectedRegionID != oldValue { cancelPreview() } }
+    }
     @Published public private(set) var preview: PreparedExtractionLabel?
     @Published public private(set) var lastError: String?
     @Published public private(set) var isSaved = false
+    @Published public private(set) var isPreparingPreview = false
+
+    private var previewRequest: UUID?
+    private var previewCancellation: OfflineRenderWorkerCancellation?
 
     private let originalPDF: Data
     private let analyzedPages: [AnalyzedSourcePage]
@@ -61,7 +67,7 @@ public final class WorkflowEditorModel: ObservableObject {
             height: height / size.height.value
         )
         try draft.updateRegion(id: selectedRegionID, normalizedRect: rect, rotation: region.rotation)
-        preview = nil
+        cancelPreview()
         isSaved = false
     }
 
@@ -75,7 +81,7 @@ public final class WorkflowEditorModel: ObservableObject {
             normalizedRect: region.normalizedRect,
             rotation: rotation
         )
-        preview = nil
+        cancelPreview()
         isSaved = false
     }
 
@@ -85,11 +91,12 @@ public final class WorkflowEditorModel: ObservableObject {
             throw WorkflowProfileDraft.Error.regionNotFound(selectedRegionID ?? "")
         }
         try draft.moveRegion(id: selectedRegionID, to: current + offset)
-        preview = nil
+        cancelPreview()
         isSaved = false
     }
 
     public func refreshPreview() throws {
+        cancelPreview()
         guard let selectedRegionID else {
             throw WorkflowProfileDraft.Error.regionNotFound("")
         }
@@ -106,6 +113,76 @@ public final class WorkflowEditorModel: ObservableObject {
         lastError = nil
     }
 
+    public func cancelPreview() {
+        previewCancellation?.cancel()
+        previewCancellation = nil
+        previewRequest = nil
+        isPreparingPreview = false
+        preview = nil
+    }
+
+    /// Product UI rendering runs in the bounded child, outside the main actor.
+    /// Obsolete success and failure cannot replace newer editor state.
+    public func refreshPreviewInWorker(workerExecutable: URL,
+                                       deadlineSeconds: Double = 60) async {
+        await refreshPreviewInWorker(workerExecutable: workerExecutable,
+            deadlineSeconds: deadlineSeconds, afterPreparation: {})
+    }
+
+    /// Internal finite barrier permits deterministic stale-completion regressions
+    /// with the real worker, rather than replacing rendering with a fake bitmap.
+    func refreshPreviewInWorker(workerExecutable: URL, deadlineSeconds: Double,
+                                afterPreparation: @escaping @Sendable () async -> Void) async {
+        cancelPreview()
+        let snapshot = profile
+        let selection = selectedRegionID
+        let request = UUID()
+        let cancellation = OfflineRenderWorkerCancellation()
+        previewRequest = request
+        previewCancellation = cancellation
+        isPreparingPreview = true
+        lastError = nil
+        defer {
+            if previewRequest == request {
+                previewRequest = nil
+                previewCancellation = nil
+                isPreparingPreview = false
+            }
+        }
+        do {
+            let plan = try ExtractionPlanner.plan(analyzedPages: analyzedPages, profile: snapshot)
+            guard let label = plan.outputLabels.first(where: { $0.regionID == selection }) else {
+                throw WorkflowProfileDraft.Error.regionNotFound(selection ?? "")
+            }
+            let source = originalPDF
+            let canvas = canvas
+            let result = try await withTaskCancellationHandler {
+                try await Task.detached {
+                    let bitmap = try OfflineExtractionWorker.render(originalPDF: source,
+                        label: label, canvas: canvas, conversion: snapshot.monochromeConversion,
+                        workerExecutable: workerExecutable, deadlineSeconds: deadlineSeconds,
+                        cancellation: cancellation)
+                    return PreparedExtractionLabel(bitmap: bitmap,
+                        zpl: try ZPLGraphicEncoder().diagnosticFormat(bitmap),
+                        sourcePage: label.sourcePage, regionID: label.regionID,
+                        profileID: label.profileID, profileRevision: label.profileRevision)
+                }.value
+            } onCancel: {
+                cancellation.cancel()
+            }
+            await afterPreparation()
+            guard previewRequest == request, selectedRegionID == selection,
+                  profile == snapshot, !Task.isCancelled, !cancellation.isCancelled else { return }
+            preview = result
+        } catch {
+            guard previewRequest == request, selectedRegionID == selection,
+                  profile == snapshot else { return }
+            if !Task.isCancelled && !cancellation.isCancelled {
+                lastError = "Preview could not be prepared."
+            }
+        }
+    }
+
     public func save() throws {
         try store.save(profile)
         isSaved = true
@@ -120,6 +197,7 @@ public final class WorkflowEditorModel: ObservableObject {
     public func reloadForCorrection(profileID: String, revision: Int) throws {
         let stored = try store.load(profileID: profileID, revision: revision)
         draft = try WorkflowProfileDraft(nextRevisionOf: stored)
+        cancelPreview()
         selectedRegionID = Self.regions(in: draft.profile).first?.id
         preview = nil
         isSaved = false
@@ -144,8 +222,12 @@ public final class WorkflowEditorModel: ObservableObject {
 
 public struct WorkflowEditorView: View {
     @ObservedObject private var model: WorkflowEditorModel
+    private let workerExecutable: URL?
 
-    public init(model: WorkflowEditorModel) { self.model = model }
+    public init(model: WorkflowEditorModel, workerExecutable: URL? = nil) {
+        self.model = model
+        self.workerExecutable = workerExecutable
+    }
 
     public var body: some View {
         HSplitView {
@@ -164,8 +246,17 @@ public struct WorkflowEditorView: View {
                     Text(error).foregroundStyle(.red).accessibilityLabel("Editor error: \(error)")
                 }
                 HStack {
-                    Button("Preview") { perform(model.refreshPreview) }
+                    Button("Preview") {
+                        if let workerExecutable {
+                            Task { await model.refreshPreviewInWorker(workerExecutable: workerExecutable) }
+                        }
+                    }
                         .keyboardShortcut("p", modifiers: [.command])
+                        .disabled(workerExecutable == nil || model.isPreparingPreview)
+                    if model.isPreparingPreview {
+                        ProgressView().accessibilityLabel("Preparing exact bitmap preview")
+                        Button("Cancel Preview") { model.cancelPreview() }
+                    }
                     Button("Save Revision") { perform(model.save) }
                         .keyboardShortcut("s", modifiers: [.command])
                     Button("Approve for Unattended Use") { perform(model.approveForUnattendedUse) }
@@ -175,6 +266,7 @@ public struct WorkflowEditorView: View {
             .padding()
             .frame(minWidth: 480)
         }
+        .onDisappear { model.cancelPreview() }
     }
 
     private var selectedRegion: WorkflowEditorRegion? {
