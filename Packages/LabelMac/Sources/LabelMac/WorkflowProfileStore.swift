@@ -198,7 +198,7 @@ public struct WorkflowProfileStore: @unchecked Sendable {
     }
 
     private func readRegular(named name: String, in directory: Int32, maximumBytes: Int) throws -> Data {
-        let descriptor = openat(directory, name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        let descriptor = NonblockingRegularFileDescriptor.open(at: directory, name: name)
         if descriptor < 0, errno == ENOENT { throw POSIXReadError.notFound }
         guard descriptor >= 0 else { throw Error.cannotRead }
         defer { close(descriptor) }

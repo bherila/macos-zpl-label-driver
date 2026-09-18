@@ -22,7 +22,7 @@ public enum BoundedRegularFile {
         requireSingleLink: Bool = false
     ) throws -> Data {
         guard maximumBytes > 0, maximumBytes < Int.max else { throw Error.invalidLimit }
-        let descriptor = open(url.path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        let descriptor = NonblockingRegularFileDescriptor.open(path: url.path)
         guard descriptor >= 0 else { throw Error.cannotOpen }
         let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
         defer { try? handle.close() }

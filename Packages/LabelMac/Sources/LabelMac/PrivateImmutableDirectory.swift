@@ -105,8 +105,8 @@ struct PrivateImmutableDirectory: @unchecked Sendable {
         maximumBytes: Int
     ) throws -> Data {
         guard maximumBytes > 0 else { throw Error.cannotRead }
-        let descriptor = openat(
-            directoryDescriptor, fileName, O_RDONLY | O_NOFOLLOW | O_CLOEXEC
+        let descriptor = NonblockingRegularFileDescriptor.open(
+            at: directoryDescriptor, name: fileName
         )
         if descriptor < 0, errno == ENOENT { throw Error.notFound }
         guard descriptor >= 0 else { throw Error.cannotRead }

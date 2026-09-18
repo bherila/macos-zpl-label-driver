@@ -322,7 +322,7 @@ public struct AcceptedJobStore: @unchecked Sendable {
     private static func read(
         name: String, directory: Int32, maximumBytes: Int
     ) throws -> Data {
-        let descriptor = openat(directory, name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        let descriptor = NonblockingRegularFileDescriptor.open(at: directory, name: name)
         guard descriptor >= 0 else { throw Error.cannotRead }
         defer { close(descriptor) }
         var before = stat()
