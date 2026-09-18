@@ -11,16 +11,22 @@ IDs, both at stale source SHAs. `traceability_report.py` counts a criterion only
 checked **and** a digest-bound record is current, so the report read 0 of 21 requirements and 0
 criteria satisfied.
 
-Nine records now satisfy their criteria: M2-AC01, M2-AC04, M2-AC05, M2-AC06, M2-AC13, M3-AC01,
-M3-AC02, M3-AC03 and M3-AC04. The report reads **1 of 21 requirements (F04) and 9 criteria**, with distinct pending acceptance IDs at 74
-of 82 mapped. Eight of the nine satisfied criteria are requirement-mapped; `M2-AC06` is not, which is
-why nine records move eight pending IDs.
+Eight records now satisfy their criteria: M2-AC01, M2-AC04, M2-AC05, M2-AC06, M2-AC13, M3-AC01,
+M3-AC02 and M3-AC04. The report reads **0 of 21 requirements and 8 criteria**, with distinct pending
+acceptance IDs at 75 of 82 mapped. Seven of the eight satisfied criteria are requirement-mapped;
+`M2-AC06` is not, which is why eight records move seven pending IDs.
 
-Review removed a tenth. `M3-AC13` was recorded and then withdrawn: the criterion requires the
-reference profile to constrain pitch, and `gc420dUSBReference` carries no `DotResolution`, no
+**No requirement is satisfied, and that is the corrected result.** An earlier revision of this slice
+claimed F04, which needs M3-AC01, M3-AC02 and M3-AC03. Review withdrew M3-AC03 and F04 went with it;
+the reasoning is in the round-5 note below. Getting a requirement to zero pending IDs turns out to be
+the hard part of this issue, not the bookkeeping.
+
+Review removed two records in all. `M3-AC13` was recorded and then withdrawn: the criterion requires
+the reference profile to constrain pitch, and `gc420dUSBReference` carries no `DotResolution`, no
 `dotsPerMillimeter` and no native-pitch field, so a caller can pair it with an arbitrary raster pitch.
 Its checkbox is cleared too, because leaving it set restates the unsupported claim this ledger exists
 to settle. That is a pre-existing declaration the evidence does not support, not a regression here.
+`M3-AC03` went the same way for the reason below.
 
 The batch was chosen by what can be **executed here**, not by what is easiest to assert. Every cited
 suite was run before its record was written — 138 LabelCore tests across nineteen cited suites, inside
@@ -66,18 +72,40 @@ every record, which is honest only because `run-accelerator-checks.py` runs the 
 than a selected subset — the file was renamed from `M2-M3-CROSS-LANGUAGE-ROUNDTRIP` because it no
 longer only certifies round-trips.
 
-**F04 is the first satisfied requirement.** It needed M3-AC01, M3-AC02 and M3-AC03; the first two were
-already checked, and M3-AC03 was the only criterion in this slice newly declared complete. `03f38af`
-landed `ZPLControlProtocolCoverage` and deliberately deferred that declaration to this issue. Before
-adding the checkbox, all seven required categories were confirmed mapped — speed, darkness, thermal
-method, tracking, dimensions, offsets and supported finishing — each row carrying a `sourceID` of R45
-or R46 that resolves to a real `docs/REFERENCES.md` entry, with `ZPLControlProtocolCoverageTests`
-passing. That declaration is in its own commit, keeping the records commit free of new claims.
+**Round 5 cost the headline claim, correctly.** Three more findings, all verified against the source.
+M2-AC06 has a profile-limit half its citations never reached: a profile whose raster bounds are
+narrower than the 32,000-dot protocol ceiling must still contain its fields, and that enforcement is
+`PhysicalGeometryQualification.validateRaster` and `ZPLPreparedLabelEncoder`, now bound with their
+suites. M3-AC01's truthfulness claim ranges over every capability domain, not just the base profile
+and finishing, so motor speeds, physical geometry, offsets and thermal are bound with their
+qualification suites. Review was also right to reject the round-4 shortcut: running the whole package
+does **not** make an unbound file evidence for a criterion, and the binding has to be explicit.
+
+The third withdrew M3-AC03, and F04 with it. Declaring a mapping complete because the mapping *table*
+covers a category is not the same as the mapping being covered wherever it is performed — the
+production finishing sequences live in LabelMac and cannot be executed here. The tempting reading was
+that M3-AC10 already owns finishing behaviour at level H, so M3-AC03 need only be the table. That
+reading is convenient and wrong: `^MMD`, `^MMP,N` and `~JK` are protocol mapping, they appear in
+`qualifiedFinishingControls` as documented semantics, and nothing bound and executed produces them.
+Keeping the requirement would have meant arguing for the claim rather than the evidence, which is the
+failure mode this ledger exists to make impossible.
+
+**M3-AC03 was declared complete here and then withdrawn.** `03f38af` landed
+`ZPLControlProtocolCoverage` and deliberately deferred the declaration to this issue, and all seven
+categories are indeed mapped with `sourceID`s resolving to real `docs/REFERENCES.md` entries. What
+that check missed is that the mapping has two sites. `FinishingControlQualification` emits `^MMT`,
+`^MMC`, `^MMP` and `^MMR` for bounded offline inspection, and says in its own comment that `^MMC`
+alone implements no cutting policy and that no `~JK` is emitted. The production sequences — `^MMD`,
+`^MMP,N`, the `~JK` trigger file and the delayed-cut framing — live only in
+`Packages/LabelMac/Sources/LabelMac/FinishingFramedOutput.swift`, covered by
+`ProfileBoundFinishingJobPlanTests`. Neither compiles on Linux, so neither can be bound, and a
+regression in the production finishing mapping would pass unnoticed. The checkbox is cleared and
+M3-AC03 joins the set waiting on a hosted macOS run.
 
 **Two ordering traps, both hit and both worth carrying forward.** A record must be bound to a commit
 that is an *ancestor of wherever it will be evaluated*. `M3-AC03` was first bound to a branch commit,
-which a squash-merge does not descend from, so `merge-base --is-ancestor` would have failed and F04
-would not have been satisfied on `main` at all — the headline claim would have been false on merge.
+which a squash-merge does not descend from, so `merge-base --is-ancestor` would have failed and the
+record would not have counted on `main` at all — the claim would have been false on merge.
 Binding to the base commit `78acd9b` survives any squash. And `MANIFEST.sha256` must be regenerated
 **last**: touching it at all makes `source_is_unchanged` consult `manifest_describes_tree`, which
 rejects untruthful digests, so refreshing it before a later documentation edit invalidates every
@@ -94,7 +122,8 @@ An ordering constraint shapes the commits. `source_is_unchanged` tolerates only 
 in commits touching nothing else or they invalidate themselves immediately. Both commits here respect
 that, which is why the records stay current.
 
-Changed requirements: F04 is satisfied. M2 imaging-engine and M3 printer-controls gain executed
+Changed requirements: none is satisfied; F04 was claimed and withdrawn. M2 imaging-engine and M3
+printer-controls gain executed
 acceptance evidence. No milestone is declared complete.
 
 Tests actually run. Linux x86_64, Swift 6.1.2: `python3 scripts/run-accelerator-checks.py` passed end
@@ -107,7 +136,8 @@ bound `78acd9b` only in documentation, so no Swift or Python source differs betw
 
 What this does not establish. Recording evidence is a maintainer declaration with checked references,
 which is what the report itself says — not independent semantic verification, and not hardware.
-Eleven checked criteria stay deliberately unrecorded because their evidence cannot be executed here:
+M3-AC03 now needs a hosted macOS run too, for the LabelMac finishing mapping. Eleven other checked
+criteria stay deliberately unrecorded because their evidence cannot be executed here:
 M2-AC02, M4-AC02, M4-AC04 and M4-AC07 rest on LabelMac suites that do not build on Linux; M2-AC12 is
 level I and needs a named reference Mac; M4-AC03, M4-AC05, M4-AC08, M4-AC13 and M5-AC12 need their
 mapping derived from documents naming types since renamed. Hardware and release criteria remain

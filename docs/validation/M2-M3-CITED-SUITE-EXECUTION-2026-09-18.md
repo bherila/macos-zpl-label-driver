@@ -2,9 +2,10 @@
 
 - Date/time and operator: 2026-09-18, automated Claude session, unattended
 - Exact repository commit SHA: `78acd9bde132211e0af9fdba01b9795f5d98d35b`
-- Related requirement and acceptance IDs: F04, F07, M2-AC01, M2-AC04, M2-AC05,
-  M2-AC06, M2-AC13, M3-AC01, M3-AC02, M3-AC03, M3-AC04 — that is, every record
-  currently in `docs/ACCEPTANCE-EVIDENCE.json`
+- Related requirement and acceptance IDs: F07, M2-AC01, M2-AC04, M2-AC05,
+  M2-AC06, M2-AC13, M3-AC01, M3-AC02, M3-AC04 — that is, every record currently
+  in `docs/ACCEPTANCE-EVIDENCE.json`. M3-AC03 is **not** among them; see
+  Limitations.
 - Evidence level: A
 - Status: PASS
 - macOS/Linux, architecture, Swift, Xcode/SDK, runner image (as applicable):
@@ -121,6 +122,20 @@ previously bound `ZPLControlEncoderTests` and `ZPLPreparedLabelEncoderTests`
 carry the same family checks on the baseline and prepared-envelope paths, so the
 three together cover the paths the record binds.
 
+M2-AC06 has a profile-limit half distinct from its encoder-limit half: a profile
+whose raster bounds are narrower than the generic 32,000-dot protocol ceiling
+must still contain its fields. That enforcement is
+`PhysicalGeometryQualification.validateRaster` and `ZPLPreparedLabelEncoder`,
+with `PhysicalGeometryQualificationTests` and `ZPLPreparedLabelEncoderTests`,
+now bound. M3-AC01's truthfulness claim ranges over every capability domain, not
+only the base profile and finishing, so `PrinterControlResolution`,
+`PhysicalGeometryQualification`, `OffsetControlQualification` and
+`ThermalControlQualification` are bound with `MotorSpeedIntegrationTests`,
+`PhysicalGeometryQualificationTests`, `OffsetControlQualificationTests` and
+`ThermalControlQualificationTests`. Running the whole package does not make an
+unbound file evidence for a criterion; the binding has to be explicit, which is
+the correction here.
+
 For M2-AC01 and M2-AC04 no new claim is made. `PDFPageGeometryTests`,
 `PhysicalGeometryTests`, `BitmapLayoutTests` and `MonochromeBitmapTests` ran here
 as part of the 311, at the bytes the records bind, which is what those records
@@ -135,6 +150,19 @@ above are the whole observable result. The corresponding CI evidence is the
 `ci-required` check on this branch's head.
 
 ## Limitations / next action
+
+**M3-AC03 is withdrawn, and F04 with it.** The criterion requires the protocol
+mapping to cover supported finishing. `FinishingControlQualification` emits
+`^MMT`, `^MMC`, `^MMP` and `^MMR` for bounded offline inspection and says in its
+own comment that `^MMC` alone implements no cutting policy and that no `~JK` is
+emitted. The production sequences — `^MMD`, `^MMP,N`, the `~JK` trigger file and
+the delayed-cut framing around them — exist only in
+`Packages/LabelMac/Sources/LabelMac/FinishingFramedOutput.swift`, whose coverage
+is `ProfileBoundFinishingJobPlanTests`. Neither can be compiled or run on Linux,
+so neither is bound, and a regression in the production finishing mapping would
+not be caught by anything this document certifies. M3-AC03 therefore needs a
+hosted macOS run before it can be declared complete, and its checkbox is cleared
+rather than left set behind Linux-only evidence.
 
 This is Linux, Swift 6.1.2, evidence level A only. It qualifies the portable
 `LabelCore` engine and the Python oracles. It does not qualify Core Graphics
