@@ -30,6 +30,34 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+PR #74 follow-up: final dot-root aliases are rejected before namespace creation.
+The new regression reproduced three failures, then all 53 focused native store
+tests passed. This source guard is newer than the historical 5ff59b1/a3952ba
+full/hosted/first-review checkpoints below. Corrected full `d2b8085` passed exit 0:
+82 Python/178 Core/263 Mac debug/release, both independent/inert runs, signatures
+and packaged equality. Own corrected hosted/second-review gates are pending.
+Prior evidence-only 6fe7508 hosted 35119811256 passed, but did not
+contain the guard. No installer, queue/job or physical-printer action occurred.
+
+The accepted-job namespace slice now requires accepted-jobs/root/containing
+directory barriers on initial and identical publication, with descriptor/name
+bindings before and after synchronization. Three old-code regressions reproduced
+nine assertion failures; corrected 51 tests passed, then the added during-barrier
+replacement test brought the passing focused set to 52. All failures retain
+explicit commit uncertainty, exact source bytes and advanced lifecycle state.
+Full local gate at `5ff59b1` passed exit 0: 82 Python/178 Core/262 Mac
+debug/release, both independent accelerator/inert runs, signatures and packaged
+PBM/ZPL equality. Own hosted 35118943004 passed at exact `a3952ba`, with fetched
+logs verifying both native configurations and independent/inert/signature/
+packaged checks. First review is clean at base `b4d78e8` / head `a3952ba`,
+with reviewer thumbs-up and no findings/threads. No merge; no scheduler/USB/physical acceptance is
+inferred. See `validation/M3-ACCEPTED-NAMESPACE-BARRIERS-2026-09-16.md`.
+
+Parent #73 latest `b4d78e8` hosted 35116981496 passed with inspected 82 Python/
+178 Core/258 Mac debug/release and independent/inert/signature/packaged checks.
+Source review is clean at base `fa6c247` / head `03992fd`; later edits are evidence
+only. No merge. This supersedes the earlier latest-head pending status.
+
 The new developer-only readback helper reuses native CUPS, with a verified local
 socket, controlled environment, cumulative 20-second/output bounds and immutable
 read-only request literals. It can inspect only absent experimental queue or

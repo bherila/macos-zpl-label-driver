@@ -7,13 +7,59 @@ import LabelCore
 @testable import LabelMac
 
 final class AcceptedJobStoreTests: XCTestCase {
+    private final class DirectorySyncRecorder: @unchecked Sendable {
+        private let lock = NSLock()
+        private var identities: [String] = []
+        let failingIdentity: String?
+        let afterFirstSync: (@Sendable () throws -> Void)?
+
+        init(failingIdentity: String? = nil, afterFirstSync: (@Sendable () throws -> Void)? = nil) {
+            self.failingIdentity = failingIdentity
+            self.afterFirstSync = afterFirstSync
+        }
+
+        var recorded: [String] {
+            lock.lock(); defer { lock.unlock() }
+            return identities
+        }
+
+        func sync(_ descriptor: Int32) -> Int32 {
+            var info = stat()
+            guard fstat(descriptor, &info) == 0 else { return -1 }
+            let identity = "\(info.st_dev):\(info.st_ino)"
+            lock.lock()
+            identities.append(identity)
+            let first = identities.count == 1
+            lock.unlock()
+            guard identity != failingIdentity, fsync(descriptor) == 0 else { return -1 }
+            do {
+                if first { try afterFirstSync?() }
+                return 0
+            } catch { return -1 }
+        }
+    }
+
+    private func directoryIdentity(_ url: URL) -> String {
+        var info = stat()
+        XCTAssertEqual(lstat(url.path, &info), 0)
+        return "\(info.st_dev):\(info.st_ino)"
+    }
+
     private final class ParentSyncGate: @unchecked Sendable {
         let entered = DispatchSemaphore(value: 0)
         let release = DispatchSemaphore(value: 0)
+        private let lock = NSLock()
+        private var didPause = false
 
         func sync(_ descriptor: Int32) -> Int32 {
-            entered.signal()
-            release.wait()
+            lock.lock()
+            let pause = !didPause
+            didPause = true
+            lock.unlock()
+            if pause {
+                entered.signal()
+                guard release.wait(timeout: .now() + 5) == .success else { return -1 }
+            }
             return fsync(descriptor)
         }
     }
@@ -470,6 +516,111 @@ final class AcceptedJobStoreTests: XCTestCase {
             acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
             workflowStore: value.workflows, printerStore: value.printers
         ), prepared)
+    }
+
+    func testAcceptanceRequiresBundleRootAndContainingDirectoryBarriers() throws {
+        let value = try fixture(acceptanceID: "complete-namespace-barriers")
+        let recorder = DirectorySyncRecorder()
+        let jobs = try AcceptedJobStore(root: value.root, syncParentDirectory: recorder.sync)
+        let expected = [directoryIdentity(value.root.appending(path: "accepted-jobs")),
+                        directoryIdentity(value.root),
+                        directoryIdentity(value.root.deletingLastPathComponent())]
+        try jobs.save(value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+                      workflowStore: value.workflows, printerStore: value.printers)
+        XCTAssertEqual(recorder.recorded, expected)
+        try jobs.save(value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+                      workflowStore: value.workflows, printerStore: value.printers)
+        XCTAssertEqual(recorder.recorded, expected + expected)
+    }
+
+    func testRootDotAliasesAreRejectedBeforeCreatingAcceptedNamespace() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appending(path: "AcceptedRootAlias-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700])
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let child = root.appending(path: "child")
+        try FileManager.default.createDirectory(at: child, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700])
+        for alias in [root.path + "/.", child.path + "/.."] {
+            XCTAssertThrowsError(try AcceptedJobStore(root: URL(fileURLWithPath: alias))) {
+                XCTAssertEqual($0 as? AcceptedJobStore.Error, .unsafeStoreDirectory)
+            }
+        }
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), ["child"])
+    }
+
+    func testRootAndContainingSyncFailureRemainUncertainOnIdenticalRetries() throws {
+        for failRoot in [true, false] {
+            let value = try fixture(acceptanceID: "namespace-sync-\(failRoot)")
+            let failing = DirectorySyncRecorder(failingIdentity: directoryIdentity(
+                failRoot ? value.root : value.root.deletingLastPathComponent()))
+            let jobs = try AcceptedJobStore(root: value.root, syncParentDirectory: failing.sync)
+            for _ in 0..<2 {
+                XCTAssertThrowsError(try jobs.save(value.ticket, sourcePDF: value.sourcePDF,
+                    queueStore: value.queues, workflowStore: value.workflows,
+                    printerStore: value.printers)) {
+                    XCTAssertEqual($0 as? AcceptedJobStore.Error, .commitUncertain)
+                }
+            }
+            XCTAssertEqual(try jobs.load(acceptanceID: value.ticket.acceptanceID,
+                queueStore: value.queues, workflowStore: value.workflows,
+                printerStore: value.printers).sourcePDF, value.sourcePDF)
+            let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
+            let accepted = try states.load(acceptanceID: value.ticket.acceptanceID,
+                queueStore: value.queues, workflowStore: value.workflows, printerStore: value.printers)
+            let prepared = try states.publishPrepared(acceptanceID: value.ticket.acceptanceID,
+                expected: accepted, payload: preparedPayload(value), queueStore: value.queues,
+                workflowStore: value.workflows, printerStore: value.printers)
+            XCTAssertThrowsError(try jobs.save(value.ticket, sourcePDF: value.sourcePDF,
+                queueStore: value.queues, workflowStore: value.workflows, printerStore: value.printers)) {
+                XCTAssertEqual($0 as? AcceptedJobStore.Error, .commitUncertain)
+            }
+            try value.jobs.save(value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+                                workflowStore: value.workflows, printerStore: value.printers)
+            XCTAssertEqual(try states.load(acceptanceID: value.ticket.acceptanceID,
+                queueStore: value.queues, workflowStore: value.workflows,
+                printerStore: value.printers), prepared)
+        }
+    }
+
+    func testRootReplacementAfterPublicationCannotAcknowledgeDetachedBundle() throws {
+        try assertRootReplacementIsUncertain(duringBarrier: false)
+    }
+
+    func testRootReplacementDuringBarrierCannotAcknowledgeDetachedBundle() throws {
+        try assertRootReplacementIsUncertain(duringBarrier: true)
+    }
+
+    private func assertRootReplacementIsUncertain(duringBarrier: Bool) throws {
+        let value = try fixture(acceptanceID: "detached-accepted-root")
+        let root = value.root
+        let displaced = root.appendingPathExtension("displaced")
+        addTeardownBlock { try? FileManager.default.removeItem(at: displaced) }
+        let replace: @Sendable () throws -> Void = {
+            try FileManager.default.moveItem(at: root, to: displaced)
+            try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false,
+                attributes: [.posixPermissions: 0o700])
+        }
+        let recorder = DirectorySyncRecorder(afterFirstSync: duringBarrier ? replace : nil)
+        let jobs = try AcceptedJobStore(root: root, syncParentDirectory: recorder.sync,
+            injectFault: { point in
+                if !duringBarrier, point == .afterRename { try replace() }
+            })
+        defer {
+            // Only this test's newly created empty replacement and displaced fixture.
+            try? FileManager.default.removeItem(at: root)
+            try? FileManager.default.moveItem(at: displaced, to: root)
+        }
+        XCTAssertThrowsError(try jobs.save(value.ticket, sourcePDF: value.sourcePDF,
+            queueStore: value.queues, workflowStore: value.workflows, printerStore: value.printers)) {
+            XCTAssertEqual($0 as? AcceptedJobStore.Error, .commitUncertain)
+        }
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: root.path), [])
+        let preserved = displaced.appending(path: "accepted-jobs")
+            .appending(path: AcceptedJobStore.directoryName(value.ticket.acceptanceID))
+            .appending(path: "source.pdf")
+        XCTAssertEqual(try Data(contentsOf: preserved), value.sourcePDF)
     }
 
     func testParentSyncFailureIsUncertainUntilAnIdenticalRetryConfirmsIt() throws {

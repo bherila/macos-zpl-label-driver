@@ -89,6 +89,10 @@ public struct AcceptedJobStore: @unchecked Sendable {
         syncParentDirectory: @escaping @Sendable (Int32) -> Int32,
         injectFault: @escaping @Sendable (FaultPoint) throws -> Void = { _ in }
     ) throws {
+        // A root must name a directory entry: dot aliases can make the
+        // computed containing-directory barrier synchronize the root itself.
+        let rootName = root.lastPathComponent
+        guard rootName != ".", rootName != ".." else { throw Error.unsafeStoreDirectory }
         self.root = root
         self.syncParentDirectory = syncParentDirectory
         self.injectFault = injectFault
@@ -183,9 +187,7 @@ public struct AcceptedJobStore: @unchecked Sendable {
                       existing.state.acceptedTicketSHA256 == ticketDigest else {
                     throw Error.jobConflict
                 }
-                guard syncParentDirectory(directory) == 0 else {
-                    throw Error.commitUncertain
-                }
+                try confirmNamespaceDurability(directory: directory)
                 return
             }
             removeTemporary = false
@@ -193,8 +195,46 @@ public struct AcceptedJobStore: @unchecked Sendable {
             catch { throw Error.commitUncertain }
             // The rename is visible. Failure to confirm parent durability is
             // not safely distinguishable from a committed publication.
-            guard syncParentDirectory(directory) == 0 else { throw Error.commitUncertain }
+            try confirmNamespaceDurability(directory: directory)
         }
+    }
+
+    /// A visible bundle is not an acknowledged acceptance until its complete
+    /// store namespace has passed the configured directory barriers. Callers
+    /// provision stable existing ancestry above the containing directory.
+    private func confirmNamespaceDurability(directory: Int32) throws {
+        let name = root.lastPathComponent
+        let parentURL = root.deletingLastPathComponent()
+        guard !name.isEmpty, parentURL.path != root.path else { throw Error.commitUncertain }
+        let flags = O_RDONLY | O_DIRECTORY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC
+        let storeRoot = open(root.path, flags)
+        guard storeRoot >= 0 else { throw Error.commitUncertain }
+        defer { close(storeRoot) }
+        do { try Self.validateDirectory(storeRoot) }
+        catch { throw Error.commitUncertain }
+        let parent = open(parentURL.path, flags)
+        guard parent >= 0 else { throw Error.commitUncertain }
+        defer { close(parent) }
+
+        guard Self.matchesDirectory(directory, parent: storeRoot, name: directoryName),
+              Self.matchesDirectory(storeRoot, parent: parent, name: name) else {
+            throw Error.commitUncertain
+        }
+        guard syncParentDirectory(directory) == 0,
+              syncParentDirectory(storeRoot) == 0,
+              syncParentDirectory(parent) == 0,
+              Self.matchesDirectory(directory, parent: storeRoot, name: directoryName),
+              Self.matchesDirectory(storeRoot, parent: parent, name: name) else {
+            throw Error.commitUncertain
+        }
+    }
+
+    private static func matchesDirectory(_ descriptor: Int32, parent: Int32, name: String) -> Bool {
+        var opened = stat(), named = stat()
+        return fstat(descriptor, &opened) == 0
+            && fstatat(parent, name, &named, AT_SYMLINK_NOFOLLOW) == 0
+            && (named.st_mode & S_IFMT) == S_IFDIR
+            && opened.st_dev == named.st_dev && opened.st_ino == named.st_ino
     }
 
     public func load(

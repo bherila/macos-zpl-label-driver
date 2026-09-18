@@ -339,3 +339,14 @@ runtime behavior; they do not establish held-job or privileged acceptance.
 The helper requests only fixed-queue standard metadata and never mutates jobs.
 System-provided CUPS is reused, not redistributed; no new third-party
 implementation/server/dependency is bundled.
+
+<a id="r41"></a>
+## R41 — Native filesystem synchronization contract
+
+[Apple fsync manual](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/fsync.2.html)
+documents success/error acknowledgement and distinguishes host flushing from
+stronger device flushing. This archived public documentation is provenance,
+not a claim that ordinary fsync universally survives power loss. Native tests
+exercise real directory descriptors/barriers and separately injected failure;
+they do not simulate an APFS power failure. Stable provisioned ancestry and
+filesystem-specific installation/crash qualification remain explicit contracts.
