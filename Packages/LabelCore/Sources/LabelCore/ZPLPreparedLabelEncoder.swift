@@ -7,9 +7,58 @@ public struct PreparedLabel: Equatable, Sendable {
     public let bytes: Data
     public let profileSnapshot: JobProfileSnapshot
 
-    public init(bytes: Data, profileSnapshot: JobProfileSnapshot) {
+    init(bytes: Data, profileSnapshot: JobProfileSnapshot) {
         self.bytes = bytes
         self.profileSnapshot = profileSnapshot
+    }
+}
+
+/// Complete ordered printer-language bytes for one accepted job. Construction
+/// requires exactly one typed encoder result per resolved output label, keeps
+/// every label on the same immutable profile snapshot, and preflights the total
+/// byte budget before concatenation.
+public struct PreparedJobPayload: Equatable, Sendable {
+    public enum Error: Swift.Error, Equatable, Sendable {
+        case invalidLabelCount
+        case emptyLabel
+        case profileMismatch
+        case outputLimit
+    }
+
+    public static let maximumLabels = 10_000
+    public static let maximumBytes = 64 * 1024 * 1024
+
+    public let bytes: Data
+    public let labelCount: Int
+    public let profileSnapshot: JobProfileSnapshot
+
+    public init(
+        labels: [PreparedLabel],
+        expectedLabelCount: Int,
+        maximumBytes: Int = maximumBytes
+    ) throws {
+        guard (1...Self.maximumLabels).contains(expectedLabelCount),
+              labels.count == expectedLabelCount else {
+            throw Error.invalidLabelCount
+        }
+        guard (1...Self.maximumBytes).contains(maximumBytes),
+              let profile = labels.first?.profileSnapshot else {
+            throw Error.outputLimit
+        }
+        var total = 0
+        for label in labels {
+            guard !label.bytes.isEmpty else { throw Error.emptyLabel }
+            guard label.profileSnapshot == profile else { throw Error.profileMismatch }
+            let (next, overflow) = total.addingReportingOverflow(label.bytes.count)
+            guard !overflow, next <= maximumBytes else { throw Error.outputLimit }
+            total = next
+        }
+        var bytes = Data()
+        bytes.reserveCapacity(total)
+        for label in labels { bytes.append(label.bytes) }
+        self.bytes = bytes
+        labelCount = labels.count
+        profileSnapshot = profile
     }
 }
 

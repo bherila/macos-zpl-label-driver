@@ -107,7 +107,8 @@
         "docs/validation/M3-ACCEPTED-JOB-STORE-2026-09-15.md (8bd8c32 private immutable canonical accepted-job persistence with exact reference re-resolution and conflict/tamper rejection; additional partial M3-AC12 evidence only)",
         "docs/validation/M3-ACCEPTED-JOB-BUNDLE-2026-09-15.md (e2b6332 atomic private ticket/original-PDF publication with source binding, fault injection, uncertain-commit recovery, and link/tamper rejection; additional partial M3-AC12 evidence only)",
         "docs/validation/M3-JOB-STATE-CONTRACT-2026-09-15.md (ac6a178 bounded canonical lifecycle, payload binding, monotonic progress, terminal uncertainty, and prior-state digest chain; additional partial M3-AC09/12 evidence only)",
-        "docs/validation/M3-JOB-STATE-STORE-2026-09-15.md (fc2c8de atomic initial accepted state, private cross-process CAS persistence, constant-time capability cancellation, and explicit uncertain commit recovery; additional partial M3-AC09/12 evidence only)"
+        "docs/validation/M3-JOB-STATE-STORE-2026-09-15.md (fc2c8de atomic initial accepted state, private cross-process CAS persistence, constant-time capability cancellation, and explicit uncertain commit recovery; additional partial M3-AC09/12 evidence only)",
+        "docs/validation/M3-PREPARED-JOB-PAYLOAD-2026-09-15.md (acf11ab exact-count ordered full-job bytes, one immutable profile snapshot, aggregate bounds, and typed encoder-only label construction; additional partial M3-AC02/09 evidence only)"
       ],
       "blockers": []
     },
@@ -155,7 +156,8 @@
         "docs/validation/M3-ACCEPTED-JOB-STORE-2026-09-15.md (8bd8c32 private immutable canonical accepted-job persistence survives active-revision changes; additional partial M5-AC05/07 evidence only)",
         "docs/validation/M3-ACCEPTED-JOB-BUNDLE-2026-09-15.md (e2b6332 atomic private ticket/original-PDF publication retains exact source and immutable revisions across active changes; additional partial M5-AC05/07 evidence only)",
         "docs/validation/M3-JOB-STATE-CONTRACT-2026-09-15.md (ac6a178 bounded canonical lifecycle and prior-state digest chain; additional partial M5-AC07 evidence only)",
-        "docs/validation/M3-JOB-STATE-STORE-2026-09-15.md (fc2c8de private cross-process lifecycle CAS and non-persisted capability cancellation; additional partial M5-AC07/09 evidence only)"
+        "docs/validation/M3-JOB-STATE-STORE-2026-09-15.md (fc2c8de private cross-process lifecycle CAS and non-persisted capability cancellation; additional partial M5-AC07/09 evidence only)",
+        "docs/validation/M3-PREPARED-JOB-PAYLOAD-2026-09-15.md (acf11ab exact-count ordered full-job payload contract for future lifecycle binding; additional partial M5-AC07 evidence only)"
       ],
       "blockers": []
     },
