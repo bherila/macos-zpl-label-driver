@@ -1,3 +1,44 @@
+# Bounded raw TCP host admission — 2026-09-18
+
+Source `90166cb454e4d4c4d96535e597842ac301224e9d` on `claude/determined-sagan-frse18`, over `main` `2b6131f`.
+
+The last non-GUI work from checkpoint `eb71a41`. It was deliberately kept out of `666c04d`, because
+it is a security fix unrelated to the finishing subsystem that slice landed, and bundling it there
+would have buried it.
+
+`RawTCPEndpoint` bounded its host by grapheme count, which does not bound memory: a single cluster
+may carry arbitrarily many combining marks, so a 253-grapheme host can hold far more than 253 bytes.
+The budget now counts UTF-8 bytes, and takes a 254-byte prefix before counting so an oversized input
+is rejected without measuring all of it.
+
+Host admission also rejects the URI delimiters `/ @ ? #` and backslash. The field is a bare host, and
+accepting user-info, path, query or fragment syntax there invites a host that reads as one
+destination and resolves as another. Bare forms including IPv6 literals such as `::1` continue to be
+accepted, and every host used anywhere in this repository was checked against the new rule before
+porting it: none is affected.
+
+The tests exercise both bounds directly rather than by proxy — a single multi-byte cluster that
+exceeds the byte budget while counting as one character, 253 ASCII bytes passing where 254 fail, each
+rejected delimiter throwing `invalidHost` while bare hosts round-trip, and the endpoint's reflected
+description not containing the host. They also cover late callbacks being unable to revive a settled
+send or complete twice.
+
+Changed requirements: M1 printing-integration and M3 printer-controls gain bounded network endpoint
+admission. Neither milestone is declared complete.
+
+Tests actually run. Linux x86_64 Swift 6.1.2: LabelCore 311 tests, 0 failures — unchanged, because no
+LabelCore file is touched. `check_repo.py` and 105 Python tests pass. Both changed files parse and
+the `RepoType.member` check passes.
+
+What Linux did not and cannot establish. Both files are LabelMac, which does not build on Linux, so
+hosted macos-26 CI is the only gate that compiles or runs them. **No delivery is exercised against a
+real printer by any of this**; the tests bind loopback only. Installed, scheduler and hardware rows
+remain NOT RUN.
+
+Blockers: what remains of `eb71a41` is GUI only — `FinishingInspectionView`, `WorkflowEditor`,
+`WorkflowEditorBootstrap`, `WorkflowDocumentOpeningModel`, `USBRegistryDiscoveryView` and their
+tests, for #80 Part B, which hosted CI cannot qualify. Issues #93 gap 2 and #97 remain open.
+
 # Bounded legacy status fields and consolidated geometry admission — 2026-09-18
 
 Source `61c0a8667673a0dd9ceb801571846b90847a75f3` on `claude/determined-sagan-frse18`, over `main` `666c04d`.
