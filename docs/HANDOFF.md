@@ -1,3 +1,13 @@
+# Swift CI cache — hosted evidence 2026-09-18
+
+PR #84 squash `654fd304f7f80f0bf94296f2dd731b50d665f8c1` passed hosted
+PR/main gates and seeded a 369 MB compressed cache. Main alone saves; PRs
+restore and still run every required check. Three-day retention and 10 GB cap
+are verified. Unchanged #61 source native gate improved from 6m10s to 5m01s;
+whole Mac job 6m20s to 5m25s including restore. Queue time is separate. See
+[exact cache evidence](validation/M0-SWIFT-CACHE-2026-09-17.md). No printer,
+installation, scheduler, GUI or release acceptance is inferred.
+
 # Inert finishing lease source checkpoint — 2026-09-17
 
 Implementation 3a5b79a6d543c749fb6998379af594c70582d84f passed local89/272/324 full gate.
