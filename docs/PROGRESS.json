@@ -166,7 +166,8 @@
         "docs/validation/M4-ISOLATED-DOCUMENT-OPENING-2026-09-16.md (18 focused and full local 67/166/178 debug/release gate passed; publication deferred pending PR50 parent-death supervision fix; bounded request-owned opening preserves prior drafts; GUI/policy unverified)",
         "docs/validation/M4-ISOLATED-DOCUMENT-OPENING-2026-09-16.md (18 focused tests; combined 26ee086 with lifetime fix passes full local 67/166/183 debug/release gate and packaged signatures/equality; publication held pending PR50 re-review/hosted CI; finite GUI checklist prepared but unrun)",
         "docs/validation/M4-ISOLATED-DOCUMENT-OPENING-2026-09-16.md (18 focused tests; final combined bf9d21c includes both PR50 corrections and passes full local 67/166/184 debug/release gate, independent checks and packaged signatures/equality; publication held on live PR50 exact-head CI; GUI NOT RUN after runtime failure)",
-        "docs/validation/M4-WORKER-LIFETIME-2026-09-16.md (PR #50 review remediation; child-owned finite deadline/parent-loss supervision and conservative nonce/inode/lock-bound scratch recovery; five focused tests and full local 67/166/177 debug/release gate passed; hosted CI and second review pending)"
+        "docs/validation/M4-WORKER-LIFETIME-2026-09-16.md (PR #50 review remediation; child-owned finite deadline/parent-loss supervision and conservative nonce/inode/lock-bound scratch recovery; five focused tests and full local 67/166/177 debug/release gate passed; hosted CI and second review pending)",
+        "docs/validation/M4-MANUAL-DOCUMENT-INTAKE-2026-09-16.md (explicit unqualified manual path and exact decimal identity; first-review distinct-ID correction passes 12 bootstrap tests and full local 67/167/188 debug/release gate; pre-fix hosted 35081197221 passed; correction hosted/second review pending)"
       ],
       "blockers": []
     },

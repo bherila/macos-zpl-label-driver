@@ -8,6 +8,75 @@ import LabelCore
 final class WorkflowEditorBootstrapTests: XCTestCase {
     private enum TestError: Error { case unavailable }
 
+    func testDistinctManualWorkflowsCanBeSavedInTheSameImmutableStore() async throws {
+        let profileStore = try store()
+        let first = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: fixture("letter-one"),
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let second = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: fixture("a4-one"),
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        XCTAssertNotEqual(first.profile.id, second.profile.id)
+        XCTAssertEqual(first.profile.revision, 1)
+        XCTAssertEqual(second.profile.revision, 1)
+        try first.setSelectedRegionMillimeters(left: 20, top: 20, width: 101.6, height: 152.4)
+        try second.setSelectedRegionMillimeters(left: 10, top: 30, width: 101.6, height: 152.4)
+        try first.save()
+        try first.save() // Identical save remains idempotent.
+        try second.save()
+        XCTAssertEqual(try profileStore.load(profileID: first.profile.id, revision: 1), first.profile)
+        XCTAssertEqual(try profileStore.load(profileID: second.profile.id, revision: 1), second.profile)
+        XCTAssertThrowsError(try first.approveForUnattendedUse())
+        XCTAssertThrowsError(try second.approveForUnattendedUse())
+    }
+
+    func testExplicitManualBorderlessLetterRemainsUnqualifiedAndRendersOriginal() async throws {
+        let source = try borderlessNativePDF(width: 612, height: 792)
+        let profileStore = try store()
+        do {
+            _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+                store: profileStore, workerExecutable: worker(), deadlineSeconds: 5)
+            XCTFail("assisted opening guessed a borderless crop")
+        } catch {
+            XCTAssertEqual(error as? WorkflowEditorBootstrap.Error, .noBorderCandidate(page: 1))
+        }
+        let manual = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        XCTAssertTrue(manual.isManualDraft)
+        XCTAssertFalse(manual.isSaved)
+        XCTAssertEqual(manual.regions.first?.normalizedRect,
+            try NormalizedRect(x: 0, y: 0, width: 1, height: 1))
+        XCTAssertEqual(manual.profile.outputStock.width.value, 101.6, accuracy: 0.001)
+        XCTAssertEqual(manual.profile.pageRules[0].expectedInput.uprightPhysicalSize.width.value, 215.9, accuracy: 0.001)
+        XCTAssertTrue(manual.profile.pageRules.allSatisfy { $0.structuralAnchors.isEmpty })
+        try manual.setSelectedRegionMillimeters(left: 20, top: 20, width: 101.6, height: 152.4)
+        await manual.refreshPreviewInWorker(workerExecutable: try worker())
+        let preview = try XCTUnwrap(manual.preview)
+        XCTAssertEqual(preview.previewPBM, preview.bitmap.pbmData())
+        try manual.save()
+        let reloaded = try profileStore.load(profileID: manual.profile.id, revision: manual.profile.revision)
+        XCTAssertEqual(reloaded, manual.profile, "Edited profile must survive exact persistence round trip")
+        XCTAssertThrowsError(try manual.approveForUnattendedUse()) {
+            XCTAssertEqual($0 as? UnattendedWorkflowQualification.Error, .missingStructuralChecks(page: 1),
+                           "Unexpected qualification rejection: \($0)")
+        }
+        XCTAssertNil(try? profileStore.qualification(for: manual.profile))
+    }
+
+    func testManualAmbiguousAndMixedPagesNeverGuessOrDiscard() async throws {
+        for name in ["ambiguous-region", "mixed-pages", "non-label-pages"] {
+            let source = try fixture(name)
+            let manual = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+                store: store(), workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+            let count = try QuartzPDFRenderer.documentPageBoxes(originalPDF: source).count
+            XCTAssertEqual(manual.profile.pageRules.map(\.sourcePage), Array(1...count))
+            XCTAssertEqual(manual.regions.count, count)
+            XCTAssertTrue(manual.profile.pageRules.allSatisfy { $0.structuralAnchors.isEmpty })
+            XCTAssertTrue(manual.regions.allSatisfy {
+                $0.normalizedRect.x == 0 && $0.normalizedRect.y == 0 &&
+                $0.normalizedRect.width == 1 && $0.normalizedRect.height == 1
+            })
+        }
+    }
+
     private func worker() throws -> URL {
         var root = URL(fileURLWithPath: #filePath)
         for _ in 0..<5 { root.deleteLastPathComponent() }
@@ -75,12 +144,12 @@ final class WorkflowEditorBootstrapTests: XCTestCase {
         return try WorkflowProfileStore(root: root)
     }
 
-    private func borderlessNativePDF() throws -> Data {
+    private func borderlessNativePDF(width: Double = 288, height: Double = 432) throws -> Data {
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data as CFMutableData) else {
             throw TestError.unavailable
         }
-        var box = CGRect(x: 0, y: 0, width: 288, height: 432)
+        var box = CGRect(x: 0, y: 0, width: width, height: height)
         guard let context = CGContext(consumer: consumer, mediaBox: &box, nil) else {
             throw TestError.unavailable
         }

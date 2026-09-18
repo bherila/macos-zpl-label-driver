@@ -1,6 +1,12 @@
 import Foundation
 import LabelCore
 
+public enum WorkflowOpeningMode: Equatable, Sendable {
+    case assisted
+    /// Explicit user-selected editing, never an automatic failed-match fallback.
+    case manual
+}
+
 @MainActor
 public enum WorkflowEditorBootstrap {
     public enum Error: Swift.Error, Equatable, Sendable {
@@ -36,7 +42,8 @@ public enum WorkflowEditorBootstrap {
     public static func makeModelUsingWorker(
         originalPDF: Data, store: WorkflowProfileStore, workerExecutable: URL,
         maximumPages: Int = 32, deadlineSeconds: Double = 60,
-        cancellation: OfflineRenderWorkerCancellation = .init()
+        cancellation: OfflineRenderWorkerCancellation = .init(),
+        mode: WorkflowOpeningMode = .assisted
     ) async throws -> WorkflowEditorModel {
         guard (1...32).contains(maximumPages) else { throw QuartzStructuralAnalyzer.Error.invalidLimits }
         guard deadlineSeconds.isFinite, deadlineSeconds > 0, deadlineSeconds <= 60 else {
@@ -50,7 +57,7 @@ public enum WorkflowEditorBootstrap {
                 guard remaining > 0 else { throw OfflineRenderWorkerProcess.Error.timedOut }
                 return try OfflineLayoutWorker.analyze(originalPDF: originalPDF, structuralPages: [],
                     workerExecutable: workerExecutable, maximumSourcePages: maximumPages,
-                    analyzeAllPages: true, deadlineSeconds: min(remaining, 60), cancellation: cancellation)
+                    analyzeAllPages: mode == .assisted, deadlineSeconds: min(remaining, 60), cancellation: cancellation)
             }.value
         } onCancel: {
             cancellation.cancel()
@@ -58,19 +65,33 @@ public enum WorkflowEditorBootstrap {
         try Task.checkCancellation()
         guard !cancellation.isCancelled else { throw OfflineRenderWorkerProcess.Error.cancelled }
         let model = try makeModel(originalPDF: originalPDF, store: store,
-                                  analyzedPages: analyzed, maximumPages: maximumPages)
+                                  analyzedPages: analyzed, maximumPages: maximumPages, mode: mode)
         guard ContinuousClock.now < deadline else { throw OfflineRenderWorkerProcess.Error.timedOut }
         return model
     }
 
     private static func makeModel(originalPDF: Data, store: WorkflowProfileStore,
                                   analyzedPages analyzed: [AnalyzedSourcePage],
-                                  maximumPages: Int) throws -> WorkflowEditorModel {
+                                  maximumPages: Int, mode: WorkflowOpeningMode = .assisted) throws -> WorkflowEditorModel {
         guard !analyzed.isEmpty, analyzed.count <= maximumPages else {
             throw QuartzStructuralAnalyzer.Error.invalidLimits
         }
         let boxes = analyzed.map(\.pageBox)
         let references = try ReferenceWorkflowDefinition.gc420dInitialSet()
+        if mode == .manual {
+            guard let reference = references.first else { throw Error.mixedReferenceGeometry }
+            let rules = try analyzed.enumerated().map { index, page in
+                try WorkflowPageRule(sourcePage: index + 1,
+                    expectedInput: ExpectedInputPage(uprightPhysicalSize: page.pageBox.effectivePhysicalSize()),
+                    disposition: .extract([try ExtractionRegion(
+                        id: String(format: "page-%03d-label", index + 1),
+                        normalizedRect: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+                        outputOrder: index)]))
+            }
+            return try editorModel(originalPDF: originalPDF, store: store, analyzed: analyzed,
+                reference: reference, rules: rules,
+                id: "manual-to-4x6-\(UUID().uuidString.lowercased())", manual: true)
+        }
         let matches = try boxes.enumerated().map { index, box -> ReferenceWorkflowDefinition in
             let size = try box.effectivePhysicalSize()
             guard let match = references.first(where: {
@@ -132,8 +153,15 @@ public enum WorkflowEditorBootstrap {
                 )]
             )
         }
+        return try editorModel(originalPDF: originalPDF, store: store, analyzed: analyzed,
+            reference: reference, rules: rules, id: "\(reference.id)-local", manual: false)
+    }
+
+    private static func editorModel(originalPDF: Data, store: WorkflowProfileStore,
+        analyzed: [AnalyzedSourcePage], reference: ReferenceWorkflowDefinition,
+        rules: [WorkflowPageRule], id: String, manual: Bool) throws -> WorkflowEditorModel {
         let profile = try WorkflowProfile(
-            id: "\(reference.id)-local",
+            id: id,
             revision: 1,
             outputStockID: reference.outputStockID,
             outputStock: reference.outputStock,
@@ -149,7 +177,8 @@ public enum WorkflowEditorBootstrap {
             originalPDF: originalPDF,
             analyzedPages: analyzed,
             canvas: canvas,
-            store: store
+            store: store,
+            isManualDraft: manual
         )
     }
 }

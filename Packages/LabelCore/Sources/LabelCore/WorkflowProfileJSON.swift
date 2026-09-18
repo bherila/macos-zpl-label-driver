@@ -311,10 +311,17 @@ public enum WorkflowProfileJSON {
 
     private static func number(_ object: [String: Any], _ key: String) throws -> Double {
         guard let value = try required(object, key) as? NSNumber,
-              CFGetTypeID(value) != CFBooleanGetTypeID(), value.doubleValue.isFinite else {
+              CFGetTypeID(value) != CFBooleanGetTypeID() else {
             throw WorkflowProfileJSONError.invalidType(key)
         }
-        return value.doubleValue
+        // Foundation may retain a JSON decimal as NSDecimalNumber. Its
+        // doubleValue conversion can differ by one ULP from correctly rounded
+        // parsing, breaking exact immutable profile identity after reload.
+        // Ordinary binary NSNumber already holds the correct bits; stringValue
+        // can shorten those, so only convert retained decimal numbers this way.
+        let parsed = value is NSDecimalNumber ? (Double(value.stringValue) ?? .nan) : value.doubleValue
+        guard parsed.isFinite else { throw WorkflowProfileJSONError.invalidType(key) }
+        return parsed
     }
 
     private static func integer(_ object: [String: Any], _ key: String) throws -> Int {

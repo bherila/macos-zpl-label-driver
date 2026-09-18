@@ -4,6 +4,19 @@ import XCTest
 
 @MainActor
 final class WorkflowDocumentOpeningModelTests: XCTestCase {
+    func testManualOpeningIsAnExplicitChoiceNotFailureFallback() async throws {
+        let model = WorkflowDocumentOpeningModel(store: try store(), workerExecutable: try worker())
+        model.open(fixture("ambiguous-region"))
+        await model.currentOpeningTask?.value
+        XCTAssertNil(model.editor)
+        XCTAssertNotNil(model.error)
+        model.open(fixture("ambiguous-region"), mode: .manual)
+        await model.currentOpeningTask?.value
+        XCTAssertTrue(try XCTUnwrap(model.editor).isManualDraft)
+        XCTAssertNil(model.error)
+        XCTAssertFalse(model.isOpening)
+    }
+
     private var root: URL {
         var url = URL(fileURLWithPath: #filePath)
         for _ in 0..<5 { url.deleteLastPathComponent() }

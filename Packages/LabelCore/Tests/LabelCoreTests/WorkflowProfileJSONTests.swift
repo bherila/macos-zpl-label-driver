@@ -3,6 +3,25 @@ import XCTest
 @testable import LabelCore
 
 final class WorkflowProfileJSONTests: XCTestCase {
+    func testEditedFractionalCoordinatesPreserveExactIdentityAcrossReload() throws {
+        let original = try profile()
+        let fraction = 20.0 / (612.0 * 25.4 / 72.0)
+        for x in [fraction, fraction.nextUp, fraction.nextDown, 0.0000000001, 0.49999999999999994] {
+            let edited = try WorkflowProfile(id: original.id, revision: original.revision,
+                outputStockID: original.outputStockID, outputStock: original.outputStock,
+                monochromeConversion: original.monochromeConversion,
+                pageRules: [try WorkflowPageRule(sourcePage: 1,
+                    expectedInput: original.pageRules[0].expectedInput,
+                    disposition: .extract([try ExtractionRegion(id: "edited-label",
+                        normalizedRect: NormalizedRect(x: x, y: 0.1, width: 0.2, height: 0.2),
+                        outputOrder: 0)]))])
+            let bytes = try WorkflowProfileJSON.encode(edited)
+            let loaded = try WorkflowProfileJSON.decode(bytes)
+            XCTAssertEqual(loaded, edited)
+            XCTAssertEqual(try WorkflowProfileJSON.encode(loaded), bytes)
+        }
+    }
+
     private func profile() throws -> WorkflowProfile {
         let letter = PhysicalSize(
             width: try Millimeters.inches(8.5), height: try Millimeters.inches(11)

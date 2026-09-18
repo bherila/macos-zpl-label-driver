@@ -1606,6 +1606,34 @@ findings are addressed and resolved. Its exact-head hosted run `35080048258`
 remains live, so the opening slice remains unpublished. GUI inspection is
 NOT RUN after the runtime startup failure; no installed acceptance follows.
 
+At implementation `f9db898`, explicit manual PDF opening requests
+bounded page geometry from the existing child, accounts for every page, and
+creates full-page editable starting regions without guessed crops or structural
+qualification. The default assisted path remains fail-closed. An edited-draft
+regression exposed and corrected retained-decimal conversion in the shared
+workflow codec, preserving exact identity instead of relaxing equality. Six
+codec and 15 opening/bootstrap tests pass; full local validation passes
+67/167/187 debug/release, all independent/ABI/inert checks, ad-hoc signatures
+and packaged-worker equality. Hosted/review for this slice remain pending.
+Details and unverified UI/source-selection gates are in
+`M4-MANUAL-DOCUMENT-INTAKE-2026-09-16.md`.
+
+Dependencies are verified: PR #50 run `35080048258` passed exact correction
+`5830f5b` with 67/166/178 debug/release and signatures/equality confirmed in logs.
+PR #51 first review completed cleanly at exact `ee36a34`; run `35080396474`
+passed that head with 67/166/184 debug/release and all independent/signing checks.
+No repeat review or merge follows. GUI and installed acceptance remain open.
+
+PR #52's first review identified fixed manual IDs preventing a second workflow
+save. The same-branch correction assigns distinct IDs to new manual drafts and
+preserves existing immutable records. Twelve focused bootstrap tests pass,
+including two edited Letter/A4 workflows in one store and idempotent resave.
+Full local validation passed 67/167/188 debug/release with all independent and
+signing checks. Second review and new exact-head hosted validation remain
+pending. Source-reference work is checkpointed locally
+at `f1adeeb`; its full gate passed 67/167/191 debug/release with all independent
+and signing checks, but publication waits for this dependency correction.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
