@@ -28,12 +28,23 @@ def verify(binary: Path) -> int:
     def run(argv, data=None):
         result = subprocess.run(argv, input=data, capture_output=True, env=env, timeout=15)
         assert marker.encode() not in result.stderr
+        if result.returncode != 0:
+            assert b"LABEL_CAPTURE_FILTER" not in result.stderr
         return result
 
     def report(result):
-        prefix = b"INFO: LABEL_CAPTURE_FILTER "
+        prefix = b"WARNING: LABEL_CAPTURE_FILTER "
         assert result.returncode == 0 and result.stderr.startswith(prefix), result
-        return json.loads(result.stderr[len(prefix):])
+        assert len(result.stderr) < 4096 and result.stderr.count(b"\n") == 1
+        record = json.loads(result.stderr[len(prefix):])
+        assert set(record) == {
+            "schemaVersion", "jobID", "auditReason", "mode", "bytesObserved",
+            "input", "copiesArgument", "knownOptions", "contentType",
+            "finalContentType", "payloadRetained", "physicalOutput",
+        }
+        assert record["schemaVersion"] == 2 and record["jobID"] == 1
+        assert record["auditReason"] == "discard-only-experiment-not-physical-printing"
+        return record
 
     data = b"%PDF-1.7\n" + marker.encode() + b"\n%%EOF\n"
     with tempfile.TemporaryDirectory(prefix="label-capture-filter-test-") as tmp:
@@ -50,12 +61,26 @@ def verify(binary: Path) -> int:
         result = run(args, data)
         assert result.stdout == data and report(result)["input"] == "stdin"
         tests += 1
+        # The exact finite administrator experiment's complete observation
+        # tokens must survive the real option parser and one safe warning.
+        experiment = args[:4] + ["1", "PageSize=4x6.Fullbleed ProbeSpeed=3 ProbeDarkness=15 ProbeWorkflow=Native ProbeRotation=90"]
+        result = run(experiment, data)
+        record = report(result)
+        assert result.stdout == data and record["copiesArgument"] == 1
+        assert record["contentType"] == "application/pdf"
+        assert record["finalContentType"] == "application/vnd.labelprobe"
+        assert record["knownOptions"] == {
+            "ProbeSpeed": "3", "ProbeDarkness": "15",
+            "ProbeWorkflow": "Native", "ProbeRotation": "90",
+        }
+        tests += 1
         link = Path(tmp) / "input-link.pdf"
         link.symlink_to(source)
         huge = Path(tmp) / "huge.pdf"
         with huge.open("wb") as handle:
             handle.truncate(64 * 1024 * 1024 + 1)
         for argv, incoming in [
+            ([args[0], "0", *args[2:]], data),
             (args[:5] + ["ProbeSpeed=99"], data),
             (args + [str(link)], None),
             (args + [str(huge)], None),
