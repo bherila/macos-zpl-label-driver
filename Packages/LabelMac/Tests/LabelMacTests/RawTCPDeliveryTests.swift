@@ -20,6 +20,36 @@ final class RawTCPDeliveryTests: XCTestCase {
         XCTAssertNotEqual(endpoint, try RawTCPEndpoint(host: endpoint.host, port: 19102))
     }
 
+    func testEndpointHostBudgetCountsUTF8BytesBeforeNetworkAdmission() throws {
+        let maximum = "e" + String(repeating: "\u{0301}", count: 126)
+        let oversized = maximum + "\u{0301}"
+        XCTAssertEqual(maximum.utf8.count, 253)
+        XCTAssertEqual(oversized.count, 1)
+        XCTAssertNoThrow(try RawTCPEndpoint(host: maximum, port: 19101))
+        XCTAssertThrowsError(try RawTCPEndpoint(host: oversized, port: 19101)) {
+            XCTAssertEqual($0 as? RawTCPEndpoint.ValidationError, .invalidHost)
+        }
+        XCTAssertNoThrow(try RawTCPEndpoint(host: String(repeating: "a", count: 253), port: 19101))
+        XCTAssertThrowsError(try RawTCPEndpoint(host: String(repeating: "a", count: 254), port: 19101))
+        XCTAssertNoThrow(try RawTCPEndpoint(host: "::1", port: 19101))
+    }
+
+    func testEndpointRejectsURLComponentsWhilePreservingBareHostForms() throws {
+        for host in ["tcp://synthetic.example.test", "synthetic-user@synthetic.example.test",
+                     "synthetic.example.test/path", "synthetic.example.test?option=value",
+                     "synthetic.example.test#fragment", "synthetic.example.test\\path"] {
+            XCTAssertThrowsError(try RawTCPEndpoint(host: host, port: 19101)) {
+                XCTAssertEqual($0 as? RawTCPEndpoint.ValidationError, .invalidHost)
+            }
+        }
+        for host in ["synthetic.example.test", "127.0.0.1", "::1", "fe80::1%en0"] {
+            let endpoint = try RawTCPEndpoint(host: host, port: 19101)
+            XCTAssertEqual(endpoint.host, host)
+            XCTAssertEqual(endpoint.port, 19101)
+            XCTAssertFalse(String(reflecting: endpoint).contains(host))
+        }
+    }
+
     private func completeJob() throws -> PreparedJobPayload {
         let profile = try PrinterProfile.gc420dUSBReference(revision: 29)
         let encoder = try ZPLPreparedLabelEncoder()
@@ -308,6 +338,65 @@ final class RawTCPDeliveryTests: XCTestCase {
         releaseSend.signal()
         await fulfillment(of: [settled], timeout: 1)
         XCTAssertEqual(result.value, .cancelledAfterSendAttempt)
+    }
+
+    func testLateCallbacksCannotReviveSettledSendOrCompleteTwice() async throws {
+        for outcome in [RawTCPAttemptResult.timedOutAfterSendAttempt,
+                        .cancelledAfterSendAttempt, .sendFailedAfterAttempt] {
+            let admitted = expectation(description: "send admitted")
+            let settled = expectation(description: "first terminal result")
+            let drained = expectation(description: "late callback queue drained")
+            let observedAfterDrain = LockedBox<RawTCPAttemptResult?>(nil)
+            let callback = LockedBox<(@Sendable (Bool) -> Void)?>(nil)
+            let completions = LockedBox(0)
+            let sends = LockedBox(0)
+            let cancellations = LockedBox(0)
+            let result = LockedBox<RawTCPAttemptResult?>(nil)
+            let machine = RawTCPAttemptStateMachine(
+                startTransport: {},
+                send: { completion in
+                    sends.value += 1
+                    callback.value = completion
+                    admitted.fulfill()
+                },
+                cancelTransport: { cancellations.value += 1 })
+            machine.setCompletion { value in
+                completions.value += 1
+                if completions.value == 1 {
+                    result.value = value
+                    settled.fulfill()
+                }
+            }
+            machine.start()
+            machine.ready()
+            await fulfillment(of: [admitted], timeout: 1)
+            switch outcome {
+            case .timedOutAfterSendAttempt: machine.timedOut()
+            case .cancelledAfterSendAttempt: machine.cancelled()
+            default: machine.connectionEnded()
+            }
+            await fulfillment(of: [settled], timeout: 1)
+            let lateCompletion = try XCTUnwrap(callback.value)
+            lateCompletion(true)
+            lateCompletion(false)
+            machine.connectionEnded()
+            machine.ready()
+            machine.timedOut()
+            machine.cancelled()
+            machine.start()
+            // Registration is serialized after all late events. It observes
+            // the stored result and proves those events have been processed.
+            machine.setCompletion { value in
+                observedAfterDrain.value = value
+                drained.fulfill()
+            }
+            await fulfillment(of: [drained], timeout: 1)
+            XCTAssertEqual(observedAfterDrain.value, outcome)
+            XCTAssertEqual(result.value, outcome)
+            XCTAssertEqual(completions.value, 1)
+            XCTAssertEqual(cancellations.value, 1)
+            XCTAssertEqual(sends.value, 1)
+        }
     }
 
     func testCancellationBeforeReadyDoesNotInvokeSend() async {
