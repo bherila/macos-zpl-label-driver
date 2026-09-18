@@ -1,3 +1,48 @@
+# Control protocol coverage and bounded width declarations — 2026-09-18
+
+Source `4237e45ba2e9a83bf74466aab94940f71b092e4f` on `claude/determined-sagan-frse18`, over `main`
+`6d5f86b`.
+
+Three related pieces from checkpoint `eb71a41`, all LabelCore and therefore verifiable on Linux
+rather than resting on hosted CI. `ZPLControlProtocolCoverage` records, per documented control, the
+implemented range and the model limits still requiring separate qualification. It needs two new
+fields on `ZPLControlProtocol`, `implementedRange` and `modelLimits`, carrying conservative defaults
+so every existing construction stays valid and no unqualified capability is implied.
+`VirtualQueueError` gains its `RedactedDiagnosticValue` conformance, excluded from `7645b26` to keep
+that slice to decoding only. `ZPLDocumentedControlEncoder` bounds `^PW` declarations to the
+documented 2...32000 subset on both the requested value and the model's declared maximum, so a
+profile declaring `maximumPrintWidthDots` of `Int.max` cannot drive a width outside the documented
+protocol range.
+
+A judgement worth recording, because it nearly went the other way. The `^PW` bound first read as
+something `main` had deliberately relaxed after the checkpoint, which would have made porting it a
+revert of a considered decision. The history says otherwise: commit `8dcc241`, "fix(controls): reject
+width declarations beyond bounded geometry subset", introduced the tightening on the checkpoint line,
+and `main`'s looser form arrived earlier with #81. It is an unlanded fix rather than a reverted one,
+so it lands with the test that guards it. The general lesson for the remaining slices in issue #88 is
+that "`main` looks deliberately different" is a hypothesis to check against history, not a reason to
+skip.
+
+Changed requirements: F03 speed and darkness controls and F04 thermal, tracking, dimensions and
+offsets gain documented coverage metadata; F15 privacy gains the queue-error redaction. M3-AC03
+control coverage and M3-AC12 privacy and permissions are exercised; neither is declared complete and
+recording stays blocked on issue #86.
+
+Tests actually run. Linux x86_64 Swift 6.1.2: LabelCore 304 tests, 0 failures, debug and release, up
+from 300. `check_repo.py` passed, 105 Python tests passed, `run-accelerator-checks.py` passed. No
+LabelMac file is touched, so unlike the two preceding slices nothing here depends on hosted CI to be
+exercised at all.
+
+Blockers: `PublicationDiagnosticRedactionTests` is excluded because it references
+`AcceptedFinishingJobStore`, which is not landed; it belongs with the LabelMac subsystem slice in
+issue #88. That subsystem also carries `WorkerBitmapBinding` and `WorkerProtocolJSON`, which would
+let `OfflineConversion`, `OfflineExtractionWorker` and `OfflineRenderWorkerTests` take their intended
+checkpoint forms instead of the three hunk-level compromises recorded in `6d5f86b`.
+
+Next step: the LabelMac `AcceptedFinishing` subsystem, 14 sources of which `FinishingInspectionView`
+is GUI surface that CI cannot qualify (issue #89). No printer, installation, scheduler, GUI or
+release acceptance is claimed.
+
 # Output margins carried through rendering, tickets and queues — 2026-09-18
 
 Source `76a2a01bc7df48fc8b4966f0b5b48055e2df5339` on `claude/determined-sagan-frse18`, over
