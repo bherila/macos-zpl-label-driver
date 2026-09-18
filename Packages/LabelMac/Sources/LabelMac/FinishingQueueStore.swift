@@ -3,7 +3,7 @@ import Foundation
 import LabelCore
 
 /// Separate offline policy reference; it cannot substitute for an ordinary queue reference.
-public struct FinishingQueueReference: Equatable, Sendable {
+public struct FinishingQueueReference: Equatable, Sendable, RedactedDiagnosticValue {
     public let id: String
     public let revision: Int
     public let sha256: String

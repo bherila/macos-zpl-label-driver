@@ -279,4 +279,726 @@ final class FinishingQueueStoreTests: XCTestCase {
             XCTAssertEqual($0 as? AcceptedFinishingJob.Error,.cancelled)
         }
     }
+    private func acceptedFixture() throws -> (AcceptedFinishingJob,WorkflowProfileStore,PrinterProfileStore,FinishingQueueStore,URL) {
+        let (workflows,printers,queues,ref,geometry,source,worker)=try acceptanceSetup()
+        let accepted=try AcceptedFinishingJob.accept(acceptanceID:"synthetic-durable",cancellationSHA256:String(repeating:"c",count:64),
+            queueReference:ref,queueStore:queues,workflowStore:workflows,printerStore:printers,geometry:geometry,originalPDF:source,
+            copyOwnership:.engine(copies:2,collated:false),pageRangeOwnership:.engine(selectedSourcePages:[1]),controls:.init(darkness:0),workerExecutable:worker)
+        return (accepted,workflows,printers,queues,worker)
+    }
+    func testDurableFinishingColdReopenAndConflictKeepOriginalContext() throws {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let store=try AcceptedFinishingJobStore(root:workflows.root)
+        let ref=try store.save(job)
+        XCTAssertEqual(try store.save(job),ref)
+        XCTAssertEqual(try AcceptedFinishingJobStore(root:workflows.root).load(reference:ref,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),job)
+        let altered=try AcceptedFinishingJob.accept(acceptanceID:job.acceptanceID,cancellationSHA256:job.cancellationSHA256,
+            queueReference:job.queueReference,queueStore:queues,workflowStore:workflows,printerStore:printers,geometry:job.geometry,
+            originalPDF:job.originalPDF,copyOwnership:.engine(copies:2,collated:true),pageRangeOwnership:job.pageRangeOwnership,workerExecutable:worker)
+        XCTAssertThrowsError(try store.save(altered)) { XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.conflict) }
+        let wrong=try AcceptedFinishingReference(acceptanceID:ref.acceptanceID,sha256:String(repeating:"0",count:64))
+        XCTAssertThrowsError(try store.load(reference:wrong,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.referenceMismatch)
+        }
+    }
+    func testDurableFinishingRehashedStaleContextFailsInsteadOfReinterpretation() throws {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let store=try AcceptedFinishingJobStore(root:workflows.root), ref=try store.save(job)
+        let file=workflows.root.appendingPathComponent("accepted-finishing-jobs").appendingPathComponent(AcceptedFinishingJobStore.fileName(ref))
+        let original=try Data(contentsOf:file)
+        var length:UInt64=0
+        for (i,byte) in original[8..<16].enumerated() { length |= UInt64(byte) << (i*8) }
+        let boundary=16+Int(length)
+        var metadata=try XCTUnwrap(JSONSerialization.jsonObject(with:original.subdata(in:16..<boundary)) as? [String:Any])
+        metadata["context"]=Data([0]).base64EncodedString()
+        let changed=try JSONSerialization.data(withJSONObject:metadata,options:[.sortedKeys])
+        var bytes=Data("AFJOB001".utf8)
+        for shift in stride(from:0,through:56,by:8) { bytes.append(UInt8(truncatingIfNeeded:UInt64(changed.count)>>shift)) }
+        bytes.append(changed);bytes.append(original.subdata(in:boundary..<original.count));try bytes.write(to:file)
+        let rehashed=try AcceptedFinishingReference(acceptanceID:ref.acceptanceID,sha256:digest(bytes))
+        XCTAssertThrowsError(try store.load(reference:rehashed,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.contextMismatch)
+        }
+    }
+    func testDurableFinishingUncertainPublicationReturnsExactRecoverableIdentity() throws {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let store=AcceptedFinishingJobStore(root:workflows.root,storage:try PrivateImmutableDirectory(root:workflows.root,syncDirectory:{ _ in -1 }))
+        var recovery:AcceptedFinishingReference?
+        XCTAssertThrowsError(try store.save(job)) { error in
+            if case let AcceptedFinishingJobStore.Error.commitUncertain(ref)=error { recovery=ref }
+            else { XCTFail("Expected exact uncertain publication") }
+        }
+        let ref=try XCTUnwrap(recovery)
+        XCTAssertEqual(try AcceptedFinishingJobStore(root:workflows.root).load(reference:ref,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker),job)
+    }
+    func testDurableFinishingOversizedLengthAndBinarySymlinkFailBeforeWorker() throws {
+        let (job,workflows,printers,queues,_)=try acceptedFixture()
+        let store=try AcceptedFinishingJobStore(root:workflows.root), ref=try store.save(job)
+        let file=workflows.root.appendingPathComponent("accepted-finishing-jobs").appendingPathComponent(AcceptedFinishingJobStore.fileName(ref))
+        let original=try Data(contentsOf:file)
+        var bytes=original;bytes.replaceSubrange(8..<16,with:Data(repeating:255,count:8));try bytes.write(to:file)
+        let wrong=try AcceptedFinishingReference(acceptanceID:ref.acceptanceID,sha256:digest(bytes))
+        XCTAssertThrowsError(try store.load(reference:wrong,queueStore:queues,workflowStore:workflows,printerStore:printers,
+            workerExecutable:URL(fileURLWithPath:"/nonexistent-worker"))) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.invalidRecord)
+        }
+        try FileManager.default.removeItem(at:file)
+        let target=workflows.root.appendingPathComponent("external.bin");try original.write(to:target)
+        try FileManager.default.createSymbolicLink(at:file,withDestinationURL:target)
+        XCTAssertThrowsError(try store.load(reference:ref,queueStore:queues,workflowStore:workflows,printerStore:printers,
+            workerExecutable:URL(fileURLWithPath:"/nonexistent-worker"))) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.cannotRead)
+        }
+    }
+    func testPreparedFinishingIdentityComesFromVerifiedDurableRecord() throws {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let store=try AcceptedFinishingJobStore(root:workflows.root), ref=try store.save(job)
+        let result=try store.prepare(reference:ref,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        XCTAssertEqual(result.reference,ref)
+        XCTAssertEqual(result.acceptance,job)
+        XCTAssertEqual(result.preparation.extraction,job.extraction)
+        XCTAssertEqual(result.preparation.controls,job.controls)
+        XCTAssertEqual(result.preparation.sourceSHA256,job.sourceSHA256)
+        XCTAssertEqual(result.preparation.rasters.count,4)
+        let wrong=try AcceptedFinishingReference(acceptanceID:ref.acceptanceID,sha256:String(repeating:"0",count:64))
+        XCTAssertThrowsError(try store.prepare(reference:wrong,queueStore:queues,workflowStore:workflows,printerStore:printers,
+            workerExecutable:URL(fileURLWithPath:"/nonexistent-worker"))) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.referenceMismatch)
+        }
+    }
+    func testAcceptedFramingKeepsIdentityAndIntentSurvivesNewArtifactNames() throws {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let accepted=try AcceptedFinishingJobStore(root:workflows.root), ref=try accepted.save(job)
+        let prepared=try accepted.prepare(reference:ref,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        let qualification=FinishingOutputQualification(profile:job.geometry.printer.profile,model:job.geometry.printer.profile.capabilities.model,
+            quantityOne:documented,labelCompletion:documented,rfid:.init(state:.unsupported,evidence:.documentedModel(sourceID:"synthetic-non-rfid")),
+            delayedCutter:documented,delayedCutReadiness:documented,cutCompletion:documented,
+            completeFileDelivery:.observed(true,evidence:.reportedInstallation))
+        let framed=try prepared.frame(qualification:qualification)
+        XCTAssertEqual(framed.reference,ref)
+        XCTAssertEqual(framed.output.preparation,prepared.preparation)
+        XCTAssertEqual(framed.output.steps.compactMap { if case let .formatFile(n,_)=($0) { return n }; return nil },[1,2,3,4])
+        XCTAssertEqual(framed.output.steps.compactMap { if case let .delayedCutFile(n,_)=($0) { return n }; return nil },[3,4])
+        let artifacts=try FinishingArtifactStore(root:workflows.root)
+        let first=try artifacts.save(id:"synthetic-frame-one",revision:1,output:framed.output)
+        let second=try artifacts.save(id:"synthetic-frame-two",revision:1,output:framed.output)
+        XCTAssertNotEqual(first.id,second.id)
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        XCTAssertEqual(try intents.recoveryObservation(reference:ref,against:job,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker),.noRecordedIntent)
+        try intents.recordPotentialAttempt(reference:ref,against:job,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        try intents.recordPotentialAttempt(reference:ref,against:job,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        _ = try artifacts.load(reference:second,against:framed.output)
+        _ = try InertFinishingDelivery.run(output:framed.output, coordinationID:job.geometry.physicalDevice,
+            leaseDirectory:workflows.root)
+        XCTAssertEqual(try AcceptedFinishingAttemptStore(root:workflows.root).recoveryObservation(reference:ref,against:job,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),.uncertainAfterRecordedIntent)
+        let directory=workflows.root.appendingPathComponent("accepted-finishing-attempts")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath:directory.path).filter { $0.hasSuffix(".bin") }.count,1)
+    }
+    func testAcceptedIntentRequiresExactContextAndUncertainCommitRemainsRecorded() throws {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let accepted=try AcceptedFinishingJobStore(root:workflows.root), ref=try accepted.save(job)
+        let wrong=try AcceptedFinishingJob.accept(acceptanceID:job.acceptanceID,cancellationSHA256:job.cancellationSHA256,
+            queueReference:job.queueReference,queueStore:queues,workflowStore:workflows,printerStore:printers,geometry:job.geometry,
+            originalPDF:job.originalPDF,copyOwnership:.engine(copies:2,collated:true),pageRangeOwnership:job.pageRangeOwnership,workerExecutable:worker)
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        XCTAssertThrowsError(try intents.recordPotentialAttempt(reference:ref,against:wrong,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingAttemptStore.Error,.contextMismatch)
+        }
+        XCTAssertThrowsError(try intents.recoveryObservation(reference:ref,against:wrong,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingAttemptStore.Error,.contextMismatch)
+        }
+        let faulty=try AcceptedFinishingAttemptStore(root:workflows.root,
+            storage:PrivateImmutableDirectory(root:workflows.root,syncDirectory:{ _ in -1 }))
+        XCTAssertThrowsError(try faulty.recordPotentialAttempt(reference:ref,against:job,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingAttemptStore.Error,.commitUncertain)
+        }
+        XCTAssertEqual(try intents.recoveryObservation(reference:ref,against:job,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker),.uncertainAfterRecordedIntent)
+    }
+    private func acceptedFramedFixture() throws -> (AcceptedFinishingFramedJob,WorkflowProfileStore,PrinterProfileStore,FinishingQueueStore,URL) {
+        let (job,workflows,printers,queues,worker)=try acceptedFixture()
+        let accepted=try AcceptedFinishingJobStore(root:workflows.root), ref=try accepted.save(job)
+        let prepared=try accepted.prepare(reference:ref,queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        let qualification=FinishingOutputQualification(profile:job.geometry.printer.profile,model:job.geometry.printer.profile.capabilities.model,
+            quantityOne:documented,labelCompletion:documented,rfid:.init(state:.unsupported,evidence:.documentedModel(sourceID:"synthetic-non-rfid")),
+            delayedCutter:documented,delayedCutReadiness:documented,cutCompletion:documented,
+            completeFileDelivery:.observed(true,evidence:.reportedInstallation))
+        return (try prepared.frame(qualification:qualification),workflows,printers,queues,worker)
+    }
+    func testAcceptedCoordinatorRecordsBeforeDiscardHoldsLeasesThroughWaitsAndRefusesReplay() throws {
+        let (framed,workflows,printers,queues,worker)=try acceptedFramedFixture()
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        var attempts=0, waits=0, discarded=0
+        _ = try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,cancellationStore:try AcceptedFinishingCancellationStore(root:workflows.root),queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root,
+            scenario:.init(),deadlineSeconds:60,cancellation:.init()) { event in
+                switch event {
+                case .fileAttempt:
+                    attempts += 1
+                    XCTAssertEqual(try intents.recoveryObservation(reference:framed.reference,against:framed.prepared.acceptance,
+                        queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),.uncertainAfterRecordedIntent)
+                case .bytesDiscarded: discarded += 1
+                case .statusWait:
+                    waits += 1
+                    XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,cancellationStore:try AcceptedFinishingCancellationStore(root:workflows.root),
+                        queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root)) {
+                        XCTAssertEqual($0 as? InertAcceptedFinishingDelivery.Error,.jobBusy)
+                    }
+                    XCTAssertThrowsError(try PhysicalDeviceLease(acquiring:.init(coordinationID:framed.prepared.acceptance.geometry.physicalDevice),
+                        inExistingDirectory:workflows.root)) { XCTAssertEqual($0 as? PhysicalDeviceLeaseError,.alreadyHeld) }
+                }
+            }
+        XCTAssertEqual(attempts,6);XCTAssertGreaterThan(waits,0);XCTAssertGreaterThan(discarded,0)
+        XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:try AcceptedFinishingAttemptStore(root:workflows.root),cancellationStore:try AcceptedFinishingCancellationStore(root:workflows.root),
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root)) {
+            XCTAssertEqual($0 as? InertAcceptedFinishingDelivery.Error,.recordedIntentRequiresReview)
+        }
+        let released=try PhysicalDeviceLease(acquiring:.init(coordinationID:framed.prepared.acceptance.geometry.physicalDevice),inExistingDirectory:workflows.root)
+        released.release()
+    }
+    func testAcceptedCoordinatorZeroBytesAndUncertainPublicationCannotBecomeFreshAdmission() throws {
+        for publicationFault in [false,true] {
+            let (framed,workflows,printers,queues,worker)=try acceptedFramedFixture()
+            let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+            let selected = publicationFault ? try AcceptedFinishingAttemptStore(root:workflows.root,
+                storage:PrivateImmutableDirectory(root:workflows.root,syncDirectory:{ _ in -1 })) : intents
+            var observed=0
+            if publicationFault {
+                XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:selected,cancellationStore:try AcceptedFinishingCancellationStore(root:workflows.root),queueStore:queues,
+                    workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root,
+                    scenario:.init(),deadlineSeconds:60,cancellation:.init(),observe:{ _ in observed += 1 })) {
+                    XCTAssertEqual($0 as? AcceptedFinishingAttemptStore.Error,.commitUncertain)
+                }
+                XCTAssertEqual(observed,0)
+            } else {
+                _ = try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:selected,cancellationStore:try AcceptedFinishingCancellationStore(root:workflows.root),queueStore:queues,
+                    workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root,
+                    scenario:.init(failAfterAttemptAtStep:0),deadlineSeconds:60,cancellation:.init()) { event in
+                        if case .bytesDiscarded = event { observed += 1 }
+                    }
+                XCTAssertEqual(observed,0)
+            }
+            XCTAssertEqual(try intents.recoveryObservation(reference:framed.reference,against:framed.prepared.acceptance,
+                queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),.uncertainAfterRecordedIntent)
+            XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,cancellationStore:try AcceptedFinishingCancellationStore(root:workflows.root),queueStore:queues,
+                workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root)) {
+                XCTAssertEqual($0 as? InertAcceptedFinishingDelivery.Error,.recordedIntentRequiresReview)
+            }
+        }
+    }
+    func testAcceptedCoordinatorStopBeforeAttemptAndCancellationCreateNoIntent() throws {
+        let (framed,workflows,printers,queues,worker)=try acceptedFramedFixture()
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        _ = try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,cancellationStore:try AcceptedFinishingCancellationStore(root:workflows.root),queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root,
+            scenario:.init(stopBeforeStep:0))
+        let cancellation=OfflineRenderWorkerCancellation();cancellation.cancel()
+        XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,cancellationStore:try AcceptedFinishingCancellationStore(root:workflows.root),queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root,cancellation:cancellation)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJob.Error,.cancelled)
+        }
+        XCTAssertEqual(try intents.recoveryObservation(reference:framed.reference,against:framed.prepared.acceptance,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),.noRecordedIntent)
+    }
+    private func cancellableAcceptedFixture() throws -> (AcceptedFinishingJob,AcceptedFinishingReference,WorkflowProfileStore,PrinterProfileStore,FinishingQueueStore,URL,Data) {
+        let (prior,workflows,printers,queues,worker)=try acceptedFixture()
+        let token=Data("synthetic-cancellation-token".utf8)
+        let digest=SHA256.hash(data:token).map { String(format:"%02x",$0) }.joined()
+        let job=try AcceptedFinishingJob.accept(acceptanceID:prior.acceptanceID,cancellationSHA256:digest,
+            queueReference:prior.queueReference,queueStore:queues,workflowStore:workflows,printerStore:printers,
+            geometry:prior.geometry,originalPDF:prior.originalPDF,copyOwnership:prior.copyOwnership,
+            pageRangeOwnership:prior.pageRangeOwnership,controls:prior.controlRequest,workerExecutable:worker)
+        return (job,try AcceptedFinishingJobStore(root:workflows.root).save(job),workflows,printers,queues,worker,token)
+    }
+    func testFinishingCancellationAuthenticatesAndSurvivesColdReopenWithoutStoringToken() throws {
+        let (job,ref,workflows,printers,queues,worker,token)=try cancellableAcceptedFixture()
+        let store=try AcceptedFinishingCancellationStore(root:workflows.root)
+        let monitor=try store.monitor(reference:ref,against:job,queueStore:queues,workflowStore:workflows,
+            printerStore:printers,workerExecutable:worker)
+        XCTAssertEqual(try monitor.poll(),.noRecordedRequest)
+        for bad in [Data(),Data(repeating:1,count:257),Data("synthetic-wrong-token".utf8)] {
+            XCTAssertThrowsError(try store.request(reference:ref,against:job,token:bad,queueStore:queues,
+                workflowStore:workflows,printerStore:printers,workerExecutable:URL(fileURLWithPath:"/nonexistent-worker"))) {
+                XCTAssertEqual($0 as? AcceptedFinishingCancellationStore.Error,.unauthorized)
+            }
+        }
+        XCTAssertEqual(try monitor.poll(),.noRecordedRequest)
+        for _ in 0..<2 { try store.request(reference:ref,against:job,token:token,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker) }
+        XCTAssertEqual(try monitor.poll(),.requested)
+        XCTAssertEqual(try AcceptedFinishingCancellationStore(root:workflows.root).observation(reference:ref,against:job,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),.requested)
+        let dir=workflows.root.appendingPathComponent("accepted-finishing-cancellations")
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath:dir.path).filter{$0.hasSuffix(".bin")}.count,1)
+        let bytes=try Data(contentsOf:dir.appendingPathComponent(AcceptedFinishingCancellationStore.fileName(ref)))
+        XCTAssertNil(bytes.range(of:token))
+    }
+    func testFinishingCancellationPublicationUncertaintyDoesNotClearAttemptUncertainty() throws {
+        let (job,ref,workflows,printers,queues,worker,token)=try cancellableAcceptedFixture()
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        try intents.recordPotentialAttempt(reference:ref,against:job,queueStore:queues,workflowStore:workflows,
+            printerStore:printers,workerExecutable:worker)
+        let faulty=try AcceptedFinishingCancellationStore(root:workflows.root,
+            storage:PrivateImmutableDirectory(root:workflows.root,syncDirectory:{ _ in -1 }))
+        XCTAssertThrowsError(try faulty.request(reference:ref,against:job,token:token,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingCancellationStore.Error,.commitUncertain)
+        }
+        XCTAssertEqual(try AcceptedFinishingCancellationStore(root:workflows.root).observation(reference:ref,against:job,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),.requested)
+        XCTAssertEqual(try intents.recoveryObservation(reference:ref,against:job,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker),.uncertainAfterRecordedIntent)
+    }
+    func testFinishingCancellationRequiresExactContextAndRejectsCorruptOrSymlinkRecords() throws {
+        let (job,ref,workflows,printers,queues,worker,token)=try cancellableAcceptedFixture()
+        let wrong=try AcceptedFinishingJob.accept(acceptanceID:job.acceptanceID,cancellationSHA256:job.cancellationSHA256,
+            queueReference:job.queueReference,queueStore:queues,workflowStore:workflows,printerStore:printers,
+            geometry:job.geometry,originalPDF:job.originalPDF,copyOwnership:.engine(copies:1,collated:false),
+            pageRangeOwnership:job.pageRangeOwnership,controls:job.controlRequest,workerExecutable:worker)
+        let store=try AcceptedFinishingCancellationStore(root:workflows.root)
+        XCTAssertThrowsError(try store.request(reference:ref,against:wrong,token:token,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingCancellationStore.Error,.contextMismatch)
+        }
+        XCTAssertThrowsError(try store.monitor(reference:ref,against:wrong,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)) {
+            XCTAssertEqual($0 as? AcceptedFinishingCancellationStore.Error,.contextMismatch)
+        }
+        let monitor=try store.monitor(reference:ref,against:job,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        try store.request(reference:ref,against:job,token:token,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        let file=workflows.root.appendingPathComponent("accepted-finishing-cancellations").appendingPathComponent(AcceptedFinishingCancellationStore.fileName(ref))
+        try Data("corrupt".utf8).write(to:file)
+        XCTAssertThrowsError(try monitor.poll()) { XCTAssertEqual($0 as? AcceptedFinishingCancellationStore.Error,.invalidRecord) }
+        try FileManager.default.removeItem(at:file)
+        try FileManager.default.createSymbolicLink(at:file,withDestinationURL:workflows.root.appendingPathComponent("missing-target"))
+        XCTAssertThrowsError(try monitor.poll()) { XCTAssertEqual($0 as? AcceptedFinishingCancellationStore.Error,.cannotRead) }
+    }
+    private func cancellableFramedFixture() throws -> (AcceptedFinishingFramedJob,WorkflowProfileStore,PrinterProfileStore,FinishingQueueStore,URL,Data) {
+        let (job,ref,workflows,printers,queues,worker,token)=try cancellableAcceptedFixture()
+        let prepared=try AcceptedFinishingJobStore(root:workflows.root).prepare(reference:ref,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        let qualification=FinishingOutputQualification(profile:job.geometry.printer.profile,model:job.geometry.printer.profile.capabilities.model,
+            quantityOne:documented,labelCompletion:documented,rfid:.init(state:.unsupported,evidence:.documentedModel(sourceID:"synthetic-non-rfid")),
+            delayedCutter:documented,delayedCutReadiness:documented,cutCompletion:documented,
+            completeFileDelivery:.observed(true,evidence:.reportedInstallation))
+        return (try prepared.frame(qualification:qualification),workflows,printers,queues,worker,token)
+    }
+    func testAcceptedCoordinatorDurableCancellationBeforeAdmissionCreatesNoIntent() throws {
+        let (framed,workflows,printers,queues,worker,token)=try cancellableFramedFixture()
+        let requests=try AcceptedFinishingCancellationStore(root:workflows.root)
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        try requests.request(reference:framed.reference,against:framed.prepared.acceptance,token:token,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,cancellationStore:requests,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root)) {
+            XCTAssertEqual($0 as? InertAcceptedFinishingDelivery.Error,.cancellationRequested)
+        }
+        XCTAssertEqual(try intents.recoveryObservation(reference:framed.reference,against:framed.prepared.acceptance,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),.noRecordedIntent)
+    }
+    func testAcceptedCoordinatorDurableCancellationAtFileChunkAndStatusBoundariesKeepsUncertainty() throws {
+        for target in ["attempt","chunk","status"] {
+            let (framed,workflows,printers,queues,worker,token)=try cancellableFramedFixture()
+            let requests=try AcceptedFinishingCancellationStore(root:workflows.root)
+            let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+            var requested=false, callbacksAfterRequest=0
+            XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,cancellationStore:requests,
+                queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root,
+                scenario:.init(maximumChunkBytes:16),deadlineSeconds:60,cancellation:.init()) { event in
+                    if requested { callbacksAfterRequest += 1 }
+                    let matches:Bool
+                    switch event {
+                    case .fileAttempt:matches=target=="attempt"
+                    case .bytesDiscarded:matches=target=="chunk"
+                    case .statusWait:matches=target=="status"
+                    }
+                    if matches && !requested {
+                        try requests.request(reference:framed.reference,against:framed.prepared.acceptance,token:token,
+                            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+                        requested=true
+                    }
+                }) { XCTAssertEqual($0 as? InertAcceptedFinishingDelivery.Error,.cancellationRequested) }
+            XCTAssertTrue(requested);XCTAssertEqual(callbacksAfterRequest,0)
+            XCTAssertEqual(try intents.recoveryObservation(reference:framed.reference,against:framed.prepared.acceptance,
+                queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker),.uncertainAfterRecordedIntent)
+            XCTAssertThrowsError(try InertAcceptedFinishingDelivery.run(framed:framed,attemptStore:intents,
+                cancellationStore:try AcceptedFinishingCancellationStore(root:workflows.root),queueStore:queues,
+                workflowStore:workflows,printerStore:printers,workerExecutable:worker,leaseDirectory:workflows.root)) {
+                XCTAssertEqual($0 as? InertAcceptedFinishingDelivery.Error,.recordedIntentRequiresReview)
+            }
+        }
+    }
+    func testColdFinishingRecoveryReportsCancellationWithoutResolvingAttemptUncertainty() throws {
+        let (framed,workflows,printers,queues,worker,token)=try cancellableFramedFixture()
+        let requests=try AcceptedFinishingCancellationStore(root:workflows.root)
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        func recover() throws -> AcceptedFinishingRecovery {
+            try AcceptedFinishingRecovery.inspect(reference:framed.reference,against:framed.prepared.acceptance,
+                attemptStore:AcceptedFinishingAttemptStore(root:workflows.root),
+                cancellationStore:AcceptedFinishingCancellationStore(root:workflows.root),queueStore:queues,
+                workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        }
+        XCTAssertEqual(try recover().reference,framed.reference)
+        XCTAssertEqual(try recover().observation,.noRecordedIntent(cancellationRequested:false))
+        try requests.request(reference:framed.reference,against:framed.prepared.acceptance,token:token,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        XCTAssertEqual(try recover().observation,.noRecordedIntent(cancellationRequested:true))
+        try intents.recordPotentialAttempt(reference:framed.reference,against:framed.prepared.acceptance,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        _ = try InertFinishingDelivery.run(output:framed.output,coordinationID:framed.prepared.acceptance.geometry.physicalDevice,
+            leaseDirectory:workflows.root)
+        XCTAssertEqual(try recover().observation,.uncertainAfterRecordedIntent(cancellationRequested:true))
+        let file=workflows.root.appendingPathComponent("accepted-finishing-cancellations")
+            .appendingPathComponent(AcceptedFinishingCancellationStore.fileName(framed.reference))
+        try Data("corrupt".utf8).write(to:file)
+        XCTAssertThrowsError(try recover()) { XCTAssertEqual($0 as? AcceptedFinishingCancellationStore.Error,.invalidRecord) }
+    }
+    func testColdFinishingRecoveryKeepsUncancelledIntentUncertainAndRejectsLimitsOrCancellation() throws {
+        let (framed,workflows,printers,queues,worker,_)=try cancellableFramedFixture()
+        let requests=try AcceptedFinishingCancellationStore(root:workflows.root)
+        let intents=try AcceptedFinishingAttemptStore(root:workflows.root)
+        try intents.recordPotentialAttempt(reference:framed.reference,against:framed.prepared.acceptance,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        XCTAssertEqual(try AcceptedFinishingRecovery.inspect(reference:framed.reference,against:framed.prepared.acceptance,
+            attemptStore:intents,cancellationStore:requests,queueStore:queues,workflowStore:workflows,
+            printerStore:printers,workerExecutable:worker).observation,.uncertainAfterRecordedIntent(cancellationRequested:false))
+        for limit in [0.0,61.0,Double.nan,Double.infinity] {
+            XCTAssertThrowsError(try AcceptedFinishingRecovery.inspect(reference:framed.reference,against:framed.prepared.acceptance,
+                attemptStore:intents,cancellationStore:requests,queueStore:queues,workflowStore:workflows,
+                printerStore:printers,workerExecutable:URL(fileURLWithPath:"/nonexistent-worker"),deadlineSeconds:limit)) {
+                XCTAssertEqual($0 as? AcceptedFinishingJob.Error,.invalidLimit)
+            }
+        }
+        let cancellation=OfflineRenderWorkerCancellation();cancellation.cancel()
+        XCTAssertThrowsError(try AcceptedFinishingRecovery.inspect(reference:framed.reference,against:framed.prepared.acceptance,
+            attemptStore:intents,cancellationStore:requests,queueStore:queues,workflowStore:workflows,
+            printerStore:printers,workerExecutable:URL(fileURLWithPath:"/nonexistent-worker"),cancellation:cancellation)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJob.Error,.cancelled)
+        }
+    }
+    func testFinishingInspectionUsesVerifiedRecordAndReportsUnknownHardwareWithoutPublishingIntent() throws {
+        let (job,ref,workflows,printers,queues,worker,token)=try cancellableAcceptedFixture()
+        let args=["--catalog",workflows.root.path,"--accepted-id",ref.acceptanceID,"--accepted-sha",ref.sha256,"--json"]
+        let command=try FinishingInspectionCommand(arguments:args)
+        var result=try XCTUnwrap(JSONSerialization.jsonObject(with:command.report(workerExecutable:worker)) as? [String:Any])
+        XCTAssertEqual(result["outputLabelCount"] as? Int,4)
+        XCTAssertEqual(result["hardwareCompletion"] as? String,"unknown")
+        XCTAssertEqual(result["localIntent"] as? String,"no-recorded-intent")
+        XCTAssertEqual(result["automaticReplayAuthorized"] as? Bool,false)
+        func invoke(_ arguments:[String]) throws -> (Int32,Data,Data) {
+            let process=Process(), output=Pipe(), errors=Pipe()
+            process.executableURL=worker.deletingLastPathComponent().appendingPathComponent("label-driver")
+            process.arguments=["finishing-inspect"]+arguments
+            process.standardOutput=output;process.standardError=errors
+            try process.run()
+            let end=Date().addingTimeInterval(75)
+            while process.isRunning && Date()<end { Thread.sleep(forTimeInterval:0.01) }
+            if process.isRunning { kill(process.processIdentifier,SIGKILL) }
+            process.waitUntilExit()
+            return (process.terminationStatus,output.fileHandleForReading.readDataToEndOfFile(),errors.fileHandleForReading.readDataToEndOfFile())
+        }
+        let (code,stdout,stderr)=try invoke(args)
+        XCTAssertEqual(code,0);XCTAssertTrue(stderr.isEmpty)
+        let actual=try XCTUnwrap(JSONSerialization.jsonObject(with:stdout) as? [String:Any])
+        XCTAssertEqual(actual["localIntent"] as? String,"no-recorded-intent")
+        XCTAssertEqual(actual["outputLabelCount"] as? Int,4)
+        var wrong=args;wrong[5]=String(repeating:"0",count:64)
+        let (badCode,badOutput,badErrors)=try invoke(wrong)
+        XCTAssertEqual(badCode,65);XCTAssertTrue(badOutput.isEmpty)
+        XCTAssertFalse(String(decoding:badErrors,as:UTF8.self).contains(workflows.root.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath:workflows.root.appendingPathComponent("accepted-finishing-attempts").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath:workflows.root.appendingPathComponent("accepted-finishing-cancellations").path))
+        try AcceptedFinishingAttemptStore(root:workflows.root).recordPotentialAttempt(reference:ref,against:job,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        try AcceptedFinishingCancellationStore(root:workflows.root).request(reference:ref,against:job,token:token,queueStore:queues,
+            workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        result=try XCTUnwrap(JSONSerialization.jsonObject(with:command.report(workerExecutable:worker)) as? [String:Any])
+        XCTAssertEqual(result["localIntent"] as? String,"uncertain-after-recorded-intent")
+        XCTAssertEqual(result["cancellationRequested"] as? Bool,true)
+        XCTAssertNil(result["token"]);XCTAssertNil(result["catalog"])
+        XCTAssertThrowsError(try FinishingInspectionCommand(arguments:args+["--json"]))
+        let missing=workflows.root.appendingPathComponent("missing-catalog")
+        let absent=try FinishingInspectionCommand(arguments:["--catalog",missing.path,"--accepted-id",ref.acceptanceID,"--accepted-sha",ref.sha256])
+        XCTAssertThrowsError(try absent.report(workerExecutable:worker))
+        XCTAssertFalse(FileManager.default.fileExists(atPath:missing.path))
+    }
+    func testPackedPreviewExportMatchesActualRastersAndBindsAcceptedIdentity() throws {
+        let (framed,workflows,_,_,_,_)=try cancellableFramedFixture()
+        let directory=workflows.root.appendingPathComponent("synthetic-packed-preview")
+        try PackedFinishingPreviewExport.write(framed.prepared,toNewDirectory:directory)
+        let files=try FileManager.default.contentsOfDirectory(atPath:directory.path)
+        XCTAssertEqual(files.count,5);XCTAssertFalse(files.contains { $0.hasSuffix(".zpl") })
+        for (index,raster) in framed.prepared.preparation.rasters.enumerated() {
+            XCTAssertEqual(try Data(contentsOf:directory.appendingPathComponent(String(format:"label-%05d.pbm",index+1))),raster.pbmData())
+        }
+        let meta=try XCTUnwrap(JSONSerialization.jsonObject(with:Data(contentsOf:directory.appendingPathComponent("preview.json"))) as? [String:Any])
+        XCTAssertEqual(meta["acceptedRecordSHA256"] as? String,framed.reference.sha256)
+        XCTAssertEqual(meta["sourceSHA256"] as? String,framed.prepared.acceptance.sourceSHA256)
+        XCTAssertEqual(meta["hardwareCompletion"] as? String,"unknown")
+    }
+    func testPackedPreviewExportNeverOverwritesAndRejectsBudgetBeforeCreatingOutput() throws {
+        let (framed,workflows,_,_,_,_)=try cancellableFramedFixture()
+        let directory=workflows.root.appendingPathComponent("synthetic-existing-preview")
+        try FileManager.default.createDirectory(at:directory,withIntermediateDirectories:false)
+        let sentinel=directory.appendingPathComponent("sentinel")
+        try Data("synthetic-sentinel".utf8).write(to:sentinel)
+        XCTAssertThrowsError(try PackedFinishingPreviewExport.write(framed.prepared,toNewDirectory:directory)) {
+            XCTAssertEqual($0 as? PackedFinishingPreviewExport.Error,.destinationExists)
+        }
+        XCTAssertEqual(try Data(contentsOf:sentinel),Data("synthetic-sentinel".utf8))
+        XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath:directory.path),["sentinel"])
+        let empty=workflows.root.appendingPathComponent("synthetic-empty-preview")
+        try FileManager.default.createDirectory(at:empty,withIntermediateDirectories:false)
+        var originalInfo=stat(), finalInfo=stat()
+        XCTAssertEqual(lstat(empty.path,&originalInfo),0)
+        XCTAssertThrowsError(try PackedFinishingPreviewExport.write(framed.prepared,toNewDirectory:empty)) {
+            XCTAssertEqual($0 as? PackedFinishingPreviewExport.Error,.destinationExists)
+        }
+        XCTAssertEqual(lstat(empty.path,&finalInfo),0);XCTAssertEqual(finalInfo.st_ino,originalInfo.st_ino)
+        XCTAssertTrue(try FileManager.default.contentsOfDirectory(atPath:empty.path).isEmpty)
+        let absent=workflows.root.appendingPathComponent("synthetic-budget-preview")
+        XCTAssertThrowsError(try PackedFinishingPreviewExport.write(framed.prepared,toNewDirectory:absent,maximumBytes:1)) {
+            XCTAssertEqual($0 as? PackedFinishingPreviewExport.Error,.byteLimit)
+        }
+        XCTAssertFalse(FileManager.default.fileExists(atPath:absent.path))
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath:workflows.root.path).contains { $0.hasPrefix(".packed-preview-") })
+    }
+    func testPackedPreviewCLIExportsExactPreparedBytesAndRefusesExistingOutput() throws {
+        let (framed,workflows,_,_,worker,_)=try cancellableFramedFixture()
+        let directory=workflows.root.appendingPathComponent("synthetic-cli-preview")
+        let args=["finishing-preview","--catalog",workflows.root.path,"--accepted-id",framed.reference.acceptanceID,
+            "--accepted-sha",framed.reference.sha256,"--preview-dir",directory.path,"--json"]
+        func invoke() throws -> (Int32,Data,Data) {
+            let process=Process(), output=Pipe(), errors=Pipe()
+            process.executableURL=worker.deletingLastPathComponent().appendingPathComponent("label-driver")
+            process.arguments=args;process.standardOutput=output;process.standardError=errors
+            try process.run()
+            let end=Date().addingTimeInterval(75)
+            while process.isRunning && Date()<end { Thread.sleep(forTimeInterval:0.01) }
+            if process.isRunning { kill(process.processIdentifier,SIGKILL) }
+            process.waitUntilExit()
+            return (process.terminationStatus,output.fileHandleForReading.readDataToEndOfFile(),errors.fileHandleForReading.readDataToEndOfFile())
+        }
+        let (code,stdout,stderr)=try invoke()
+        XCTAssertEqual(code,0);XCTAssertTrue(stderr.isEmpty)
+        let result=try XCTUnwrap(JSONSerialization.jsonObject(with:stdout) as? [String:Any])
+        XCTAssertEqual(result["hardwareCompletion"] as? String,"unknown")
+        XCTAssertEqual(result["outputLabelCount"] as? Int,4)
+        let original=try Data(contentsOf:directory.appendingPathComponent("label-00001.pbm"))
+        XCTAssertEqual(original,framed.prepared.preparation.rasters[0].pbmData())
+        let (badCode,badOutput,badErrors)=try invoke()
+        XCTAssertEqual(badCode,73);XCTAssertTrue(badOutput.isEmpty)
+        XCTAssertFalse(String(decoding:badErrors,as:UTF8.self).contains(directory.path))
+        XCTAssertEqual(try Data(contentsOf:directory.appendingPathComponent("label-00001.pbm")),original)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath:workflows.root.path).contains{$0.hasPrefix(".packed-preview-")})
+    }
+    func testSelectedAcceptedRecordDerivesReferenceAndRequiresFullContextReopen() throws {
+        let (framed,workflows,printers,queues,worker,_)=try cancellableFramedFixture()
+        let file=workflows.root.appendingPathComponent("accepted-finishing-jobs")
+            .appendingPathComponent(AcceptedFinishingJobStore.fileName(framed.reference))
+        let selected=try AcceptedFinishingJobStore.selectedRecord(at:file)
+        XCTAssertEqual(selected.catalogRoot.path,workflows.root.path)
+        XCTAssertEqual(selected.reference,framed.reference)
+        let reopened=try AcceptedFinishingJobStore(root:selected.catalogRoot).load(reference:selected.reference,
+            queueStore:queues,workflowStore:workflows,printerStore:printers,workerExecutable:worker)
+        XCTAssertEqual(reopened,framed.prepared.acceptance)
+        let wrong=file.deletingLastPathComponent().appendingPathComponent(String(repeating:"a",count:64)+".bin")
+        try FileManager.default.copyItem(at:file,to:wrong)
+        XCTAssertThrowsError(try AcceptedFinishingJobStore.selectedRecord(at:wrong)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.referenceMismatch)
+        }
+        let original=try Data(contentsOf:file)
+        var malformed=original
+        for i in 8..<16 { malformed[i]=255 }
+        try malformed.write(to:file)
+        XCTAssertThrowsError(try AcceptedFinishingJobStore.selectedRecord(at:file)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.invalidRecord)
+        }
+        try original.write(to:file)
+        try FileManager.default.removeItem(at:wrong)
+        try FileManager.default.createSymbolicLink(at:wrong,withDestinationURL:file)
+        XCTAssertThrowsError(try AcceptedFinishingJobStore.selectedRecord(at:wrong))
+        XCTAssertEqual(chmod(workflows.root.path,0o755),0)
+        defer { _=chmod(workflows.root.path,0o700) }
+        XCTAssertThrowsError(try AcceptedFinishingJobStore.selectedRecord(at:file)) {
+            XCTAssertEqual($0 as? AcceptedFinishingJobStore.Error,.unsafeStore)
+        }
+    }
+
+    @MainActor
+    func testFinishingInspectionModelVerifiesExportsAndPreservesSummaryOnFailure() async throws {
+        let (framed,workflows,_,_,worker,_)=try cancellableFramedFixture()
+        let file=workflows.root.appendingPathComponent("accepted-finishing-jobs")
+            .appendingPathComponent(AcceptedFinishingJobStore.fileName(framed.reference))
+        let model=FinishingInspectionModel(workerExecutable:worker)
+        await model.open(file)
+        XCTAssertEqual(model.summary?.outputLabelCount,4)
+        XCTAssertEqual(model.summary?.hardwareCompletion,"unknown")
+        XCTAssertEqual(model.summary?.automaticReplayAuthorized,false)
+        XCTAssertFalse(model.isBusy)
+        let output=workflows.root.appendingPathComponent("synthetic-model-previews")
+        await model.exportPreviews(toNewDirectory:output)
+        XCTAssertEqual(try Data(contentsOf:output.appendingPathComponent("label-00001.pbm")),framed.prepared.preparation.rasters[0].pbmData())
+        let summary=model.summary
+        await model.exportPreviews(toNewDirectory:output)
+        XCTAssertEqual(model.summary,summary)
+        XCTAssertEqual(model.status,"Preview export did not complete. Existing output is preserved.")
+        model.selectionFailed()
+        XCTAssertNil(model.summary)
+        XCTAssertFalse(model.isBusy)
+        XCTAssertEqual(model.status,"Saved job could not be opened. Choose the file again. No printer action was taken.")
+        let refusedOutput=workflows.root.appendingPathComponent("after-chooser-failure")
+        await model.exportPreviews(toNewDirectory:refusedOutput)
+        XCTAssertFalse(FileManager.default.fileExists(atPath:refusedOutput.path))
+        await model.open(file.deletingLastPathComponent().appendingPathComponent("missing.bin"))
+        XCTAssertNil(model.summary)
+        XCTAssertFalse(model.isBusy)
+        XCTAssertFalse(try FileManager.default.contentsOfDirectory(atPath:workflows.root.path).contains{$0.hasPrefix(".packed-preview-")})
+    }
+
+    @MainActor
+    func testFinishingInspectionModelCancelledOldRequestCannotReplaceNewSelection() async throws {
+        let (framed,workflows,_,_,_,_)=try cancellableFramedFixture()
+        let file=workflows.root.appendingPathComponent("accepted-finishing-jobs")
+            .appendingPathComponent(AcceptedFinishingJobStore.fileName(framed.reference))
+        let selected=try AcceptedFinishingJobStore.selectedRecord(at:file)
+        func summary(_ count:Int) throws -> FinishingInspectionSummary {
+            let bytes=try JSONSerialization.data(withJSONObject:["outputLabelCount":count,"canvasWidthDots":813,
+                "canvasHeightDots":1219,"localIntent":"no-recorded-intent","cancellationRequested":false,
+                "hardwareCompletion":"unknown","automaticReplayAuthorized":false])
+            return try JSONDecoder().decode(FinishingInspectionSummary.self,from:bytes)
+        }
+        let older=try summary(4),newer=try summary(2)
+        let started=DispatchSemaphore(value:0),release=DispatchSemaphore(value:0)
+        let model=FinishingInspectionModel(inspect:{ url,_ in
+            if url.lastPathComponent=="first" {
+                started.signal()
+                guard release.wait(timeout:.now()+10) == .success else { throw AcceptedFinishingJob.Error.timedOut }
+                return (selected,older)
+            }
+            return (selected,newer)
+        },export:{ _,_,_ in throw PackedFinishingPreviewExport.Error.commitUncertain })
+        let oldTask=Task { await model.open(URL(fileURLWithPath:"/synthetic/first")) }
+        let waitForStart: @Sendable () -> Bool = { started.wait(timeout:.now()+10) == .success }
+        let didStart=await Task.detached { waitForStart() }.value
+        XCTAssertTrue(didStart)
+        model.cancel()
+        await model.open(URL(fileURLWithPath:"/synthetic/second"))
+        release.signal()
+        await oldTask.value
+        XCTAssertEqual(model.summary,newer)
+        XCTAssertFalse(model.isBusy)
+        await model.exportPreviews(toNewDirectory:workflows.root.appendingPathComponent("synthetic-uncertain"))
+        XCTAssertEqual(model.summary,newer)
+        XCTAssertEqual(model.status,"Export durability is uncertain. Preserve the output and review it before retrying.")
+    }
+
+    @MainActor
+    func testFinishingInspectionModelEveryStaleCompletionPreservesNewRequestOwnership() async throws {
+        let (framed,workflows,_,_,_,_)=try cancellableFramedFixture()
+        let file=workflows.root.appendingPathComponent("accepted-finishing-jobs")
+            .appendingPathComponent(AcceptedFinishingJobStore.fileName(framed.reference))
+        let selected=try AcceptedFinishingJobStore.selectedRecord(at:file)
+        let bytes=try JSONSerialization.data(withJSONObject:["outputLabelCount":2,"canvasWidthDots":813,
+            "canvasHeightDots":1219,"localIntent":"no-recorded-intent","cancellationRequested":false,
+            "hardwareCompletion":"unknown","automaticReplayAuthorized":false])
+        let summary=try JSONDecoder().decode(FinishingInspectionSummary.self,from:bytes)
+        for kind in ["open-success","open-failure","export-success","export-failure"] {
+            let oldStarted=DispatchSemaphore(value:0),oldRelease=DispatchSemaphore(value:0)
+            let newStarted=DispatchSemaphore(value:0),newRelease=DispatchSemaphore(value:0)
+            let failing=kind.hasSuffix("failure"),exporting=kind.hasPrefix("export")
+            let model=FinishingInspectionModel(inspect:{ url,_ in
+                if url.lastPathComponent=="old" {
+                    oldStarted.signal()
+                    guard oldRelease.wait(timeout:.now()+10) == .success else { throw AcceptedFinishingJob.Error.timedOut }
+                    if failing { throw AcceptedFinishingJobStore.Error.invalidRecord }
+                } else if url.lastPathComponent=="new" {
+                    newStarted.signal()
+                    guard newRelease.wait(timeout:.now()+10) == .success else { throw AcceptedFinishingJob.Error.timedOut }
+                }
+                return (selected,summary)
+            },export:{ _,_,_ in
+                oldStarted.signal()
+                guard oldRelease.wait(timeout:.now()+10) == .success else { throw AcceptedFinishingJob.Error.timedOut }
+                if failing { throw PackedFinishingPreviewExport.Error.commitUncertain }
+            })
+            if exporting { await model.open(URL(fileURLWithPath:"/synthetic/initial")) }
+            let oldTask=Task {
+                if exporting { await model.exportPreviews(toNewDirectory:workflows.root.appendingPathComponent("synthetic-old-export")) }
+                else { await model.open(URL(fileURLWithPath:"/synthetic/old")) }
+            }
+            let waitOld: @Sendable () -> Bool = { oldStarted.wait(timeout:.now()+10) == .success }
+            let arrivedOld=await Task.detached { waitOld() }.value
+            XCTAssertTrue(arrivedOld,kind)
+            model.cancel()
+            let newTask=Task { await model.open(URL(fileURLWithPath:"/synthetic/new")) }
+            let waitNew: @Sendable () -> Bool = { newStarted.wait(timeout:.now()+10) == .success }
+            let arrivedNew=await Task.detached { waitNew() }.value
+            XCTAssertTrue(arrivedNew,kind)
+            oldRelease.signal()
+            await oldTask.value
+            XCTAssertTrue(model.isBusy,kind)
+            XCTAssertNil(model.summary,kind)
+            XCTAssertNil(model.status,kind)
+            newRelease.signal()
+            await newTask.value
+            XCTAssertEqual(model.summary,summary,kind)
+            XCTAssertFalse(model.isBusy,kind)
+            XCTAssertEqual(model.status,"Saved job verified. Hardware completion is unknown.",kind)
+        }
+    }
+
+    func testFinishingCLICancellationAfterWorkerAdmissionUsesCancellationExitForBothCommands() throws {
+        let (framed,workflows,_,_,worker,_)=try cancellableFramedFixture()
+        let tools=workflows.root.appendingPathComponent("synthetic-cli-tools")
+        try FileManager.default.createDirectory(at:tools,withIntermediateDirectories:false,attributes:[.posixPermissions:0o700])
+        let executable=tools.appendingPathComponent("label-driver")
+        try FileManager.default.copyItem(at:worker.deletingLastPathComponent().appendingPathComponent("label-driver"),to:executable)
+        let marker=tools.appendingPathComponent("admitted")
+        let inertWorker=tools.appendingPathComponent("label-render-worker")
+        // Finite inert worker: admission marker, no parsing, device API or output.
+        try Data("#!/bin/sh\n: > \"$(dirname \"$0\")/admitted\"\nexec /bin/sleep 20\n".utf8).write(to:inertWorker)
+        XCTAssertEqual(chmod(inertWorker.path,0o500),0)
+        for command in ["finishing-inspect","finishing-preview"] {
+            for signalNumber in [SIGINT,SIGTERM] {
+                try? FileManager.default.removeItem(at:marker)
+                let output=workflows.root.appendingPathComponent("synthetic-cancelled-preview")
+                var args=[command,"--catalog",workflows.root.path,"--accepted-id",framed.reference.acceptanceID,
+                    "--accepted-sha",framed.reference.sha256,"--json"]
+                if command=="finishing-preview" { args += ["--preview-dir",output.path] }
+                let process=Process(),stdout=Pipe(),stderr=Pipe()
+                process.executableURL=executable;process.arguments=args
+                process.standardOutput=stdout;process.standardError=stderr
+                try process.run()
+                let end=Date().addingTimeInterval(15)
+                while process.isRunning && !FileManager.default.fileExists(atPath:marker.path) && Date()<end {
+                    Thread.sleep(forTimeInterval:0.01)
+                }
+                XCTAssertTrue(FileManager.default.fileExists(atPath:marker.path),command)
+                if process.isRunning { XCTAssertEqual(kill(process.processIdentifier,signalNumber),0) }
+                while process.isRunning && Date()<end { Thread.sleep(forTimeInterval:0.01) }
+                if process.isRunning { _=kill(process.processIdentifier,SIGKILL) }
+                process.waitUntilExit()
+                XCTAssertEqual(process.terminationStatus,130,command)
+                XCTAssertTrue(stdout.fileHandleForReading.readDataToEndOfFile().isEmpty)
+                let errorData=stderr.fileHandleForReading.readDataToEndOfFile()
+                let error=try XCTUnwrap(JSONSerialization.jsonObject(with:errorData) as? [String:Any])
+                XCTAssertEqual(error["code"] as? String,"CANCELLED",command)
+                XCTAssertFalse(String(decoding:errorData,as:UTF8.self).contains(workflows.root.path))
+                XCTAssertFalse(FileManager.default.fileExists(atPath:output.path))
+                XCTAssertFalse(FileManager.default.fileExists(atPath:workflows.root.appendingPathComponent("accepted-finishing-attempts").path))
+                XCTAssertFalse(FileManager.default.fileExists(atPath:workflows.root.appendingPathComponent("accepted-finishing-cancellations").path))
+            }
+        }
+    }
+
 }
