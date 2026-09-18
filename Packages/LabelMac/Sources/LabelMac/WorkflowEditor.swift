@@ -55,7 +55,7 @@ public final class WorkflowEditorModel: ObservableObject {
 
     private let originalPDF: Data
     private let analyzedPages: [AnalyzedSourcePage]
-    private let canvas: DotCanvas
+    private var canvas: DotCanvas
     private let store: WorkflowProfileStore
     public let isManualDraft: Bool
     public let isReopenedWorkflow: Bool
@@ -164,7 +164,7 @@ public final class WorkflowEditorModel: ObservableObject {
         } catch {
             guard sourceRequest == request, selectedRegionID == selection,
                   !Task.isCancelled, !cancellation.isCancelled else { return }
-            sourcePreviewError = "Source reference could not be prepared."
+            sourcePreviewError = String(localized: "Source reference could not be prepared.")
         }
     }
 
@@ -198,6 +198,35 @@ public final class WorkflowEditorModel: ObservableObject {
         }
         var next = try editableDraft()
         try next.updateRegion(id: expectedRegionID, normalizedRect: rect, rotation: region.rotation)
+        try replaceDraft(next)
+        cancelPreview()
+        isSaved = false
+    }
+
+    /// Edits candidate destination geometry without changing source sheet rules.
+    /// All fallible preparation precedes committing draft/canvas and invalidating review.
+    public func setOutputStock(id: String, size: PhysicalSize,
+                               expectedBinding: WorkflowEditorEditBinding? = nil) throws {
+        try validateEditBinding(expectedBinding)
+        let nextCanvas = try canvas.replacingPhysicalSize(size)
+        var next = try editableDraft()
+        try next.setOutputStock(id: id, size: size)
+        _ = try PagePlacementPlanner.plan(source: size, canvas: nextCanvas, policy: .fit,
+            margins: next.profile.outputMargins)
+        try replaceDraft(next)
+        canvas = nextCanvas
+        cancelPreview()
+        isSaved = false
+    }
+
+    /// Reserved blank area is part of the immutable candidate, not a preview-only setting.
+    public func setOutputMargins(_ margins: OutputMargins,
+                                 expectedBinding: WorkflowEditorEditBinding? = nil) throws {
+        try validateEditBinding(expectedBinding)
+        var next = try editableDraft()
+        try next.setOutputMargins(margins)
+        _ = try PagePlacementPlanner.plan(source: next.profile.outputStock, canvas: canvas,
+            policy: .fit, margins: margins)
         try replaceDraft(next)
         cancelPreview()
         isSaved = false
@@ -369,7 +398,7 @@ public final class WorkflowEditorModel: ObservableObject {
             guard previewRequest == request, selectedRegionID == selection,
                   profile == snapshot else { return }
             if !Task.isCancelled && !cancellation.isCancelled {
-                lastError = "Preview could not be prepared."
+                lastError = String(localized: "Preview could not be prepared.")
             }
         }
     }
@@ -415,7 +444,9 @@ public final class WorkflowEditorModel: ObservableObject {
 
     public func reloadForCorrection(profileID: String, revision: Int) throws {
         let stored = try store.load(profileID: profileID, revision: revision)
+        let nextCanvas = try canvas.replacingPhysicalSize(stored.outputStock)
         try replaceDraft(store.correctionDraft(for: stored))
+        canvas = nextCanvas
         cancelPreview()
         selectedRegionID = Self.regions(in: draft.profile).first?.id
         preview = nil
@@ -423,7 +454,47 @@ public final class WorkflowEditorModel: ObservableObject {
         lastError = nil
     }
 
-    public func report(_ error: Swift.Error) { lastError = String(describing: error) }
+    /// User-facing failures use fixed vocabulary, never arbitrary descriptions.
+    /// Reporting does not change draft/review/save state or authorize a retry.
+    public func report(_ error: Swift.Error) {
+        if let editorError = error as? Error {
+            lastError = switch editorError {
+            case .previewRequired: String(localized: "Prepare the exact preview before reviewing these bounds.")
+            case .savedRevisionRequired: String(localized: "Save this revision before approving unattended use.")
+            case .regionReviewRequired: String(localized: "Review every region and its exact preview before approving unattended use.")
+            case .reviewSnapshotChanged: String(localized: "The preview or draft changed. Prepare a current preview and review it again.")
+            case .editSequenceExhausted: String(localized: "This editing session cannot accept more changes. Reopen the saved revision to continue.")
+            case .editSnapshotChanged: String(localized: "The draft changed. Review the current values before editing again.")
+            }
+        } else if let draftError = error as? WorkflowProfileDraft.Error {
+            lastError = switch draftError {
+            case .revisionOverflow: String(localized: "This profile cannot create another revision.")
+            case .regionNotFound: String(localized: "The selected region is no longer available. Select a current region.")
+            case .invalidDestination: String(localized: "Choose a position within the current region order.")
+            case .lastRegionOnPage: String(localized: "Keep one region on this page, or explicitly mark the page as skipped.")
+            case .pageNotFound: String(localized: "The selected page is no longer available. Select a current page.")
+            case .invalidPageDisposition: String(localized: "This page cannot use the selected extraction or skip rule.")
+            case .lastOutputPage: String(localized: "Keep at least one page that produces labels.")
+            }
+        } else if let storeError = error as? WorkflowProfileStore.Error {
+            lastError = switch storeError {
+            case .commitUncertain: String(localized: "Save completion is uncertain. Preserve the current draft and review saved revisions before retrying.")
+            case .publicationBusy: String(localized: "Another save is in progress. Wait for it to finish before saving again.")
+            case .profileConflict: String(localized: "This revision already exists with different content. Reopen it for correction instead of overwriting it.")
+            case .catalogCapacityReached: String(localized: "The saved profile catalog is full. Review existing revisions before saving another.")
+            case .cannotCreateStore, .cannotOpenStore, .unsafeStoreDirectory:
+                String(localized: "The saved profile catalog could not be opened safely.")
+            case .cannotRead: String(localized: "The saved revision could not be read.")
+            case .cannotWrite: String(localized: "The revision could not be saved. Preserve the current draft.")
+            case .profileIdentityMismatch, .malformedQualification, .qualificationMismatch:
+                String(localized: "The saved revision or its approval does not match. Reopen the current revision and review it again.")
+            }
+        } else if error is PageGeometryError || error is PhysicalGeometryError {
+            lastError = String(localized: "Enter finite, positive dimensions and keep the region within its source page.")
+        } else {
+            lastError = String(localized: "This edit could not be completed. Review the current draft before continuing.")
+        }
+    }
 
     private static func regions(in profile: WorkflowProfile) -> [WorkflowEditorRegion] {
         profile.pageRules.flatMap { rule -> [WorkflowEditorRegion] in
@@ -549,10 +620,55 @@ public struct WorkflowEditorView: View {
 
     private var mediaSummary: some View {
         let stock = model.profile.outputStock
-        return VStack(alignment: .leading) {
+        let margins = model.profile.outputMargins
+        let binding = model.selectedRegionID.map {
+            WorkflowEditorEditBinding(regionID: $0, editGeneration: model.editGeneration)
+        }
+        return VStack(alignment: .leading, spacing: 8) {
             Text("Input sheet geometry is configured per source page.")
-            Text("Output stock: \(stock.width.value, format: .number.precision(.fractionLength(1))) × \(stock.height.value, format: .number.precision(.fractionLength(1))) mm")
-        }.accessibilityElement(children: .combine)
+            GroupBox("Output stock dimensions") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        measurementField("Stock width (mm)", value: stock.width.value) { value in
+                            try model.setOutputStock(id: "custom-stock", size: PhysicalSize(
+                                width: Millimeters(value), height: stock.height), expectedBinding: binding)
+                        }
+                        measurementField("Stock height (mm)", value: stock.height.value) { value in
+                            try model.setOutputStock(id: "custom-stock", size: PhysicalSize(
+                                width: stock.width, height: Millimeters(value)), expectedBinding: binding)
+                        }
+                    }
+                    Text("These dimensions change this workflow's label previews. Verify the physical stock and printer limits separately before printing.")
+                        .font(.caption)
+                }
+            }
+            GroupBox("Reserved output margins") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        measurementField("Left margin (mm)", value: margins.left) { value in
+                            try model.setOutputMargins(OutputMargins(left: value, top: margins.top,
+                                right: margins.right, bottom: margins.bottom), expectedBinding: binding)
+                        }
+                        measurementField("Top margin (mm)", value: margins.top) { value in
+                            try model.setOutputMargins(OutputMargins(left: margins.left, top: value,
+                                right: margins.right, bottom: margins.bottom), expectedBinding: binding)
+                        }
+                    }
+                    HStack {
+                        measurementField("Right margin (mm)", value: margins.right) { value in
+                            try model.setOutputMargins(OutputMargins(left: margins.left, top: margins.top,
+                                right: value, bottom: margins.bottom), expectedBinding: binding)
+                        }
+                        measurementField("Bottom margin (mm)", value: margins.bottom) { value in
+                            try model.setOutputMargins(OutputMargins(left: margins.left, top: margins.top,
+                                right: margins.right, bottom: value), expectedBinding: binding)
+                        }
+                    }
+                    Text("Margins reserve blank space inside the output stock. Review a new exact preview after changing them; printer calibration must be verified separately.")
+                        .font(.caption)
+                }.disabled(binding == nil)
+            }
+        }
     }
 
     private var pageHandling: some View {

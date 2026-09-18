@@ -84,7 +84,8 @@ final class AcceptedJobStoreTests: XCTestCase {
         regionID: String = "label",
         configuredPrinterSpeed: Int? = nil,
         workflowSpeed: Int? = 3,
-        cancellationToken: Data = Data("synthetic cancellation capability".utf8)
+        cancellationToken: Data = Data("synthetic cancellation capability".utf8),
+        outputMargins: OutputMargins = .zero
     ) throws -> Fixture {
         let root = FileManager.default.temporaryDirectory.appending(
             path: "AcceptedJobStore-\(UUID().uuidString)"
@@ -99,10 +100,12 @@ final class AcceptedJobStoreTests: XCTestCase {
         let page = try PDFPageBox(originX: 0, originY: 0, width: 288, height: 432)
         let region = try NormalizedRect(x: 0, y: 0, width: 1, height: 1)
         let workflow = try WorkflowProfile(
+            schemaVersion: outputMargins == .zero ? 2 : 3,
             id: "native-4x6-local", revision: 3, outputStockID: "nominal-4x6",
             outputStock: PhysicalSize(
                 width: try Millimeters.inches(4), height: try Millimeters.inches(6)
             ),
+            outputMargins: outputMargins,
             pageRules: [try WorkflowPageRule(
                 sourcePage: 1,
                 expectedInput: ExpectedInputPage(uprightPhysicalSize: page.effectivePhysicalSize()),
@@ -234,6 +237,54 @@ final class AcceptedJobStoreTests: XCTestCase {
         XCTAssertEqual(value.ticket.activeSelectionGeneration, 1)
         XCTAssertEqual(laterSelection.generation, 2)
         XCTAssertNotEqual(laterSelection.queue, value.ticket.queue)
+    }
+
+    /// Native proof that a margin-bearing workflow-v3 snapshot survives the
+    /// accepted-job store. The portable core already covers v3 admission and
+    /// stale-margin rejection; before this, no LabelMac regression bound a v3
+    /// workflow through the store, so native snapshot/revision behavior for v3
+    /// was unverified rather than supported.
+    func testAcceptedStoreBindsMarginWorkflowV3SnapshotAndRevision() throws {
+        let margins = try OutputMargins(left: 1, top: 2, right: 3, bottom: 4)
+        let value = try fixture(outputMargins: margins)
+        XCTAssertEqual(value.ticket.workflowProfile.schemaVersion, 3)
+        XCTAssertEqual(value.queue.workflowProfile.schemaVersion, 3)
+
+        try value.jobs.save(
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let loaded = try value.jobs.load(
+            acceptanceID: value.ticket.acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+
+        XCTAssertEqual(loaded.ticket, value.ticket)
+        XCTAssertEqual(loaded.ticket.workflowProfile.schemaVersion, 3)
+        XCTAssertEqual(
+            loaded.ticket.workflowProfile.revision, value.ticket.workflowProfile.revision
+        )
+        XCTAssertEqual(loaded.ticket.workflowProfile, value.queue.workflowProfile)
+
+        // The reference is a digest of the canonical v3 encoding, not of a
+        // margin-stripped v2 re-encoding.
+        let stored = try value.workflows.load(
+            profileID: value.queue.workflowProfile.id,
+            revision: value.queue.workflowProfile.revision
+        )
+        XCTAssertEqual(stored.schemaVersion, 3)
+        XCTAssertEqual(stored.outputMargins, margins)
+        XCTAssertEqual(
+            value.ticket.workflowProfile.sha256,
+            Self.digest(try WorkflowProfileJSON.encode(stored))
+        )
+
+        // The ticket does not duplicate margins into its output labels; it
+        // binds them through the immutable workflow reference above, so the
+        // labels stay identity-only across persistence.
+        XCTAssertEqual(loaded.ticket.outputLabels.count, 1)
+        XCTAssertEqual(loaded.ticket.outputLabels.first?.sourcePage, 1)
+        XCTAssertEqual(loaded.ticket.outputLabels.first?.regionID, "label")
     }
 
     func testConfiguredPrinterDefaultsFreezeThroughAcceptedPreparedAndActiveRevisionChanges() throws {

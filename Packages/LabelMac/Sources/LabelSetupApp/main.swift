@@ -15,11 +15,13 @@ final class SetupAppController: ObservableObject {
     let printerDefaults: PrinterDefaultsEditingModel?
     var printerSetup: ReferencePrinterSetupModel? { printerDefaults?.setup }
     let usbDiscovery = USBRegistryDiscoveryModel()
+    let finishingJobs: FinishingInspectionModel
     let previewWorkerExecutable = (Bundle.main.executableURL?.deletingLastPathComponent()
         ?? Bundle.main.bundleURL.appending(path: "Contents/MacOS"))
         .appending(path: "label-render-worker")
 
     init() {
+        finishingJobs = FinishingInspectionModel(workerExecutable: previewWorkerExecutable)
         scratchWarning = OfflineRenderWorkerProcess.scratchRecoveryWarning()
         do {
             let setup = try ReferencePrinterSetupModel.gc420dUSB()
@@ -42,7 +44,7 @@ final class SetupAppController: ObservableObject {
         } catch {
             documents = nil
             printerDefaults = nil
-            self.error = String(describing: error)
+            self.error = String(localized: "Local setup storage could not be initialized. Check access to the app’s local data folder.")
         }
     }
 
@@ -71,6 +73,7 @@ struct SetupRootView: View {
                     PrinterDefaultsEditingView(model: printerDefaults)
                 }
                 USBRegistryDiscoveryView(model: controller.usbDiscovery)
+                FinishingInspectionView(model: controller.finishingJobs)
                 GroupBox("Offline diagnostics") {
                     VStack(alignment: .leading) {
                         Button("Copy Offline Diagnostics") { controller.copyOfflineDiagnostics() }
@@ -146,6 +149,7 @@ struct SetupDocumentView: View {
                                 .tag(Optional(entry.id))
                         }
                     }
+                    Text("Reopens for offline correction. Configured printer stock is unchanged.").font(.caption)
                     Button("Reopen Saved Workflow with PDF…") {
                         reopeningProfile = documents.savedWorkflows.first { $0.id == selectedSavedWorkflow }
                         if reopeningProfile != nil { importing = true }
@@ -165,7 +169,7 @@ struct SetupDocumentView: View {
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
             if case let .success(url) = result {
-                if let reopeningProfile { documents.openSavedWorkflow(url, profile: reopeningProfile.profile) }
+                if let reopeningProfile { documents.openSavedWorkflowForOfflineEditing(url, profile: reopeningProfile.profile) }
                 else { documents.open(url, mode: openingMode) }
             }
             if case .failure = result { documents.reportImportFailure() }
