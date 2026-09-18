@@ -86,7 +86,7 @@ public enum ActiveVirtualQueueJSON {
         }
         guard data.count <= maximumBytes else { throw ActiveVirtualQueueJSONError.inputTooLarge }
         let raw: Any
-        do { raw = try JSONSerialization.jsonObject(with: data) }
+        do { raw = try TokenPreservingJSON.decode(data) }
         catch { throw ActiveVirtualQueueJSONError.malformedJSON }
         do {
             let root = try object(raw, allowed: [
@@ -144,13 +144,8 @@ public enum ActiveVirtualQueueJSON {
     }
 
     private static func integer(_ object: [String: Any], _ key: String) throws -> Int {
-        guard let number = try required(object, key) as? NSNumber,
-              CFGetTypeID(number) != CFBooleanGetTypeID(),
-              number.doubleValue.isFinite,
-              number.doubleValue >= Double(Int.min), number.doubleValue < Double(Int.max),
-              number.doubleValue == Double(number.intValue) else {
-            throw ActiveVirtualQueueJSONError.invalidType(key)
-        }
-        return number.intValue
+        guard let value = try required(object, key) as? TokenPreservingJSON.Number,
+              let exact = value.integerValue else { throw ActiveVirtualQueueJSONError.invalidType(key) }
+        return exact
     }
 }

@@ -408,7 +408,7 @@ public enum ResolvedJobTicketJSON {
         }
         guard data.count <= maximumBytes else { throw ResolvedJobTicketError.inputTooLarge }
         let raw: Any
-        do { raw = try JSONSerialization.jsonObject(with: data) }
+        do { raw = try TokenPreservingJSON.decode(data) }
         catch { throw ResolvedJobTicketError.malformedJSON }
         do {
             let root = try object(raw, keys: [
@@ -827,13 +827,9 @@ public enum ResolvedJobTicketJSON {
     }
 
     private static func integerValue(_ raw: Any, key: String) throws -> Int {
-        guard let value = raw as? NSNumber,
-              CFGetTypeID(value) != CFBooleanGetTypeID(), value.doubleValue.isFinite,
-              value.doubleValue >= Double(Int.min), value.doubleValue < Double(Int.max),
-              value.doubleValue == Double(value.intValue) else {
-            throw ResolvedJobTicketError.invalidType(key)
-        }
-        return value.intValue
+        guard let value = raw as? TokenPreservingJSON.Number,
+              let exact = value.integerValue else { throw ResolvedJobTicketError.invalidType(key) }
+        return exact
     }
 
     private static func optionalInteger(_ root: [String: Any], _ key: String) throws -> Int? {

@@ -17,10 +17,9 @@ enum PrivateOffsetJSON {
         func value(_ key: String) throws -> Int? {
             guard let raw = object[key] else { throw Error.invalidOffsets }
             if raw is NSNull { return nil }
-            guard let number = raw as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
-                  number.doubleValue.isFinite, (-9_999...9_999).contains(number.doubleValue),
-                  number.doubleValue == Double(number.intValue) else { throw Error.invalidOffsets }
-            return number.intValue
+            guard let number = raw as? TokenPreservingJSON.Number,
+                  let exact = number.integerValue, (-9_999...9_999).contains(exact) else { throw Error.invalidOffsets }
+            return exact
         }
         return try .init(blackMarkOffsetDots: value("blackMarkOffsetDots"), shiftLeftDots: value("shiftLeftDots"),
                          labelTopDots: value("labelTopDots"))

@@ -72,7 +72,7 @@ public enum FinishingQueueJSON {
     private static func readRoot(_ bytes: Data) throws -> [String: Any] {
         guard bytes.count <= maximumBytes else { throw FinishingQueueJSONError.inputTooLarge }
         let raw: Any
-        do { raw = try JSONSerialization.jsonObject(with: bytes) }
+        do { raw = try TokenPreservingJSON.decode(bytes) }
         catch { throw FinishingQueueJSONError.malformedJSON }
         let root = try object(raw, allowed: keys)
         guard try string(root, "kind") == "offlineFinishingQueue", try integer(root, "schemaVersion") == 1 else {
@@ -151,13 +151,8 @@ public enum FinishingQueueJSON {
     }
 
     private static func integer(_ object: [String: Any], _ key: String) throws -> Int {
-        guard let value = try required(object, key) as? NSNumber,
-              CFGetTypeID(value) != CFBooleanGetTypeID(),
-              value.doubleValue.isFinite,
-              value.doubleValue.rounded(.towardZero) == value.doubleValue,
-              value.doubleValue >= Double(Int.min), value.doubleValue < Double(Int.max) else {
-            throw FinishingQueueJSONError.invalidType(key)
-        }
-        return Int(value.doubleValue)
+        guard let value = try required(object, key) as? TokenPreservingJSON.Number,
+              let exact = value.integerValue else { throw FinishingQueueJSONError.invalidType(key) }
+        return exact
     }
 }
