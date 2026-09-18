@@ -14,6 +14,13 @@ public struct WorkflowEditorRegion: Identifiable, Equatable, Sendable {
 
 @MainActor
 public final class WorkflowEditorModel: ObservableObject {
+    public enum Error: Swift.Error, Equatable, Sendable {
+        case previewRequired
+        case savedRevisionRequired
+        case regionReviewRequired
+        case reviewSnapshotChanged
+        case editSequenceExhausted
+    }
     @Published public private(set) var draft: WorkflowProfileDraft
     @Published public var selectedRegionID: String? {
         didSet { if selectedRegionID != oldValue { cancelPreview(); cancelSourcePreview() } }
@@ -25,6 +32,9 @@ public final class WorkflowEditorModel: ObservableObject {
     @Published public private(set) var sourcePreview: WorkflowSourcePagePreview?
     @Published public private(set) var sourcePreviewError: String?
     @Published public private(set) var isPreparingSourcePreview = false
+    @Published private var reviewedProfile: WorkflowProfile?
+    @Published private var reviewedRegionIDs: Set<String> = []
+    @Published public private(set) var editGeneration: UInt64 = 0
 
     private var sourceRequest: UUID?
     private var sourceCancellation: OfflineRenderWorkerCancellation?
@@ -60,6 +70,34 @@ public final class WorkflowEditorModel: ObservableObject {
 
     public var profile: WorkflowProfile { draft.validatedProfile() }
     public var regions: [WorkflowEditorRegion] { Self.regions(in: profile) }
+
+    /// Review is session-local and exact-profile bound. Every newly opened
+    /// editor starts unreviewed, so saving/reopening cannot bypass the UI gate.
+    public var unreviewedRegionCount: Int {
+        reviewedProfile == profile
+            ? regions.filter { !reviewedRegionIDs.contains($0.id) }.count : regions.count
+    }
+
+    public var canConfirmSelectedBoundsAndPreview: Bool {
+        guard !isPreparingPreview, let selectedRegionID,
+              let region = regions.first(where: { $0.id == selectedRegionID }), let preview else { return false }
+        return preview.regionID == region.id && preview.sourcePage == region.sourcePage
+            && preview.profileID == profile.id && preview.profileRevision == profile.revision
+    }
+
+    public var canApproveForUnattendedUse: Bool {
+        isSaved && unreviewedRegionCount == 0 && !profile.pageRules.contains { $0.structuralAnchors.isEmpty }
+    }
+
+    public func confirmSelectedBoundsAndPreviewReviewed(expectedProfile: WorkflowProfile,
+                                                        expectedPreview: PreparedExtractionLabel?,
+                                                        expectedEditGeneration: UInt64) throws {
+        guard profile == expectedProfile, preview == expectedPreview,
+              editGeneration == expectedEditGeneration else { throw Error.reviewSnapshotChanged }
+        guard canConfirmSelectedBoundsAndPreview, let selectedRegionID else { throw Error.previewRequired }
+        if reviewedProfile != profile { reviewedRegionIDs = []; reviewedProfile = profile }
+        reviewedRegionIDs.insert(selectedRegionID)
+    }
 
     public func select(_ id: String) { selectedRegionID = id }
 
@@ -145,7 +183,7 @@ public final class WorkflowEditorModel: ObservableObject {
         }
         var next = try editableDraft()
         try next.updateRegion(id: expectedRegionID, normalizedRect: rect, rotation: region.rotation)
-        draft = next
+        try replaceDraft(next)
         cancelPreview()
         isSaved = false
     }
@@ -161,7 +199,7 @@ public final class WorkflowEditorModel: ObservableObject {
             normalizedRect: region.normalizedRect,
             rotation: rotation
         )
-        draft = next
+        try replaceDraft(next)
         cancelPreview()
         isSaved = false
     }
@@ -175,7 +213,7 @@ public final class WorkflowEditorModel: ObservableObject {
         guard !overflow else { throw WorkflowProfileDraft.Error.invalidDestination }
         var next = try editableDraft()
         try next.moveRegion(id: selectedRegionID, to: destination)
-        draft = next
+        try replaceDraft(next)
         cancelPreview()
         isSaved = false
     }
@@ -185,7 +223,7 @@ public final class WorkflowEditorModel: ObservableObject {
         let newID = "region-" + UUID().uuidString.lowercased()
         var next = try editableDraft()
         try next.duplicateRegion(id: selectedRegionID, newID: newID)
-        draft = next
+        try replaceDraft(next)
         isSaved = false
         self.selectedRegionID = newID
     }
@@ -197,7 +235,7 @@ public final class WorkflowEditorModel: ObservableObject {
         }
         var next = try editableDraft()
         try next.removeRegion(id: selectedRegionID)
-        draft = next
+        try replaceDraft(next)
         isSaved = false
         self.selectedRegionID = regions.first(where: { $0.sourcePage == selected.sourcePage })?.id
     }
@@ -218,6 +256,32 @@ public final class WorkflowEditorModel: ObservableObject {
             conversion: profile.monochromeConversion
         )
         lastError = nil
+    }
+
+    /// A confirmation captured for an earlier revision cannot discard current crops.
+    public func skipPage(_ sourcePage: Int, reason: NonLabelPageReason,
+                         expectedProfile: WorkflowProfile) throws {
+        guard profile == expectedProfile else { throw WorkflowProfileDraft.Error.invalidPageDisposition }
+        var next = try editableDraft()
+        try next.skipPage(sourcePage, reason: reason)
+        try replaceDraft(next)
+        isSaved = false
+        cancelPreview()
+        cancelSourcePreview()
+        if !regions.contains(where: { $0.id == selectedRegionID }) {
+            selectedRegionID = regions.first?.id
+        }
+    }
+
+    public func restorePage(_ sourcePage: Int) throws {
+        let newID = "region-" + UUID().uuidString.lowercased()
+        var next = try editableDraft()
+        try next.restorePage(sourcePage, newRegionID: newID)
+        try replaceDraft(next)
+        isSaved = false
+        cancelPreview()
+        cancelSourcePreview()
+        selectedRegionID = newID
     }
 
     public func cancelPreview() {
@@ -300,14 +364,27 @@ public final class WorkflowEditorModel: ObservableObject {
         isSaved ? try store.correctionDraft(for: profile) : draft
     }
 
+    /// Successful mutations invalidate review even when values are later undone.
+    private func replaceDraft(_ next: WorkflowProfileDraft) throws {
+        let (following, overflow) = editGeneration.addingReportingOverflow(1)
+        guard !overflow else { throw Error.editSequenceExhausted }
+        reviewedProfile = nil
+        reviewedRegionIDs = []
+        editGeneration = following
+        draft = next
+    }
+
     public func approveForUnattendedUse() throws {
+        _ = try UnattendedWorkflowQualification(userConfirmed: profile)
+        guard isSaved else { throw Error.savedRevisionRequired }
+        guard unreviewedRegionCount == 0 else { throw Error.regionReviewRequired }
         try store.confirmForUnattendedUse(profile)
         lastError = nil
     }
 
     public func reloadForCorrection(profileID: String, revision: Int) throws {
         let stored = try store.load(profileID: profileID, revision: revision)
-        draft = try store.correctionDraft(for: stored)
+        try replaceDraft(store.correctionDraft(for: stored))
         cancelPreview()
         selectedRegionID = Self.regions(in: draft.profile).first?.id
         preview = nil
@@ -334,6 +411,14 @@ public final class WorkflowEditorModel: ObservableObject {
 public struct WorkflowEditorView: View {
     @ObservedObject private var model: WorkflowEditorModel
     private let workerExecutable: URL?
+    private struct PendingSkip {
+        let page: Int
+        let reason: NonLabelPageReason
+        let profile: WorkflowProfile
+    }
+    @State private var pendingSkip: PendingSkip?
+    @State private var confirmingSkip = false
+    @State private var skipReason: NonLabelPageReason = .instructions
 
     public init(model: WorkflowEditorModel, workerExecutable: URL? = nil) {
         self.model = model
@@ -351,6 +436,7 @@ public struct WorkflowEditorView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 mediaSummary
+                pageHandling
                 if model.isReopenedWorkflow {
                     Text("Saved workflow reopened for correction as a new revision. Review this PDF and the exact label previews before saving. Earlier revisions and their qualifications are unchanged.")
                         .accessibilityLabel("Reopened workflow requires review of its new revision")
@@ -361,6 +447,7 @@ public struct WorkflowEditorView: View {
                 if let region = selectedRegion { regionControls(region) }
                 sourceReferenceView
                 previewView
+                previewReviewControls
                 if let error = model.lastError {
                     Text(error).foregroundStyle(.red).accessibilityLabel("Editor error: \(error)")
                 }
@@ -379,17 +466,47 @@ public struct WorkflowEditorView: View {
                     Button("Save Revision") { perform(model.save) }
                         .keyboardShortcut("s", modifiers: [.command])
                     Button("Approve for Unattended Use") { perform(model.approveForUnattendedUse) }
-                        .disabled(!model.isSaved || model.profile.pageRules.contains { $0.structuralAnchors.isEmpty })
+                        .disabled(!model.canApproveForUnattendedUse)
                 }
             }
             .padding()
             .frame(minWidth: 480)
         }
         .onDisappear { model.cancelPreview(); model.cancelSourcePreview() }
+        .confirmationDialog("Mark this source page as non-label?", isPresented: $confirmingSkip,
+                            titleVisibility: .visible) {
+            if let pendingSkip {
+                Button("Confirm Non-Label Page", role: .destructive) {
+                    perform { try model.skipPage(pendingSkip.page, reason: pendingSkip.reason,
+                                                 expectedProfile: pendingSkip.profile) }
+                    self.pendingSkip = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { pendingSkip = nil }
+        } message: {
+            if let pendingSkip {
+                Text("Page \(pendingSkip.page) will produce no labels for reason \(pendingSkip.reason.rawValue). All its crop definitions are removed from this draft. The page remains accounted for and layout-validated. Restoring starts with a new full-page region requiring review; earlier saved revisions are unchanged.")
+            }
+        }
     }
 
     private var selectedRegion: WorkflowEditorRegion? {
         model.regions.first { $0.id == model.selectedRegionID }
+    }
+
+    private var previewReviewControls: some View {
+        let displayedProfile = model.profile
+        let displayedPreview = model.preview
+        let displayedGeneration = model.editGeneration
+        return HStack {
+            Button("Confirm Bounds and Exact Preview Reviewed") {
+                perform { try model.confirmSelectedBoundsAndPreviewReviewed(
+                    expectedProfile: displayedProfile, expectedPreview: displayedPreview,
+                    expectedEditGeneration: displayedGeneration) }
+            }.disabled(!model.canConfirmSelectedBoundsAndPreview)
+            Text("\(model.unreviewedRegionCount) regions require review before unattended approval.")
+                .font(.caption)
+        }
     }
 
     private var mediaSummary: some View {
@@ -398,6 +515,38 @@ public struct WorkflowEditorView: View {
             Text("Input sheet geometry is configured per source page.")
             Text("Output stock: \(stock.width.value, format: .number.precision(.fractionLength(1))) × \(stock.height.value, format: .number.precision(.fractionLength(1))) mm")
         }.accessibilityElement(children: .combine)
+    }
+
+    private var pageHandling: some View {
+        GroupBox("Source page accounting") {
+            VStack(alignment: .leading) {
+                Picker("Non-label reason", selection: $skipReason) {
+                    Text("Instructions").tag(NonLabelPageReason.instructions)
+                    Text("Customs form").tag(NonLabelPageReason.customsForm)
+                    Text("Explicitly ignored").tag(NonLabelPageReason.explicitlyIgnored)
+                }
+                ForEach(model.profile.pageRules.sorted { $0.sourcePage < $1.sourcePage }, id: \.sourcePage) { rule in
+                    HStack {
+                        switch rule.disposition {
+                        case let .extract(regions):
+                            Text("Page \(rule.sourcePage): \(regions.count) label regions")
+                            Button("Mark Page \(rule.sourcePage) Non-Label…") {
+                                pendingSkip = PendingSkip(page: rule.sourcePage, reason: skipReason,
+                                                          profile: model.profile)
+                                confirmingSkip = true
+                            }.disabled(model.regions.allSatisfy { $0.sourcePage == rule.sourcePage })
+                        case let .skip(reason):
+                            Text("Page \(rule.sourcePage): skipped — \(reason.rawValue)")
+                            Button("Restore Page \(rule.sourcePage) as Full-Page Region") {
+                                perform { try model.restorePage(rule.sourcePage) }
+                            }.accessibilityHint("Appends a new full-page region. Set its bounds and review the exact preview.")
+                        }
+                    }
+                }
+                Text("Every source page remains listed. Unexpected pages still fail validation. At least one page must produce labels; a customs form is not printed separately by this workflow.")
+                    .font(.caption)
+            }
+        }
     }
 
     private func regionControls(_ region: WorkflowEditorRegion) -> some View {

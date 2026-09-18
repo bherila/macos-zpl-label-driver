@@ -7,6 +7,10 @@ import LabelCore
 @MainActor
 final class WorkflowEditorTests: XCTestCase {
     private enum TestError: Error { case unavailable }
+    private func confirmReview(_ model: WorkflowEditorModel) throws {
+        try model.confirmSelectedBoundsAndPreviewReviewed(expectedProfile: model.profile, expectedPreview: model.preview,
+            expectedEditGeneration: model.editGeneration)
+    }
 
     func testSavedDrawAndNumericalEditsPublishNewRevisionWithoutOverwriting() throws {
         let (model, store) = try makeModel()
@@ -34,15 +38,17 @@ final class WorkflowEditorTests: XCTestCase {
         XCTAssertEqual(try store.load(profileID: second.id, revision: second.revision), second)
     }
 
-    private func pdf() throws -> Data {
+    private func pdf(pages: Int = 1) throws -> Data {
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data as CFMutableData) else { throw TestError.unavailable }
         var box = CGRect(x: 0, y: 0, width: 20, height: 10)
         guard let context = CGContext(consumer: consumer, mediaBox: &box, nil) else { throw TestError.unavailable }
+        for _ in 0..<pages {
         context.beginPDFPage(nil)
         context.setFillColor(gray: 0, alpha: 1)
         context.fill(CGRect(x: 0, y: 0, width: 10, height: 10))
         context.endPDFPage()
+        }
         context.closePDF()
         return data as Data
     }
@@ -75,6 +81,166 @@ final class WorkflowEditorTests: XCTestCase {
         XCTAssertEqual(model.regions.count, 1)
         XCTAssertEqual(model.profile.revision, original.revision + 2)
         XCTAssertNil(model.preview)
+    }
+
+    func testExplicitPagePolicyPreservesSavedRevisionAndRejectsStaleConfirmation() async throws {
+        let (reference, store) = try makeModel()
+        let originalRule = reference.profile.pageRules[0]
+        let region = try ExtractionRegion(id: "second", normalizedRect: NormalizedRect(x: 0, y: 0, width: 0.5, height: 1),
+            outputOrder: 1)
+        let profile = try WorkflowProfile(id: reference.profile.id, revision: reference.profile.revision,
+            outputStockID: reference.profile.outputStockID, outputStock: reference.profile.outputStock,
+            pageRules: [originalRule, WorkflowPageRule(sourcePage: 2, expectedInput: originalRule.expectedInput,
+                disposition: .extract([region]), structuralAnchors: originalRule.structuralAnchors)])
+        let source = try PDFPageBox(originX: 0, originY: 0, width: 20, height: 10)
+        let analyzed = try AnalyzedSourcePage(pageBox: source, anchors: originalRule.structuralAnchors.map {
+            ObservedPageAnchor(kind: $0.kind, normalizedRect: $0.normalizedRect)
+        })
+        let canvas = try DotCanvas(physicalSize: profile.outputStock,
+            resolution: DotResolution(xDotsPerMillimeter: 72 / 25.4, yDotsPerMillimeter: 72 / 25.4))
+        let model = WorkflowEditorModel(draft: WorkflowProfileDraft(profile: profile), originalPDF: try pdf(pages: 2),
+            analyzedPages: [analyzed, analyzed], canvas: canvas, store: store)
+        try model.save()
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        XCTAssertNotNil(model.preview)
+        try model.skipPage(1, reason: .instructions, expectedProfile: profile)
+        XCTAssertFalse(model.isSaved)
+        XCTAssertNil(model.preview)
+        XCTAssertEqual(model.selectedRegionID, "second")
+        XCTAssertEqual(model.profile.revision, profile.revision + 1)
+        XCTAssertEqual(model.profile.pageRules[0].disposition, .skip(.instructions))
+        let skipped = model.profile
+        XCTAssertThrowsError(try model.skipPage(2, reason: .customsForm, expectedProfile: profile))
+        XCTAssertThrowsError(try model.skipPage(2, reason: .customsForm, expectedProfile: skipped)) {
+            XCTAssertEqual($0 as? WorkflowProfileDraft.Error, .lastOutputPage)
+        }
+        XCTAssertEqual(model.profile, skipped)
+        try model.save()
+        try model.restorePage(1)
+        let restoredID = try XCTUnwrap(model.selectedRegionID)
+        XCTAssertNotEqual(restoredID, "selected")
+        XCTAssertEqual(model.regions.map(\.sourcePage), [2, 1])
+        XCTAssertEqual(model.regions.last?.normalizedRect, try NormalizedRect(x: 0, y: 0, width: 1, height: 1))
+        XCTAssertEqual(model.profile.revision, profile.revision + 2)
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        XCTAssertNil(model.lastError)
+        XCTAssertEqual(model.preview?.regionID, restoredID)
+        XCTAssertEqual(model.preview?.previewPBM, model.preview?.bitmap.pbmData())
+        try model.save()
+        XCTAssertEqual(model.unreviewedRegionCount, 2)
+        XCTAssertThrowsError(try model.approveForUnattendedUse()) {
+            XCTAssertEqual($0 as? WorkflowEditorModel.Error, .regionReviewRequired)
+        }
+        try confirmReview(model)
+        XCTAssertEqual(model.unreviewedRegionCount, 1)
+        XCTAssertFalse(model.canApproveForUnattendedUse)
+        model.select("second")
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        try confirmReview(model)
+        XCTAssertTrue(model.canApproveForUnattendedUse)
+        try model.approveForUnattendedUse()
+        let qualified = model.profile
+        try model.reloadForCorrection(profileID: qualified.id, revision: qualified.revision)
+        try model.save()
+        XCTAssertEqual(model.unreviewedRegionCount, 2)
+        XCTAssertThrowsError(try model.approveForUnattendedUse()) {
+            XCTAssertEqual($0 as? WorkflowEditorModel.Error, .regionReviewRequired)
+        }
+        XCTAssertNil(try store.qualification(for: model.profile))
+        XCTAssertNotNil(try store.qualification(for: qualified))
+        XCTAssertEqual(try store.load(profileID: profile.id, revision: profile.revision), profile)
+        XCTAssertEqual(try store.load(profileID: skipped.id, revision: skipped.revision), skipped)
+    }
+
+    func testExactPreviewReviewIsExplicitAndCannotSurviveProfileEdits() async throws {
+        let (model, store) = try makeModel()
+        try model.save()
+        XCTAssertThrowsError(try confirmReview(model)) {
+            XCTAssertEqual($0 as? WorkflowEditorModel.Error, .previewRequired)
+        }
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        XCTAssertEqual(model.unreviewedRegionCount, 1)
+        XCTAssertFalse(model.canApproveForUnattendedUse)
+        try confirmReview(model)
+        XCTAssertEqual(model.unreviewedRegionCount, 0)
+        try model.approveForUnattendedUse()
+        let original = model.profile
+        try model.setSelectedRotation(.degrees90)
+        XCTAssertEqual(model.unreviewedRegionCount, 1)
+        XCTAssertNil(model.preview)
+        XCTAssertThrowsError(try confirmReview(model))
+        try model.save()
+        XCTAssertThrowsError(try model.approveForUnattendedUse()) {
+            XCTAssertEqual($0 as? WorkflowEditorModel.Error, .regionReviewRequired)
+        }
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        try confirmReview(model)
+        try model.approveForUnattendedUse()
+        XCTAssertNotNil(try store.qualification(for: original))
+        XCTAssertNotNil(try store.qualification(for: model.profile))
+    }
+
+    func testStaleDisplayedPreviewCannotAcknowledgeNewSelectionOrProfile() async throws {
+        let (model, _) = try makeModel()
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        let displayedProfile = model.profile
+        let displayedPreview = try XCTUnwrap(model.preview)
+        let displayedGeneration = model.editGeneration
+        try model.addRegionOnSelectedPage()
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        XCTAssertThrowsError(try model.confirmSelectedBoundsAndPreviewReviewed(
+            expectedProfile: displayedProfile, expectedPreview: displayedPreview,
+            expectedEditGeneration: displayedGeneration)) {
+            XCTAssertEqual($0 as? WorkflowEditorModel.Error, .reviewSnapshotChanged)
+        }
+        XCTAssertEqual(model.unreviewedRegionCount, 2)
+        let currentProfile = model.profile
+        let currentPreview = try XCTUnwrap(model.preview)
+        let currentGeneration = model.editGeneration
+        model.select("selected")
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        XCTAssertThrowsError(try model.confirmSelectedBoundsAndPreviewReviewed(
+            expectedProfile: currentProfile, expectedPreview: currentPreview,
+            expectedEditGeneration: currentGeneration)) {
+            XCTAssertEqual($0 as? WorkflowEditorModel.Error, .reviewSnapshotChanged)
+        }
+        XCTAssertEqual(model.unreviewedRegionCount, 2)
+        try confirmReview(model)
+        XCTAssertEqual(model.unreviewedRegionCount, 1)
+    }
+
+    func testUnsavedUndoCannotResurrectReviewOrAcceptAnOldDisplayedGeneration() async throws {
+        let (model, store) = try makeModel()
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        try confirmReview(model)
+        let original = model.profile
+        let oldPreview = try XCTUnwrap(model.preview)
+        let oldGeneration = model.editGeneration
+        XCTAssertEqual(model.unreviewedRegionCount, 0)
+        XCTAssertFalse(model.isSaved)
+        try model.setSelectedRotation(.degrees90)
+        try model.setSelectedRotation(.degrees0)
+        XCTAssertEqual(model.profile, original)
+        XCTAssertEqual(model.editGeneration, oldGeneration + 2)
+        XCTAssertEqual(model.unreviewedRegionCount, 1)
+        XCTAssertNil(model.preview)
+        try model.save()
+        XCTAssertFalse(model.canApproveForUnattendedUse)
+        XCTAssertThrowsError(try model.approveForUnattendedUse())
+        XCTAssertNil(try store.qualification(for: original))
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        XCTAssertEqual(model.preview, oldPreview)
+        XCTAssertThrowsError(try model.confirmSelectedBoundsAndPreviewReviewed(expectedProfile: original,
+            expectedPreview: oldPreview, expectedEditGeneration: oldGeneration)) {
+            XCTAssertEqual($0 as? WorkflowEditorModel.Error, .reviewSnapshotChanged)
+        }
+        XCTAssertEqual(model.unreviewedRegionCount, 1)
+        try confirmReview(model)
+        try model.approveForUnattendedUse()
+        let generation = model.editGeneration
+        XCTAssertThrowsError(try model.setSelectedRegionMillimeters(left: -1, top: 0, width: 1, height: 1))
+        XCTAssertEqual(model.editGeneration, generation)
+        XCTAssertTrue(model.canApproveForUnattendedUse)
     }
 
     private func makeModel() throws -> (WorkflowEditorModel, WorkflowProfileStore) {
@@ -147,6 +313,8 @@ final class WorkflowEditorTests: XCTestCase {
         try model.save()
         XCTAssertTrue(model.isSaved)
         XCTAssertNil(try store.qualification(for: model.profile))
+        try model.refreshPreview()
+        try confirmReview(model)
         try model.approveForUnattendedUse()
         XCTAssertNotNil(try store.qualification(for: model.profile))
 

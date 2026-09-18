@@ -113,4 +113,65 @@ final class WorkflowProfileDraftTests: XCTestCase {
         XCTAssertEqual(draft, before)
         XCTAssertEqual(try WorkflowProfileJSON.decode(WorkflowProfileJSON.encode(draft.profile)), draft.profile)
     }
+
+    func testExplicitSkipReportsReasonRetainsGeometryAndRestoresFullPageLast() throws {
+        var draft = WorkflowProfileDraft(profile: try profile())
+        let original = draft.profile
+        try draft.skipPage(1, reason: .customsForm)
+        XCTAssertEqual(draft.profile.pageRules[0].disposition, .skip(.customsForm))
+        XCTAssertEqual(draft.profile.pageRules.map(\.expectedInput), original.pageRules.map(\.expectedInput))
+        XCTAssertEqual(draft.profile.pageRules.map(\.structuralAnchors), original.pageRules.map(\.structuralAnchors))
+        let pages = try (0..<2).map { _ in try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792) }
+        let plan = try ExtractionPlanner.plan(sourcePages: pages, profile: draft.profile,
+            copyPolicy: .engine(copies: 2, collated: true))
+        XCTAssertEqual(plan.outputLabels.map(\.regionID), ["C", "C"])
+        XCTAssertEqual(plan.skippedPages.map(\.sourcePage), [1])
+        XCTAssertEqual(plan.skippedPages.map(\.reason), [.customsForm])
+        XCTAssertEqual(try WorkflowProfileJSON.decode(WorkflowProfileJSON.encode(draft.profile)), draft.profile)
+        let skipped = draft
+        XCTAssertThrowsError(try draft.skipPage(2, reason: .instructions)) {
+            XCTAssertEqual($0 as? WorkflowProfileDraft.Error, .lastOutputPage)
+        }
+        XCTAssertThrowsError(try draft.restorePage(1, newRegionID: "C"))
+        XCTAssertThrowsError(try draft.skipPage(99, reason: .explicitlyIgnored))
+        XCTAssertEqual(draft, skipped)
+        try draft.restorePage(1, newRegionID: "restored")
+        let restored = try ExtractionPlanner.plan(sourcePages: pages, profile: draft.profile)
+        XCTAssertEqual(restored.outputLabels.map(\.regionID), ["C", "restored"])
+        XCTAssertEqual(restored.outputLabels.last?.normalizedRect,
+            try NormalizedRect(x: 0, y: 0, width: 1, height: 1))
+        XCTAssertTrue(restored.skippedPages.isEmpty)
+        XCTAssertThrowsError(try draft.restorePage(1, newRegionID: "again"))
+        XCTAssertThrowsError(try ExtractionPlanner.plan(sourcePages: pages + [pages[0]], profile: draft.profile)) {
+            XCTAssertEqual($0 as? ExtractionPlanError, .unaccountedSourcePage(3))
+        }
+    }
+
+    func testSkippedPageStillRequiresItsGeometryAndStructuralAnchor() throws {
+        let original = try profile()
+        let anchor = try StructuralAnchorExpectation(id: "instruction-border", kind: .border,
+            normalizedRect: NormalizedRect(x: 0.1, y: 0.1, width: 0.5, height: 0.5))
+        let first = original.pageRules[0]
+        let guarded = try WorkflowProfile(id: original.id, revision: original.revision,
+            outputStockID: original.outputStockID, outputStock: original.outputStock,
+            pageRules: [WorkflowPageRule(sourcePage: 1, expectedInput: first.expectedInput,
+                disposition: first.disposition, structuralAnchors: [anchor]), original.pageRules[1]])
+        var draft = WorkflowProfileDraft(profile: guarded)
+        try draft.skipPage(1, reason: .instructions)
+        let letter = try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792)
+        let matched = try AnalyzedSourcePage(pageBox: letter,
+            anchors: [ObservedPageAnchor(kind: .border, normalizedRect: anchor.normalizedRect)])
+        let second = try AnalyzedSourcePage(pageBox: letter, anchors: [])
+        XCTAssertEqual(try ExtractionPlanner.plan(analyzedPages: [matched, second], profile: draft.profile)
+            .skippedPages.map(\.reason), [.instructions])
+        let missing = try AnalyzedSourcePage(pageBox: letter, anchors: [])
+        XCTAssertThrowsError(try ExtractionPlanner.plan(analyzedPages: [missing, second], profile: draft.profile)) {
+            XCTAssertEqual($0 as? ExtractionPlanError, .missingAnchor(page: 1, anchorID: anchor.id))
+        }
+        let changed = try AnalyzedSourcePage(pageBox: PDFPageBox(originX: 0, originY: 0, width: 300, height: 792),
+            anchors: matched.anchors)
+        XCTAssertThrowsError(try ExtractionPlanner.plan(analyzedPages: [changed, second], profile: draft.profile)) {
+            XCTAssertEqual($0 as? ExtractionPlanError, .inputGeometryMismatch(page: 1))
+        }
+    }
 }
