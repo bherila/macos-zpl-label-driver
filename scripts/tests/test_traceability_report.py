@@ -122,29 +122,56 @@ class TraceabilityReportTests(unittest.TestCase):
         self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, changed_commit))
         self.assertFalse(reporter.source_is_unchanged(self.root, changed_commit, evaluated))
 
-    def test_manifest_refresh_preserves_candidate_but_cannot_mask_source_change(self):
+    def test_manifest_exemption_requires_a_manifest_that_still_describes_the_tree(self):
         subprocess.run(['git', '-C', str(self.root), 'init', '-q'], check=True)
         def commit():
-            subprocess.run(['git', '-C', str(self.root), 'add', '.'], check=True)
+            subprocess.run(['git', '-C', str(self.root), 'add', '-A'], check=True)
             subprocess.run(['git', '-C', str(self.root), '-c', 'user.name=Synthetic',
                             '-c', 'user.email=agent@example.test', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false',
                             'commit', '-qm', 'Synthetic test checkpoint'], check=True)
             return subprocess.check_output(['git', '-C', str(self.root), 'rev-parse', 'HEAD'], text=True).strip()
-        (self.root / 'MANIFEST.sha256').write_text('0' * 64 + '  implementation.swift\n')
+        def write_manifest(*names):
+            lines = []
+            for name in names:
+                body = (self.root / name).read_bytes()
+                lines.append(f'{hashlib.sha256(body).hexdigest()}  {name}')
+            (self.root / 'MANIFEST.sha256').write_text('\n'.join(lines) + '\n')
+        write_manifest('implementation.swift')
         evaluated = commit()
         self.records[0]['sourceSHA'] = evaluated
         self.records[1]['sourceSHA'] = evaluated
         self.ledger()
-        # Recording evidence refreshes the derived manifest; that alone must not invalidate records.
-        (self.root / 'MANIFEST.sha256').write_text('1' * 64 + '  implementation.swift\n')
-        manifest_commit = commit()
-        self.assertTrue(reporter.source_is_unchanged(self.root, evaluated, manifest_commit))
-        report = reporter.build_report(self.root, manifest_commit,
-            source_matches=lambda sha: reporter.source_is_unchanged(self.root, sha, manifest_commit))
+
+        # A truthful refresh is bookkeeping: recording evidence must rewrite this file, so it
+        # cannot be the thing that invalidates the records it describes.
+        self.records[0]['state'] = 'pass'
+        self.ledger()
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
+        refreshed = commit()
+        self.assertTrue(reporter.source_is_unchanged(self.root, evaluated, refreshed))
+        report = reporter.build_report(self.root, refreshed,
+            source_matches=lambda sha: reporter.source_is_unchanged(self.root, sha, refreshed))
         self.assertTrue(report['readyForMaintainerReview'])
-        # A real source change is still caught even when the manifest moves with it.
+
+        # A wrong digest is corrupted integrity metadata, not bookkeeping, even though it is the
+        # only changed path. It must not silently keep older evidence current.
+        (self.root / 'MANIFEST.sha256').write_text('1' * 64 + '  implementation.swift\n')
+        corrupted = commit()
+        self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, corrupted))
+        self.assertFalse(reporter.build_report(self.root, corrupted,
+            source_matches=lambda sha: reporter.source_is_unchanged(self.root, sha, corrupted)
+        )['readyForMaintainerReview'])
+
+        # An entry naming a path that does not exist at that commit is equally untrustworthy.
+        write_manifest('implementation.swift')
+        (self.root / 'MANIFEST.sha256').write_text(
+            (self.root / 'MANIFEST.sha256').read_text() + '0' * 64 + '  absent.swift\n')
+        missing = commit()
+        self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, missing))
+
+        # A real source change is still caught even when the manifest truthfully moves with it.
         (self.root / 'implementation.swift').write_text('changed build input\n')
-        (self.root / 'MANIFEST.sha256').write_text('2' * 64 + '  implementation.swift\n')
+        write_manifest('implementation.swift')
         changed_commit = commit()
         self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, changed_commit))
 

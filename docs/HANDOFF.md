@@ -1,3 +1,42 @@
+# Exact profile JSON decoding — 2026-09-18
+
+Source `399f75b5f249f71b0faf9df1ca1cb6deb04c4bd4` on `claude/determined-sagan-frse18`, over
+reconciliation `dd8778d` and `main` `56fdc7b`.
+
+Profile, queue and ticket codecs decoded through `JSONSerialization`, which routes every number
+through `Double`. On swift-corelibs-foundation that loses exactness, so ten profile round-trip tests
+failed on Linux with deltas near 2.8e-14 while passing on macOS, where the platform parser happens to
+be exact. The portable package was portable by accident. `TokenPreservingJSON` keeps each number's
+original token until typed admission, with `ExactJSONInteger` for exact integers, and applies its own
+byte, depth and node limits where `JSONSerialization` applied none. Eight decoders moved onto it:
+`PrinterProfileJSON`, `PrivateOffsetJSON`, `PrivatePhysicalGeometryJSON`, `FinishingQueueJSON`,
+`AcceptedJobState`, `ActiveVirtualQueueSelection`, `ResolvedJobTicket`, `VirtualQueueDefinition`.
+
+Changed requirements: F15 bounded parsing and F12/F13 immutable profile identity are strengthened;
+no acceptance criterion is declared complete by this slice. M3-AC02 settings validation and M3-AC12
+privacy/permissions gain exactness and explicit parse bounds, and both remain unrecorded pending
+issue #86.
+
+Tests actually run. Linux x86_64 Swift 6.1.2: LabelCore 290 tests, 0 failures, debug and release, up
+from 282 tests with 27 failures. `check_repo.py` passed. 105 Python tests passed. Accelerator suite
+passed: 180 independent ASCII round trips, 12 benchmark CLI cases, 15 inert CUPS ABI, 14 filter ABI,
+1 discard pipeline case. Hosted run 35323558351 on `399f75b`, macos-26 arm64 Swift 6.3.3, passed all
+three checks with LabelCore 290/0 and LabelMac 334/0, zero `error:` lines, `minos 26.0`,
+`Signature=adhoc`, "No printer accessed". Hosted `swift-macos-arm64` is the only gate for LabelMac,
+which cannot build on Linux.
+
+Blockers and exclusions. Two checkpoint changes were deliberately excluded because they depend on
+work not yet landed: `VirtualQueueError` keeps its current shape rather than the `eb71a41`
+`RedactedDiagnosticValue` conformance, and `ResolvedJobTicket` keeps the workflow `schemaVersion == 2`
+bound rather than the checkpoint's `2...3` range and `outputMargins` plan check, which need a
+`WorkflowProfile.outputMargins` member this tree does not have. Taking that file wholesale fails to
+compile. No printer, installation, scheduler, GUI or release acceptance is claimed or implied.
+
+Next step: the workflow-v3 output-margins slice tracked in issue #88, which adds `OutputMargins` and
+then restores both excluded changes. Per-file merging is mandatory there: a wholesale copy from the
+checkpoint regresses `main`-side fixes and removes the tests that would catch it, as recorded on that
+issue.
+
 # Acceptance ledger reconciliation — 2026-09-18
 
 Stack merge campaign is complete: `main` is `56fdc7b` with PRs #1-#84 landed as 70 squash commits,

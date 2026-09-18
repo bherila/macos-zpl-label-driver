@@ -15,6 +15,8 @@ STATES = {'not-run', 'pass', 'fail', 'blocked', 'not-applicable'}
 SHA = re.compile(r'[0-9a-f]{40}\Z')
 DIGEST = re.compile(r'[0-9a-f]{64}\Z')
 MAXIMUM_FILE_BYTES = 2 * 1024 * 1024
+MANIFEST_PATH = 'MANIFEST.sha256'
+MAXIMUM_MANIFEST_ENTRIES = 4096
 
 
 def repository_file(root, relative, cache=None, total=None):
@@ -101,18 +103,73 @@ def source_is_unchanged(root, evaluated_sha, current_sha):
     changed = subprocess.check_output(['git', '-C', str(root), 'diff', '--no-ext-diff', '--no-textconv', '--name-only', '--no-renames', '-z',
                                        evaluated_sha, current_sha, '--'], timeout=10).decode().split('\0')
     evidence_metadata = {'docs/ACCEPTANCE-EVIDENCE.json', 'docs/PROGRESS.json', 'docs/SCOPE-STATUS.json',
-                         'docs/HANDOFF.md', 'docs/HANDOFF-HISTORY-2026-09-17.md',
-                         # Derived digests only. Recording evidence must refresh this manifest, so
-                         # treating it as a source change would invalidate every record it describes.
-                         # It cannot mask a real change: that file's own path is compared here too.
-                         'MANIFEST.sha256'}
+                         'docs/HANDOFF.md', 'docs/HANDOFF-HISTORY-2026-09-17.md'}
     for name in filter(None, changed):
         if name in evidence_metadata or (name.startswith('docs/validation/') and name.endswith('.md')):
             continue
         if re.fullmatch(r'docs/milestones/[a-z0-9-]+/ACCEPTANCE\.md', name):
             continue  # Criterion semantics remain bound by milestones.json.
+        if name == MANIFEST_PATH:
+            # Recording evidence must refresh this derived manifest, so treating any edit to it as a
+            # source change would invalidate every record it describes. Exempt it only when it still
+            # describes the tree exactly: a deleted entry or a wrong digest is corrupted integrity
+            # metadata, not bookkeeping, and must not silently keep older evidence current.
+            if manifest_describes_tree(root, current_sha):
+                continue
+            return False
         return False
     return True
+
+
+def manifest_describes_tree(root, sha):
+    """True when every MANIFEST.sha256 entry at `sha` matches that path's content at `sha`."""
+    try:
+        listing = subprocess.check_output(['git', '-C', str(root), 'show', f'{sha}:{MANIFEST_PATH}'],
+                                          stderr=subprocess.DEVNULL, timeout=10)
+    except subprocess.SubprocessError:
+        return False
+    if len(listing) > MAXIMUM_FILE_BYTES:
+        return False
+    entries = []
+    for line in listing.decode('utf-8', errors='strict').splitlines():
+        if not line.strip():
+            continue
+        digest, separator, path = line.partition('  ')
+        if not separator or not DIGEST.fullmatch(digest) or not path or '\0' in path:
+            return False
+        entries.append((digest, path))
+        if len(entries) > MAXIMUM_MANIFEST_ENTRIES:
+            return False
+    if not entries:
+        return False
+    request = ''.join(f'{sha}:{path}\n' for _, path in entries).encode()
+    try:
+        batch = subprocess.run(['git', '-C', str(root), 'cat-file', '--batch'],
+                               input=request, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60)
+    except subprocess.SubprocessError:
+        return False
+    if batch.returncode != 0:
+        return False
+    stream, offset = batch.stdout, 0
+    for digest, _ in entries:
+        end = stream.find(b'\n', offset)
+        if end < 0:
+            return False
+        header = stream[offset:end].split(b' ')
+        # A missing path yields "<request> missing"; only a blob can back an entry.
+        if len(header) != 3 or header[1] != b'blob':
+            return False
+        try:
+            size = int(header[2])
+        except ValueError:
+            return False
+        start = end + 1
+        offset = start + size + 1
+        if size < 0 or offset > len(stream):
+            return False
+        if hashlib.sha256(stream[start:start + size]).hexdigest() != digest:
+            return False
+    return offset == len(stream)
 
 
 def build_report(root, source_sha, workspace_dirty=False, source_matches=None):
