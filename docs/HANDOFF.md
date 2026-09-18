@@ -9,7 +9,9 @@ checked **and** a digest-bound record is current, so the report read 0 of 21 req
 criteria satisfied.
 
 Nine records now satisfy their criteria: M2-AC01, M2-AC04, M2-AC05, M2-AC06, M2-AC13, M3-AC01,
-M3-AC02, M3-AC03 and M3-AC04. The report reads **1 of 21 requirements (F04) and 9 criteria**.
+M3-AC02, M3-AC03 and M3-AC04. The report reads **1 of 21 requirements (F04) and 9 criteria**, with distinct pending acceptance IDs at 74
+of 82 mapped. Eight of the nine satisfied criteria are requirement-mapped; `M2-AC06` is not, which is
+why nine records move eight pending IDs.
 
 Review removed a tenth. `M3-AC13` was recorded and then withdrawn: the criterion requires the
 reference profile to constrain pitch, and `gc420dUSBReference` carries no `DotResolution`, no
@@ -18,7 +20,7 @@ Its checkbox is cleared too, because leaving it set restates the unsupported cla
 to settle. That is a pre-existing declaration the evidence does not support, not a regression here.
 
 The batch was chosen by what can be **executed here**, not by what is easiest to assert. Every cited
-suite was run before its record was written — 104 LabelCore tests across thirteen suites, 0 failures,
+suite was run before its record was written — 123 LabelCore tests across sixteen suites, 0 failures,
 plus the 14-test independent Python oracle backing M2-AC13's 813×1219 dot arithmetic. No record rests
 on a checkbox alone. M3-AC01 and M3-AC04 keep the maintainer's curated file lists from the stale
 records; only their source SHA and digests are refreshed.
@@ -49,7 +51,7 @@ that, which is why the records stay current.
 Changed requirements: F04 is satisfied. M2 imaging-engine and M3 printer-controls gain executed
 acceptance evidence. No milestone is declared complete.
 
-Tests actually run. Linux x86_64 Swift 6.1.2: the thirteen cited LabelCore suites, 104 tests, 0
+Tests actually run. Linux x86_64 Swift 6.1.2: the sixteen cited LabelCore suites, 123 tests, 0
 failures; `scripts/tests/test_reference_target.py`, 14 tests, OK; `check_repo.py` passed.
 
 What this does not establish. Recording evidence is a maintainer declaration with checked references,
