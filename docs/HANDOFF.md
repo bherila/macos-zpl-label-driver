@@ -30,6 +30,42 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+Integrated read-only discovery `84d397e` passed the full local gate exit 0 with
+67/173/231 debug/release, accelerator/independent/inert/signature and packaged
+worker equality checks. 38 focused native tests and one finite actual-reader
+empty-match smoke passed. Combined local publication hold is cleared; own
+hosted/review, positive-device resolution and GUI acceptance remain pending.
+No service connection, identity qualification, installation or printer I/O.
+
+Discovery integration `7ee1212` passes 38 focused native discovery/setup/store/
+transfer tests. A single hard-timeout count-only smoke of the actual native
+reader succeeded with zero matching interfaces/observations; positive-device
+resolution and GUI remain NOT RUN. Full combined gate pending. No USB service
+connection, identity qualification or printer command occurred.
+
+The pushed parent capacity correction `6234f06` is now integrated into discovery
+WIP; run its full combined gate before promotion. Parent corrected hosted run
+35095948906 and second review were confirmed live. This supersedes earlier
+pre-fix hold/pending status below; no parent clean review is claimed yet.
+
+Local native read-only discovery implementation now connects a user-initiated
+scan/session interface picker to setup without qualifying identity or enabling
+installation. Native build and 13 focused reader/model/setup tests passed; full
+combined gate is pending. Hold the discovery PR while parent #59 first finding
+4025900013 is fixed: publication must enforce workflow catalog capacity under
+concurrent writers. See `validation/M5-READ-ONLY-USB-DISCOVERY-2026-09-16.md`.
+
+Finite native read-only USB registry matching returned success with empty/null
+iterators for host device and interface classes in this execution context. No
+device connection/serial/property-table access or printer command occurred.
+This does not prove physical disconnection or qualify a stable identity; product
+discovery remains unimplemented. The public SDK's successful-empty contract is
+recorded with a finite reproduction in
+`validation/M5-USB-REGISTRY-PREFLIGHT-2026-09-16.md`.
+Parent #58 corrected hosted 35093979617 passed exact `730d65b`; logs confirm
+213 native debug/release tests, signatures and packaged-worker equality.
+Own #59 hosted 35094427805 and first review remain live at `04202d9`.
+
 Latest combined transfer checkpoint `f60d11a` integrates parent review correction
 `730d65b` and passed the full local gate exit 0: 67/173/219 debug/release,
 accelerator/independent/inert/signature and packaged-worker equality checks.
