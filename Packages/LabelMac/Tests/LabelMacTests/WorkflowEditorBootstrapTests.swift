@@ -55,6 +55,61 @@ final class WorkflowEditorBootstrapTests: XCTestCase {
         XCTAssertEqual(model.profile, current)
     }
 
+    /// 600x900mm is admissible to DotCanvas on every individual bound but its
+    /// 4800x7200 dot product exceeds the renderer's pixel budget. Without
+    /// admission here a revision saves and reopens whose every preview fails.
+    /// The neighbouring oversized-stock test only covers the dimension limit.
+    func testCandidateStockInsideDotLimitsButBeyondPixelBudgetIsRejected() async throws {
+        let stock = PhysicalSize(width: try Millimeters(600), height: try Millimeters(900))
+        let resolution = try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8)
+        // The canvas itself is valid: rejection below is the pixel product alone.
+        let canvas = try DotCanvas(physicalSize: stock, resolution: resolution)
+        XCTAssertEqual(canvas.width, 4_800)
+        XCTAssertEqual(canvas.height, 7_200)
+        XCTAssertGreaterThan(canvas.width * canvas.height,
+                             QuartzPDFRenderer.Request.defaultMaximumPixels)
+        XCTAssertThrowsError(try QuartzPDFRenderer.admitRenderableCanvas(canvas)) {
+            XCTAssertEqual($0 as? QuartzPDFRenderer.Error,
+                .pixelLimitExceeded(actual: 34_560_000,
+                                    limit: QuartzPDFRenderer.Request.defaultMaximumPixels))
+        }
+
+        let source = try fixture("letter-one")
+        let profileStore = try store()
+        let model = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let current = model.profile
+        let candidate = try WorkflowProfile(id: current.id, revision: current.revision,
+            outputStockID: "pixel-budget-stock", outputStock: stock, pageRules: current.pageRules)
+        do {
+            _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+                store: profileStore, workerExecutable: URL(fileURLWithPath: "/nonexistent-worker"),
+                deadlineSeconds: 5, savedProfile: candidate, stockPolicy: .offlineCandidate)
+            XCTFail("stock beyond the renderer pixel budget was admitted")
+        } catch {
+            XCTAssertEqual(error as? QuartzPDFRenderer.Error,
+                .pixelLimitExceeded(actual: 34_560_000,
+                                    limit: QuartzPDFRenderer.Request.defaultMaximumPixels))
+        }
+        XCTAssertEqual(model.profile, current)
+    }
+
+    /// The editor's own stock edit shares the gap, so it shares the admission.
+    func testSetOutputStockRejectsStockBeyondRendererPixelBudget() async throws {
+        let source = try fixture("letter-one")
+        let model = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: try store(), workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let before = model.profile
+        XCTAssertThrowsError(try model.setOutputStock(id: "pixel-budget-stock",
+            size: PhysicalSize(width: try Millimeters(600), height: try Millimeters(900)))) {
+            XCTAssertEqual($0 as? QuartzPDFRenderer.Error,
+                .pixelLimitExceeded(actual: 34_560_000,
+                                    limit: QuartzPDFRenderer.Request.defaultMaximumPixels))
+        }
+        // A rejected edit commits no draft or canvas state.
+        XCTAssertEqual(model.profile, before)
+    }
+
     func testDistinctManualWorkflowsCanBeSavedInTheSameImmutableStore() async throws {
         let profileStore = try store()
         let first = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: fixture("letter-one"),

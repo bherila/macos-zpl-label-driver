@@ -73,8 +73,9 @@ public enum WorkflowEditorBootstrap {
             // This opens an offline editable candidate, not an installed queue.
             // Admit changed stock under the same finite preview geometry budgets;
             // printer/media qualification remains a separate acceptance boundary.
-            _ = try DotCanvas(physicalSize: savedProfile.outputStock,
-                resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+            try QuartzPDFRenderer.admitRenderableCanvas(
+                DotCanvas(physicalSize: savedProfile.outputStock,
+                          resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8)))
             guard savedProfile.pageRules.allSatisfy({ rule in
                 rule.structuralAnchors.allSatisfy { $0.kind == .border || $0.kind == .barcodeLike }
             }) else { throw Error.unsupportedLayoutDetector }

@@ -209,6 +209,9 @@ public final class WorkflowEditorModel: ObservableObject {
                                expectedBinding: WorkflowEditorEditBinding? = nil) throws {
         try validateEditBinding(expectedBinding)
         let nextCanvas = try canvas.replacingPhysicalSize(size)
+        // A canvas can satisfy DotCanvas and still exceed the renderer's pixel
+        // budget, which would save a revision that can never preview.
+        try QuartzPDFRenderer.admitRenderableCanvas(nextCanvas)
         var next = try editableDraft()
         try next.setOutputStock(id: id, size: size)
         _ = try PagePlacementPlanner.plan(source: size, canvas: nextCanvas, policy: .fit,
