@@ -418,6 +418,10 @@ public final class WorkflowEditorModel: ObservableObject {
         // admitted canvas. This is the boundary that persists a revision, so
         // the invariant belongs here: nothing is stored whose own exact preview
         // would reject it, whatever sequence of edits produced it.
+        // The precondition for an exact preview is the canvas and the placement
+        // of every label, so both belong here. Checking placement alone let a
+        // canvas rebuilt by reloadForCorrection be persisted unrenderable.
+        try QuartzPDFRenderer.admitRenderableCanvas(canvas)
         try QuartzPDFRenderer.admitPlannedLabels(
             try ExtractionPlanner.plan(analyzedPages: analyzedPages, profile: profile),
             analyzedPages: analyzedPages, canvas: canvas)
@@ -460,6 +464,10 @@ public final class WorkflowEditorModel: ObservableObject {
     public func reloadForCorrection(profileID: String, revision: Int) throws {
         let stored = try store.load(profileID: profileID, revision: revision)
         let nextCanvas = try canvas.replacingPhysicalSize(stored.outputStock)
+        // A stored profile can be schema-valid yet exceed the renderer or
+        // encoder bounds. Reject before committing the draft, so a reload
+        // cannot install a canvas whose every exact preview fails.
+        try QuartzPDFRenderer.admitRenderableCanvas(nextCanvas)
         try replaceDraft(store.correctionDraft(for: stored))
         canvas = nextCanvas
         cancelPreview()

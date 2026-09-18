@@ -192,6 +192,37 @@ final class WorkflowEditorBootstrapTests: XCTestCase {
         XCTAssertFalse(model.isSaved)
     }
 
+    /// save() must apply the canvas admission as well as placement. A 600x900mm
+    /// profile is schema-valid and builds a DotCanvas, but its 34,560,000 pixels
+    /// exceed the renderer budget, so checking placement alone would persist a
+    /// revision whose every exact preview fails.
+    func testSaveAppliesCanvasAdmissionAndNotOnlyLabelPlacement() throws {
+        let box = try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792)
+        let analyzed = [try AnalyzedSourcePage(pageBox: box, anchors: nil)]
+        let stock = PhysicalSize(width: try Millimeters(600), height: try Millimeters(900))
+        let canvas = try DotCanvas(physicalSize: stock,
+            resolution: try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        let profile = try WorkflowProfile(id: "oversized-canvas", revision: 1,
+            outputStockID: "oversized-stock", outputStock: stock,
+            pageRules: [try WorkflowPageRule(sourcePage: 1,
+                expectedInput: ExpectedInputPage(uprightPhysicalSize: try box.effectivePhysicalSize()),
+                disposition: .extract([try ExtractionRegion(id: "region",
+                    normalizedRect: try NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+                    outputOrder: 0)]))])
+        // Placement alone admits this, so only the canvas check can reject it.
+        XCTAssertNoThrow(try QuartzPDFRenderer.admitPlannedLabels(
+            try ExtractionPlanner.plan(analyzedPages: analyzed, profile: profile),
+            analyzedPages: analyzed, canvas: canvas))
+        let model = WorkflowEditorModel(draft: WorkflowProfileDraft(profile: profile),
+            originalPDF: Data(), analyzedPages: analyzed, canvas: canvas, store: try store())
+        XCTAssertThrowsError(try model.save()) {
+            XCTAssertEqual($0 as? QuartzPDFRenderer.Error,
+                .pixelLimitExceeded(actual: 34_560_000,
+                                    limit: QuartzPDFRenderer.Request.defaultMaximumPixels))
+        }
+        XCTAssertFalse(model.isSaved)
+    }
+
     /// A canvas inside the pixel budget can still exceed the graphics encoder's
     /// per-axis coordinate limit, which is what the exact preview hits.
     func testCanvasAdmissionAppliesTheGraphicsEncoderCoordinateLimit() throws {
