@@ -70,6 +70,26 @@ final class ZPLDocumentedControlEncoderTests: XCTestCase {
         }
     }
 
+    func testPrintWidthModelDeclarationCannotWidenImplementedGeometrySubset() throws {
+        let encoder = try ZPLDocumentedControlEncoder()
+        for maximum in [32_001, Int.max] {
+            for width in [2, 32_000, 32_001, Int.max] {
+                XCTAssertThrowsError(try encoder.encode([.printWidth(dots: width)],
+                    qualification: [.printWidth: .supported],
+                    limits: .init(maximumPrintWidthDots: maximum))) {
+                    XCTAssertEqual($0 as? ZPLDocumentedControlEncoder.Error, .invalidValue(.printWidth))
+                }
+            }
+        }
+        for width in [2, 32_000] {
+            XCTAssertEqual(try encoder.encode([.printWidth(dots: width)],
+                qualification: [.printWidth: .supported], limits: .init(maximumPrintWidthDots: 32_000)),
+                Data("^PW\(width)\n".utf8))
+        }
+        XCTAssertThrowsError(try encoder.encode([.printWidth(dots: 101)],
+            qualification: [.printWidth: .supported], limits: .init(maximumPrintWidthDots: 100)))
+    }
+
     func testConflictsDuplicatesAndLimitsFailWithoutReturnedFragment() throws {
         let encoder = try ZPLDocumentedControlEncoder()
         for controls in [[ZPLDocumentedControl.tearOff, .tearOff],

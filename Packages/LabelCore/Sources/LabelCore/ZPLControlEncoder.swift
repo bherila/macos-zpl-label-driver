@@ -14,37 +14,48 @@ public struct ZPLControlProtocol: Equatable, Sendable {
     public let sourceID: String
     public let lifetime: Lifetime
     public let notes: String
+    public let implementedRange: String
+    public let modelLimits: String
 
-    public init(option: String, command: String, sourceID: String, lifetime: Lifetime, notes: String) {
+    public init(option: String, command: String, sourceID: String, lifetime: Lifetime, notes: String,
+                implementedRange: String = "Model-specific or unverified",
+                modelLimits: String = "Requires separate profile qualification") {
         self.option = option
         self.command = command
         self.sourceID = sourceID
         self.lifetime = lifetime
         self.notes = notes
+        self.implementedRange = implementedRange
+        self.modelLimits = modelLimits
     }
 
     public static let qualifiedMotorSpeedTuple: ZPLControlProtocol = .init(
         option: "printSpeedIps/feedSpeedIps/backfeedSpeedIps", command: "^PRp,s,b", sourceID: "R45",
         lifetime: .applicationUntilReissuedOrPowerOff,
-        notes: "All three values explicit; feed/backfeed need separate profile qualification. Reference remains unknown.")
+        notes: "All three values explicit; feed/backfeed need separate profile qualification. Reference remains unknown.",
+        implementedRange: "2...12 ips independently", modelLimits: "Each supplied speed-choice set intersects this subset; GC420d print speed remains 2/3/4 ips")
 
     public static let qualifiedThermalMethod: ZPLControlProtocol = .init(
         option: "thermalMethod", command: "^MTD/^MTT", sourceID: "R45",
         lifetime: .modelSpecificOrUnverified,
-        notes: "Profile7 requires separate evidenced method support and matching declared loaded media/ribbon; reissued per label, not physical state-isolation proof.")
+        notes: "Profile7 requires separate evidenced method support and matching declared loaded media/ribbon; reissued per label, not physical state-isolation proof.",
+        implementedRange: "D/T", modelLimits: "Independent evidenced method and loaded consumables; GC420d direct-only")
 
     public static let qualifiedAbsoluteDarkness: ZPLControlProtocol = .init(
         option: "darkness", command: "^MD0/~SD", sourceID: "R45",
         lifetime: .applicationUntilReissuedOrPowerOff,
-        notes: "Explicit integer 0..30; relative adjustment normalized. Requires qualified profile4 fact; reference remains unknown.")
+        notes: "Explicit integer 0..30; relative adjustment normalized. Requires qualified profile4 fact; reference remains unknown.",
+        implementedRange: "0...30 integer", modelLimits: "Qualified absolute-darkness support; installed reference value unknown")
 
     public static let gc420dBaseline: [ZPLControlProtocol] = [
         .init(option: "printSpeedIps", command: "^PRp", sourceID: "R11",
               lifetime: .applicationUntilReissuedOrPowerOff,
-              notes: "Only model-documented 2, 3, or 4 ips values are admitted."),
+              notes: "Only model-documented 2, 3, or 4 ips values are admitted.",
+              implementedRange: "2/3/4 ips", modelLimits: "GC420d documented print-speed choices only"),
         .init(option: "finishing", command: "^MMT", sourceID: "R22",
               lifetime: .modelSpecificOrUnverified,
-              notes: "Tear-off is the only selected installed baseline mode."),
+              notes: "Tear-off is the only selected installed baseline mode.",
+              implementedRange: "T", modelLimits: "GC420d selected tear-off; cutter absent and peel disabled"),
     ]
 }
 
