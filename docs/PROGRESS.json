@@ -18,7 +18,8 @@
         "docs/validation/M0-FAIL-CLOSED-CI-2026-09-16.md (negative run 35071242478 failed exact 11084e3; injected test removed; recovery 35071315857 passed exact e464491; both M0-AC06 outcomes observed)",
         "docs/HANDOFF.md and docs/HANDOFF-HISTORY-2026-09-17.md (concise current snapshot replaces 3041-line chronological handoff; preceding tracked history preserved exactly, links/preflight passed; published source remains eafb564, hosted35233437806 in progress; no acceptance or runtime behavior changes)",
         "docs/validation/M0-SWIFT-CACHE-2026-09-17.md (PR #84 squash 654fd30; exact hosted PR and main CI passed; main-only 369 MB cache upload and PR restore observed; 3-day retention/10 GB cap verified; unchanged #61 source native step 6m10s to 5m01s)",
-        "docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md (90 acceptance criteria classified by required evidence: 30 automated, 8 repository/CI, 12 macOS-native, 10 GUI, 17 installed, 10 physical, 3 release; hardware and release remain not-run)"
+        "docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md (90 acceptance criteria classified by required evidence: 30 automated, 8 repository/CI, 12 macOS-native, 10 GUI, 17 installed, 10 physical, 3 release; hardware and release remain not-run)",
+        "52b7a45 manifest-validated evidence currency: a MANIFEST.sha256 refresh is exempt from invalidating acceptance records only when it still describes the tree and does not shrink coverage. Reproduced the prior hole first (dropping an entry kept records current), then added the baseline path-set comparison, duplicate-path rejection, and a --batch-check size preflight with per-blob and cumulative ceilings so blobs are hashed one at a time. check_repo.py and 105 Python tests pass; hosted 35326640646 passed all three checks. Manifest scope remains unresolved: 123 tracked paths are uncovered at this head, see issue #87."
       ],
       "blockers": []
     },

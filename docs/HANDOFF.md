@@ -1,3 +1,40 @@
+# Manifest-validated evidence currency — 2026-09-18
+
+Source `52b7a451b4b1e30b1bf9ab723c6bebb3fe5fd0d1`, over `29c55f8` and `399f75b` on
+`claude/determined-sagan-frse18`.
+
+Follow-up to the exemption recorded below, which was too permissive in two ways. Review of `29c55f8`
+established that `manifest_describes_tree` verified the entries a manifest still listed but never
+compared the path set, so a commit deleting a line kept every older acceptance record current over
+reduced integrity coverage. Reproduced before changing anything: dropping the first entry returned
+true from both `manifest_describes_tree` and `source_is_unchanged`. Separately, every blob was
+buffered in one `cat-file --batch` allocation before any size check, so a manifest repeating one
+large entry could request far more than the tree holds within the 4096-entry allowance.
+
+The manifest at the evaluated commit is now parsed as well, and a refresh must cover every path the
+baseline covered: widening coverage stays legitimate, shrinking it fails currency like any other
+source change. Parsing rejects duplicate paths, a `--batch-check` pass resolves each entry to a blob
+identity and size under per-blob and cumulative ceilings before any content is read, and blobs are
+then read one at a time rather than collected as a batch.
+
+Changed requirements: F15 bounded parsing and F17/F19 evidence integrity. The integrity boundary
+moves, so no acceptance criterion is declared complete and the recording work stays blocked on
+issue #86.
+
+Tests actually run: `check_repo.py` passed; 105 Python tests passed, covering a truthful
+same-coverage refresh, a widened refresh, a dropped entry, a duplicated path, a wrong digest, an
+entry naming an absent path, and a real source change carried with a truthful manifest;
+`traceability_report.py` ran clean. Removing only the coverage-shrink guard fails the dropped-entry
+case. Hosted run 35326640646 on `52b7a45` passed `repository-preflight`, `swift-macos-arm64` and
+`ci-required`.
+
+Blockers: the exemption is only as good as the manifest's scope, and that scope is unresolved - it
+omits 123 tracked paths at this head (issue #87). Until that is settled, a truthful manifest still
+proves nothing about files it never covered.
+
+Next step: the workflow-v3 output-margins slice in issue #88. No printer, installation, scheduler,
+GUI or release acceptance is claimed.
+
 # Exact profile JSON decoding — 2026-09-18
 
 Source `399f75b5f249f71b0faf9df1ca1cb6deb04c4bd4` on `claude/determined-sagan-frse18`, over
@@ -61,12 +98,18 @@ manifest holds only digests of other files and cannot mask a real change, becaus
 compared under its own path; it now joins the evidence-metadata exemption, with a regression test that
 fails without the fix and still rejects a source change made alongside a manifest refresh.
 
-Reported, not changed: `MANIFEST.sha256` has 43 stale digests and omits 118 tracked files (52 of them
-Swift sources). The drift is pre-existing and not caused by the rebases - the original pre-restack
-PR #81 head `3a27181` carried exactly the same 43. Nothing verifies the manifest: `check_repo.py`
-does not check digests and `ci_scope.py` only excludes it from scope classification. Its documented
-scope is the revision-2 packaged archive, not the working tree, so restoring whole-tree coverage is a
-maintainer scope decision. The 43 stale digests are refreshed here; the 118 omissions are not added.
+Reported, not changed: `MANIFEST.sha256` omits tracked files, and the totals move with this branch,
+so both points are stated exactly. On `main` at `56fdc7b` it held 347 entries against 465 tracked
+paths, omitting 118 files of which 52 were Swift. At this branch head it still holds 347 entries
+against 470 tracked paths, omitting 123 files of which 56 are Swift. The five-file increase is this
+branch's own additions - `ExactJSONInteger.swift`, `TokenPreservingJSON.swift`, their two tests and
+the acceptance-ledger receipt - so only the 118 are pre-existing drift and the remaining five are
+newly uncovered here. The 43 stale digests found on `main` were separate, and were pre-existing
+rather than rebase damage: the original pre-restack PR #81 head `3a27181` carried exactly the same
+43. They are refreshed here; no omission is added. Nothing verifies the manifest either -
+`check_repo.py` does not check digests and `ci_scope.py` only excludes it from scope classification -
+and its documented scope is the revision-2 packaged archive rather than the working tree, so
+restoring whole-tree coverage stays a maintainer scope decision, tracked in issue #87.
 
 `PROGRESS.json` recorded `automatedValidation: not-run` for M1-M6 while the suites were in fact
 executing and passing. Those rows now read `pass`, scoped explicitly to suite-level execution at
