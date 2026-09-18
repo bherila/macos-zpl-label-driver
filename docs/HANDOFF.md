@@ -1,5 +1,9 @@
 # Current implementation handoff — revision 3
 
+Swift CI cache slice: see [cache evidence](validation/M0-SWIFT-CACHE-2026-09-17.md).
+Main pushes alone save toolchain-isolated build caches; PRs restore only. All
+existing validation remains mandatory. Hosted cold/warm timings remain pending.
+
 
 PR #58 second-pass finding 4025638071 exposed review resurrection after an
 unsaved edit/undo. The current correction clears acknowledgements on every
