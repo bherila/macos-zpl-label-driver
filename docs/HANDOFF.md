@@ -30,6 +30,25 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+The new test-only quality slice decodes the supplied synthetic Code128 and QR
+symbols from all three final 813 x 1219 bitmaps at one pixel per printer dot.
+All 15 focused pipeline tests passed, including six exact payload checks and
+a same-size blank negative control. Full local gate at `c9f58fb` passed exit 0:
+67 Python/178 Core/258 Mac debug/release, both accelerators, independent/inert
+checks, local signatures and packaged-worker PBM/ZPL equality. Own hosted CI
+awaits publication; no extra review for this test/documentation-only slice.
+Product rendering/encoding/detection code, fixtures and the independent decoder
+are unchanged. See `validation/M2-FINAL-BITMAP-BARCODES-2026-09-16.md`.
+No physical image-quality acceptance is added.
+
+PR #70 exact `59f6158` hosted run 35110010986 passed: logs verify 178 Core and
+257 Mac debug/release, local signatures and packaged-worker PBM/ZPL equality.
+PR #69 corrected exact `c0619e4` hosted run 35109064959 also passed with 253
+Mac debug/release and signature/packaged checks; its second review is clean.
+These verified terminal results supersede the historical pending entries below.
+Neither PR was merged. Administrator M1, maintainer GUI, actual production
+identity/access, USB and physical printing remain unverified.
+
 The current test-only TCP slice adds explicitly loopback-bound native peers for
 real stopped-reader backpressure, reset after observed prefix, exact prepared
 format reassembly across variable reads, and owned non-listening-port failure.
