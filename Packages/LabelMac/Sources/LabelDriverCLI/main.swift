@@ -34,6 +34,48 @@ struct LabelDriverCLI {
     }
 
     static func main() {
+        let args = Array(CommandLine.arguments.dropFirst())
+        if args.first == "finishing-preview" {
+            let cancellation = OfflineRenderWorkerCancellation()
+            let signals = installCancellationSignals(cancellation)
+            defer { signals.forEach { $0.cancel() } }
+            do {
+                let command = try FinishingPreviewCommand(arguments: Array(args.dropFirst()))
+                let data = try command.run(workerExecutable: renderWorkerExecutable(), cancellation: cancellation)
+                FileHandle.standardOutput.write(data); FileHandle.standardOutput.write(Data("\n".utf8))
+            } catch FinishingPreviewCommand.Error.usage {
+                fail(.usage(usage), json: args.contains("--json"))
+            } catch PackedFinishingPreviewExport.Error.commitUncertain {
+                fail(.output("preview export durability uncertain; preserve output for review"), json: args.contains("--json"))
+            } catch is PackedFinishingPreviewExport.Error {
+                fail(.output("preview export failed"), json: args.contains("--json"))
+            } catch AcceptedFinishingJob.Error.cancelled, OfflineRenderWorkerProcess.Error.cancelled {
+                emitError(code:.cancelled,message:"preview cancelled",json:args.contains("--json"))
+                exit(Exit.cancelled.rawValue)
+            } catch {
+                fail(.input("finishing preview preparation failed"), json: args.contains("--json"))
+            }
+            return
+        }
+        if args.first == "finishing-inspect" {
+            let cancellation = OfflineRenderWorkerCancellation()
+            let signals = installCancellationSignals(cancellation)
+            defer { signals.forEach { $0.cancel() } }
+            do {
+                let command = try FinishingInspectionCommand(arguments: Array(args.dropFirst()))
+                let data = try command.report(workerExecutable: renderWorkerExecutable(), cancellation: cancellation)
+                FileHandle.standardOutput.write(data)
+                FileHandle.standardOutput.write(Data("\n".utf8))
+            } catch FinishingInspectionCommand.Error.usage {
+                fail(.usage(usage), json: args.contains("--json"))
+            } catch AcceptedFinishingJob.Error.cancelled, OfflineRenderWorkerProcess.Error.cancelled {
+                emitError(code: .cancelled, message: "inspection cancelled", json: args.contains("--json"))
+                exit(Exit.cancelled.rawValue)
+            } catch {
+                fail(.input("finishing inspection failed"), json: args.contains("--json"))
+            }
+            return
+        }
         let invocation: Invocation
         do {
             invocation = try parse(Array(CommandLine.arguments.dropFirst()))
@@ -248,6 +290,7 @@ struct LabelDriverCLI {
                 "heightDots": prepared.result.heightDots,
                 "zplBytes": prepared.zpl.count,
                 "previewIsExactPackedBitmap": true,
+                "workerMaximumResidentBytes": prepared.result.workerMaximumResidentBytes.map { $0 as Any } ?? NSNull(),
                 "renderIsolation": "subprocess",
                 "renderDeadlineSeconds": Int(OfflineRenderWorkerProcess.defaultDeadlineSeconds),
                 "wroteFiles": wroteFiles,
@@ -351,6 +394,8 @@ struct LabelDriverCLI {
     Usage:
       label-driver validate INPUT.pdf --job-ticket ticket.json [--json]
       label-driver convert INPUT.pdf --job-ticket ticket.json --output output.zpl --preview-dir directory [--json]
+      label-driver finishing-inspect --catalog directory --accepted-id ID --accepted-sha SHA [--json]
+      label-driver finishing-preview --catalog directory --accepted-id ID --accepted-sha SHA --preview-dir NEW_DIRECTORY [--json]
     This offline tool never prints or contacts a printer.
     """
 }

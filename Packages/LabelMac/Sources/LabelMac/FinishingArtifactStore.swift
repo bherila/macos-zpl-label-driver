@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 import LabelCore
 
-public struct FinishingArtifactReference: Equatable, Sendable {
+public struct FinishingArtifactReference: Equatable, Sendable, RedactedDiagnosticValue {
     public enum Error: Swift.Error, Equatable, Sendable { case invalidReference }
     public let id: String
     public let revision: Int
