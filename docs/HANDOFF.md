@@ -1,3 +1,54 @@
+# Acceptance evidence bound to executed runs — 2026-09-18
+
+Source `c6833bccab9019ce10a05977884468e02125031f` on `claude/determined-sagan-frse18`, over `main` `78acd9b`.
+
+The checkbox view and the evidence ledger disagreed (#86). Twenty criteria were checked in
+`docs/milestones/*/ACCEPTANCE.md`, while `docs/ACCEPTANCE-EVIDENCE.json` held four records covering two
+IDs, both at stale source SHAs. `traceability_report.py` counts a criterion only when the box is
+checked **and** a digest-bound record is current, so the report read 0 of 21 requirements and 0
+criteria satisfied.
+
+Ten records now satisfy their criteria: M2-AC01, M2-AC04, M2-AC05, M2-AC06, M2-AC13, M3-AC01,
+M3-AC02, M3-AC03, M3-AC04 and M3-AC13. The report reads **1 of 21 requirements (F04) and 10
+criteria**, with pending acceptance IDs down from 82 to 78.
+
+The batch was chosen by what can be **executed here**, not by what is easiest to assert. Every cited
+suite was run before its record was written — 104 LabelCore tests across fourteen suites, 0 failures,
+plus the 14-test independent Python oracle backing M2-AC13's 813×1219 dot arithmetic. No record rests
+on a checkbox alone. M3-AC01 and M3-AC04 keep the maintainer's curated file lists from the stale
+records; only their source SHA and digests are refreshed.
+
+**F04 is the first satisfied requirement.** It needed M3-AC01, M3-AC02 and M3-AC03; the first two were
+already checked, and M3-AC03 was the only criterion in this slice newly declared complete. `03f38af`
+landed `ZPLControlProtocolCoverage` and deliberately deferred that declaration to this issue. Before
+adding the checkbox, all seven required categories were confirmed mapped — speed, darkness, thermal
+method, tracking, dimensions, offsets and supported finishing — each row carrying a `sourceID` of R45
+or R46 that resolves to a real `docs/REFERENCES.md` entry, with `ZPLControlProtocolCoverageTests`
+passing. That declaration is in its own commit, keeping the records commit free of new claims.
+
+An ordering constraint shapes the commits. `source_is_unchanged` tolerates only evidence metadata,
+`docs/validation/*.md`, `docs/milestones/*/ACCEPTANCE.md` and `MANIFEST.sha256`, so records must land
+in commits touching nothing else or they invalidate themselves immediately. Both commits here respect
+that, which is why the records stay current.
+
+Changed requirements: F04 is satisfied. M2 imaging-engine and M3 printer-controls gain executed
+acceptance evidence. No milestone is declared complete.
+
+Tests actually run. Linux x86_64 Swift 6.1.2: the fourteen cited LabelCore suites, 104 tests, 0
+failures; `scripts/tests/test_reference_target.py`, 14 tests, OK; `check_repo.py` passed.
+
+What this does not establish. Recording evidence is a maintainer declaration with checked references,
+which is what the report itself says — not independent semantic verification, and not hardware.
+Eleven checked criteria stay deliberately unrecorded because their evidence cannot be executed here:
+M2-AC02, M4-AC02, M4-AC04 and M4-AC07 rest on LabelMac suites that do not build on Linux; M2-AC12 is
+level I and needs a named reference Mac; M4-AC03, M4-AC05, M4-AC08, M4-AC13 and M5-AC12 need their
+mapping derived from documents naming types since renamed. Hardware and release criteria remain
+unrecorded and NOT RUN.
+
+Blockers: the next batch needs a hosted run to stand behind the LabelMac-backed criteria, and #89, #80
+and #90 remain the gates for GUI, installed and physical evidence. #101 and #93 gap 2 need human
+security review.
+
 # Editable output stock and margins — 2026-09-18
 
 Source `809192f98e4ec478d1d6acbdd7e445b316acc127` on `claude/determined-sagan-frse18`, over `main` `10fd18c`. The slice opened at
