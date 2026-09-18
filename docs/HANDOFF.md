@@ -1023,6 +1023,20 @@ exact round trips. The complete CI-equivalent sequence passes 141 LabelCore and
 M3-AC01/13 and M5-AC05/07 evidence: discovery, active revision selection,
 scheduler publication, lifecycle recovery, USB, and hardware remain open.
 
+At `087458d`, M5 gained a portable active-queue revision contract. An active
+selection targets the exact immutable queue schema/revision/digest and records
+a generation plus prior digest for a future compare-and-swap publisher. Initial
+and later history invariants fail closed, as do unknown fields, embedded paths,
+commands/documents, bad scalar types, and size-limit violations. Queue saves now
+return their canonical immutable reference, and reference loads reject a wrong
+digest, so a held job can retain its exact queue revision independently of a
+later active selection. Four focused contract tests and updated queue-store
+coverage pass; the complete CI-equivalent sequence passes 145 LabelCore and 83
+LabelMac tests in both configurations. This is partial automated M5-AC05/07
+evidence only. Native compare-and-swap persistence, crash recovery, scheduler
+publication/rollback, held-job integration, restart behavior, and system state
+preservation remain open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

@@ -94,16 +94,26 @@ final class VirtualQueueStoreTests: XCTestCase {
             root: temporaryRoot()
         )
         let original = try queue(workflow: value, printerReference: printerReference)
-        try queues.save(
+        let reference = try queues.save(
             original, workflowStore: workflows, printerStore: printers
         )
-        try queues.save(
+        XCTAssertEqual(try queues.save(
             original, workflowStore: workflows, printerStore: printers
-        )
+        ), reference)
         XCTAssertEqual(try queues.load(
             queueID: original.id, revision: original.revision,
             workflowStore: workflows, printerStore: printers
         ), original)
+        XCTAssertEqual(try queues.load(
+            reference: reference, workflowStore: workflows, printerStore: printers
+        ), original)
+        let wrong = try ImmutableProfileReference(
+            id: reference.id, revision: reference.revision,
+            sha256: String(repeating: "f", count: 64)
+        )
+        XCTAssertThrowsError(try queues.load(
+            reference: wrong, workflowStore: workflows, printerStore: printers
+        )) { XCTAssertEqual($0 as? VirtualQueueStore.Error, .queueIdentityMismatch) }
         XCTAssertFalse(VirtualQueueStore.fileName(original.id, original.revision).contains("/"))
     }
 
