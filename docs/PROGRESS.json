@@ -11,7 +11,8 @@
       "releaseValidation": "not-run",
       "evidence": [
         "d4dad6d32c0da501e48df45404a8e19b3377d5a9 (public bootstrap commit and repository setup)",
-        "2026-09-15 local Tahoe ARM: accelerator debug/release, LabelCore 47 tests, LabelMac Core Graphics smoke debug/release, and inert local-ad-hoc signing smoke passed"
+        "2026-09-15 local Tahoe ARM: accelerator debug/release, LabelCore 47 tests, LabelMac Core Graphics smoke debug/release, and inert local-ad-hoc signing smoke passed",
+        "docs/validation/M0-STACKED-PR-CI-2026-09-16.md (79411af unrestricted PR-target CI trigger; automatic stacked PR run 35069832168 passed exact aaf8425 with full native tests and signatures)"
       ],
       "blockers": []
     },
