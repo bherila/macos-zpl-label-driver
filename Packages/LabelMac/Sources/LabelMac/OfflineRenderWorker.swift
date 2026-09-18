@@ -63,7 +63,7 @@ public final class OfflineRenderWorkerCancellation: @unchecked Sendable {
         lock.unlock()
     }
 
-    fileprivate var isCancelled: Bool {
+    var isCancelled: Bool {
         lock.lock()
         defer { lock.unlock() }
         return value
@@ -135,6 +135,8 @@ public enum OfflineRenderWorkerProcess {
         // A request cancelled before admission must not stage its source or
         // launch a child merely to terminate it on the first polling turn.
         guard !cancellation.isCancelled else { throw Error.cancelled }
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .nanoseconds(Int64(deadlineSeconds * 1_000_000_000)))
         var executableStat = stat()
         guard lstat(workerExecutable.path, &executableStat) == 0,
               (executableStat.st_mode & S_IFMT) == S_IFREG,
@@ -159,15 +161,16 @@ public enum OfflineRenderWorkerProcess {
         process.standardError = FileHandle.nullDevice
         do {
             guard !cancellation.isCancelled else { throw Error.cancelled }
+            guard clock.now < deadline else { throw Error.timedOut }
             try process.run()
         } catch Error.cancelled {
             throw Error.cancelled
+        } catch Error.timedOut {
+            throw Error.timedOut
         } catch {
             throw Error.workerUnavailable
         }
 
-        let clock = ContinuousClock()
-        let deadline = clock.now.advanced(by: .milliseconds(Int64(deadlineSeconds * 1_000)))
         while process.isRunning {
             if cancellation.isCancelled {
                 stop(process)
@@ -180,6 +183,8 @@ public enum OfflineRenderWorkerProcess {
             usleep(10_000)
         }
         process.waitUntilExit()
+        guard !cancellation.isCancelled else { throw Error.cancelled }
+        guard clock.now < deadline else { throw Error.timedOut }
         guard process.terminationReason == .exit, process.terminationStatus == 0 else {
             if process.terminationReason == .exit, let failure = try? readFailure(in: scratch) {
                 throw Error.jobRejected(code: failure.code)
@@ -187,7 +192,10 @@ public enum OfflineRenderWorkerProcess {
             throw Error.workerFailed(status: process.terminationStatus)
         }
 
-        return try readOutput(scratch)
+        let output = try readOutput(scratch)
+        guard !cancellation.isCancelled else { throw Error.cancelled }
+        guard clock.now < deadline else { throw Error.timedOut }
+        return output
     }
 
     private static func readRenderOutput(_ scratch: URL) throws -> OfflineRenderWorkerOutput {
