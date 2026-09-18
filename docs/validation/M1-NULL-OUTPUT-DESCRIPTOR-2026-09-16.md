@@ -1,0 +1,62 @@
+# Direct null-output filter regression
+
+Partial automated preparation for M1-AC01/09/11 only. Installed scheduler,
+administrator admission, full-document fidelity and physical output are NOT RUN.
+
+The frozen warning filter failed a direct synthetic ABI invocation with stdout
+opened as `/dev/null` on the native Tahoe ARM host. The prior pipe-to-discard
+success did not exercise this descriptor. Public CUPS v2.4.12 `scheduler/job.c`
+selects negative final output fd for the null file URI; `scheduler/process.c`
+opens that output directly as `/dev/null` (R42). This independent upstream source
+does not establish the installed Apple scheduler's exact implementation.
+
+The supplied filter harness adds both named-file and stdin direct-null cases,
+with hard 15-second subprocess limits, exact successful schema-2 metadata,
+byte counts, private-marker exclusion and false physical-output status. The
+new named-file case failed on the old binary with the safe generic output error.
+The offline accelerator before edits passed exit 0, including 132 independent
+round trips, 15 backend ABI, 12 filter cases and one inert pipeline.
+
+The correction compares stdout's `fstat` identity with `lstat` of the existing
+root-owned character node `/dev/null`: device, inode and special-device identity
+must all match; both descriptors' metadata must be character-device/root-owned.
+Only that null sink skips poll, which reports POLLNVAL on this native host.
+All writes retain nonblocking flags, short-write/error handling and the cumulative
+deadline. Ordinary pipes retain poll/backpressure handling. No other character
+device or arbitrary POLLNVAL gets a fallback; no device is opened by the filter.
+Existing SIGTERM, broken-pipe, delayed-consumer and ten-second stalled-consumer
+regressions remain mandatory. The bitmap, writer, planner and oracle are unchanged.
+
+The focused build and all 14 filter cases passed exit 0, including both direct
+null input modes and the retained pipe/cancellation cases. Full local gate at
+`ead620c40be069ac9073a8474a6e6acb482a838f` passed exit 0 under a finite
+1200-second limit: 82 Python/178 Core/263 Mac debug/release tests, both accelerator
+configurations, 132 independent round trips, 15 backend/14 filter/one inert
+pipeline cases per mode, local-ad-hoc ARM/minimum-26 signatures and packaged
+worker exact PBM/ZPL equality. Own hosted run 35123623789 passed at exact
+`f691d241839ffcf860d00f8c5be296054645098a`; fetched logs verify both test
+configurations, both 14-case filter runs, signatures and packaged-byte equality.
+First review is clean at base `3852e21` / head `f691d24`, with reviewer thumbs-up
+and no inline findings or threads. No merge or duplicate review request.
+The local app artifact is
+`artifacts/setup-app.U09TYi/Label Printer Driver Setup.app`; it does not replace
+the maintainer's pinned manual GUI artifact. Publication edits are evidence/manifest
+only. The previous private frozen binary is not approved
+for applying the experiment: it lacks this correction. After successful gates
+and review, freeze and validate the changed executable's new signature/hash.
+Do not silently substitute bytes into an older approved snapshot. The finite
+one-held-PDF/one-copy/one-release/60-second observation and immediate owned-removal
+procedure remains unchanged, with zero physical labels or printer commands.
+
+A new private provisional snapshot retains separate bytes. Copied assets match
+their originals; copied-filter signature/platform and exact PPD checks pass.
+Read-only scheduler preflight and independent native absent-queue readback pass;
+these observations are not namespace reservation. The copied filter handles the
+committed 3340-byte synthetic PDF in both named-file and stdin modes with direct
+null stdout, one copy and exact four option values. No actual scheduler job ID
+was invented or queried: direct ABI numeric arguments are only synthetic tests.
+The new filter SHA-256 is
+`bd349ace5c1fd1e58a3e0e2987ffc2056d1a75790247db4a31b3a369b39f09ff`.
+Script/PPD/fixture hashes remain unchanged. User-owned snapshots/checksums are
+not privileged provenance or permission. Installation is still NOT RUN, pending
+the actual interactive OS administrator session and complete finite baseline.
