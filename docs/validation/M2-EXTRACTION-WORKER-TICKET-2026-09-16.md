@@ -25,8 +25,12 @@ Local `bash scripts/ci-swift.sh` completed with exit 0 on Tahoe ARM:
 repository preflight, 67 Python tests, 166 Core and 156 Mac tests in debug and
 release, 132 independent round trips, 15 backend and 10 filter ABI cases,
 one inert pipeline case, and ad-hoc command/app signatures passed. The focused
-worker suite passed 11 tests. Hosted exact-head CI and independent review are
-pending.
+worker suite passed 11 tests. Automatic hosted run
+[35072850127](https://github.com/bherila/macos-zpl-label-driver/actions/runs/35072850127)
+passed exact `e8ae1fd6b049028ee07aa802f6efe884672d905d`; inspected logs confirm
+the 67/166/156 suites, oracle/ABI/inert cases, and ad-hoc signatures.
+Independent PR #46 review completed cleanly at the same head, with a thumbs-up
+and no inline findings. These are source/automated results, not installed acceptance.
 
 This advances automated M2-AC02/09 only. Persisted synthetic intake still uses
 in-process extraction; it must next bind/serialize its exact planned region
