@@ -1,3 +1,99 @@
+# Output margins carried through rendering, tickets and queues — 2026-09-18
+
+Source `76a2a01bc7df48fc8b4966f0b5b48055e2df5339` on `claude/determined-sagan-frse18`, over
+`4b9509c` and `main` `7645b26`.
+
+Review of `edda991` found the preceding slice's margins inert. `PlannedExtractionLabel` carried them
+and `PagePlacementPlanner` honoured them, but no rendering path supplied them, so the only caller of
+`PagePlacementPlanner.plan` planned with the default `.zero` and final PBMs, previews and ZPL still
+centred across the whole stock. Two adjacent contracts made it worse than inert:
+`OfflineConversionTicket` rejected schemaVersion 3 outright, so a margin-bearing ticket would have
+failed the render rather than ignoring the margins, and `FinishingQueueDefinition` required
+`workflowProfile.schemaVersion == 2`, rejecting any margin-bearing workflow with `invalidReference`
+before preparation.
+
+The chain is complete at this commit. `QuartzPDFRenderer.Request` carries `outputMargins`, passes
+them to the planner, and clips to the margin-inset visible rect rather than the full target.
+`QuartzPlannedExtraction` forwards the planned label's margins. `OfflineExtractionWorker` emits
+schemaVersion 3 with an `outputMargins` object only when margins are non-zero, so zero-margin tickets
+stay byte-identical. `OfflineConversionTicket` admits versions 1 through 3, requires version 3 for any
+non-zero margin and rejects margins that consume the stock. `FinishingQueueDefinition` admits
+workflow schemaVersion 2 or 3 and additionally binds profile and workflow schema versions to each
+other. `WorkflowProfileTransfer.readImport` and `WorkflowProfileStore.correctionDraft` carry
+schemaVersion and margins forward, so importing a margin-bearing profile or taking a correction
+revision no longer silently resets margins to zero.
+
+Changed requirements: F09 extraction geometry and F12 immutable per-job choices now reach output.
+M2-AC01 geometry, M2-AC05 exact preview and M4-AC02 extraction geometry are exercised; none is
+declared complete, and recording stays blocked on issue #86.
+
+Ported per-file from checkpoint `eb71a41` after diffing both directions. Two files needed hunk-level
+merges rather than a copy because the checkpoint versions reference types not yet landed:
+`OfflineConversion` keeps this tree's `JSONDecoder` rather than `WorkerProtocolJSON`, and
+`OfflineExtractionWorker` keeps this tree's inline PBM-header and ZPL cross-check in `validate`
+rather than delegating to `WorkerBitmapBinding`. Both unlanded types stay tracked in issue #88. Every
+changed LabelMac file was checked for references to unlanded symbols; there are none.
+
+Tests actually run. Linux x86_64 Swift 6.1.2: LabelCore 300 tests, 0 failures, debug and release, up
+from 298. `check_repo.py` passed, 105 Python tests passed, `run-accelerator-checks.py` passed. Every
+changed Swift file parses under `swift-frontend -parse`.
+
+Blockers: LabelMac cannot be built or tested on Linux, so the rendering, ticket, transfer and store
+changes rest entirely on hosted `macos-26` CI; no macOS pass is claimed until it reports. The
+margin-inset visible-rect clip and the v3 worker ticket are exactly the paths Linux cannot exercise.
+
+Next step: the remaining checkpoint slices in issue #88 - `ZPLControlProtocolCoverage`, the
+`RedactedDiagnosticValue` conformances, then the LabelMac `AcceptedFinishing` subsystem that carries
+`WorkerBitmapBinding` and `WorkerProtocolJSON`. No printer, installation, scheduler, GUI or release
+acceptance is claimed.
+
+# Qualified output margins on workflow schema 3 — 2026-09-18
+
+Source `4b9509c291035f9ab8e92400503311cef5247e71` on `claude/determined-sagan-frse18`, over `main`
+`7645b26`.
+
+User-requested blank space within nominal stock had no representation: every workflow profile was
+schemaVersion 2 with no margin concept, so `PagePlacementPlanner` always centred within the whole
+canvas. `OutputMargins` carries left, top, right and bottom millimetres and rejects non-finite or
+negative values; schemaVersion 3 profiles carry it and version 2 profiles keep zero margins. The
+planner fits and centres within the inset area, converting each margin through the canvas resolution
+under the existing one-dot quantisation policy and reporting `invalidMargins` when insets overflow or
+leave no printable area. `DotCanvas.replacingPhysicalSize` rebuilds destination geometry under the
+original pitch and admission budgets, so a stock change cannot grant a larger allocation, and canvas
+equality stays bound to rendered geometry rather than those budgets. `ResolvedJobTicket` admits
+workflow schemaVersion 2 or 3 and binds every planned label's margins to the profile.
+
+This closes the gap recorded in the `399f75b` entry below, where two `ResolvedJobTicket` hunks were
+excluded because `WorkflowProfile.outputMargins` did not exist. `WorkflowProfileJSON` number decoding
+also moves onto `TokenPreservingJSON`, superseding the `NSDecimalNumber` `stringValue` workaround:
+parsing the original numeric token is exactly what that workaround approximated, and the ULP-level
+cases are covered by `testEditedFractionalCoordinatesPreserveExactIdentityAcrossReload`.
+
+Changed requirements: F09 letter/A4 extraction geometry and F12 utility defaults and immutable
+per-job choices gain a margin dimension. M2-AC01 geometry and M4-AC02 extraction geometry are
+exercised by new cases but neither is declared complete; recording stays blocked on issue #86.
+
+Ported per-file from checkpoint `eb71a41` after diffing both directions on every file, never copied
+wholesale. A wholesale copy of the diverged LabelCore set builds and passes 311 tests while silently
+reverting main-side fixes and deleting the tests that guard them, `PDFPageGeometry`'s
+corner-overflow guard among them; that hazard is recorded on issue #88. The guard and its two tests
+are verified present at this commit.
+
+Tests actually run. Linux x86_64 Swift 6.1.2: LabelCore 298 tests, 0 failures, debug and release, up
+from 290. `check_repo.py` passed. 105 Python tests passed. `run-accelerator-checks.py` passed with
+132 cross-language ZPL/PBM/analytic round trips, 180 independent ASCII round trips, 12 benchmark CLI
+cases, 15 inert CUPS ABI, 14 filter ABI and 1 discard pipeline case. LabelMac cannot be built on
+Linux, so hosted `swift-macos-arm64` is the qualifying gate and no macOS pass is claimed until it
+reports.
+
+Blockers: the remaining checkpoint slices in issue #88 - the `RedactedDiagnosticValue` conformances
+beyond `ReferenceWorkflows` and `WorkflowProfileDraft.Error`, `ZPLControlProtocolCoverage`, and the
+14-file LabelMac `AcceptedFinishing` subsystem, which only hosted CI can exercise and whose
+`FinishingInspectionView` is GUI surface that CI cannot qualify at all.
+
+Next step: `ZPLControlProtocolCoverage` and the redaction conformances, then the LabelMac subsystem.
+No printer, installation, scheduler, GUI or release acceptance is claimed.
+
 # Manifest-validated evidence currency — 2026-09-18
 
 Source `52b7a451b4b1e30b1bf9ab723c6bebb3fe5fd0d1`, over `29c55f8` and `399f75b` on

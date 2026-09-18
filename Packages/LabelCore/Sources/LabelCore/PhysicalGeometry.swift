@@ -67,6 +67,9 @@ public struct DotCanvas: Equatable, Sendable {
     public let width: Int
     public let height: Int
     public let bitmapLayout: BitmapLayout
+    private let maximumWidth: Int
+    private let maximumHeight: Int
+    private let maximumByteCount: Int
 
     public init(
         physicalSize: PhysicalSize,
@@ -86,11 +89,55 @@ public struct DotCanvas: Equatable, Sendable {
         guard height <= maximumHeight else {
             throw PhysicalGeometryError.exceedsDotLimit(actual: height, limit: maximumHeight)
         }
+        self.maximumWidth = maximumWidth
+        self.maximumHeight = maximumHeight
+        self.maximumByteCount = maximumByteCount
         self.physicalSize = physicalSize
         self.resolution = resolution
         self.width = width
         self.height = height
         self.bitmapLayout = try BitmapLayout(width: width, height: height, maxByteCount: maximumByteCount)
+    }
+
+    /// Equality binds rendered geometry, retaining the existing canvas identity contract.
+    /// Admission budgets govern future resizing and are not raster geometry.
+    public static func == (lhs: DotCanvas, rhs: DotCanvas) -> Bool {
+        lhs.physicalSize == rhs.physicalSize && lhs.resolution == rhs.resolution
+            && lhs.width == rhs.width && lhs.height == rhs.height
+            && lhs.bitmapLayout == rhs.bitmapLayout
+    }
+
+    /// Rebuilds destination geometry using the original pitch and admission budgets.
+    /// A stock change never grants a larger rendering allocation or device limit.
+    public func replacingPhysicalSize(_ size: PhysicalSize) throws -> DotCanvas {
+        try DotCanvas(
+            physicalSize: size,
+            resolution: resolution,
+            maximumWidth: maximumWidth,
+            maximumHeight: maximumHeight,
+            maximumByteCount: maximumByteCount
+        )
+    }
+}
+
+/// User-requested blank space within nominal stock, expressed in millimeters.
+/// This is not measured printer calibration or a barcode readability guarantee.
+public struct OutputMargins: Equatable, Sendable {
+    public let left: Double
+    public let top: Double
+    public let right: Double
+    public let bottom: Double
+    public static let zero = OutputMargins()
+
+    public init() {
+        left = 0; top = 0; right = 0; bottom = 0
+    }
+
+    public init(left: Double, top: Double, right: Double, bottom: Double) throws {
+        guard [left, top, right, bottom].allSatisfy({ $0.isFinite && $0 >= 0 }) else {
+            throw PagePlacementError.invalidMargins
+        }
+        self.left = left; self.top = top; self.right = right; self.bottom = bottom
     }
 }
 
@@ -117,6 +164,7 @@ public enum PagePlacementError: Error, Equatable, Sendable {
     case invalidLimit
     case scaleOverflow
     case placementExceedsLimit
+    case invalidMargins
 }
 
 public enum PagePlacementPlanner {
@@ -126,15 +174,35 @@ public enum PagePlacementPlanner {
         source: PhysicalSize,
         canvas: DotCanvas,
         policy: PagePlacementPolicy,
+        margins: OutputMargins = .zero,
         maximumPlacementDimension: Int = 65_535
     ) throws -> PagePlacement {
         guard maximumPlacementDimension > 0 else { throw PagePlacementError.invalidLimit }
+        let availableWidth = canvas.physicalSize.width.value - margins.left - margins.right
+        let availableHeight = canvas.physicalSize.height.value - margins.top - margins.bottom
+        guard availableWidth.isFinite, availableHeight.isFinite,
+              availableWidth > 0, availableHeight > 0 else { throw PagePlacementError.invalidMargins }
+        func dots(_ margin: Double, horizontal: Bool) throws -> Int {
+            margin == 0 ? 0 : try canvas.resolution.roundedDots(for: Millimeters(margin), horizontal: horizontal)
+        }
+        let left = try dots(margins.left, horizontal: true)
+        let right = try dots(margins.right, horizontal: true)
+        let top = try dots(margins.top, horizontal: false)
+        let bottom = try dots(margins.bottom, horizontal: false)
+        let (horizontalInsets, horizontalOverflow) = left.addingReportingOverflow(right)
+        let (verticalInsets, verticalOverflow) = top.addingReportingOverflow(bottom)
+        guard !horizontalOverflow, !verticalOverflow,
+              horizontalInsets < canvas.width, verticalInsets < canvas.height else {
+            throw PagePlacementError.invalidMargins
+        }
+        let areaWidth = canvas.width - horizontalInsets
+        let areaHeight = canvas.height - verticalInsets
         let scale: Double
         switch policy {
         case .fit:
             scale = min(
-                canvas.physicalSize.width.value / source.width.value,
-                canvas.physicalSize.height.value / source.height.value
+                availableWidth / source.width.value,
+                availableHeight / source.height.value
             )
         case .actualSize:
             scale = 1
@@ -149,20 +217,23 @@ public enum PagePlacementPlanner {
         if policy == .fit {
             // Independent dot rounding can cross the physical fit boundary by
             // one dot. Clip that quantization only, never rescale a second time.
-            width = min(width, canvas.width)
-            height = min(height, canvas.height)
+            width = min(width, areaWidth)
+            height = min(height, areaHeight)
         }
         guard width > 0, height > 0,
               width <= maximumPlacementDimension,
               height <= maximumPlacementDimension else {
             throw PagePlacementError.placementExceedsLimit
         }
-        let x = (canvas.width - width) / 2
-        let y = (canvas.height - height) / 2
-        let visibleX = max(0, x)
-        let visibleY = max(0, y)
-        let visibleRight = min(canvas.width, x + width)
-        let visibleBottom = min(canvas.height, y + height)
+        let x = left + (areaWidth - width) / 2
+        let y = top + (areaHeight - height) / 2
+        let (targetRight, rightOverflow) = x.addingReportingOverflow(width)
+        let (targetBottom, bottomOverflow) = y.addingReportingOverflow(height)
+        guard !rightOverflow, !bottomOverflow else { throw PagePlacementError.placementExceedsLimit }
+        let visibleX = max(left, x)
+        let visibleY = max(top, y)
+        let visibleRight = min(canvas.width - right, targetRight)
+        let visibleBottom = min(canvas.height - bottom, targetBottom)
         return PagePlacement(
             target: DotRect(x: x, y: y, width: width, height: height),
             visible: DotRect(

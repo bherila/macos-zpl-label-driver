@@ -201,7 +201,7 @@ public struct ResolvedJobTicket: Equatable, Sendable {
               VirtualQueueDefinition.isSHA256(cancellationSHA256)
         else { throw ResolvedJobTicketError.invalidIdentity }
         guard activeSelectionGeneration > 0,
-              workflowProfile.schemaVersion == 2, (1...6).contains(queue.schemaVersion),
+              (2...3).contains(workflowProfile.schemaVersion), (1...6).contains(queue.schemaVersion),
               (1...7).contains(printerProfile.schemaVersion),
               controls.profileSchemaVersion == printerProfile.schemaVersion,
               controls.profileRevision == printerProfile.revision else {
@@ -862,7 +862,8 @@ private func validatePlan(
     pageRangeOwnership: JobPageRangeOwnership
 ) throws {
     guard plan.profileID == workflowProfile.id,
-          plan.profileRevision == workflowProfile.revision else {
+          plan.profileRevision == workflowProfile.revision,
+          plan.outputLabels.allSatisfy({ $0.outputMargins == workflowProfile.outputMargins }) else {
         throw ResolvedJobTicketError.invalidPlan
     }
     let actual = plan.outputLabels.map {

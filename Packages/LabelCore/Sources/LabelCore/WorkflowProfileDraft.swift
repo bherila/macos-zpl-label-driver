@@ -1,7 +1,7 @@
 /// Mutable-by-value editing state for a future teach-once UI. Every operation
 /// rebuilds the typed immutable contract; invalid edits leave the draft intact.
 public struct WorkflowProfileDraft: Equatable, Sendable {
-    public enum Error: Swift.Error, Equatable, Sendable {
+    public enum Error: Swift.Error, Equatable, Sendable, RedactedDiagnosticValue {
         case revisionOverflow
         case regionNotFound(String)
         case invalidDestination
@@ -9,6 +9,20 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
         case pageNotFound(Int)
         case invalidPageDisposition
         case lastOutputPage
+
+        /// Region identifiers must not enter routine diagnostics or dumps.
+        public var description: String {
+            let code = switch self {
+            case .revisionOverflow: "revisionOverflow"
+            case .regionNotFound: "regionNotFound(redacted)"
+            case .invalidDestination: "invalidDestination"
+            case .lastRegionOnPage: "lastRegionOnPage"
+            case let .pageNotFound(page): "pageNotFound(\(page))"
+            case .invalidPageDisposition: "invalidPageDisposition"
+            case .lastOutputPage: "lastOutputPage"
+            }
+            return "WorkflowProfileDraft.Error.\(code)"
+        }
     }
 
     public private(set) var profile: WorkflowProfile
@@ -20,13 +34,39 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
     public init(nextRevisionOf profile: WorkflowProfile) throws {
         guard profile.revision < Int.max else { throw Error.revisionOverflow }
         self.profile = try WorkflowProfile(
+            schemaVersion: profile.schemaVersion,
             id: profile.id,
             revision: profile.revision + 1,
             outputStockID: profile.outputStockID,
             outputStock: profile.outputStock,
+            outputMargins: profile.outputMargins,
             monochromeConversion: profile.monochromeConversion,
             pageRules: profile.pageRules
         )
+    }
+
+    /// Changes only the destination stock of this editable candidate revision.
+    /// Source sheet rules/crops remain immutable; device qualification is separate.
+    public mutating func setOutputStock(id: String, size: PhysicalSize) throws {
+        let next = try WorkflowProfile(
+            schemaVersion: profile.schemaVersion,
+            id: profile.id,
+            revision: profile.revision,
+            outputStockID: id,
+            outputStock: size,
+            outputMargins: profile.outputMargins,
+            monochromeConversion: profile.monochromeConversion,
+            pageRules: profile.pageRules
+        )
+        profile = next
+    }
+
+    public mutating func setOutputMargins(_ margins: OutputMargins) throws {
+        let next = try WorkflowProfile(schemaVersion: 3, id: profile.id, revision: profile.revision,
+            outputStockID: profile.outputStockID, outputStock: profile.outputStock,
+            outputMargins: margins, monochromeConversion: profile.monochromeConversion,
+            pageRules: profile.pageRules)
+        profile = next
     }
 
     public mutating func updateRegion(
@@ -104,7 +144,7 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
             guard case let .extract(regions) = rule.disposition,
                   regions.contains(where: { $0.id == id }) else { return rule }
             // Match the public profile decoder's per-page region bound.
-            guard regions.count < 256 else { throw ExtractionPlanError.invalidProfile }
+            guard regions.count < WorkflowPageRule.maximumRegionsPerPage else { throw ExtractionPlanError.invalidProfile }
             return try replacing(rule, disposition: .extract(regions + [copy]))
         }
         let next = try replacingProfile(pageRules: assigningOrders(rules, ordered: ordered))
@@ -189,10 +229,12 @@ public struct WorkflowProfileDraft: Equatable, Sendable {
 
     private func replacingProfile(pageRules: [WorkflowPageRule]) throws -> WorkflowProfile {
         try WorkflowProfile(
+            schemaVersion: profile.schemaVersion,
             id: profile.id,
             revision: profile.revision,
             outputStockID: profile.outputStockID,
             outputStock: profile.outputStock,
+            outputMargins: profile.outputMargins,
             monochromeConversion: profile.monochromeConversion,
             pageRules: pageRules
         )

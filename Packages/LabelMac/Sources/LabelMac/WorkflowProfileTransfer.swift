@@ -9,9 +9,9 @@ public enum WorkflowProfileTransfer {
         guard url.isFileURL else { throw BoundedRegularFile.Error.cannotOpen }
         let bytes = try BoundedRegularFile.read(url, maximumBytes: WorkflowProfileJSON.maximumBytes)
         let imported = try WorkflowProfileJSON.decode(bytes)
-        return try WorkflowProfile(id: "import-" + UUID().uuidString.lowercased(), revision: 1,
+        return try WorkflowProfile(schemaVersion: imported.schemaVersion, id: "import-" + UUID().uuidString.lowercased(), revision: 1,
             outputStockID: imported.outputStockID, outputStock: imported.outputStock,
-            monochromeConversion: imported.monochromeConversion, pageRules: imported.pageRules)
+            outputMargins: imported.outputMargins, monochromeConversion: imported.monochromeConversion, pageRules: imported.pageRules)
     }
 
     public static func exportSnapshot(_ snapshot: WorkflowProfile, store: WorkflowProfileStore) throws -> Data {

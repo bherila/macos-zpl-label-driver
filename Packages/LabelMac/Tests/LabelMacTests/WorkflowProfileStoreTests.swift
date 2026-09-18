@@ -6,6 +6,15 @@ import LabelCore
 @testable import LabelMac
 
 final class WorkflowProfileStoreTests: XCTestCase {
+    func testExactIntegerIdentityInLargeRevisionQualificationManifest() throws {
+        let store = try WorkflowProfileStore(root: temporaryRoot())
+        let expected = try profile(revision: Int.max)
+        try store.save(expected)
+        try store.confirmForUnattendedUse(expected)
+        XCTAssertNotNil(try store.qualification(for: expected))
+        XCTAssertEqual(try store.load(profileID: expected.id, revision: expected.revision), expected)
+    }
+
     func testConfigurationStoresRejectReservedDotRoots() throws {
         let root = try temporaryRoot()
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: false,

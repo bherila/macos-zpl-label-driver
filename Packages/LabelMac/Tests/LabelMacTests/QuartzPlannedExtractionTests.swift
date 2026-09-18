@@ -57,6 +57,7 @@ final class QuartzPlannedExtractionTests: XCTestCase {
         region: NormalizedRect,
         rotation: ExtractionRotation = .degrees0,
         outputStock: PhysicalSize,
+        outputMargins: OutputMargins = .zero,
         sourceBox: PDFPageBox? = nil
     ) throws -> PlannedExtractionLabel {
         let box: PDFPageBox
@@ -64,8 +65,8 @@ final class QuartzPlannedExtractionTests: XCTestCase {
         else { box = try PDFPageBox(originX: 0, originY: 0, width: 20, height: 10) }
         let sourceSize = try box.effectivePhysicalSize()
         let profile = try WorkflowProfile(
-            id: "planned-extraction", revision: 8,
-            outputStockID: "test-stock", outputStock: outputStock,
+            schemaVersion: outputMargins == .zero ? 2 : 3, id: "planned-extraction", revision: 8,
+            outputStockID: "test-stock", outputStock: outputStock, outputMargins: outputMargins,
             pageRules: [try WorkflowPageRule(
                 sourcePage: 1,
                 expectedInput: ExpectedInputPage(uprightPhysicalSize: sourceSize),
@@ -90,6 +91,23 @@ final class QuartzPlannedExtractionTests: XCTestCase {
                 yDotsPerMillimeter: dotsPerMillimeter
             )
         )
+    }
+
+    func testMarginStockMismatchRejectsBothRenderPathsBeforeParsingOrWorkerLaunch() throws {
+        let stock = PhysicalSize(width: try Millimeters(10), height: try Millimeters(10))
+        let label = try plannedLabel(region: NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+            outputStock: stock, outputMargins: OutputMargins(left: 1, top: 1, right: 1, bottom: 1))
+        let canvas = try DotCanvas(physicalSize: PhysicalSize(width: Millimeters(20), height: Millimeters(20)),
+            resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        let conversion = MonochromeConversion.textAndBarcodeThreshold(cutoff: 128)
+        XCTAssertThrowsError(try QuartzPlannedExtraction.prepare(originalPDF: Data(), label: label,
+            canvas: canvas, conversion: conversion)) {
+            XCTAssertEqual($0 as? QuartzPlannedExtraction.Error, .outputStockMismatch)
+        }
+        XCTAssertThrowsError(try OfflineExtractionWorker.render(originalPDF: Data(), label: label,
+            canvas: canvas, conversion: conversion, workerExecutable: URL(fileURLWithPath: "/nonexistent-worker"))) {
+            XCTAssertEqual($0 as? OfflineExtractionWorker.Error, .outputStockMismatch)
+        }
     }
 
     func testSelectedRegionRendersFromOriginalPDFToExactPreviewAndEncoderInput() throws {

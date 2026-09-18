@@ -104,6 +104,8 @@ public struct ReferenceWorkflowDefinition: Equatable, Sendable {
     }
 }
 
-public enum ReferenceWorkflowError: Error, Equatable, Sendable {
+public enum ReferenceWorkflowError: Error, Equatable, Sendable, RedactedDiagnosticValue {
     case requiresTeachOnce(workflowID: String)
+
+    public var description: String { "ReferenceWorkflowError.requiresTeachOnce(workflowID: redacted)" }
 }

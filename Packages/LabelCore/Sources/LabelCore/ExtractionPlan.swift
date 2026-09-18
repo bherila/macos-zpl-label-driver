@@ -125,6 +125,8 @@ public struct ExpectedInputPage: Equatable, Sendable {
 }
 
 public struct WorkflowPageRule: Equatable, Sendable {
+    /// Shared admission limit for typed construction, editing and JSON import.
+    public static let maximumRegionsPerPage = 256
     public let sourcePage: Int
     public let expectedInput: ExpectedInputPage
     public let disposition: WorkflowPageDisposition
@@ -140,7 +142,8 @@ public struct WorkflowPageRule: Equatable, Sendable {
               Set(structuralAnchors.map(\.id)).count == structuralAnchors.count else {
             throw ExtractionPlanError.invalidProfile
         }
-        if case let .extract(regions) = disposition, regions.isEmpty {
+        if case let .extract(regions) = disposition,
+           regions.isEmpty || regions.count > Self.maximumRegionsPerPage {
             throw ExtractionPlanError.invalidProfile
         }
         self.sourcePage = sourcePage
@@ -156,6 +159,7 @@ public struct WorkflowProfile: Equatable, Sendable {
     public let revision: Int
     public let outputStockID: String
     public let outputStock: PhysicalSize
+    public let outputMargins: OutputMargins
     /// The deterministic one-bit conversion used for every output label in
     /// this immutable workflow revision. Mixed-content workflows require a
     /// future explicit region policy rather than an ambient caller choice.
@@ -168,12 +172,18 @@ public struct WorkflowProfile: Equatable, Sendable {
         revision: Int,
         outputStockID: String,
         outputStock: PhysicalSize,
+        outputMargins: OutputMargins = .zero,
         monochromeConversion: MonochromeConversion = .textAndBarcodeThreshold(cutoff: 128),
         pageRules: [WorkflowPageRule]
     ) throws {
-        guard schemaVersion == 2, revision > 0,
+        guard (schemaVersion == 2 || schemaVersion == 3),
+              (schemaVersion == 3 || outputMargins == .zero), revision > 0,
               Self.isSafeIdentifier(id), Self.isSafeIdentifier(outputStockID),
               !pageRules.isEmpty, pageRules.count <= 1_000 else {
+            throw ExtractionPlanError.invalidProfile
+        }
+        guard outputStock.width.value - outputMargins.left - outputMargins.right > 0,
+              outputStock.height.value - outputMargins.top - outputMargins.bottom > 0 else {
             throw ExtractionPlanError.invalidProfile
         }
         let pages = pageRules.map(\.sourcePage)
@@ -195,6 +205,7 @@ public struct WorkflowProfile: Equatable, Sendable {
         self.revision = revision
         self.outputStockID = outputStockID
         self.outputStock = outputStock
+        self.outputMargins = outputMargins
         self.monochromeConversion = monochromeConversion
         self.pageRules = pageRules
     }
@@ -207,7 +218,7 @@ public struct WorkflowProfile: Equatable, Sendable {
     }
 }
 
-public enum ExtractionPlanError: Error, Equatable, Sendable {
+public enum ExtractionPlanError: Error, Equatable, Sendable, RedactedDiagnosticValue {
     case invalidProfile
     case invalidSourcePageCount
     case unaccountedSourcePage(Int)
@@ -221,6 +232,25 @@ public enum ExtractionPlanError: Error, Equatable, Sendable {
     case invalidPageSelection
     case invalidOutputLimit
     case tooManyOutputLabels
+
+    public var description: String {
+        let code = switch self {
+        case .invalidProfile: "invalidProfile"
+        case .invalidSourcePageCount: "invalidSourcePageCount"
+        case let .unaccountedSourcePage(page): "unaccountedSourcePage(\(page))"
+        case let .missingSourcePage(page): "missingSourcePage(\(page))"
+        case let .inputGeometryMismatch(page): "inputGeometryMismatch(page: \(page))"
+        case let .analysisRequired(page): "analysisRequired(page: \(page))"
+        case let .missingAnchor(page, _): "missingAnchor(page: \(page), anchorID: redacted)"
+        case let .ambiguousAnchor(page, _): "ambiguousAnchor(page: \(page), anchorID: redacted)"
+        case .invalidAnalysis: "invalidAnalysis"
+        case .invalidCopyPolicy: "invalidCopyPolicy"
+        case .invalidPageSelection: "invalidPageSelection"
+        case .invalidOutputLimit: "invalidOutputLimit"
+        case .tooManyOutputLabels: "tooManyOutputLabels"
+        }
+        return "ExtractionPlanError.\(code)"
+    }
 }
 
 public struct PlannedExtractionLabel: Equatable, Sendable {
@@ -233,6 +263,7 @@ public struct PlannedExtractionLabel: Equatable, Sendable {
     public let scalePolicy: ExtractionScalePolicy
     public let outputStockID: String
     public let outputStock: PhysicalSize
+    public let outputMargins: OutputMargins
     public let profileID: String
     public let profileRevision: Int
 }
@@ -352,6 +383,7 @@ public enum ExtractionPlanner {
                 scalePolicy: region.scalePolicy,
                 outputStockID: profile.outputStockID,
                 outputStock: profile.outputStock,
+                outputMargins: profile.outputMargins,
                 profileID: profile.id,
                 profileRevision: profile.revision
             )

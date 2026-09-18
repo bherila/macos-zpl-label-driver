@@ -29,25 +29,24 @@ public enum WorkflowProfileJSON {
         }
         let raw: Any
         do {
-            raw = try JSONSerialization.jsonObject(with: data, options: [])
+            raw = try TokenPreservingJSON.decode(data)
         } catch {
             throw WorkflowProfileJSONError.malformedJSON
         }
         do {
-            let root = try object(
-                raw,
-                allowed: [
-                    "schemaVersion", "id", "revision", "outputStock",
-                    "monochromeConversion", "pages",
-                ],
-                required: [
-                    "schemaVersion", "id", "revision", "outputStock",
-                    "monochromeConversion", "pages",
-                ]
-            )
-            guard try integer(root, "schemaVersion") == 2 else {
-                throw WorkflowProfileJSONError.unsupportedSchema
-            }
+            let keys: Set<String> = ["schemaVersion", "id", "revision", "outputStock", "monochromeConversion", "pages"]
+            let header = try object(raw, allowed: keys.union(["outputMargins"]), required: ["schemaVersion"])
+            let version = try integer(header, "schemaVersion")
+            guard version == 2 || version == 3 else { throw WorkflowProfileJSONError.unsupportedSchema }
+            let shape = version == 3 ? keys.union(["outputMargins"]) : keys
+            let root = try object(raw, allowed: shape, required: shape)
+            let margins: OutputMargins
+            if version == 3 {
+                let fields: Set<String> = ["left", "top", "right", "bottom"]
+                let object = try object(required(root, "outputMargins"), allowed: fields, required: fields)
+                margins = try OutputMargins(left: number(object, "left"), top: number(object, "top"),
+                    right: number(object, "right"), bottom: number(object, "bottom"))
+            } else { margins = .zero }
             let output = try object(
                 required(root, "outputStock"),
                 allowed: ["id", "widthMillimeters", "heightMillimeters"],
@@ -63,11 +62,12 @@ public enum WorkflowProfileJSON {
             }
             let pages = try pagesRaw.map(decodePage)
             return try WorkflowProfile(
-                schemaVersion: 2,
+                schemaVersion: version,
                 id: try string(root, "id"),
                 revision: try integer(root, "revision"),
                 outputStockID: try string(output, "id"),
                 outputStock: stock,
+                outputMargins: margins,
                 monochromeConversion: try decodeConversion(
                     required(root, "monochromeConversion")
                 ),
@@ -85,7 +85,7 @@ public enum WorkflowProfileJSON {
             throw WorkflowProfileJSONError.invalidLimit
         }
         let pages: [[String: Any]] = profile.pageRules.map(encodePage)
-        let root: [String: Any] = [
+        var root: [String: Any] = [
             "schemaVersion": profile.schemaVersion,
             "id": profile.id,
             "revision": profile.revision,
@@ -97,6 +97,10 @@ public enum WorkflowProfileJSON {
             "monochromeConversion": encodeConversion(profile.monochromeConversion),
             "pages": pages,
         ]
+        if profile.schemaVersion == 3 {
+            root["outputMargins"] = ["left": profile.outputMargins.left, "top": profile.outputMargins.top,
+                "right": profile.outputMargins.right, "bottom": profile.outputMargins.bottom]
+        }
         let data: Data
         do {
             data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
@@ -165,7 +169,7 @@ public enum WorkflowProfileJSON {
         case "extract":
             guard dispositionRaw["reason"] == nil else { throw WorkflowProfileJSONError.unknownField }
             let regionsRaw = try array(dispositionRaw, "regions")
-            guard !regionsRaw.isEmpty, regionsRaw.count <= 256 else {
+            guard !regionsRaw.isEmpty, regionsRaw.count <= WorkflowPageRule.maximumRegionsPerPage else {
                 throw WorkflowProfileJSONError.invalidValue("regions")
             }
             disposition = .extract(try regionsRaw.map(decodeRegion))
@@ -310,26 +314,14 @@ public enum WorkflowProfileJSON {
     }
 
     private static func number(_ object: [String: Any], _ key: String) throws -> Double {
-        guard let value = try required(object, key) as? NSNumber,
-              CFGetTypeID(value) != CFBooleanGetTypeID() else {
-            throw WorkflowProfileJSONError.invalidType(key)
-        }
-        // Foundation may retain a JSON decimal as NSDecimalNumber. Its
-        // doubleValue conversion can differ by one ULP from correctly rounded
-        // parsing, breaking exact immutable profile identity after reload.
-        // Ordinary binary NSNumber already holds the correct bits; stringValue
-        // can shorten those, so only convert retained decimal numbers this way.
-        let parsed = value is NSDecimalNumber ? (Double(value.stringValue) ?? .nan) : value.doubleValue
-        guard parsed.isFinite else { throw WorkflowProfileJSONError.invalidType(key) }
+        guard let value = try required(object, key) as? TokenPreservingJSON.Number,
+              let parsed = value.doubleValue else { throw WorkflowProfileJSONError.invalidType(key) }
         return parsed
     }
 
     private static func integer(_ object: [String: Any], _ key: String) throws -> Int {
-        let value = try number(object, key)
-        guard value.rounded(.towardZero) == value,
-              value >= Double(Int.min), value < Double(Int.max) else {
-            throw WorkflowProfileJSONError.invalidType(key)
-        }
-        return Int(value)
+        guard let value = try required(object, key) as? TokenPreservingJSON.Number,
+              let exact = value.integerValue else { throw WorkflowProfileJSONError.invalidType(key) }
+        return exact
     }
 }

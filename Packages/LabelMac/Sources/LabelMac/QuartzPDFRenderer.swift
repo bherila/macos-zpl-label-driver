@@ -32,6 +32,7 @@ public enum QuartzPDFRenderer {
         public let canvas: DotCanvas
         public let annotationPolicy: AnnotationPolicy
         public let placementPolicy: PagePlacementPolicy
+        public let outputMargins: OutputMargins
         /// Optional extraction region in the visually upright crop box. The
         /// page remains the original PDF; this never accepts analysis pixels.
         public let sourceRegion: NormalizedRect?
@@ -51,6 +52,7 @@ public enum QuartzPDFRenderer {
             canvas: DotCanvas,
             annotationPolicy: AnnotationPolicy = .reject,
             placementPolicy: PagePlacementPolicy = .fit,
+            outputMargins: OutputMargins = .zero,
             sourceRegion: NormalizedRect? = nil,
             regionRotation: ExtractionRotation = .degrees0,
             expectedSourceRect: PDFSourceRect? = nil,
@@ -63,6 +65,7 @@ public enum QuartzPDFRenderer {
             self.canvas = canvas
             self.annotationPolicy = annotationPolicy
             self.placementPolicy = placementPolicy
+            self.outputMargins = outputMargins
             self.sourceRegion = sourceRegion
             self.regionRotation = regionRotation
             self.expectedSourceRect = expectedSourceRect
@@ -179,7 +182,8 @@ public enum QuartzPDFRenderer {
             placement = try PagePlacementPlanner.plan(
                 source: sourceSize,
                 canvas: request.canvas,
-                policy: request.placementPolicy
+                policy: request.placementPolicy,
+                margins: request.outputMargins
             )
         } catch {
             throw Error.invalidPageGeometry
@@ -225,7 +229,9 @@ public enum QuartzPDFRenderer {
             // keep PDF's drawing transform in its native coordinate space.
             context.interpolationQuality = .high
             context.setShouldAntialias(true)
-            context.clip(to: target)
+            context.clip(to: CGRect(x: placement.visible.x,
+                y: request.canvas.height - placement.visible.y - placement.visible.height,
+                width: placement.visible.width, height: placement.visible.height))
             rotateContext(context, around: CGPoint(x: target.midX, y: target.midY), rotation: request.regionRotation)
             context.concatenate(drawingTransform)
             context.drawPDFPage(page)
