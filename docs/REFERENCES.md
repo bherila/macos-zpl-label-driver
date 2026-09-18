@@ -289,3 +289,18 @@ paths or raw exceptions. Copying replaces clipboard contents, which other apps
 may read; it is not private storage or an automatic export. No clipboard contents
 are read and no third-party implementation is bundled. Documentation and unit
 tests do not establish actual GUI/clipboard operation or full diagnostic acceptance.
+
+<a id="r38"></a>
+## R38 — Apple loopback listener and native socket fault fixtures
+
+[requiredLocalEndpoint](https://developer.apple.com/documentation/network/nwparameters/requiredlocalendpoint)
+selects a specific local endpoint for connections/listeners.
+[setsockopt](https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man2/setsockopt.2.html)
+documents receive buffering and linger options; it is historical API reference,
+not a current-runtime compatibility guarantee.
+
+The native test fixtures bind only to loopback, limit receive buffering and
+observe real adapter timeout/reset behavior. They use public system APIs without
+bundling a third-party implementation. Current host observations and automated
+stream/race tests do not establish printer, scheduler, physical-output or general
+network-permission acceptance.
