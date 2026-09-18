@@ -30,6 +30,14 @@ identity and canonical digest, and an identical retry must repeat the required
 directory barrier before returning success. Conflicting bytes never reconcile
 as an identical retry.
 
+Delivery consumes the verified immutable prepared artifact, never unrelated
+caller-provided bytes or mutable defaults. The shared physical-device lease is
+derived from that artifact's ticket-bound coordination domain rather than a
+caller-supplied transport alias. It is held before delivery-state mutation, and a send-attempt state is durably
+published before any transport call that might be effective. Publication
+uncertainty after that point never authorizes automatic replay. Transmitted
+means local handoff only; device confirmation remains a separate state.
+
 ## Option resolution
 
 Precedence: explicit job choice > immutable workflow defaults > configured physical-device defaults. Validate the resolved combination against capabilities and installed accessories. An explicit unsupported option is an error, not silently ignored. A 'leave printer setting unchanged' option must be explicitly named and may not be represented as a known numeric default.

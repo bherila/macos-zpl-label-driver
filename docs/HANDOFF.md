@@ -1287,6 +1287,43 @@ staging, so an ambiguous retry cannot be downgraded by a redundant staging
 failure. Two targeted regressions cover both cases; LabelMac reaches 121 tests
 in debug and release on the PR #34 stack.
 
+At `c2e6e53`, M3 gains its first connected persisted-delivery path while
+remaining deliberately inert. It reloads the exact accepted ticket and
+prepared artifact, acquires the common physical-device lease, persists
+zero-byte transmitting intent before any discard-sink action, advances bounded
+monotonic byte progress, and records transmitted versus zero/partial uncertain
+outcomes. Lease contention and invalid or repeated attempts have no sink side
+effects. Seven new regressions bring LabelMac to 127 tests in debug and release;
+the complete local sequence remains green with 64 Python and 165 LabelCore
+tests. This is partial automated M3-AC05/07/08/09/12 evidence only. No CUPS,
+TCP, USB, daemon, scheduler retry mapping, administrator path, or printer was
+used, so all prescribed integration and hardware rows remain open.
+
+Follow-up `297c6aa` removes the remaining caller-selected lease identity from
+that path. `StoredPreparedJob` now carries the physical-device coordination ID
+from the verified immutable ticket, and delivery derives its lock identity only
+from that value before acquiring the lease. The existing contention regression
+now holds the ticket-bound domain, proving that delivery cannot select an alias
+to bypass the shared boundary.
+
+Review remediation `e977b33` closes the two remaining first-pass findings. A
+job durably left in `waiting` can resume because no sink action is permitted
+before the subsequent transmitting-intent commit, while the ticket-derived
+lease excludes a still-live prior owner. Lease contention is now explicitly
+retryable because it changes neither lifecycle nor sink. The focused suite has
+33 passing accepted-job tests and the complete LabelMac suite has 128 tests.
+After merging PR #34 remediation `c4798ef`, exact combined head `9401b39`
+passes 64 Python, 165 LabelCore, and 129 LabelMac tests in debug and release,
+plus all independent oracle, ABI, inert-pipeline, and local-signature checks.
+
+Second-pass review remediation `7929944` aligns pre-send retry classification
+with durable lifecycle state. A fault before transmitting intent now reports
+the retryable `failedBeforeTransmission` outcome while leaving the job in
+`waiting`; it no longer writes a terminal state that rejects the advertised
+retry. The regression retries the same acceptance ID and reaches
+`transmitted`, with no first-attempt sink action. The focused accepted-job
+suite passes all 33 tests.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

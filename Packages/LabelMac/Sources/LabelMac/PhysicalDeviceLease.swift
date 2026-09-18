@@ -1,6 +1,7 @@
 import CryptoKit
 import Darwin
 import Foundation
+import LabelCore
 
 /// A stable physical-device identifier used only to derive an opaque lock-file
 /// name. It is intentionally not a transport URI and must never be emitted in
@@ -17,6 +18,13 @@ public struct PhysicalDeviceIdentity: Equatable, Sendable {
               })
         else { throw ValidationError.invalidIdentifier }
         lockName = SHA256.hash(data: Data(stableIdentifier.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// Uses the already-opaque immutable coordination domain carried by a
+    /// resolved job ticket. Delivery must use this initializer rather than a
+    /// separately supplied transport alias.
+    public init(coordinationID: PhysicalDeviceCoordinationID) {
+        lockName = coordinationID.sha256
     }
 
     fileprivate var filename: String { "device-\(lockName).lock" }

@@ -526,6 +526,7 @@ final class AcceptedJobStoreTests: XCTestCase {
         XCTAssertEqual(stored.outputLabels, value.ticket.outputLabels)
         XCTAssertEqual(stored.profileSnapshot, payload.profileSnapshot)
         XCTAssertEqual(stored.resolvedControls, value.ticket.controls)
+        XCTAssertEqual(stored.physicalDevice, value.ticket.physicalDevice)
         XCTAssertEqual(stored.state, state)
     }
 
@@ -1127,5 +1128,289 @@ final class AcceptedJobStoreTests: XCTestCase {
             withJSONObject: object, options: [.sortedKeys]
         ).write(to: path)
         XCTAssertEqual(chmod(path.path, 0o600), 0)
+    }
+}
+
+private extension AcceptedJobStoreTests {
+    private final class InertEventRecorder: @unchecked Sendable {
+        private let lock = NSLock()
+        private var storage: [InertPersistedDelivery.Event] = []
+
+        func append(_ event: InertPersistedDelivery.Event) {
+            lock.withLock { storage.append(event) }
+        }
+
+        var events: [InertPersistedDelivery.Event] {
+            lock.withLock { storage }
+        }
+    }
+
+    private struct PreparedInertFixture {
+        let value: Fixture
+        let states: AcceptedJobStateStore
+        let payload: PreparedJobPayload
+        let preparedState: AcceptedJobStateRecord
+        let leaseDirectory: URL
+    }
+
+    private func preparedInertFixture(
+        acceptanceID: String
+    ) throws -> PreparedInertFixture {
+        let value = try fixture(acceptanceID: acceptanceID)
+        try value.jobs.save(
+            value.ticket, sourcePDF: value.sourcePDF, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let states = AcceptedJobStateStore(acceptedJobStore: value.jobs)
+        let accepted = try states.load(
+            acceptanceID: acceptanceID, queueStore: value.queues,
+            workflowStore: value.workflows, printerStore: value.printers
+        )
+        let payload = try preparedPayload(value)
+        let preparedState = try states.publishPrepared(
+            acceptanceID: acceptanceID, expected: accepted, payload: payload,
+            queueStore: value.queues, workflowStore: value.workflows,
+            printerStore: value.printers
+        )
+        let leaseDirectory = value.root.appending(path: "device-leases")
+        try FileManager.default.createDirectory(
+            at: leaseDirectory, withIntermediateDirectories: false,
+            attributes: [.posixPermissions: 0o700]
+        )
+        return PreparedInertFixture(
+            value: value, states: states, payload: payload,
+            preparedState: preparedState, leaseDirectory: leaseDirectory
+        )
+    }
+
+    private func inertDelivery(
+        _ fixture: PreparedInertFixture,
+        recorder: InertEventRecorder = InertEventRecorder()
+    ) -> InertPersistedDelivery {
+        InertPersistedDelivery(
+            acceptedJobStore: fixture.value.jobs,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers,
+            leaseDirectory: fixture.leaseDirectory,
+            observe: recorder.append
+        )
+    }
+}
+
+extension AcceptedJobStoreTests {
+    func testInertPersistedDeliveryPersistsIntentBeforeDiscardAndCompletes() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "inert-success")
+        let recorder = InertEventRecorder()
+        let delivery = inertDelivery(fixture, recorder: recorder)
+
+        let outcome = try delivery.deliver(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario(maximumChunkBytes: 3)
+        )
+
+        XCTAssertEqual(outcome, .transmitted(byteCount: fixture.payload.bytes.count))
+        XCTAssertFalse(outcome.mayRetryAutomatically)
+        XCTAssertEqual(recorder.events.first, .sendAttemptPersisted)
+        XCTAssertEqual(
+            recorder.events.dropFirst().reduce(0) { total, event in
+                if case let .bytesDiscarded(count) = event { return total + count }
+                return total
+            },
+            fixture.payload.bytes.count
+        )
+        let final = try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        guard case let .transmitted(payloadSHA256, byteCount) = final.phase else {
+            return XCTFail("expected transmitted lifecycle state")
+        }
+        XCTAssertEqual(payloadSHA256, Self.digest(fixture.payload.bytes))
+        XCTAssertEqual(byteCount, fixture.payload.bytes.count)
+    }
+
+    func testInertPersistedDeliveryRecordsZeroByteAmbiguityWithoutRetry() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "inert-zero-uncertain")
+        let recorder = InertEventRecorder()
+        let outcome = try inertDelivery(fixture, recorder: recorder).deliver(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario(becomeAmbiguousAfterBytes: 0)
+        )
+
+        XCTAssertEqual(outcome, .uncertain(bytesAccepted: 0))
+        XCTAssertFalse(outcome.mayRetryAutomatically)
+        XCTAssertEqual(recorder.events, [.sendAttemptPersisted])
+        let final = try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        guard case let .uncertain(_, _, bytesAccepted) = final.phase else {
+            return XCTFail("expected uncertain lifecycle state")
+        }
+        XCTAssertEqual(bytesAccepted, 0)
+    }
+
+    func testInertPersistedDeliveryRecordsPartialAmbiguityWithoutRetry() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "inert-partial-uncertain")
+        let recorder = InertEventRecorder()
+        let outcome = try inertDelivery(fixture, recorder: recorder).deliver(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario(
+                maximumChunkBytes: 2, becomeAmbiguousAfterBytes: 3
+            )
+        )
+
+        XCTAssertEqual(outcome, .uncertain(bytesAccepted: 3))
+        XCTAssertFalse(outcome.mayRetryAutomatically)
+        XCTAssertEqual(recorder.events.first, .sendAttemptPersisted)
+        XCTAssertEqual(
+            recorder.events.dropFirst().reduce(0) { total, event in
+                if case let .bytesDiscarded(count) = event { return total + count }
+                return total
+            },
+            3
+        )
+        let final = try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        guard case let .uncertain(_, _, bytesAccepted) = final.phase else {
+            return XCTFail("expected uncertain lifecycle state")
+        }
+        XCTAssertEqual(bytesAccepted, 3)
+    }
+
+    func testInertPersistedDeliveryFailureBeforeTransmissionIsRetryable() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "inert-before-send")
+        let recorder = InertEventRecorder()
+        let outcome = try inertDelivery(fixture, recorder: recorder).deliver(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario(failBeforeTransmission: true)
+        )
+
+        XCTAssertEqual(outcome, .failedBeforeTransmission)
+        XCTAssertTrue(outcome.mayRetryAutomatically)
+        XCTAssertTrue(recorder.events.isEmpty)
+        let final = try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        guard case .waiting = final.phase else {
+            return XCTFail("expected retryable waiting lifecycle state")
+        }
+
+        let retry = try inertDelivery(fixture).deliver(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario()
+        )
+        XCTAssertEqual(retry, .transmitted(byteCount: fixture.payload.bytes.count))
+    }
+
+    func testInertPersistedDeliveryBusyLeaseLeavesPreparedStateUntouched() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "inert-device-busy")
+        let held = try PhysicalDeviceLease(
+            acquiring: PhysicalDeviceIdentity(
+                coordinationID: fixture.value.ticket.physicalDevice
+            ),
+            inExistingDirectory: fixture.leaseDirectory
+        )
+        defer { held.release() }
+        let recorder = InertEventRecorder()
+
+        let outcome = try inertDelivery(fixture, recorder: recorder).deliver(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario()
+        )
+
+        XCTAssertEqual(outcome, .deviceBusy)
+        XCTAssertTrue(outcome.mayRetryAutomatically)
+        XCTAssertTrue(recorder.events.isEmpty)
+        XCTAssertEqual(try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        ), fixture.preparedState)
+    }
+
+    func testInertPersistedDeliveryRejectsRepeatAndInvalidFaultWithoutSinkEffects() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "inert-invalid")
+        let recorder = InertEventRecorder()
+        let delivery = inertDelivery(fixture, recorder: recorder)
+        XCTAssertThrowsError(try delivery.deliver(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario(
+                becomeAmbiguousAfterBytes: fixture.payload.bytes.count + 1
+            )
+        )) { XCTAssertEqual($0 as? InertPersistedDelivery.Error, .invalidScenario) }
+        XCTAssertEqual(try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        ), fixture.preparedState)
+        XCTAssertTrue(recorder.events.isEmpty)
+
+        _ = try delivery.deliver(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario()
+        )
+        let priorEvents = recorder.events
+        XCTAssertThrowsError(try delivery.deliver(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario()
+        )) { XCTAssertEqual($0 as? InertPersistedDelivery.Error, .invalidState) }
+        XCTAssertEqual(recorder.events, priorEvents)
+    }
+
+    func testInertPersistedDeliveryResumesDurableWaitingStateUnderLease() throws {
+        let fixture = try preparedInertFixture(acceptanceID: "inert-resume-waiting")
+        guard case let .prepared(payloadSHA256, byteCount) = fixture.preparedState.phase else {
+            return XCTFail("expected prepared lifecycle state")
+        }
+        let waiting = try fixture.states.compareAndSwap(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            expected: fixture.preparedState,
+            next: .waiting(payloadSHA256: payloadSHA256, byteCount: byteCount),
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        let recorder = InertEventRecorder()
+
+        let outcome = try inertDelivery(fixture, recorder: recorder).deliver(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            scenario: try InertDeliveryScenario(maximumChunkBytes: 2)
+        )
+
+        XCTAssertEqual(outcome, .transmitted(byteCount: fixture.payload.bytes.count))
+        XCTAssertEqual(recorder.events.first, .sendAttemptPersisted)
+        let final = try fixture.states.load(
+            acceptanceID: fixture.value.ticket.acceptanceID,
+            queueStore: fixture.value.queues,
+            workflowStore: fixture.value.workflows,
+            printerStore: fixture.value.printers
+        )
+        XCTAssertGreaterThan(final.generation, waiting.generation)
+        guard case .transmitted = final.phase else {
+            return XCTFail("expected transmitted lifecycle state")
+        }
+    }
+
+    func testInertDeliveryScenarioRejectsContradictoryFaults() {
+        XCTAssertThrowsError(try InertDeliveryScenario(
+            failBeforeTransmission: true, becomeAmbiguousAfterBytes: 0
+        )) { XCTAssertEqual(
+            $0 as? InertDeliveryScenario.ValidationError, .conflictingFaults
+        ) }
     }
 }
