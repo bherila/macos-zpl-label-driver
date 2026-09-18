@@ -15,6 +15,17 @@ public enum OfflineExtractionWorker {
         deadlineSeconds: Double = OfflineRenderWorkerProcess.defaultDeadlineSeconds,
         cancellation: OfflineRenderWorkerCancellation = .init()
     ) throws -> MonochromeBitmap {
+        let ticket = try ticketJSON(label: label, canvas: canvas, conversion: conversion)
+        let output = try OfflineRenderWorkerProcess.run(originalPDF: originalPDF,
+            ticketJSON: ticket, workerExecutable: workerExecutable,
+            deadlineSeconds: deadlineSeconds, cancellation: cancellation)
+        return try validate(output: output, canvas: canvas)
+    }
+
+    /// Builds the immutable wire ticket staged for one child. Separated from
+    /// `render` so the schema branch is testable without spawning a worker.
+    static func ticketJSON(label: PlannedExtractionLabel, canvas: DotCanvas,
+                           conversion: MonochromeConversion) throws -> Data {
         guard canvas.physicalSize == label.outputStock else { throw Error.outputStockMismatch }
         let conversionWire: [String: Any]
         switch conversion {
@@ -44,28 +55,15 @@ public enum OfflineExtractionWorker {
             wire["outputMargins"] = ["left": margins.left, "top": margins.top,
                 "right": margins.right, "bottom": margins.bottom]
         }
-        let ticket = try JSONSerialization.data(withJSONObject: wire, options: [.sortedKeys])
-        let output = try OfflineRenderWorkerProcess.run(originalPDF: originalPDF,
-            ticketJSON: ticket, workerExecutable: workerExecutable,
-            deadlineSeconds: deadlineSeconds, cancellation: cancellation)
-        return try validate(output: output, canvas: canvas)
+        return try JSONSerialization.data(withJSONObject: wire, options: [.sortedKeys])
     }
 
     static func validate(output: OfflineRenderWorkerOutput, canvas: DotCanvas) throws -> MonochromeBitmap {
-        let header = Data("P4\n\(canvas.width) \(canvas.height)\n".utf8)
-        guard output.result.widthDots == canvas.width, output.result.heightDots == canvas.height,
-              output.previewPBM.starts(with: header),
-              output.previewPBM.count - header.count == canvas.bitmapLayout.byteCount else {
+        guard output.result.widthDots == canvas.width, output.result.heightDots == canvas.height else {
             throw Error.invalidWorkerBitmap
         }
         do {
-            let bitmap = try MonochromeBitmap(width: canvas.width, height: canvas.height,
-                bytes: Array(output.previewPBM.dropFirst(header.count)),
-                maxByteCount: canvas.bitmapLayout.byteCount)
-            guard try ZPLGraphicEncoder().diagnosticFormat(bitmap) == output.zpl else {
-                throw Error.invalidWorkerBitmap
-            }
-            return bitmap
+            return try WorkerBitmapBinding.validate(output, maximumPackedBytes: canvas.bitmapLayout.byteCount)
         } catch { throw Error.invalidWorkerBitmap }
     }
 }

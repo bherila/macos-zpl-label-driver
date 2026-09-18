@@ -31,4 +31,70 @@ final class OfflineExtractionWorkerTests: XCTestCase {
             }
         }
     }
+
+    private func plannedLabel(outputMargins: OutputMargins, outputStock: PhysicalSize) throws -> PlannedExtractionLabel {
+        let box = try PDFPageBox(originX: 0, originY: 0, width: 20, height: 10)
+        let profile = try WorkflowProfile(
+            schemaVersion: outputMargins == .zero ? 2 : 3, id: "offline-extraction", revision: 4,
+            outputStockID: "test-stock", outputStock: outputStock, outputMargins: outputMargins,
+            pageRules: [try WorkflowPageRule(
+                sourcePage: 1,
+                expectedInput: ExpectedInputPage(uprightPhysicalSize: try box.effectivePhysicalSize()),
+                disposition: .extract([try ExtractionRegion(
+                    id: "selected", normalizedRect: try NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+                    rotation: .degrees0, outputOrder: 0
+                )])
+            )]
+        )
+        return try ExtractionPlanner.plan(sourcePages: [box], profile: profile).outputLabels[0]
+    }
+
+    private var stock: PhysicalSize {
+        get throws { PhysicalSize(width: try Millimeters(20), height: try Millimeters(10)) }
+    }
+
+    private func canvas(_ size: PhysicalSize) throws -> DotCanvas {
+        try DotCanvas(physicalSize: size,
+            resolution: DotResolution(xDotsPerMillimeter: 1, yDotsPerMillimeter: 1))
+    }
+
+    /// A zero-margin plan must keep emitting the byte-identical v2 ticket, so
+    /// the margin feature cannot silently change the established wire form.
+    func testZeroMarginTicketStaysAtSchemaVersionTwoWithoutMarginKey() throws {
+        let stock = try self.stock
+        let ticket = try OfflineExtractionWorker.ticketJSON(
+            label: try plannedLabel(outputMargins: .zero, outputStock: stock),
+            canvas: try canvas(stock), conversion: .textAndBarcodeThreshold(cutoff: 128))
+        let wire = try XCTUnwrap(JSONSerialization.jsonObject(with: ticket) as? [String: Any])
+        XCTAssertEqual(wire["schemaVersion"] as? Int, 2)
+        XCTAssertNil(wire["outputMargins"])
+    }
+
+    /// A non-zero margin must reach the child as schemaVersion 3 carrying the
+    /// exact four edges; an inert ticket would render margins invisibly.
+    func testNonZeroMarginTicketCarriesSchemaVersionThreeAndEveryEdge() throws {
+        let stock = try self.stock
+        let margins = try OutputMargins(left: 1, top: 2, right: 3, bottom: 0.5)
+        let ticket = try OfflineExtractionWorker.ticketJSON(
+            label: try plannedLabel(outputMargins: margins, outputStock: stock),
+            canvas: try canvas(stock), conversion: .textAndBarcodeThreshold(cutoff: 128))
+        let wire = try XCTUnwrap(JSONSerialization.jsonObject(with: ticket) as? [String: Any])
+        XCTAssertEqual(wire["schemaVersion"] as? Int, 3)
+        let emitted = try XCTUnwrap(wire["outputMargins"] as? [String: Double])
+        XCTAssertEqual(emitted, ["left": 1, "top": 2, "right": 3, "bottom": 0.5])
+    }
+
+    /// The emitted v3 ticket is what the worker parent admits back, so the two
+    /// ends of the process boundary are checked against each other, not apart.
+    func testEmittedTicketRoundTripsThroughOfflineConversionTicket() throws {
+        let stock = try self.stock
+        for margins in [OutputMargins.zero, try OutputMargins(left: 1, top: 2, right: 3, bottom: 0.5)] {
+            let ticket = try OfflineExtractionWorker.ticketJSON(
+                label: try plannedLabel(outputMargins: margins, outputStock: stock),
+                canvas: try canvas(stock), conversion: .textAndBarcodeThreshold(cutoff: 128))
+            let admitted = try OfflineConversionTicket(jsonData: ticket)
+            XCTAssertEqual(admitted.outputMargins, margins)
+            XCTAssertEqual(admitted.physicalSize, stock)
+        }
+    }
 }

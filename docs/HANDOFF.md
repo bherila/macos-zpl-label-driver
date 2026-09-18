@@ -1,3 +1,55 @@
+# Worker protocol decoding and returned-bitmap binding — 2026-09-18
+
+Source `910044282884441d7400aa1f75c215216a939c3b` on `claude/determined-sagan-frse18`, over `main` `03f38af`.
+
+The LabelMac worker-boundary primitives from checkpoint `eb71a41`, landed together because they are
+mutually dependent, and with them the three hunk-level compromises recorded in `6d5f86b` restored to
+their intended forms. `WorkerProtocolJSON` admits integer-typed fields from preserved numeric tokens
+before Foundation decoding, so a fractional token cannot become an integer by floating-point rounding
+at a process boundary; geometry stays on the normal `Double` path and Codable keeps its missing and
+type checks. `WorkerBitmapBinding` accepts only the canonical packed bitmap actually encoded into the
+diagnostic graphics envelope, checking declared schema, dimension bounds, both byte counts, the PBM
+header and the re-encoded envelope against the returned ZPL. `OfflineRenderWorker` binds a successful
+artifact to the immutable ticket staged for that child, rebuilding the canvas from the ticket rather
+than trusting the reported dimensions, and reports the Darwin `RUSAGE_SELF` peak under a declared
+ceiling.
+
+Restoring the compromises is a strengthening, not a like-for-like swap. `OfflineExtractionWorker`
+previously validated the returned bitmap with an inline copy written for `6d5f86b`; the delegated
+`WorkerBitmapBinding.validate` is a strict superset of it, adding the schema, dimension-bound and
+byte-count checks the inline copy lacked, with errors still normalised to `invalidWorkerBitmap` so no
+caller sees a new error type.
+
+Two defects found while porting rather than carried in. The checkpoint had inserted
+`currentWorkerMaximumResidentBytes` inside `recordFailure`'s doc comment, leaving `recordFailure`
+undocumented and the getrusage note attached to the wrong declaration; the comment is reattached.
+And `OfflineExtractionWorker` built its wire ticket inline inside `render`, so the schema branch was
+unreachable without spawning a worker — which is why issue #93 could record it as untested. It is
+extracted as `ticketJSON`, and gap 1 of #93 closes with the three tests that issue asked for: a
+zero-margin plan still emits the byte-identical v2 ticket, a non-zero margin emits schemaVersion 3
+carrying every edge, and the emitted ticket round-trips back through `OfflineConversionTicket`.
+
+Changed requirements: M2 imaging-engine and M4 label-extraction gain worker-boundary admission and
+returned-artifact binding evidence. Neither milestone is declared complete.
+
+Tests actually run. Linux x86_64 Swift 6.1.2: LabelCore 304 tests, 0 failures — unchanged, and that
+is the point, because no LabelCore file is touched. `check_repo.py` passed and 105 Python tests
+passed. Every changed Swift file parses under `swift-frontend -parse`. A `RepoType.member` check,
+verified non-vacuous by seeding the exact defect that broke CI in #92 and confirming it fires,
+reports no reference to an unlanded member.
+
+What Linux did not and cannot establish. **Every file in this slice is LabelMac, which does not build
+on Linux.** Nothing here has been compiled or executed anywhere yet; hosted macos-26 CI is the only
+gate that will do either. Parsing and symbol-resolution checks catch the #92 failure mode, not type
+errors, so a CI round trip is plausible rather than a surprise. Hosted CI also qualifies no GUI,
+installation, scheduler or hardware behaviour: those rows stay NOT RUN, and a green run must not be
+read as promoting them.
+
+Blockers: gap 2 of #93 stays open — the schemaVersion 3 parsing path still has no security review,
+and adding tests does not substitute for one. The remaining #88 sub-slices are the accepted-finishing
+stores, which carry `PublicationDiagnosticRedactionTests` and `AcceptedFinishingJobStore`, and the
+finishing inspection UI, which is a GUI surface that CI cannot qualify at all.
+
 # Control protocol coverage and bounded width declarations — 2026-09-18
 
 Source `4237e45ba2e9a83bf74466aab94940f71b092e4f` on `claude/determined-sagan-frse18`, over `main`

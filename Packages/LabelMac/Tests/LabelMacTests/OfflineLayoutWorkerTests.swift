@@ -188,6 +188,31 @@ final class OfflineLayoutWorkerTests: XCTestCase {
         }
     }
 
+    /// The production result decode must reject a fractional token that would
+    /// round to a valid rotation. Checking this only through the standalone
+    /// admission helper would leave the actual worker output path open.
+    func testUntrustedLayoutResultRejectsFractionalRotationTokenRoundingToValid() throws {
+        let source = Data("synthetic source binding".utf8)
+        let box = try PDFPageBox(originX: 0, originY: 0, width: 288, height: 432)
+        let page = OfflineLayoutWorker.Page(try AnalyzedSourcePage(pageBox: box, anchors: nil))
+        let request = OfflineLayoutWorker.Request(schemaVersion: 1, structuralPages: [])
+        let encoded = try XCTUnwrap(String(data: try JSONEncoder().encode(
+            OfflineLayoutWorker.Result(schemaVersion: 1,
+                sourceSHA256: OfflineLayoutWorker.digest(source), pages: [page])), encoding: .utf8))
+        func rotated(_ token: String) -> Data {
+            let text = encoded.replacingOccurrences(of: "\"rotation\":0", with: "\"rotation\":" + token)
+            XCTAssertNotEqual(text, encoded, "rotation token missing from the encoded result")
+            return Data(text.utf8)
+        }
+        // The same rotation is accepted when its token is exactly an integer,
+        // so rejection below is attributable to the token, not to the value.
+        XCTAssertNoThrow(try OfflineLayoutWorker.validate(rotated("90"),
+            originalPDF: source, request: request))
+        XCTAssertThrowsError(try OfflineLayoutWorker.validate(
+            rotated("90.00000000000000000000000000000000001"),
+            originalPDF: source, request: request))
+    }
+
     func testObservedEmptyAnchorsAndAggregateBoundsAreDistinct() throws {
         let source = Data()
         let box = try PDFPageBox(originX: 0, originY: 0, width: 10, height: 10)

@@ -9,13 +9,17 @@ public struct OfflineRenderWorkerResult: Codable, Equatable, Sendable {
     public let heightDots: Int
     public let zplBytes: Int
     public let previewBytes: Int
+    /// Darwin RUSAGE_SELF peak through output preparation; nil is unavailable.
+    public let workerMaximumResidentBytes: Int?
+    public static let maximumReportedResidentBytes = 1 << 40
 
-    public init(widthDots: Int, heightDots: Int, zplBytes: Int, previewBytes: Int) {
+    public init(widthDots: Int, heightDots: Int, zplBytes: Int, previewBytes: Int, workerMaximumResidentBytes: Int? = nil) {
         self.schemaVersion = 1
         self.widthDots = widthDots
         self.heightDots = heightDots
         self.zplBytes = zplBytes
         self.previewBytes = previewBytes
+        self.workerMaximumResidentBytes = workerMaximumResidentBytes
     }
 }
 
@@ -111,7 +115,18 @@ public enum OfflineRenderWorkerProcess {
             originalPDF: originalPDF, ticketJSON: ticketJSON,
             workerExecutable: workerExecutable, operationFlag: "--job-directory",
             deadlineSeconds: deadlineSeconds, cancellation: cancellation,
-            readOutput: readRenderOutput
+            readOutput: { scratch in
+                let output = try readRenderOutput(scratch)
+                // Bind the successful artifact to the same immutable ticket
+                // staged for this child, without trusting reported dimensions.
+                do {
+                    let ticket = try OfflineConversionTicket(jsonData: ticketJSON)
+                    let canvas = try DotCanvas(physicalSize: ticket.physicalSize, resolution: ticket.resolution)
+                    guard output.result.widthDots == canvas.width,
+                          output.result.heightDots == canvas.height else { throw Error.invalidResult }
+                } catch { throw Error.invalidResult }
+                return output
+            }
         )
     }
 
@@ -212,11 +227,12 @@ public enum OfflineRenderWorkerProcess {
             let resultData = try readPrivateRegularFile(
                 scratch.appending(path: resultFilename), maximumBytes: maximumResultBytes
             )
-            let result = try JSONDecoder().decode(OfflineRenderWorkerResult.self, from: resultData)
+            let result = try WorkerProtocolJSON.decode(OfflineRenderWorkerResult.self, from: resultData, message: .renderResult)
             guard result.schemaVersion == 1,
                   result.widthDots > 0, result.heightDots > 0,
                   result.zplBytes >= 0, result.zplBytes <= maximumZPLBytes,
-                  result.previewBytes >= 0, result.previewBytes <= maximumPreviewBytes else {
+                  result.previewBytes >= 0, result.previewBytes <= maximumPreviewBytes,
+                  result.workerMaximumResidentBytes.map({ (1...OfflineRenderWorkerResult.maximumReportedResidentBytes).contains($0) }) ?? true else {
                 throw Error.invalidResult
             }
             let zpl = try readPrivateRegularFile(
@@ -228,7 +244,9 @@ public enum OfflineRenderWorkerProcess {
             guard zpl.count == result.zplBytes, preview.count == result.previewBytes else {
                 throw Error.invalidResult
             }
-            return OfflineRenderWorkerOutput(result: result, zpl: zpl, previewPBM: preview)
+            let output = OfflineRenderWorkerOutput(result: result, zpl: zpl, previewPBM: preview)
+            _ = try WorkerBitmapBinding.validate(output)
+            return output
         } catch let error as Error {
             throw error
         } catch {
@@ -256,11 +274,21 @@ public enum OfflineRenderWorkerProcess {
             widthDots: prepared.bitmap.layout.width,
             heightDots: prepared.bitmap.layout.height,
             zplBytes: prepared.zpl.count,
-            previewBytes: preview.count
+            previewBytes: preview.count,
+            workerMaximumResidentBytes: currentWorkerMaximumResidentBytes()
         )
         let resultData = try JSONEncoder.sorted.encode(result)
         guard resultData.count <= maximumResultBytes else { throw Error.outputLimitExceeded }
         try writePrivate(resultData, to: directory.appending(path: resultFilename))
+    }
+
+    /// Apple XNU getrusage(2): ru_maxrss is bytes on Darwin, not Linux KiB.
+    /// https://github.com/apple/darwin-xnu/blob/main/bsd/man/man2/getrusage.2
+    private static func currentWorkerMaximumResidentBytes() -> Int? {
+        var usage = rusage()
+        guard getrusage(RUSAGE_SELF, &usage) == 0,
+              (1...OfflineRenderWorkerResult.maximumReportedResidentBytes).contains(usage.ru_maxrss) else { return nil }
+        return usage.ru_maxrss
     }
 
     /// Records only an allowlisted category after a failed worker job. The
@@ -339,7 +367,7 @@ public enum OfflineRenderWorkerProcess {
         let data = try readPrivateRegularFile(
             directory.appending(path: failureFilename), maximumBytes: maximumResultBytes
         )
-        let failure = try JSONDecoder().decode(OfflineRenderWorkerFailure.self, from: data)
+        let failure = try WorkerProtocolJSON.decode(OfflineRenderWorkerFailure.self, from: data, message: .failure)
         guard failure.schemaVersion == 1 else { throw Error.invalidResult }
         return failure
     }

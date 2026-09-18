@@ -135,7 +135,7 @@ public enum OfflineLayoutWorker {
         do {
             guard data.count <= maximumOutputBytes else { throw OfflineRenderWorkerProcess.Error.outputLimitExceeded }
             try request.validate()
-            let result = try JSONDecoder().decode(Result.self, from: data)
+            let result = try WorkerProtocolJSON.decode(Result.self, from: data, message: .layoutResult)
             guard result.schemaVersion == request.schemaVersion, result.sourceSHA256 == digest(originalPDF),
                   !result.pages.isEmpty, result.pages.count <= request.pageLimit,
                   request.structuralPages.allSatisfy({ $0 <= result.pages.count }),
@@ -178,7 +178,7 @@ extension OfflineRenderWorkerProcess {
                                                maximumBytes: maximumTicketBytes)
         let request: OfflineLayoutWorker.Request
         do {
-            request = try JSONDecoder().decode(OfflineLayoutWorker.Request.self, from: ticket)
+            request = try WorkerProtocolJSON.decode(OfflineLayoutWorker.Request.self, from: ticket, message: .layoutRequest)
             try request.validate()
         } catch {
             throw OfflineConversionTicket.TicketError.malformedJSON
