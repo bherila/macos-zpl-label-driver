@@ -1,3 +1,52 @@
+# Output margins carried through rendering, tickets and queues — 2026-09-18
+
+Source `76a2a01bc7df48fc8b4966f0b5b48055e2df5339` on `claude/determined-sagan-frse18`, over
+`4b9509c` and `main` `7645b26`.
+
+Review of `edda991` found the preceding slice's margins inert. `PlannedExtractionLabel` carried them
+and `PagePlacementPlanner` honoured them, but no rendering path supplied them, so the only caller of
+`PagePlacementPlanner.plan` planned with the default `.zero` and final PBMs, previews and ZPL still
+centred across the whole stock. Two adjacent contracts made it worse than inert:
+`OfflineConversionTicket` rejected schemaVersion 3 outright, so a margin-bearing ticket would have
+failed the render rather than ignoring the margins, and `FinishingQueueDefinition` required
+`workflowProfile.schemaVersion == 2`, rejecting any margin-bearing workflow with `invalidReference`
+before preparation.
+
+The chain is complete at this commit. `QuartzPDFRenderer.Request` carries `outputMargins`, passes
+them to the planner, and clips to the margin-inset visible rect rather than the full target.
+`QuartzPlannedExtraction` forwards the planned label's margins. `OfflineExtractionWorker` emits
+schemaVersion 3 with an `outputMargins` object only when margins are non-zero, so zero-margin tickets
+stay byte-identical. `OfflineConversionTicket` admits versions 1 through 3, requires version 3 for any
+non-zero margin and rejects margins that consume the stock. `FinishingQueueDefinition` admits
+workflow schemaVersion 2 or 3 and additionally binds profile and workflow schema versions to each
+other. `WorkflowProfileTransfer.readImport` and `WorkflowProfileStore.correctionDraft` carry
+schemaVersion and margins forward, so importing a margin-bearing profile or taking a correction
+revision no longer silently resets margins to zero.
+
+Changed requirements: F09 extraction geometry and F12 immutable per-job choices now reach output.
+M2-AC01 geometry, M2-AC05 exact preview and M4-AC02 extraction geometry are exercised; none is
+declared complete, and recording stays blocked on issue #86.
+
+Ported per-file from checkpoint `eb71a41` after diffing both directions. Two files needed hunk-level
+merges rather than a copy because the checkpoint versions reference types not yet landed:
+`OfflineConversion` keeps this tree's `JSONDecoder` rather than `WorkerProtocolJSON`, and
+`OfflineExtractionWorker` keeps this tree's inline PBM-header and ZPL cross-check in `validate`
+rather than delegating to `WorkerBitmapBinding`. Both unlanded types stay tracked in issue #88. Every
+changed LabelMac file was checked for references to unlanded symbols; there are none.
+
+Tests actually run. Linux x86_64 Swift 6.1.2: LabelCore 300 tests, 0 failures, debug and release, up
+from 298. `check_repo.py` passed, 105 Python tests passed, `run-accelerator-checks.py` passed. Every
+changed Swift file parses under `swift-frontend -parse`.
+
+Blockers: LabelMac cannot be built or tested on Linux, so the rendering, ticket, transfer and store
+changes rest entirely on hosted `macos-26` CI; no macOS pass is claimed until it reports. The
+margin-inset visible-rect clip and the v3 worker ticket are exactly the paths Linux cannot exercise.
+
+Next step: the remaining checkpoint slices in issue #88 - `ZPLControlProtocolCoverage`, the
+`RedactedDiagnosticValue` conformances, then the LabelMac `AcceptedFinishing` subsystem that carries
+`WorkerBitmapBinding` and `WorkerProtocolJSON`. No printer, installation, scheduler, GUI or release
+acceptance is claimed.
+
 # Qualified output margins on workflow schema 3 — 2026-09-18
 
 Source `4b9509c291035f9ab8e92400503311cef5247e71` on `claude/determined-sagan-frse18`, over `main`
