@@ -42,8 +42,12 @@ final class BoundedDeliveryTests: XCTestCase {
 
     func testPreparedPayloadBindingIsValidatedBeforeWriting() throws {
         let expected = Data([1, 2, 3, 4, 5])
-        let snapshot = JobProfileSnapshot(profile: try .gc420dUSBReference())
-        let prepared = PreparedLabel(bytes: expected, profileSnapshot: snapshot)
+        let profile = try PrinterProfile.gc420dUSBReference()
+        let snapshot = JobProfileSnapshot(profile: profile)
+        let prepared = PreparedLabel(
+            bytes: expected, profileSnapshot: snapshot,
+            resolvedControls: try profile.resolveControls(job: .init())
+        )
         var value = try DeliveryTracker(preparedLabel: prepared)
         try value.prepared()
         try value.waiting()

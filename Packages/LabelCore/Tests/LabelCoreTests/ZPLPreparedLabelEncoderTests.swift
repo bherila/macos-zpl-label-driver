@@ -28,6 +28,10 @@ final class ZPLPreparedLabelEncoderTests: XCTestCase {
             job: .init(printSpeedIps: 3)
         )
         XCTAssertEqual(prepared.profileSnapshot, JobProfileSnapshot(profile: profile))
+        XCTAssertEqual(
+            prepared.resolvedControls,
+            try profile.resolveControls(job: .init(printSpeedIps: 3))
+        )
         XCTAssertEqual(String(decoding: prepared.bytes, as: UTF8.self), "^XA\n^MMT\n^PR3\n^FO0,0^GFA,1,1,1,80^FS\n^XZ\n")
 
         let tracker = try DeliveryTracker(preparedLabel: prepared)
@@ -46,47 +50,112 @@ final class ZPLPreparedLabelEncoderTests: XCTestCase {
             bitmap: MonochromeBitmap(width: 8, height: 1, bytes: [0x40]),
             profile: profile
         )
-        let job = try PreparedJobPayload(labels: [first, second], expectedLabelCount: 2)
+        let outputs = [
+            ResolvedOutputLabel(sourcePage: 2, regionID: "top"),
+            ResolvedOutputLabel(sourcePage: 1, regionID: "bottom"),
+        ]
+        let job = try PreparedJobPayload(
+            labels: [
+                PreparedOutputLabel(output: outputs[0], prepared: first),
+                PreparedOutputLabel(output: outputs[1], prepared: second),
+            ],
+            expectedOutputLabels: outputs
+        )
         XCTAssertEqual(job.bytes, first.bytes + second.bytes)
         XCTAssertEqual(job.labelCount, 2)
+        XCTAssertEqual(job.outputLabels, outputs)
         XCTAssertEqual(job.profileSnapshot, JobProfileSnapshot(profile: profile))
+        XCTAssertEqual(job.resolvedControls, first.resolvedControls)
     }
 
     func testPreparedJobRejectsMissingExtraAndEmptyLabels() throws {
-        let snapshot = JobProfileSnapshot(profile: try .gc420dUSBReference())
-        let label = PreparedLabel(bytes: Data([1]), profileSnapshot: snapshot)
-        XCTAssertThrowsError(try PreparedJobPayload(labels: [label], expectedLabelCount: 2)) {
-            XCTAssertEqual($0 as? PreparedJobPayload.Error, .invalidLabelCount)
-        }
-        XCTAssertThrowsError(try PreparedJobPayload(labels: [label, label], expectedLabelCount: 1)) {
+        let profile = try PrinterProfile.gc420dUSBReference()
+        let output = ResolvedOutputLabel(sourcePage: 1, regionID: "label")
+        let label = PreparedLabel(
+            bytes: Data([1]), profileSnapshot: JobProfileSnapshot(profile: profile),
+            resolvedControls: try profile.resolveControls(job: .init())
+        )
+        let item = PreparedOutputLabel(output: output, prepared: label)
+        XCTAssertThrowsError(try PreparedJobPayload(
+            labels: [item], expectedOutputLabels: [output, output]
+        )) {
             XCTAssertEqual($0 as? PreparedJobPayload.Error, .invalidLabelCount)
         }
         XCTAssertThrowsError(try PreparedJobPayload(
-            labels: [PreparedLabel(bytes: Data(), profileSnapshot: snapshot)],
-            expectedLabelCount: 1
+            labels: [item, item], expectedOutputLabels: [output]
+        )) {
+            XCTAssertEqual($0 as? PreparedJobPayload.Error, .invalidLabelCount)
+        }
+        XCTAssertThrowsError(try PreparedJobPayload(
+            labels: [PreparedOutputLabel(
+                output: output,
+                prepared: PreparedLabel(
+                    bytes: Data(), profileSnapshot: JobProfileSnapshot(profile: profile),
+                    resolvedControls: try profile.resolveControls(job: .init())
+                )
+            )],
+            expectedOutputLabels: [output]
         )) { XCTAssertEqual($0 as? PreparedJobPayload.Error, .emptyLabel) }
     }
 
-    func testPreparedJobRejectsMixedProfileSnapshots() throws {
+    func testPreparedJobRejectsWrongOrderMixedProfilesAndControls() throws {
+        let outputA = ResolvedOutputLabel(sourcePage: 1, regionID: "a")
+        let outputB = ResolvedOutputLabel(sourcePage: 1, regionID: "b")
+        let profile1 = try PrinterProfile.gc420dUSBReference(revision: 1)
+        let profile2 = try PrinterProfile.gc420dUSBReference(revision: 2)
         let first = PreparedLabel(
             bytes: Data([1]),
-            profileSnapshot: JobProfileSnapshot(profile: try .gc420dUSBReference(revision: 1))
+            profileSnapshot: JobProfileSnapshot(profile: profile1),
+            resolvedControls: try profile1.resolveControls(job: .init(printSpeedIps: 2))
         )
         let second = PreparedLabel(
             bytes: Data([2]),
-            profileSnapshot: JobProfileSnapshot(profile: try .gc420dUSBReference(revision: 2))
+            profileSnapshot: JobProfileSnapshot(profile: profile2),
+            resolvedControls: try profile2.resolveControls(job: .init(printSpeedIps: 2))
         )
         XCTAssertThrowsError(try PreparedJobPayload(
-            labels: [first, second], expectedLabelCount: 2
+            labels: [
+                PreparedOutputLabel(output: outputA, prepared: first),
+                PreparedOutputLabel(output: outputB, prepared: second),
+            ], expectedOutputLabels: [outputA, outputB]
         )) { XCTAssertEqual($0 as? PreparedJobPayload.Error, .profileMismatch) }
+
+        let changedControls = PreparedLabel(
+            bytes: Data([2]), profileSnapshot: first.profileSnapshot,
+            resolvedControls: try profile1.resolveControls(job: .init(printSpeedIps: 3))
+        )
+        XCTAssertThrowsError(try PreparedJobPayload(
+            labels: [
+                PreparedOutputLabel(output: outputA, prepared: first),
+                PreparedOutputLabel(output: outputB, prepared: changedControls),
+            ], expectedOutputLabels: [outputA, outputB]
+        )) { XCTAssertEqual($0 as? PreparedJobPayload.Error, .controlsMismatch) }
+
+        XCTAssertThrowsError(try PreparedJobPayload(
+            labels: [
+                PreparedOutputLabel(output: outputB, prepared: first),
+                PreparedOutputLabel(output: outputA, prepared: first),
+            ], expectedOutputLabels: [outputA, outputB]
+        )) { XCTAssertEqual($0 as? PreparedJobPayload.Error, .outputOrderMismatch) }
     }
 
     func testPreparedJobPreflightsAggregateLimit() throws {
-        let snapshot = JobProfileSnapshot(profile: try .gc420dUSBReference())
-        let first = PreparedLabel(bytes: Data([1, 2]), profileSnapshot: snapshot)
-        let second = PreparedLabel(bytes: Data([3, 4]), profileSnapshot: snapshot)
+        let profile = try PrinterProfile.gc420dUSBReference()
+        let snapshot = JobProfileSnapshot(profile: profile)
+        let controls = try profile.resolveControls(job: .init())
+        let first = PreparedLabel(
+            bytes: Data([1, 2]), profileSnapshot: snapshot, resolvedControls: controls
+        )
+        let second = PreparedLabel(
+            bytes: Data([3, 4]), profileSnapshot: snapshot, resolvedControls: controls
+        )
+        let outputA = ResolvedOutputLabel(sourcePage: 1, regionID: "a")
+        let outputB = ResolvedOutputLabel(sourcePage: 1, regionID: "b")
         XCTAssertThrowsError(try PreparedJobPayload(
-            labels: [first, second], expectedLabelCount: 2, maximumBytes: 3
+            labels: [
+                PreparedOutputLabel(output: outputA, prepared: first),
+                PreparedOutputLabel(output: outputB, prepared: second),
+            ], expectedOutputLabels: [outputA, outputB], maximumBytes: 3
         )) { XCTAssertEqual($0 as? PreparedJobPayload.Error, .outputLimit) }
     }
 }
