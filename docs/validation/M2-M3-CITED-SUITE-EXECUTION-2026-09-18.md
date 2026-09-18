@@ -1,9 +1,10 @@
-# Evidence — M2/M3 cross-language ZPL reconstruction and control-mapping suites
+# Evidence — execution run for every suite the M2/M3 ledger records cite
 
 - Date/time and operator: 2026-09-18, automated Claude session, unattended
 - Exact repository commit SHA: `78acd9bde132211e0af9fdba01b9795f5d98d35b`
-- Related requirement and acceptance IDs: F04, F07, M2-AC05, M2-AC06, M2-AC13,
-  M3-AC02, M3-AC03
+- Related requirement and acceptance IDs: F04, F07, M2-AC01, M2-AC04, M2-AC05,
+  M2-AC06, M2-AC13, M3-AC01, M3-AC02, M3-AC03, M3-AC04 — that is, every record
+  currently in `docs/ACCEPTANCE-EVIDENCE.json`
 - Evidence level: A
 - Status: PASS
 - macOS/Linux, architecture, Swift, Xcode/SDK, runner image (as applicable):
@@ -28,8 +29,17 @@
 
 This run exists because review of #102 found the M2-AC05/AC06/AC13 records cited
 only Swift tests that never decode produced ZPL, and the M3-AC02/AC03 records
-omitted suites that do cover the criteria. The following was executed with the
-Swift 6.1.2 toolchain on `PATH`:
+omitted suites that do cover the criteria. A later round found the remaining
+records' only execution artifacts predate the bytes they now bind: M2-AC01 and
+M2-AC04 cited a run at `3ad4bf0`, before the external-rectangle and
+overflowing-corner admission changes landed, and M3-AC01 and M3-AC04 cited a
+2026-09-17 per-ID assessment taken before the documented-control encoder grew
+its darkness, thermal, tracking, dimension and offset paths. A digest proves
+which source is present, not that it passed. This document is therefore the
+current execution artifact for **all nine** records, which is possible because
+the command below runs the whole package, not a selected subset.
+
+The following was executed with the Swift 6.1.2 toolchain on `PATH`:
 
 ```sh
 python3 scripts/run-accelerator-checks.py
@@ -91,7 +101,30 @@ That is the mapping M3-AC03 requires, as distinct from
 thermal half of M3-AC02: each method requires compatible observed media and
 ribbon, documentation cannot substitute for loaded configuration, unknown is not
 false, and a higher-priority incompatible method is rejected rather than falling
-back.
+back. `FinishingControlQualificationTests` and `FinishingJobPlanTests` add its
+finishing half, which the tear-off GC420d baseline in `PrinterProfileTests`
+cannot supply on its own because that baseline only ever *rejects* cut, peel and
+rewind: the finishing suites carry the accepted-choice side — exact bytes per
+mode, per-accessory installation observation that model documentation cannot
+stand in for, cut schedules with an explicit remainder policy, per-mode stock
+declarations that installed accessories do not waive, and malformed batch
+declarations that must not turn unknown into unlimited.
+
+For M3-AC04, `ZPLDocumentedControlEncoderTests` is the negative coverage on the
+*current* control paths:
+`testAlternateDarknessAndThermalMappingHaveNoPersistentOrCopyCommands` asserts
+the exact emitted text for darkness, thermal-transfer and gap-tracking
+combinations and then asserts the absence of `^JU`, `~JC`, `~JA`, `^PQ`, `^MMC`,
+`^MMP`, `^MNA` and `^MNV`, and further asserts that the ordinary reference
+profile refuses to resolve darkness, tracking or thermal-method jobs at all. The
+previously bound `ZPLControlEncoderTests` and `ZPLPreparedLabelEncoderTests`
+carry the same family checks on the baseline and prepared-envelope paths, so the
+three together cover the paths the record binds.
+
+For M2-AC01 and M2-AC04 no new claim is made. `PDFPageGeometryTests`,
+`PhysicalGeometryTests`, `BitmapLayoutTests` and `MonochromeBitmapTests` ran here
+as part of the 311, at the bytes the records bind, which is what those records
+were missing.
 
 ## Artifacts
 

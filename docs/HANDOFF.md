@@ -42,8 +42,29 @@ prove the decoder rejects each malformation rather than accepting whatever it is
 sits in the records, executed, not asserted. M3-AC03 gained `ZPLDocumentedControlEncoderTests`, which
 asserts the exact ordered byte sequence across all seven control categories, as opposed to
 `ZPLControlProtocolCoverageTests`, which only reads the static metadata table; M3-AC02 gained the two
-thermal suites it had omitted. `docs/validation/M2-M3-CROSS-LANGUAGE-ROUNDTRIP-2026-09-18.md` records
-the run.
+thermal suites it had omitted.
+
+**Round 4 found three more, all of the same shape, all correct.** M3-AC02 claims every explicit choice
+is combination-checked, but its cited suites covered only non-finishing controls plus a
+`PrinterProfileTests` baseline that merely *rejects* cut, peel and rewind; the accepted-choice
+coverage — exact bytes per mode, per-accessory installation observation, cut schedules with an
+explicit remainder policy, per-mode stock declarations, malformed batch declarations that must not
+turn unknown into unlimited — lives in `FinishingControlQualificationTests` and
+`FinishingJobPlanTests`, which were bound only to M3-AC01. M3-AC04 forbids reset, calibrate, save,
+erase and firmware commands in ordinary output, and its bound suites checked those families on the
+baseline and prepared-envelope paths but not on the documented-control path the record now binds;
+`ZPLDocumentedControlEncoderTests` does exactly that and was attached only to M3-AC03. Both are now
+bound to both.
+
+The third is the one worth generalising. M2-AC01's only execution artifact was a run at `3ad4bf0`,
+taken *before* the external-rectangle and overflowing-corner admission changes it now binds — and the
+same held for M2-AC04, M3-AC01 and M3-AC04 against a 2026-09-17 assessment. A digest proves which
+source is present, not that it passed. Review flagged two of the four; the remedy applies to all four,
+so it was applied to all nine.
+`docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md` is now the current execution artifact for
+every record, which is honest only because `run-accelerator-checks.py` runs the whole package rather
+than a selected subset — the file was renamed from `M2-M3-CROSS-LANGUAGE-ROUNDTRIP` because it no
+longer only certifies round-trips.
 
 **F04 is the first satisfied requirement.** It needed M3-AC01, M3-AC02 and M3-AC03; the first two were
 already checked, and M3-AC03 was the only criterion in this slice newly declared complete. `03f38af`

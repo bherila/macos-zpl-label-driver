@@ -28,6 +28,10 @@
         {
           "path": "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md",
           "sha256": "73a04cfa8bb643cbd739ebef4133799abf93e7a7a55ffcbe93d8a9c2e5d7d0c2"
+        },
+        {
+          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
+          "sha256": "c7ef5594695890dfbfa890430abb8783ff082298da429191cd91e3c4629c97ad"
         }
       ]
     },
@@ -58,6 +62,10 @@
         {
           "path": "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md",
           "sha256": "73a04cfa8bb643cbd739ebef4133799abf93e7a7a55ffcbe93d8a9c2e5d7d0c2"
+        },
+        {
+          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
+          "sha256": "c7ef5594695890dfbfa890430abb8783ff082298da429191cd91e3c4629c97ad"
         }
       ]
     },
@@ -106,8 +114,8 @@
           "sha256": "ee6f179502d98254f1736e269043d99aca565c616c5fc27ddc27b9d4b1ad644b"
         },
         {
-          "path": "docs/validation/M2-M3-CROSS-LANGUAGE-ROUNDTRIP-2026-09-18.md",
-          "sha256": "3106f57544307f729de084df0d61bacb632c5f8d1d530b29a03773d6ad20a8f4"
+          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
+          "sha256": "c7ef5594695890dfbfa890430abb8783ff082298da429191cd91e3c4629c97ad"
         }
       ]
     },
@@ -164,8 +172,8 @@
           "sha256": "1e449a156ec5bf57dd928c37f636404cd70dd618fc06fe7bbaf88841c5baa263"
         },
         {
-          "path": "docs/validation/M2-M3-CROSS-LANGUAGE-ROUNDTRIP-2026-09-18.md",
-          "sha256": "3106f57544307f729de084df0d61bacb632c5f8d1d530b29a03773d6ad20a8f4"
+          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
+          "sha256": "c7ef5594695890dfbfa890430abb8783ff082298da429191cd91e3c4629c97ad"
         }
       ]
     },
@@ -214,8 +222,8 @@
           "sha256": "ee6f179502d98254f1736e269043d99aca565c616c5fc27ddc27b9d4b1ad644b"
         },
         {
-          "path": "docs/validation/M2-M3-CROSS-LANGUAGE-ROUNDTRIP-2026-09-18.md",
-          "sha256": "3106f57544307f729de084df0d61bacb632c5f8d1d530b29a03773d6ad20a8f4"
+          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
+          "sha256": "c7ef5594695890dfbfa890430abb8783ff082298da429191cd91e3c4629c97ad"
         }
       ]
     },
@@ -254,6 +262,10 @@
         {
           "path": "docs/validation/M3-PER-ID-AUTOMATED-ASSESSMENTS-2026-09-17.md",
           "sha256": "25991cbba66cf5cb077c1f56dfdef7a4e6ca06dc1fbd6af8cecd24c75287c0c4"
+        },
+        {
+          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
+          "sha256": "c7ef5594695890dfbfa890430abb8783ff082298da429191cd91e3c4629c97ad"
         }
       ]
     },
@@ -274,6 +286,14 @@
         {
           "path": "Packages/LabelCore/Sources/LabelCore/ThermalControlQualification.swift",
           "sha256": "4022bd8bc89e43cc4e5397e3d1c848ed564db26397cb929f86b8068b38607b0f"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/FinishingControlQualification.swift",
+          "sha256": "dfe6af24932d35864d2184b6cb40af86df9649d310ce54ab4cf5db949592f036"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/FinishingJobPlan.swift",
+          "sha256": "c9182de39d3fd268f9f13ceff22d0c4cb0e19834d55c283746b6b2b26c8fc084"
         }
       ],
       "evidence": [
@@ -314,8 +334,16 @@
           "sha256": "8721fa493a0c55d443b2532f89793df93c191d57ec11e9c98b7e3291fc9b330e"
         },
         {
-          "path": "docs/validation/M2-M3-CROSS-LANGUAGE-ROUNDTRIP-2026-09-18.md",
-          "sha256": "3106f57544307f729de084df0d61bacb632c5f8d1d530b29a03773d6ad20a8f4"
+          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
+          "sha256": "c7ef5594695890dfbfa890430abb8783ff082298da429191cd91e3c4629c97ad"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingControlQualificationTests.swift",
+          "sha256": "68ef9434513470ef7fd1d67435b0f20cdfb1e8f81bbcb5ae0540009fbad9f968"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingJobPlanTests.swift",
+          "sha256": "9de69cd7303b1ba49c35db3b23929ed67b3c5cc0fe826ad350831488d4053d73"
         }
       ]
     },
@@ -360,8 +388,8 @@
           "sha256": "230b8c20595ada42fa3b650afb79d91db249aaeefc6327ce6f02a47b3256ccb9"
         },
         {
-          "path": "docs/validation/M2-M3-CROSS-LANGUAGE-ROUNDTRIP-2026-09-18.md",
-          "sha256": "3106f57544307f729de084df0d61bacb632c5f8d1d530b29a03773d6ad20a8f4"
+          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
+          "sha256": "c7ef5594695890dfbfa890430abb8783ff082298da429191cd91e3c4629c97ad"
         }
       ]
     },
@@ -404,6 +432,14 @@
         {
           "path": "docs/validation/M3-PER-ID-AUTOMATED-ASSESSMENTS-2026-09-17.md",
           "sha256": "25991cbba66cf5cb077c1f56dfdef7a4e6ca06dc1fbd6af8cecd24c75287c0c4"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLDocumentedControlEncoderTests.swift",
+          "sha256": "230b8c20595ada42fa3b650afb79d91db249aaeefc6327ce6f02a47b3256ccb9"
+        },
+        {
+          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
+          "sha256": "c7ef5594695890dfbfa890430abb8783ff082298da429191cd91e3c4629c97ad"
         }
       ]
     }
