@@ -183,6 +183,29 @@ final class AcceptedJobStoreTests: XCTestCase {
         XCTAssertNotEqual(laterSelection.queue, value.ticket.queue)
     }
 
+    func testLoadIfPresentDistinguishesAbsenceFromUnsafePresentBundle() throws {
+        let value = try fixture(acceptanceID: "optional-load")
+        XCTAssertNil(try value.jobs.loadIfPresent(
+            acceptanceID: value.ticket.acceptanceID,
+            queueStore: value.queues,
+            workflowStore: value.workflows,
+            printerStore: value.printers
+        ))
+
+        let unsafe = value.root
+            .appending(path: "accepted-jobs")
+            .appending(path: AcceptedJobStore.directoryName(value.ticket.acceptanceID))
+        try FileManager.default.createDirectory(at: unsafe, withIntermediateDirectories: false)
+        XCTAssertThrowsError(try value.jobs.loadIfPresent(
+            acceptanceID: value.ticket.acceptanceID,
+            queueStore: value.queues,
+            workflowStore: value.workflows,
+            printerStore: value.printers
+        )) {
+            XCTAssertEqual($0 as? AcceptedJobStore.Error, .unsafeStoreDirectory)
+        }
+    }
+
     func testSameBytesAreIdempotentAndConflictingBytesFailClosed() throws {
         let first = try fixture()
         try first.jobs.save(

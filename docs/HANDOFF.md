@@ -1324,6 +1324,44 @@ retry. The regression retries the same acceptance ID and reaches
 `transmitted`, with no first-attempt sink action. The focused accepted-job
 suite passes all 33 tests.
 
+At `5a34971`, the previously separate intake, rendering, preparation, and inert
+delivery components gain one synthetic connected path. It reads an already
+opened PDF with bounded descriptor-relative `pread`, so pathname replacement
+cannot redirect the accepted bytes or alter the caller's file offset. The path
+resolves the active immutable queue/profile chain, rejects layout and
+unexpected-page mismatches before acceptance, persists the exact original PDF,
+renders each planned region at the documented GC420d 8 dots/mm reference
+pitch, publishes the complete typed prepared payload, and reaches only the
+persisted in-memory discard delivery. A committed vector PDF completes through
+`transmitted`; a multi-page mismatch publishes no accepted bundle. Three new
+tests bring LabelMac to 132 tests in debug and release. This is synthetic
+automated evidence only: no installed scheduler, production worker deadline,
+IPC identity, transport, USB, administrator path, or printer is proven.
+
+First-pass review remediation `6e11d16` makes that path bounded and genuinely
+retryable. Per-label encoding now receives only the remaining portion of the
+64 MiB job budget, so a large valid plan cannot eagerly retain gigabytes before
+the aggregate check. Exact accepted-bundle lookup distinguishes absence from
+an unsafe present record; prepared/waiting retries validate the source and
+cancellation capability, repeat the durability barrier, reuse the stored
+payload, and remain bound to the accepted queue even after active selection
+changes. The workflow stock must also match the profile's observed loaded face
+before acceptance. Five new regressions bring LabelMac to 137 tests in debug
+and release. The complete exact-head gate also passes 64 Python, 165 LabelCore
+debug/release, 132 independent round trips, all ABI/inert-pipeline checks, and
+local ad-hoc product signature verification.
+
+Second/final review remediation `887ddf5` preserves terminal delivery evidence
+across a lost caller response. Exact re-entry into a persisted `uncertain` job
+validates the immutable prepared artifact and returns the recorded accepted-byte
+count without invoking delivery; persisted `transmitted` state is likewise
+returned without a second sink pass. Re-entry also requires the ticket's queue
+ID. Two regressions bring the focused/debug LabelMac suite to 139 tests; the
+complete exact-head gate also passes 64 Python tests, 165 LabelCore tests in
+debug and release, all 139 LabelMac tests in debug and release, 132 independent
+round trips, all ABI/inert-pipeline checks, and local ad-hoc product signature
+verification. Per the two-pass policy, no third review will be requested.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
