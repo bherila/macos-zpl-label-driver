@@ -78,6 +78,10 @@
       ],
       "evidence": [
         {
+          "path": "Packages/LabelCore/Sources/LabelCoreLab/main.swift",
+          "sha256": "18a641b1fae348d00885f73b7a9f6a0051329d100e2abda9a3c25accd6efbc3c"
+        },
+        {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/MonochromeBitmapTests.swift",
           "sha256": "3a50af86364dbadc14013f939d5772c28f26afb53a011671fbf1edafc33b8a67"
         },
@@ -88,6 +92,22 @@
         {
           "path": "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md",
           "sha256": "73a04cfa8bb643cbd739ebef4133799abf93e7a7a55ffcbe93d8a9c2e5d7d0c2"
+        },
+        {
+          "path": "scripts/zpl_oracle.py",
+          "sha256": "1353600f5d1a0a47d90d020cc7603432d71dde38c4285885f82d9eb0c19982c7"
+        },
+        {
+          "path": "scripts/tests/test_zpl_oracle.py",
+          "sha256": "57df8288716bd623a0f1b81d12c1ac0e7d83f93d7d63511f58ce17555ef51c17"
+        },
+        {
+          "path": "scripts/run-accelerator-checks.py",
+          "sha256": "ee6f179502d98254f1736e269043d99aca565c616c5fc27ddc27b9d4b1ad644b"
+        },
+        {
+          "path": "docs/validation/M2-M3-CROSS-LANGUAGE-ROUNDTRIP-2026-09-18.md",
+          "sha256": "3106f57544307f729de084df0d61bacb632c5f8d1d530b29a03773d6ad20a8f4"
         }
       ]
     },
@@ -108,6 +128,10 @@
       ],
       "evidence": [
         {
+          "path": "Packages/LabelCore/Sources/LabelCoreLab/main.swift",
+          "sha256": "18a641b1fae348d00885f73b7a9f6a0051329d100e2abda9a3c25accd6efbc3c"
+        },
+        {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLGraphicEncoderTests.swift",
           "sha256": "273fdc5fb6788b1e24ee8f069f480e14fe5521783d882258c936e881aea34d3b"
         },
@@ -118,6 +142,30 @@
         {
           "path": "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md",
           "sha256": "73a04cfa8bb643cbd739ebef4133799abf93e7a7a55ffcbe93d8a9c2e5d7d0c2"
+        },
+        {
+          "path": "scripts/zpl_oracle.py",
+          "sha256": "1353600f5d1a0a47d90d020cc7603432d71dde38c4285885f82d9eb0c19982c7"
+        },
+        {
+          "path": "scripts/tests/test_zpl_oracle.py",
+          "sha256": "57df8288716bd623a0f1b81d12c1ac0e7d83f93d7d63511f58ce17555ef51c17"
+        },
+        {
+          "path": "scripts/run-accelerator-checks.py",
+          "sha256": "ee6f179502d98254f1736e269043d99aca565c616c5fc27ddc27b9d4b1ad644b"
+        },
+        {
+          "path": "scripts/zpl_compression_oracle.py",
+          "sha256": "f877caa5f31176a092149e73ce64a9b36dc1ceada9f5865cc1640bd4306482d6"
+        },
+        {
+          "path": "scripts/tests/test_zpl_compression_oracle.py",
+          "sha256": "1e449a156ec5bf57dd928c37f636404cd70dd618fc06fe7bbaf88841c5baa263"
+        },
+        {
+          "path": "docs/validation/M2-M3-CROSS-LANGUAGE-ROUNDTRIP-2026-09-18.md",
+          "sha256": "3106f57544307f729de084df0d61bacb632c5f8d1d530b29a03773d6ad20a8f4"
         }
       ]
     },
@@ -138,6 +186,10 @@
       ],
       "evidence": [
         {
+          "path": "Packages/LabelCore/Sources/LabelCoreLab/main.swift",
+          "sha256": "18a641b1fae348d00885f73b7a9f6a0051329d100e2abda9a3c25accd6efbc3c"
+        },
+        {
           "path": "scripts/tests/test_reference_target.py",
           "sha256": "e4c459ae182823c1f66393d3d4faae6ae6f73f9d3f6cbd1ce72cceee9fb605ca"
         },
@@ -148,6 +200,22 @@
         {
           "path": "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md",
           "sha256": "73a04cfa8bb643cbd739ebef4133799abf93e7a7a55ffcbe93d8a9c2e5d7d0c2"
+        },
+        {
+          "path": "scripts/zpl_oracle.py",
+          "sha256": "1353600f5d1a0a47d90d020cc7603432d71dde38c4285885f82d9eb0c19982c7"
+        },
+        {
+          "path": "scripts/tests/test_zpl_oracle.py",
+          "sha256": "57df8288716bd623a0f1b81d12c1ac0e7d83f93d7d63511f58ce17555ef51c17"
+        },
+        {
+          "path": "scripts/run-accelerator-checks.py",
+          "sha256": "ee6f179502d98254f1736e269043d99aca565c616c5fc27ddc27b9d4b1ad644b"
+        },
+        {
+          "path": "docs/validation/M2-M3-CROSS-LANGUAGE-ROUNDTRIP-2026-09-18.md",
+          "sha256": "3106f57544307f729de084df0d61bacb632c5f8d1d530b29a03773d6ad20a8f4"
         }
       ]
     },
@@ -202,6 +270,10 @@
         {
           "path": "Packages/LabelCore/Sources/LabelCore/ZPLControlEncoder.swift",
           "sha256": "5a11110def21581dc46eddd277f64f153e289fe855bc9a2e75b9fb2bc74f6575"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ThermalControlQualification.swift",
+          "sha256": "4022bd8bc89e43cc4e5397e3d1c848ed564db26397cb929f86b8068b38607b0f"
         }
       ],
       "evidence": [
@@ -232,6 +304,18 @@
         {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/OffsetControlQualificationTests.swift",
           "sha256": "94e921cc275ac6b21bab62e8f33878860447b2d9df491f875eff74e73315efca"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ThermalControlQualificationTests.swift",
+          "sha256": "911d3997a5b00855b060ea3c04e105df927cb8e947af02c1e822328f9e925dcd"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ThermalControlIntegrationTests.swift",
+          "sha256": "8721fa493a0c55d443b2532f89793df93c191d57ec11e9c98b7e3291fc9b330e"
+        },
+        {
+          "path": "docs/validation/M2-M3-CROSS-LANGUAGE-ROUNDTRIP-2026-09-18.md",
+          "sha256": "3106f57544307f729de084df0d61bacb632c5f8d1d530b29a03773d6ad20a8f4"
         }
       ]
     },
@@ -270,6 +354,14 @@
         {
           "path": "docs/validation/M3-AUTOMATED-CONTROLS-2026-09-15.md",
           "sha256": "afc8b4d9884724012e6f384fae2fc2826be9303ab718455253adb5670ec8d324"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLDocumentedControlEncoderTests.swift",
+          "sha256": "230b8c20595ada42fa3b650afb79d91db249aaeefc6327ce6f02a47b3256ccb9"
+        },
+        {
+          "path": "docs/validation/M2-M3-CROSS-LANGUAGE-ROUNDTRIP-2026-09-18.md",
+          "sha256": "3106f57544307f729de084df0d61bacb632c5f8d1d530b29a03773d6ad20a8f4"
         }
       ]
     },

@@ -1,6 +1,9 @@
 # Acceptance evidence bound to executed runs — 2026-09-18
 
-Source `c6833bccab9019ce10a05977884468e02125031f` on `claude/determined-sagan-frse18`, over `main` `78acd9b`.
+Records bind source `78acd9bde132211e0af9fdba01b9795f5d98d35b`, the tip of `main`. Work happens on
+`claude/determined-sagan-frse18`, whose commits change only evidence metadata, validation documents,
+milestone checkboxes and the derived manifest — the paths `source_is_unchanged` exempts — so no branch
+commit needs to be cited and the binding survives squash merge.
 
 The checkbox view and the evidence ledger disagreed (#86). Twenty criteria were checked in
 `docs/milestones/*/ACCEPTANCE.md`, while `docs/ACCEPTANCE-EVIDENCE.json` held four records covering two
@@ -20,10 +23,27 @@ Its checkbox is cleared too, because leaving it set restates the unsupported cla
 to settle. That is a pre-existing declaration the evidence does not support, not a regression here.
 
 The batch was chosen by what can be **executed here**, not by what is easiest to assert. Every cited
-suite was run before its record was written — 123 LabelCore tests across sixteen suites, 0 failures,
-plus the 14-test independent Python oracle backing M2-AC13's 813×1219 dot arithmetic. No record rests
-on a checkbox alone. M3-AC01 and M3-AC04 keep the maintainer's curated file lists from the stale
-records; only their source SHA and digests are refreshed.
+suite was run before its record was written — 138 LabelCore tests across nineteen cited suites, inside
+a whole-package run of 311 tests with 0 failures, plus 31 Python tests across the three cited oracle
+modules. No record rests on a checkbox alone. M3-AC01 and M3-AC04 keep the maintainer's curated file
+lists from the stale records; only their source SHA and digests are refreshed.
+
+**Review round 3 found five records citing suites that do not reach their criterion, and it was
+right.** M2-AC05, M2-AC06 and M2-AC13 all turn on *reconstruction* — byte-for-byte unpack/repack, no
+missing or duplicated rows, band reconstruction — and the Swift tests they cited never decode a single
+byte of produced ZPL. `ZPLGraphicEncoderTests` asserts band geometry and a golden hex literal; that is
+encoder-side only. The decode lives in `scripts/zpl_oracle.py`, which the harness drives over a corpus
+`label-core-lab` emits: 132 vectors whose ZPL is parsed, rejected for unknown commands, wrong counts,
+wrong origins, non-zero padding, trailing content or a second envelope, then compared byte-for-byte
+against both the emitted PBM and an independently computed analytic bitmap, with per-band row counts
+checked against the manifest. `scripts/zpl_compression_oracle.py` repeats it over 180 compressed
+vectors. `scripts/tests/test_zpl_oracle.py` is what keeps that green result non-vacuous: 13 cases that
+prove the decoder rejects each malformation rather than accepting whatever it is handed. All of it now
+sits in the records, executed, not asserted. M3-AC03 gained `ZPLDocumentedControlEncoderTests`, which
+asserts the exact ordered byte sequence across all seven control categories, as opposed to
+`ZPLControlProtocolCoverageTests`, which only reads the static metadata table; M3-AC02 gained the two
+thermal suites it had omitted. `docs/validation/M2-M3-CROSS-LANGUAGE-ROUNDTRIP-2026-09-18.md` records
+the run.
 
 **F04 is the first satisfied requirement.** It needed M3-AC01, M3-AC02 and M3-AC03; the first two were
 already checked, and M3-AC03 was the only criterion in this slice newly declared complete. `03f38af`
@@ -41,7 +61,12 @@ Binding to the base commit `78acd9b` survives any squash. And `MANIFEST.sha256` 
 **last**: touching it at all makes `source_is_unchanged` consult `manifest_describes_tree`, which
 rejects untruthful digests, so refreshing it before a later documentation edit invalidates every
 record it was meant to support. Both were caught by review and by re-running the report rather than
-assuming.
+assuming. A third instance of the same rule showed up while answering that review: the ledger's *own*
+digests seal last too. A one-word correction to a validation document after its digest was recorded
+invalidated all five records citing it, and the report went from nine satisfied criteria to four with
+`referencesValid: false`. The rule generalises to: make every content edit, then reseal
+`docs/ACCEPTANCE-EVIDENCE.json`, then `MANIFEST.sha256`, then re-run the report on a clean tree — a
+dirty workspace reports nothing as current, so the check is only meaningful after the commit.
 
 An ordering constraint shapes the commits. `source_is_unchanged` tolerates only evidence metadata,
 `docs/validation/*.md`, `docs/milestones/*/ACCEPTANCE.md` and `MANIFEST.sha256`, so records must land
@@ -51,8 +76,13 @@ that, which is why the records stay current.
 Changed requirements: F04 is satisfied. M2 imaging-engine and M3 printer-controls gain executed
 acceptance evidence. No milestone is declared complete.
 
-Tests actually run. Linux x86_64 Swift 6.1.2: the sixteen cited LabelCore suites, 123 tests, 0
-failures; `scripts/tests/test_reference_target.py`, 14 tests, OK; `check_repo.py` passed.
+Tests actually run. Linux x86_64, Swift 6.1.2: `python3 scripts/run-accelerator-checks.py` passed end
+to end — 311 LabelCore tests, 0 failures, covering the nineteen cited suites' 138 tests; 132
+cross-language ZPL/PBM/analytic round-trips; 180 independent ASCII compression round-trips; 12
+encoding-benchmark CLI cases; 15 inert CUPS ABI, 14 inert filter ABI and 1 inert filter-to-discard
+pipeline case. Separately `python3 -m unittest` over the three cited oracle modules, 31 tests, OK, and
+`check_repo.py` passed. The run happened at the working tree of this branch, which differs from the
+bound `78acd9b` only in documentation, so no Swift or Python source differs between them.
 
 What this does not establish. Recording evidence is a maintainer declaration with checked references,
 which is what the report itself says — not independent semantic verification, and not hardware.
