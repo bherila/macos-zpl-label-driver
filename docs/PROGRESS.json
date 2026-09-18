@@ -24,7 +24,20 @@
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
       "evidence": [
-        "docs/ACCELERATOR-VALIDATION.md (partial portable preparation evidence only; no full milestone pass)"
+        "docs/ACCELERATOR-VALIDATION.md (partial portable preparation evidence only; no full milestone pass)",
+        "5a9be59d8e93e8a0b1f8cd3ca3e549e21dcfbed9 (inert CUPS pass-through filter ABI/privacy regressions only; no scheduler integration evidence)",
+        "ad069255898e4a0e97684fc534cd82dd90aedfb9 (filter-to-discard backend pipeline regression only; no scheduler integration evidence)",
+        "docs/validation/M1-TAHOE-HOST-PREFLIGHT-2026-09-15.md (sanitized read-only Tahoe host/scheduler layout observation; supported add-on placement remains unresolved)",
+        "d0581646b4567b829a8e5f8ed28cc70652e7b4e9 (CUPS API option parse plus bounded experiment-schema cross-check; no scheduler integration evidence)",
+        "a520fb6 (quoted CUPS option-wire regression through the real inert filter; no scheduler integration evidence)",
+        "docs/adr/0003-m1-adapter-admission-gate.md (Tahoe placement/local-signing admission gate and non-selection decision; M1-AC12 decision evidence only)",
+        "scripts/check_capture_filter.py (portable SIGTERM and broken-downstream-pipe regression vectors; partial M1-AC09 only, no scheduler evidence)",
+        "scripts/m1-discard-file-sink.sh (reviewable, fixed-target file:///dev/null discard-queue transaction candidate; portable preparation only, no queue installation or scheduler evidence)",
+        "f6cb7fb (supplied-PPD byte allowlist, exact filter declarations, and stricter removal ownership record; source-level M1 transaction safety only)",
+        "b820b18 (bounded process-scoped scratch cleanup and single-directory protected staging root; local failure-path regression only)",
+        "33e5edd (ownership-conservative rollback for altered queue, protected root, filter, and source-PPD state; source-level evidence only)",
+        "c2f0c1a (full-bleed PPD bytes and strict pins integrated; nonblocking deadline-bound filter output and final-MIME regressions; source/process evidence only, no scheduler run)",
+        "be6842b (single verified local scheduler endpoint, protected apply intent, queue-first verified recovery, signal/fault harness, and read-only Tahoe namespace preflight; administrative paths not run)"
       ],
       "blockers": []
     },
@@ -38,7 +51,23 @@
       "releaseValidation": "not-run",
       "evidence": [
         "docs/ACCELERATOR-VALIDATION.md (partial portable preparation evidence only; no full milestone pass)",
-        "docs/validation/M2-PR2-FINITE-EXTENTS-2026-09-17.md (8before overflow reproductions,57Core both/native scaffold/accelerator/signatures pass; PR2 additive fix, stack/base reconciliation pending)"
+        "docs/validation/M2-PR2-FINITE-EXTENTS-2026-09-17.md (8before overflow reproductions,57Core both/native scaffold/accelerator/signatures pass; PR2 additive fix, stack/base reconciliation pending)",
+        "724cb13 (deterministic AcroForm/Widget appearance fixture and explicit native-renderer rejection regression; partial M2-AC03/M2-AC09 automated evidence only)",
+        "69e7c6e (Core Graphics transparency-compositing and embedded-raster structure oracles; additional partial M2-AC03 automated evidence)",
+        "11d9c70 (per-page placement oracle for mixed native-label and Letter source geometry; partial M2-AC02/M2-AC03 automated evidence)",
+        "c7f4a5e (preview-first offline output pair with rollback on ZPL creation failure and aliased-path rejection; partial M2-AC05/M2-AC09/M2-AC10 automated evidence)",
+        "5aec8ee (same-directory staged files and exclusive atomic final renames for preview/ZPL; additional partial M2-AC09/M2-AC10 evidence)",
+        "3fcca54 (pre-map PDF/ticket file bounds with post-map recheck and sparse over-limit regressions; additional partial M2-AC09/M2-AC10 evidence)",
+        "7963306 (private bounded render subprocess with 60-second deadline, signal cancellation, cleanup, and local ad-hoc product verification; additional automated M2-AC09/M2-AC10 evidence)",
+        "28e24fe (bounded sanitized worker-failure protocol with distinct malformed, encrypted, ticket, annotation, page, limit, geometry, and render categories; partial M2-AC09/M2-AC10 evidence)",
+        "fb66dad (deterministic encrypted PDF fixture plus Quartz, worker, truncated-input, and no-final-output CLI regressions; additional automated M2-AC09/M2-AC10 evidence)",
+        "bc63ae8 (descriptor-based no-follow capped source/ticket/artifact reads with metadata drift, symlink, type, and private hard-link rejection; additional automated M2-AC09/M2-AC10 evidence)",
+        "46a6ec0 (real CLI SIGTERM cancellation with exit 130, stable error, worker scratch cleanup, and no final output artifacts; additional automated M2-AC09/M2-AC10 evidence)",
+        "b404f0c (explicit physical fit/actual-size placement with non-square dot-pitch and UserUnit extent regressions; additional automated M2-AC02/M2-AC03 evidence)",
+        "01406ca (collection-relative threshold and ordered-dither reads with sliced-Data regressions; additional automated M2-AC05 evidence)",
+        "f1e2976 (empty annotation arrays render while nonempty interactive form annotations still reject; additional automated M2-AC03 evidence)",
+        "docs/validation/M2-PERFORMANCE-BASELINE-2026-09-15.md (6fcb63e clean-worktree release baseline: 20 warm runs, 123.138 ms p95, 14,106,624 maximum warm resident bytes, 248,814 prepared bytes; M2-AC12 pass for offline scope)",
+        "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md (3ad4bf0 clean-worktree macOS CI-equivalent pass: M2-AC01/02/04/05/06/09/13 automated evidence; no scheduler, transport, or physical-printer claim)"
       ],
       "blockers": []
     },
@@ -53,19 +82,47 @@
       "evidence": [
         "9a6e0fb391f3b54f994d453cd53edbba2667a4dc (typed conservative GC420d reference profile and portable regression vectors; partial M3-AC01/M3-AC02/M3-AC13 only)",
         "0ed6031e90975a494945bcad73c44dc67c29d2c3 (immutable profile-revision binding and deterministic control precedence; portable regression vectors only)",
-        "37d1a0e88bba2bac5e014b519c685b95db00fc80 (bounded, provenance-backed tear-off/speed control encoding; portable regression vectors only)"
+        "37d1a0e88bba2bac5e014b519c685b95db00fc80 (bounded, provenance-backed tear-off/speed control encoding; portable regression vectors only)",
+        "5026353212f7d26933904cc6d93ec711a0339601 (portable delivery-state and no-blind-replay regression vectors only)",
+        "f20620ddfef9d6b4871fe34163f6de9bf9191f69 (portable bounded short-write/zero-write delivery vectors only)",
+        "cbb62f842b932a41ec3ab046efb076c711476290 (portable complete prepared-label envelope vectors only)",
+        "25f33ed79ff8ccb669854f446c647399dba5da74 (explicit raw-TCP endpoint, bounded timeout and localhost-only transmission vectors; partial M3-AC05/M3-AC09 only)",
+        "f579d3164a8ce84ef422cc681461573b4bb5e816 (opaque kernel-managed cross-process lease with child-termination regression; partial M3-AC07/M3-AC08 only)",
+        "d4233ede88d548cdd58b8526cc87e32e4e416535 (deterministic raw-TCP timeout/disconnect outcome vectors; additional partial M3-AC05/M3-AC09 only)",
+        "8c22965 (profile identity and speed-invariant rejection vectors; additional partial M3-AC01/M3-AC02 only)",
+        "722dd5e (typed nominal-media and unobserved-calibration profile vectors; additional partial M3-AC01/M3-AC02/M3-AC13 only)",
+        "a390ab4 (immutable typed profile/media snapshot bound to delivery receipt; additional partial M1-AC07/M3-AC01/M3-AC09 only)",
+        "fcfc264 (typed unqualified media-control rejection vectors; additional partial M3-AC02/M3-AC03/M3-AC04/M3-AC13 only)",
+        "2dac751 (prepared ZPL bytes bound to the exact profile/media snapshot used for controls; additional partial M1-AC07/M3-AC01/M3-AC09 only)",
+        "e716fe6 (raw-TCP prepared-label snapshot handoff vectors; additional partial M1-AC07/M3-AC05/M3-AC09 only)",
+        "ab97ab3 (typed opaque connection-identity state and redaction vectors; additional partial M3-AC01/M3-AC12/M3-AC13 only)",
+        "6f6e190 (installed-transport/profile-connection consistency rejection vector; additional partial M3-AC01/M3-AC13 only)",
+        "01406ca (zero-side-effect delivery preflight, exact prepared-payload binding, and monotonic accepted-byte regressions; additional partial M3-AC09 evidence)",
+        "e700f2c (serialized raw-TCP start/send/timeout/cancellation settlement with deterministic race and real Task-cancellation regressions; additional partial M3-AC05/M3-AC09 evidence)",
+        "f1e2976 (read-only observed settings excluded from qualified default precedence and unqualified command authorization; additional partial M3-AC01/M3-AC02/M3-AC13 evidence)",
+        "docs/validation/M3-AUTOMATED-CONTROLS-2026-09-15.md (7ee78db exact-head portable pass: M3-AC01/02/04/13 automated evidence; all installed transport and hardware rows remain open)"
       ],
       "blockers": []
     },
     {
       "id": "M4",
       "directory": "docs/milestones/04-label-extraction",
-      "implementation": "not-started",
+      "implementation": "in-progress",
       "automatedValidation": "not-run",
       "macOSIntegration": "not-run",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
-      "evidence": [],
+      "evidence": [
+        "306bb32 (bounded immutable extraction profile/planner with separate input/output media, canonical region mapping, explicit page accounting, shared copy ordering, and six portable regressions; partial M4-AC01/02/03/04/05/13 only)",
+        "docs/validation/M4-PORTABLE-PLANNER-2026-09-15.md (portable M4.1 evidence and explicit remaining gates)",
+        "4977e67 (three named reference workflows share 4x6 stock while native is full-page and unconfigured Letter/A4 fail before guessing a crop; additional partial M4-AC01/04/13 evidence)",
+        "60c1551 (bounded typed structural anchors distinguish analysis-required/no-match/ambiguous results and never become render input; additional partial M4-AC04/07 evidence)",
+        "docs/validation/M4-IMPORT-SAFETY-2026-09-15.md (73a881d bounded exact JSON contract and adversarial imports; M4-AC08 automated pass)",
+        "docs/validation/M4-NATIVE-EXTRACTION-2026-09-15.md (69dd2f5 original-PDF planned-region rendering, exact packed preview, right-angle rotation, and stale-plan rejection; M4-AC02/07 automated pass)",
+        "docs/validation/M4-STRUCTURAL-ANALYSIS-2026-09-15.md (5ae58ea bounded local border analysis validates letter-one and rejects layout-changed before planning; M4-AC04 automated pass)",
+        "docs/validation/M4-WORKFLOW-QUALIFICATION-2026-09-15.md (b3b2a32 exact-profile user-confirmation wrapper gates unattended matching; partial M4-AC09/12 automated evidence only)",
+        "docs/validation/M4-PROFILE-STORE-2026-09-15.md (df06929 private immutable profile revisions, separate exact-digest qualification, exclusive atomic publication, and concurrent conflict safety; partial M4-AC06/08/09/12 evidence)"
+      ],
       "blockers": []
     },
     {

@@ -38,6 +38,24 @@ final class MonochromeBitmapTests: XCTestCase {
         )
         XCTAssertEqual(b.bytes, [0b1000_0000, 0b1000_0000])
     }
+    func testDataSlicesMatchRebasedInputsForBothPolicies() throws {
+        let storage = Data([99, 0, 255])
+        let sliced: Data = storage.dropFirst()
+        XCTAssertNotEqual(sliced.startIndex, 0)
+        let rebased = Data(sliced)
+        XCTAssertEqual(
+            try MonochromeBitmap.threshold(width: 2, height: 1, grayscale: sliced, stride: 2).bytes,
+            try MonochromeBitmap.threshold(width: 2, height: 1, grayscale: rebased, stride: 2).bytes
+        )
+        XCTAssertEqual(
+            try MonochromeConversion.photographicOrderedDither4x4.convert(
+                width: 2, height: 1, grayscale: sliced, stride: 2
+            ).bytes,
+            try MonochromeConversion.photographicOrderedDither4x4.convert(
+                width: 2, height: 1, grayscale: rebased, stride: 2
+            ).bytes
+        )
+    }
     func testZeroThresholdIsWhite() throws {
         XCTAssertEqual(try MonochromeBitmap.threshold(width: 2, height: 1, grayscale: [0,255],
                                                      stride: 2, threshold: 0).bytes, [0])

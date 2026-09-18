@@ -31,6 +31,49 @@ final class PhysicalGeometryTests: XCTestCase {
         XCTAssertEqual(canvas.height, 120)
     }
 
+    func testPhysicalFitAccountsForNonSquareDotPitch() throws {
+        let canvas = try DotCanvas(
+            physicalSize: PhysicalSize(width: try Millimeters(200), height: try Millimeters(100)),
+            resolution: DotResolution(xDotsPerMillimeter: 4, yDotsPerMillimeter: 8)
+        )
+        let placement = try PagePlacementPlanner.plan(
+            source: PhysicalSize(width: try Millimeters(100), height: try Millimeters(100)),
+            canvas: canvas,
+            policy: .fit
+        )
+        XCTAssertEqual(placement.target, DotRect(x: 200, y: 0, width: 400, height: 800))
+        XCTAssertEqual(placement.visible, placement.target)
+        XCTAssertEqual(Double(placement.target.width) / canvas.resolution.xDotsPerMillimeter, 100, accuracy: 0.000_001)
+        XCTAssertEqual(Double(placement.target.height) / canvas.resolution.yDotsPerMillimeter, 100, accuracy: 0.000_001)
+    }
+
+    func testActualSizePreservesPhysicalExtentAndReportsClipping() throws {
+        let canvas = try DotCanvas(
+            physicalSize: PhysicalSize(width: try .inches(4), height: try .inches(6)),
+            resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8)
+        )
+        let placement = try PagePlacementPlanner.plan(
+            source: PhysicalSize(width: try Millimeters(215.9), height: try Millimeters(279.4)),
+            canvas: canvas,
+            policy: .actualSize
+        )
+        XCTAssertEqual(placement.target, DotRect(x: -457, y: -508, width: 1_727, height: 2_235))
+        XCTAssertEqual(placement.visible, DotRect(x: 0, y: 0, width: 813, height: 1_219))
+        XCTAssertLessThanOrEqual(abs(Double(placement.target.width) - 215.9 * 8), 0.5)
+        XCTAssertLessThanOrEqual(abs(Double(placement.target.height) - 279.4 * 8), 0.5)
+    }
+
+    func testPlacementRejectsInvalidAndExcessiveLimits() throws {
+        let size = PhysicalSize(width: try Millimeters(10), height: try Millimeters(10))
+        let canvas = try DotCanvas(physicalSize: size, resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        XCTAssertThrowsError(try PagePlacementPlanner.plan(source: size, canvas: canvas, policy: .fit, maximumPlacementDimension: 0)) {
+            XCTAssertEqual($0 as? PagePlacementError, .invalidLimit)
+        }
+        XCTAssertThrowsError(try PagePlacementPlanner.plan(source: size, canvas: canvas, policy: .actualSize, maximumPlacementDimension: 79)) {
+            XCTAssertEqual($0 as? PagePlacementError, .placementExceedsLimit)
+        }
+    }
+
     func testRejectsInvalidPhysicalInputs() {
         XCTAssertThrowsError(try Millimeters(.infinity)) { XCTAssertEqual($0 as? PhysicalGeometryError, .nonFiniteLength) }
         XCTAssertThrowsError(try Millimeters(0)) { XCTAssertEqual($0 as? PhysicalGeometryError, .nonPositiveLength) }

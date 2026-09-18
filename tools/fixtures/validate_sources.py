@@ -19,14 +19,18 @@ def main():
     with tempfile.TemporaryDirectory(prefix='label-fixture-source-') as tmp:
         for item in manifest['fixtures']:
             if not item['path'].endswith('.pdf'): continue
-            path=ROOT/item['path'];reader=PdfReader(path)
+            path=ROOT/item['path'];password=item.get('syntheticFixturePassword')
+            reader=PdfReader(path,password=password)
             if len(reader.pages)!=item['pageCount']: raise ValueError('Page count mismatch')
             for page,expected in zip(reader.pages,item['pages']):
                 for key,box in [('mediaBox',page.mediabox),('cropBox',page.cropbox)]:
                     if any(abs(float(a)-b)>1e-5 for a,b in zip(box,expected[key])): raise ValueError('Box mismatch')
                 if page.rotation!=expected['rotation'] or page.get('/UserUnit',1)!=expected['userUnit']: raise ValueError('Page transform mismatch')
             prefix=Path(tmp)/item['id']
-            subprocess.run([renderer,'-r','500','-png',str(path),str(prefix)],check=True,capture_output=True,timeout=60)
+            command=[renderer]
+            if password is not None: command.extend(['-upw',password])
+            command.extend(['-r','500','-png',str(path),str(prefix)])
+            subprocess.run(command,check=True,capture_output=True,timeout=60)
             files=sorted(Path(tmp).glob(item['id']+'-*.png'),key=lambda p:int(p.stem.rsplit('-',1)[1]))
             if len(files)!=item['pageCount']: raise ValueError('Rendered page count mismatch')
             for image,expected in zip(files,item['pages']):
