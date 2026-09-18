@@ -12,8 +12,10 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
         await model.currentOpeningTask?.value
         let original = try XCTUnwrap(model.editor)
         try original.save()
-        try original.approveForUnattendedUse()
         await original.refreshPreviewInWorker(workerExecutable: try worker())
+        try original.confirmSelectedBoundsAndPreviewReviewed(expectedProfile: original.profile,
+            expectedPreview: original.preview, expectedEditGeneration: original.editGeneration)
+        try original.approveForUnattendedUse()
         let preview = try XCTUnwrap(original.preview)
         let definition = await model.prepareProfileExport(original.profile)
         let file = store.root.appending(path: "synthetic-export.json")
