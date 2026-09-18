@@ -101,7 +101,11 @@ def source_is_unchanged(root, evaluated_sha, current_sha):
     changed = subprocess.check_output(['git', '-C', str(root), 'diff', '--no-ext-diff', '--no-textconv', '--name-only', '--no-renames', '-z',
                                        evaluated_sha, current_sha, '--'], timeout=10).decode().split('\0')
     evidence_metadata = {'docs/ACCEPTANCE-EVIDENCE.json', 'docs/PROGRESS.json', 'docs/SCOPE-STATUS.json',
-                         'docs/HANDOFF.md', 'docs/HANDOFF-HISTORY-2026-09-17.md'}
+                         'docs/HANDOFF.md', 'docs/HANDOFF-HISTORY-2026-09-17.md',
+                         # Derived digests only. Recording evidence must refresh this manifest, so
+                         # treating it as a source change would invalidate every record it describes.
+                         # It cannot mask a real change: that file's own path is compared here too.
+                         'MANIFEST.sha256'}
     for name in filter(None, changed):
         if name in evidence_metadata or (name.startswith('docs/validation/') and name.endswith('.md')):
             continue

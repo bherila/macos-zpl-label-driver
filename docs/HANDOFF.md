@@ -1,3 +1,44 @@
+# Acceptance ledger reconciliation — 2026-09-18
+
+Stack merge campaign is complete: `main` is `56fdc7b` with PRs #1-#84 landed as 70 squash commits,
+zero merge commits and no open PRs. Hosted run 35319736124 is green on all three checks
+(`repository-preflight`, `swift-macos-arm64`, `ci-required`).
+
+All 90 acceptance criteria are now classified by the evidence each actually requires. The repository
+levels stay verbatim; the 39 `I` criteria are subdivided by required session, because that decides
+what can proceed while the printer is unavailable: 30 automated, 8 repository/CI, 12 macOS-native
+(hosted `macos-26`), 10 GUI, 17 installed, 10 physical, 3 release. **50 of 90 are reachable without
+the printer or an interactive Mac; 27 wait on the test Mac, 10 on the named GC420d, 3 on the release
+gate.** Hardware and release rows stay `not-run`; neither passing CI nor the inert `labelprobe`
+discard sink promotes them. Full table:
+[acceptance ledger](validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md).
+
+Two integrity defects were found and one is fixed here.
+
+Fixed: `source_is_unchanged` in `scripts/traceability_report.py` treated `MANIFEST.sha256` as a
+source change. Recording acceptance evidence must refresh that manifest, so every evidence record was
+invalidated by the very commit that recorded it, leaving `readyForMaintainerReview` unreachable. The
+manifest holds only digests of other files and cannot mask a real change, because a changed file is
+compared under its own path; it now joins the evidence-metadata exemption, with a regression test that
+fails without the fix and still rejects a source change made alongside a manifest refresh.
+
+Reported, not changed: `MANIFEST.sha256` has 43 stale digests and omits 118 tracked files (52 of them
+Swift sources). The drift is pre-existing and not caused by the rebases - the original pre-restack
+PR #81 head `3a27181` carried exactly the same 43. Nothing verifies the manifest: `check_repo.py`
+does not check digests and `ci_scope.py` only excludes it from scope classification. Its documented
+scope is the revision-2 packaged archive, not the working tree, so restoring whole-tree coverage is a
+maintainer scope decision. The 43 stale digests are refreshed here; the 118 omissions are not added.
+
+`PROGRESS.json` recorded `automatedValidation: not-run` for M1-M6 while the suites were in fact
+executing and passing. Those rows now read `pass`, scoped explicitly to suite-level execution at
+`56fdc7b` - per-criterion evidence records remain pending and the ledger says so per criterion.
+
+The acceptance checkbox view and the structured ledger still disagree: 20 criteria are checked in the
+`ACCEPTANCE.md` tables but `ACCEPTANCE-EVIDENCE.json` holds records for only 2, so
+`traceability_report.py` reports 0 of 21 requirements satisfied and 82 pending criteria. Closing that
+gap needs a digest-bound record per criterion; 11 criteria have their coverage verified and are ready
+to record. No printer, installation, scheduler, GUI or release acceptance is claimed.
+
 # Swift CI cache — hosted evidence 2026-09-18
 
 PR #84 squash `654fd304f7f80f0bf94296f2dd731b50d665f8c1` passed hosted

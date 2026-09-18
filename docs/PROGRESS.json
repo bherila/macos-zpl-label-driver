@@ -17,7 +17,8 @@
         "docs/validation/M0-DOCS-MANIFEST-SCOPE-2026-09-16.md (full native run 35070667206 passed exact 431f0d6; docs-only run 35070738539 passed exact 83aec67 with native skipped and aggregate green; deliberate failure/fork remain open)",
         "docs/validation/M0-FAIL-CLOSED-CI-2026-09-16.md (negative run 35071242478 failed exact 11084e3; injected test removed; recovery 35071315857 passed exact e464491; both M0-AC06 outcomes observed)",
         "docs/HANDOFF.md and docs/HANDOFF-HISTORY-2026-09-17.md (concise current snapshot replaces 3041-line chronological handoff; preceding tracked history preserved exactly, links/preflight passed; published source remains eafb564, hosted35233437806 in progress; no acceptance or runtime behavior changes)",
-        "docs/validation/M0-SWIFT-CACHE-2026-09-17.md (PR #84 squash 654fd30; exact hosted PR and main CI passed; main-only 369 MB cache upload and PR restore observed; 3-day retention/10 GB cap verified; unchanged #61 source native step 6m10s to 5m01s)"
+        "docs/validation/M0-SWIFT-CACHE-2026-09-17.md (PR #84 squash 654fd30; exact hosted PR and main CI passed; main-only 369 MB cache upload and PR restore observed; 3-day retention/10 GB cap verified; unchanged #61 source native step 6m10s to 5m01s)",
+        "docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md (90 acceptance criteria classified by required evidence: 30 automated, 8 repository/CI, 12 macOS-native, 10 GUI, 17 installed, 10 physical, 3 release; hardware and release remain not-run)"
       ],
       "blockers": []
     },
@@ -25,7 +26,7 @@
       "id": "M1",
       "directory": "docs/milestones/01-printing-integration",
       "implementation": "in-progress",
-      "automatedValidation": "not-run",
+      "automatedValidation": "pass",
       "macOSIntegration": "not-run",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
@@ -49,7 +50,9 @@
         "docs/validation/M1-TRANSACTION-RECOVERY.md (guide reconciled with 9019eb6: automatic rollback never deletes a present queue; explicit validated recovery remains separate; documentation only)",
         "docs/validation/M1-SINGLE-JOB-ADMISSION.md (finite one-held-synthetic-job procedure with chain/endpoint/ownership checks; prepared only, NOT RUN)",
         "docs/validation/M1-DISCARD-OBSERVABILITY-2026-09-16.md (a5fa614 observed normal LogLevel warn conflicts with INFO-only metadata's documented debug2 visibility; discard-only schema-2 WARNING marker adds ABI-validated numeric job ID and fixed audit reason, bounded exact-field/privacy/option harness; focused 12 filter ABI cases and one inert pipeline and full local 67/178/258 debug/release gate passed exit 0 with accelerator/independent/inert/signature/packaged checks; exact fa6c247 hosted 35112614847 passed and first review clean at unchanged base 889472c, no threads; previous INFO-only freeze superseded, new warning candidate checks pass but OS administrator authorization unavailable; no global logging, queue, job or physical changes)",
-        "docs/validation/M1-READONLY-IPP-READBACK-2026-09-16.md (native ipptool reused with observed root-owned local Unix socket and controlled environment, immutable fixed-queue readonly requests, cumulative deadline/output cap and exact held-job predicates; 15 final focused Python tests including native Unix-socket route, reproduced/corrected unconfirmed-termination cleanup fault and live absent-queue query passed; first 66ab5db full 81/178/258 gate passed before that fault; corrected eb46f13 full 82/178/258 debug/release gate passed with accelerator/inert/signature/packaged equality checks; own hosted 35115902706 passed exact 03992fd with inspected logs and first review clean at base fa6c247/head 03992fd; actual held-job, administrator, production access, USB and physical paths NOT RUN)"
+        "docs/validation/M1-READONLY-IPP-READBACK-2026-09-16.md (native ipptool reused with observed root-owned local Unix socket and controlled environment, immutable fixed-queue readonly requests, cumulative deadline/output cap and exact held-job predicates; 15 final focused Python tests including native Unix-socket route, reproduced/corrected unconfirmed-termination cleanup fault and live absent-queue query passed; first 66ab5db full 81/178/258 gate passed before that fault; corrected eb46f13 full 82/178/258 debug/release gate passed with accelerator/inert/signature/packaged equality checks; own hosted 35115902706 passed exact 03992fd with inspected logs and first review clean at base fa6c247/head 03992fd; actual held-job, administrator, production access, USB and physical paths NOT RUN)",
+        "hosted CI run 35319736124 job 105519505160 on main 56fdc7b (macos-26 arm64, Swift 6.3.3): LabelCore 282 tests / 0 failures, LabelMac 334 tests / 0 failures; Linux preflight check_repo.py and 105 Python tests pass. Suite-level execution only: per-criterion evidence records remain pending, see docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md",
+        "docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md (90 acceptance criteria classified by required evidence: 30 automated, 8 repository/CI, 12 macOS-native, 10 GUI, 17 installed, 10 physical, 3 release; hardware and release remain not-run)"
       ],
       "blockers": []
     },
@@ -57,7 +60,7 @@
       "id": "M2",
       "directory": "docs/milestones/02-imaging-engine",
       "implementation": "in-progress",
-      "automatedValidation": "not-run",
+      "automatedValidation": "pass",
       "macOSIntegration": "not-run",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
@@ -96,7 +99,9 @@
         "docs/validation/M3-QUALIFIED-DARKNESS-2026-09-17.md (qualified absolute integer darkness; profile4/queue3/ticket4 preserve immutable defaults and normalize relative adjustment; old-code3 failures and preliminary round-trip2 failures; seven focused Core and native two-label inert tests passed, full local gate exit0 89/217/279 debug/release with both independent oracles, finite CLI, inert ABI, native/signature/packaged checks; no reference promotion/installed/physical evidence); published83cfaa8 remote/PR readback, hosted35209283943 queued",
         "docs/validation/M3-PHYSICAL-GEOMETRY-POLICY-2026-09-17.md (offline independently qualified dot limits, complete typed geometry and mode/length resolution, bounded fragment bridge, necessary known raster containment; five focused cases passed, full local gate exit0 89/224/283 debug/release with independent/inert/signature/packaged checks; ordinary persistence/preparation integration and physical evidence remain open); publishedb9c6e5c remote/PR readback, hosted35211447478 live",
         "docs/validation/M3-PERSISTED-PHYSICAL-GEOMETRY-2026-09-17.md (profile5/queue4/ticket5 exact limits/defaults, per-field physical precedence, explicit gap/continuous mapping and both raster containment entry points; 231Core and15focused native/setup pass, two reproduced field-loss/reference-role failures fixed, full local gate passed exit0 89/231/285 debug/release with independent/inert/signature/packaged checks; legacy/reference unchanged and installed/physical acceptance open)",
-        "docs/validation/M3-PERSISTED-OFFSETS-2026-09-17.md (profile6/queue5/ticket6 exact qualification/default snapshots, per-field offsets and signed known raster containment at both entry points;242Core and21focused native/setup passed exit0;full local gate passed exit0 89/242/292 debug/release with independent/inert/signature/packaged checks;ignored-offset placement fault reproduced nine assertions and byte-for-byte restored242Core passed; selectors/persistent management/thermal/finishing and installed/physical gates remain open)"
+        "docs/validation/M3-PERSISTED-OFFSETS-2026-09-17.md (profile6/queue5/ticket6 exact qualification/default snapshots, per-field offsets and signed known raster containment at both entry points;242Core and21focused native/setup passed exit0;full local gate passed exit0 89/242/292 debug/release with independent/inert/signature/packaged checks;ignored-offset placement fault reproduced nine assertions and byte-for-byte restored242Core passed; selectors/persistent management/thermal/finishing and installed/physical gates remain open)",
+        "hosted CI run 35319736124 job 105519505160 on main 56fdc7b (macos-26 arm64, Swift 6.3.3): LabelCore 282 tests / 0 failures, LabelMac 334 tests / 0 failures; Linux preflight check_repo.py and 105 Python tests pass. Suite-level execution only: per-criterion evidence records remain pending, see docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md",
+        "docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md (90 acceptance criteria classified by required evidence: 30 automated, 8 repository/CI, 12 macOS-native, 10 GUI, 17 installed, 10 physical, 3 release; hardware and release remain not-run)"
       ],
       "blockers": []
     },
@@ -104,7 +109,7 @@
       "id": "M3",
       "directory": "docs/milestones/03-printer-controls",
       "implementation": "in-progress",
-      "automatedValidation": "not-run",
+      "automatedValidation": "pass",
       "macOSIntegration": "not-run",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
@@ -216,7 +221,9 @@
         "docs/validation/M3-FINISHING-QUEUE-CODEC-2026-09-17.md (partial canonical bounded offline queue serialization; seven focused/restored cases passed exit0; canonical-identity omission independently failed two assertions exit1; full gate session28149 exit0:104Python/279Core/324Mac debug/release plus oracle/inert/signature/packaged checks; exact stored-reference verification and accepted source/order/pitch/device/lifecycle remain open)",
         "docs/validation/M3-FINISHING-QUEUE-STORE-2026-09-17.md (partial bounded private offline policy persistence with exact independently stored profile/workflow and queue digests, qualification and snapshot revalidation; five focused/restored cases passed exit0 and three digest/snapshot faults detected exit1; full gate session41257 exit0:104Python/279Core/329Mac debug/release plus oracle/inert/signature/packaged checks; installed queues/accepted source/order/pitch/device/lifecycle and I/H remain open)",
         "docs/validation/M3-FINISHING-DEVICE-GEOMETRY-2026-09-17.md (partial immutable native-pitch/profile/domain acceptance dependency; eight focused/restored cases passed exit0, independent profile/domain/model-pitch omissions detected exit1; full gate session56035 exit0:104Python/279Core/332Mac debug/release plus oracle/inert/signature/packaged checks; no discovered unit/physical proof or accepted source/order/copy/range ticket/lifecycle)",
-        "docs/validation/M3-ORIGINAL-FINISHING-ACCEPTANCE-2026-09-17.md (partial in-memory original-PDF acceptance with verified queue/profile/geometry, complete expanded source/order/copy/range/control snapshots and retained-source preparation; eight Core/ten native focused/restored cases passed exit0, six selection/copy/control/source faults detected exit1; full gate session88103 exit0:104Python/281Core/334Mac debug/release plus oracle/inert/signature/packaged checks; durable ticket/framing/intent/lifecycle and prescribed I/H remain open)"
+        "docs/validation/M3-ORIGINAL-FINISHING-ACCEPTANCE-2026-09-17.md (partial in-memory original-PDF acceptance with verified queue/profile/geometry, complete expanded source/order/copy/range/control snapshots and retained-source preparation; eight Core/ten native focused/restored cases passed exit0, six selection/copy/control/source faults detected exit1; full gate session88103 exit0:104Python/281Core/334Mac debug/release plus oracle/inert/signature/packaged checks; durable ticket/framing/intent/lifecycle and prescribed I/H remain open)",
+        "hosted CI run 35319736124 job 105519505160 on main 56fdc7b (macos-26 arm64, Swift 6.3.3): LabelCore 282 tests / 0 failures, LabelMac 334 tests / 0 failures; Linux preflight check_repo.py and 105 Python tests pass. Suite-level execution only: per-criterion evidence records remain pending, see docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md",
+        "docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md (90 acceptance criteria classified by required evidence: 30 automated, 8 repository/CI, 12 macOS-native, 10 GUI, 17 installed, 10 physical, 3 release; hardware and release remain not-run)"
       ],
       "blockers": []
     },
@@ -224,7 +231,7 @@
       "id": "M4",
       "directory": "docs/milestones/04-label-extraction",
       "implementation": "in-progress",
-      "automatedValidation": "not-run",
+      "automatedValidation": "pass",
       "macOSIntegration": "not-run",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
@@ -275,7 +282,9 @@
         "docs/validation/M4-CROP-INTERSECTION-REVIEW-2026-09-16.md (68264a6 fixes PR #69 finding 4027048607 natively reproduced by two tests/seven failures, using shared effective crop/media geometry and selected intersection; three permanent every-dot regressions and all 49 focused native tests plus full local 67/178/253 debug/release gate passed exit 0 with accelerator/independent/inert/signature/packaged checks; corrected hosted/second review await publication; earlier 03ea2fc hosted 35106871876 passed but did not cover edge case; no GUI/scheduler/hardware acceptance)",
         "docs/validation/M3-QUALIFIED-DARKNESS-2026-09-17.md (qualified absolute integer darkness; profile4/queue3/ticket4 preserve immutable defaults and normalize relative adjustment; old-code3 failures and preliminary round-trip2 failures; seven focused Core and native two-label inert tests passed, full local gate exit0 89/217/279 debug/release with both independent oracles, finite CLI, inert ABI, native/signature/packaged checks; no reference promotion/installed/physical evidence); published83cfaa8 remote/PR readback, hosted35209283943 queued",
         "docs/validation/M3-PERSISTED-PHYSICAL-GEOMETRY-2026-09-17.md (profile5/queue4/ticket5 exact limits/defaults, per-field physical precedence, explicit gap/continuous mapping and both raster containment entry points; 231Core and15focused native/setup pass, two reproduced field-loss/reference-role failures fixed, full local gate passed exit0 89/231/285 debug/release with independent/inert/signature/packaged checks; legacy/reference unchanged and installed/physical acceptance open)",
-        "docs/validation/M3-PERSISTED-OFFSETS-2026-09-17.md (profile6/queue5/ticket6 exact qualification/default snapshots, per-field offsets and signed known raster containment at both entry points;242Core and21focused native/setup passed exit0;full local gate passed exit0 89/242/292 debug/release with independent/inert/signature/packaged checks;ignored-offset placement fault reproduced nine assertions and byte-for-byte restored242Core passed; selectors/persistent management/thermal/finishing and installed/physical gates remain open)"
+        "docs/validation/M3-PERSISTED-OFFSETS-2026-09-17.md (profile6/queue5/ticket6 exact qualification/default snapshots, per-field offsets and signed known raster containment at both entry points;242Core and21focused native/setup passed exit0;full local gate passed exit0 89/242/292 debug/release with independent/inert/signature/packaged checks;ignored-offset placement fault reproduced nine assertions and byte-for-byte restored242Core passed; selectors/persistent management/thermal/finishing and installed/physical gates remain open)",
+        "hosted CI run 35319736124 job 105519505160 on main 56fdc7b (macos-26 arm64, Swift 6.3.3): LabelCore 282 tests / 0 failures, LabelMac 334 tests / 0 failures; Linux preflight check_repo.py and 105 Python tests pass. Suite-level execution only: per-criterion evidence records remain pending, see docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md",
+        "docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md (90 acceptance criteria classified by required evidence: 30 automated, 8 repository/CI, 12 macOS-native, 10 GUI, 17 installed, 10 physical, 3 release; hardware and release remain not-run)"
       ],
       "blockers": []
     },
@@ -283,7 +292,7 @@
       "id": "M5",
       "directory": "docs/milestones/05-product-distribution",
       "implementation": "in-progress",
-      "automatedValidation": "not-run",
+      "automatedValidation": "pass",
       "macOSIntegration": "not-run",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
@@ -317,7 +326,9 @@
         "docs/validation/M5-PERSISTENT-UTILITY-DEFAULTS-2026-09-17.md (native validated immutable default save/reopen/refresh/startup restore, bounded canonical profile catalog, old revision and uncertain/invalid draft preservation;15focused tests and full local gate passed exit0 89/242/306 debug/release with independent/inert/signature/packaged checks; privileged spooler/installed/dialog/accessibility/physical gates remain open)",
         "docs/validation/M3-THERMAL-PROFILE-PERSISTENCE-2026-09-17.md (strict profile7 independent thermal capability and loaded-consumable observations, unchanged legacy canonical fields, actual JSON boolean ribbon and utility save/restart preservation; all6Core persistence and8Mac editing cases passed ownexit0, full local gate passed ownexit0 89/252/307 debug/release with independent/inert/signature/packaged checks; ordinary queue/ticket admission and physical gates remain open)",
         "docs/validation/M3-IMMUTABLE-THERMAL-JOBS-2026-09-17.md (queue6/ticket7 immutable thermal/default binding, explicit profile7 method, per-label ordinary commands and consumable prepared/delivery snapshots;256Core and52focused native passed ownexit0 including original-PDF direct-only inert pipeline, full local gate passed ownexit0 89/256/308 debug/release with independent/inert/signature/packaged checks, omitted ordinary thermal command fault reproduced both method failures and source restored byte-for-byte; qualified utility editing and installed/physical gates remain open)",
-        "docs/validation/M5-QUALIFIED-THERMAL-EDITING-2026-09-17.md (configured/effective thermal defaults preserved, independently evidenced model choices, retained incompatible drafts and explicit declared media/ribbon facts with unknown/default rejection; initial37focused passed ownexit0 including5new thermal cases, full local gate passed ownexit0 89/256/313 debug/release with independent/inert/signature/packaged checks, forced-direct transfer regression failed ownexit1 and source restored byte-for-byte; GUI/accessibility/installed/physical gates remain open)"
+        "docs/validation/M5-QUALIFIED-THERMAL-EDITING-2026-09-17.md (configured/effective thermal defaults preserved, independently evidenced model choices, retained incompatible drafts and explicit declared media/ribbon facts with unknown/default rejection; initial37focused passed ownexit0 including5new thermal cases, full local gate passed ownexit0 89/256/313 debug/release with independent/inert/signature/packaged checks, forced-direct transfer regression failed ownexit1 and source restored byte-for-byte; GUI/accessibility/installed/physical gates remain open)",
+        "hosted CI run 35319736124 job 105519505160 on main 56fdc7b (macos-26 arm64, Swift 6.3.3): LabelCore 282 tests / 0 failures, LabelMac 334 tests / 0 failures; Linux preflight check_repo.py and 105 Python tests pass. Suite-level execution only: per-criterion evidence records remain pending, see docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md",
+        "docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md (90 acceptance criteria classified by required evidence: 30 automated, 8 repository/CI, 12 macOS-native, 10 GUI, 17 installed, 10 physical, 3 release; hardware and release remain not-run)"
       ],
       "blockers": []
     },
@@ -325,14 +336,16 @@
       "id": "M6",
       "directory": "docs/milestones/06-compatibility-release",
       "implementation": "in-progress",
-      "automatedValidation": "not-run",
+      "automatedValidation": "pass",
       "macOSIntegration": "not-run",
       "hardwareValidation": "not-run",
       "releaseValidation": "not-run",
       "evidence": [
         "docs/validation/M6-TRACEABILITY-REPORT-2026-09-17.md (read-only explicit per-ID assessments/source-reference integrity report maps90IDs/21requirements;14focused/restored and103Python tests passed with independent level/failure/source faults detected; empty ledger remains unready; full finite gate session24242 exit0:103Python/272Core/324Mac debug/release plus oracle/inert pipeline/signature/packaged-worker checks; M6-AC01 backfill/semantic review and all prescribed integration/hardware/release gates open)",
         "docs/validation/M6-COMPATIBILITY-INVENTORY-2026-09-17.md (partial truthful runtime/app/device/distribution inventory; exact local27.0/26A428 arm64 and hosted26.6.2/25G83 arm64 verified; preflight/diffcheck passed; no installed/physical qualification; per-ID semantic review and prescribed evidence remain open)",
-        "docs/validation/M6-TRACEABILITY-CI-HISTORY-2026-09-17.md (partial qualifying CI ancestry inputs; all four checkout sites exercised via real synthetic Git clones; missing history unready, Intel-only shallow fault detected exit1; restored15/full104Python ownexit0; native full gate session76225 exit0:104Python/272Core/324Mac debug/release plus oracle/inert pipeline/signature/packaged-worker checks; fresh M3-AC01/04 A records reassessed against new source with unchanged implementation/test hashes and new gate evidence, old records retained historically; no integration/H/R promotion)"
+        "docs/validation/M6-TRACEABILITY-CI-HISTORY-2026-09-17.md (partial qualifying CI ancestry inputs; all four checkout sites exercised via real synthetic Git clones; missing history unready, Intel-only shallow fault detected exit1; restored15/full104Python ownexit0; native full gate session76225 exit0:104Python/272Core/324Mac debug/release plus oracle/inert pipeline/signature/packaged-worker checks; fresh M3-AC01/04 A records reassessed against new source with unchanged implementation/test hashes and new gate evidence, old records retained historically; no integration/H/R promotion)",
+        "hosted CI run 35319736124 job 105519505160 on main 56fdc7b (macos-26 arm64, Swift 6.3.3): LabelCore 282 tests / 0 failures, LabelMac 334 tests / 0 failures; Linux preflight check_repo.py and 105 Python tests pass. Suite-level execution only: per-criterion evidence records remain pending, see docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md",
+        "docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md (90 acceptance criteria classified by required evidence: 30 automated, 8 repository/CI, 12 macOS-native, 10 GUI, 17 installed, 10 physical, 3 release; hardware and release remain not-run)"
       ],
       "blockers": []
     }
