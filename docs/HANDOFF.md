@@ -1,3 +1,53 @@
+# Accepted-finishing stores and headless inspection — 2026-09-18
+
+Source `1a4a8a96ea87a09b22ec81f13310d360093a479e` on `claude/determined-sagan-frse18`, over `main` `29b3fb3`.
+
+The accepted-finishing subsystem from checkpoint `eb71a41`, and with it the last non-GUI part of the
+LabelMac work tracked in issue #88. Three stores persist accepted finishing state; recovery, prepared
+and framed job types carry it through preparation; `InertAcceptedFinishingDelivery` and
+`PackedFinishingPreviewExport` produce output without touching a printer.
+`FinishingInspectionModel`, `FinishingInspectionCommand` and `FinishingPreviewCommand` land as
+headless surfaces wired into `LabelDriverCLI`.
+
+`FinishingInspectionView` is deliberately excluded. It is the only file in the group that imports
+SwiftUI and AppKit, CI cannot qualify a GUI surface, and it belongs with the GUI work in #80 Part B.
+Splitting there is what let the rest of the group land under evidence CI can actually produce.
+
+Three types gain `RedactedDiagnosticValue` conformance, which is precisely what
+`PublicationDiagnosticRedactionTests` needs; that test was excluded from both `7645b26` and `03f38af`
+for exactly this missing dependency, and it now lands with it. `PrivateImmutableDirectory` gains an
+optional `createIfMissing` and a `notFound` error so a reader can distinguish an absent directory
+from a failure, without changing existing call sites.
+
+The scoping method changed after #95, and it is the reason this slice holds together. That slice was
+scoped by which files *declare* the new types, which missed `OfflineLayoutWorker` — whose only change
+was two call sites — and left `WorkerProtocolJSON`'s layout paths dead until Codex review caught it.
+This slice was scoped by which files *reference* the new types. That is how the three
+`RedactedDiagnosticValue` conformances and the CLI wiring were found, and how
+`FinishingQueueStoreTests`' dependency on the inspection surfaces surfaced before a push rather than
+after one.
+
+Changed requirements: M4 label-extraction and M5 product-distribution gain accepted-finishing
+persistence, recovery and headless inspection evidence. Neither milestone is declared complete.
+
+Tests actually run. Linux x86_64 Swift 6.1.2: LabelCore 304 tests, 0 failures — unchanged, because no
+LabelCore file is touched. `check_repo.py` passed and 105 Python tests passed. All 17 changed files
+parse under `swift-frontend -parse`. The `RepoType.member` check passes, and was re-verified
+non-vacuous against a seeded defect after fixing a regex that missed single-line enum case lists —
+the first run reported two false positives on `FinishingInspectionCommand.Error`, which were a defect
+in the check rather than in the code.
+
+What Linux did not and cannot establish. **Every file in this slice is LabelMac, which does not build
+on Linux.** Nothing here has been compiled or executed; hosted macos-26 CI is the only gate that will
+do either. It also qualifies no GUI, installation, scheduler or hardware behaviour: those rows stay
+NOT RUN, and a green run must not be read as promoting them. The inert delivery path and the preview
+export touch no printer.
+
+Blockers: `FinishingInspectionView` and the remaining editor work (`WorkflowEditor`,
+`WorkflowEditorBootstrap` and their tests) are GUI surfaces for #80 Part B. `RawTCPDelivery`'s host
+validation hardening and its tests are an unrelated security fix and should land as their own slice.
+Gap 2 of #93 remains open and is recorded there.
+
 # Worker protocol decoding and returned-bitmap binding — 2026-09-18
 
 Source `910044282884441d7400aa1f75c215216a939c3b` on `claude/determined-sagan-frse18`, over `main` `03f38af`.
