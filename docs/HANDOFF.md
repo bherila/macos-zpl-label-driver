@@ -8,9 +8,14 @@ IDs, both at stale source SHAs. `traceability_report.py` counts a criterion only
 checked **and** a digest-bound record is current, so the report read 0 of 21 requirements and 0
 criteria satisfied.
 
-Ten records now satisfy their criteria: M2-AC01, M2-AC04, M2-AC05, M2-AC06, M2-AC13, M3-AC01,
-M3-AC02, M3-AC03, M3-AC04 and M3-AC13. The report reads **1 of 21 requirements (F04) and 10
-criteria**, with pending acceptance IDs down from 82 to 78.
+Nine records now satisfy their criteria: M2-AC01, M2-AC04, M2-AC05, M2-AC06, M2-AC13, M3-AC01,
+M3-AC02, M3-AC03 and M3-AC04. The report reads **1 of 21 requirements (F04) and 9 criteria**.
+
+Review removed a tenth. `M3-AC13` was recorded and then withdrawn: the criterion requires the
+reference profile to constrain pitch, and `gc420dUSBReference` carries no `DotResolution`, no
+`dotsPerMillimeter` and no native-pitch field, so a caller can pair it with an arbitrary raster pitch.
+Its checkbox is cleared too, because leaving it set restates the unsupported claim this ledger exists
+to settle. That is a pre-existing declaration the evidence does not support, not a regression here.
 
 The batch was chosen by what can be **executed here**, not by what is easiest to assert. Every cited
 suite was run before its record was written — 104 LabelCore tests across thirteen suites, 0 failures,
@@ -25,6 +30,16 @@ adding the checkbox, all seven required categories were confirmed mapped — spe
 method, tracking, dimensions, offsets and supported finishing — each row carrying a `sourceID` of R45
 or R46 that resolves to a real `docs/REFERENCES.md` entry, with `ZPLControlProtocolCoverageTests`
 passing. That declaration is in its own commit, keeping the records commit free of new claims.
+
+**Two ordering traps, both hit and both worth carrying forward.** A record must be bound to a commit
+that is an *ancestor of wherever it will be evaluated*. `M3-AC03` was first bound to a branch commit,
+which a squash-merge does not descend from, so `merge-base --is-ancestor` would have failed and F04
+would not have been satisfied on `main` at all — the headline claim would have been false on merge.
+Binding to the base commit `78acd9b` survives any squash. And `MANIFEST.sha256` must be regenerated
+**last**: touching it at all makes `source_is_unchanged` consult `manifest_describes_tree`, which
+rejects untruthful digests, so refreshing it before a later documentation edit invalidates every
+record it was meant to support. Both were caught by review and by re-running the report rather than
+assuming.
 
 An ordering constraint shapes the commits. `source_is_unchanged` tolerates only evidence metadata,
 `docs/validation/*.md`, `docs/milestones/*/ACCEPTANCE.md` and `MANIFEST.sha256`, so records must land
