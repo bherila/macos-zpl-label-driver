@@ -30,6 +30,18 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+Issue #76 follow-up is in progress on `codex/m3-config-root-alias`, based on
+PR #75 `cb86196`. A native one-test/six-failure old-code regression shows all
+three public immutable configuration stores accept final-dot aliases. The shared
+initializer now rejects them before mkdir/open; all 35 focused store tests pass.
+Full local `8ac3bbe` gate passed exit0: 82 Python/178 Core/264 Mac debug/release,
+both independent/inert configurations, signatures and packaged equality. Own
+hosted35125332565 passed exact `48c07b4` with inspected264Mac/both14filter/
+signature/packaged logs. First review clean at base `cb86196` / head `48c07b4`,
+no findings/threads. No records/schema/bitmap/oracle or M1 frozen bytes change.
+Later evidence-only publication checks are not inferred from this prior run.
+See `validation/M3-CONFIGURATION-ROOT-ALIASES-2026-09-16.md`.
+
 M1 direct null-output correction is in progress on `codex/m1-null-output-descriptor`,
 based on PR #74 `3852e21`. The new native direct-stdout regression fails on the
 old frozen filter; public upstream CUPS uses this output route for the null URI.
@@ -41,7 +53,12 @@ debug/release, both independent/inert runs, signatures and packaged equality.
 Draft PR #75 exact `f691d24` hosted 35123623789 passed; inspected logs verify
 both native configurations, both 14-case filter runs, signatures and packaged
 equality. First review is clean at base `3852e21` / head `f691d24`, no findings
-or threads. A separate private corrected copy has matching hashes and passes
+or threads.
+Latest evidence-only `cb86196` hosted35124659080 also passed, with fetched logs
+verifying both263Mac configurations, both14filter cases, signatures and packaged
+equality. This supersedes any older latest-head running status; frozen bytes are
+unchanged. The finite M1 experiment still awaits the actual OS administrator session.
+A separate private corrected copy has matching hashes and passes
 signature/PPD checks, read-only preflight/absent-queue query and direct-null
 committed-fixture file/stdin ABI. It remains NOT APPROVED FOR INSTALLATION,
 pending OS administrator session and finite baseline; snapshot ownership is not

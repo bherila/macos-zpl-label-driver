@@ -1,5 +1,12 @@
 # Shared contracts and invariants
 
+Immutable configuration-store roots must name an ordinary final path component,
+not reserved `.` or `..`. Reject those spellings before filesystem mutation rather
+than silently normalizing them; this preserves the containing-directory barrier's
+naming contract. The workflow/printer/virtual-queue APIs map rejection to their
+existing unsafe-store-directory result. Stable provisioned ancestry remains the
+caller's responsibility; root spelling is not recursive ancestry attestation.
+
 These are normative design requirements. Implement the contracts incrementally; do not generate placeholder implementations that return success.
 
 ## Units, coordinates and geometry
