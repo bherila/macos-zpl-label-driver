@@ -30,6 +30,38 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+PR #69's first review finding 4027048607 is reproduced and corrected: native
+page geometry and direct selected rendering now share the effective CropBox /
+MediaBox intersection. Three every-dot regressions cover expanded crops,
+effective-coordinate selection, non-square partial overlap and disjoint rejection.
+All 49 focused native renderer/extraction/pipeline tests passed exit 0. Corrected
+full local gate at `68264a6` passed exit 0: 67 Python, 178 Core and 253 Mac
+debug/release, accelerator/independent/inert checks, local signatures and packaged
+worker equality. Corrected hosted/second review await publication.
+Original exact `03ea2fc` hosted 35106871876
+passed 178 Core/250 Mac debug/release and signature/packaged checks, but did not
+cover this edge case. See `validation/M4-CROP-INTERSECTION-REVIEW-2026-09-16.md`.
+
+The current automated extraction slice exercises the supplied native, Letter and
+A4 originals through separate immutable workflow bindings and the complete
+accepted/prepared/inert pipeline. It preserves source geometry and original
+bytes while binding the same 4x6 stock; changed-size/layout and absent bindings
+fail before acceptance. Direct selected-rectangle mapping removes avoidable
+full-sheet expansion rounding: Letter/A4 now agree at every dot and complete
+ZPL byte. All 46 focused native renderer/extraction/pipeline tests passed exit 0.
+Full local gate at `4ebfd859` passed exit 0: 67 Python, 178 Core and 250 Mac
+debug/release, both accelerator modes, independent/inert checks, local
+ARM/minimum-26 signatures and packaged-worker PBM/ZPL equality. M4-AC13 is now
+automatically evidenced; M4-AC01's full editor/option path and every I/H gate
+remain open. Own hosted CI/review await publication. See
+`validation/M4-THREE-REFERENCE-PIPELINE-2026-09-16.md`.
+
+PR #68 exact `4a857a4` hosted run 35104542457 passed: logs verify 178 Core/248
+Mac debug/release, local signatures and packaged-worker equality. First review
+is clean at base `3c159cf`; no merge. PR #67 exact `3c159cf` hosted 35103403532
+passed with 247 Mac debug/release and signature/packaged checks, first review
+clean. These current results supersede the earlier pending publication entries.
+
 Private printer-profile version 2 adds explicit validated configured defaults;
 version 1 retains its canonical bytes and empty defaults. Resolution now follows
 job > workflow > printer, never read-only observations. The real immutable
