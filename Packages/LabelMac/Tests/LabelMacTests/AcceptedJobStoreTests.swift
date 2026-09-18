@@ -56,7 +56,8 @@ final class AcceptedJobStoreTests: XCTestCase {
         try workflows.confirmForUnattendedUse(workflow)
         let workflowBytes = try WorkflowProfileJSON.encode(workflow)
         let workflowReference = try ImmutableProfileReference(
-            id: workflow.id, revision: workflow.revision,
+            id: workflow.id, schemaVersion: workflow.schemaVersion,
+            revision: workflow.revision,
             sha256: Self.digest(workflowBytes)
         )
 
@@ -112,7 +113,8 @@ final class AcceptedJobStoreTests: XCTestCase {
         seed: UInt8 = 0x80,
         outputs: [ResolvedOutputLabel]? = nil,
         profile: PrinterProfile? = nil,
-        request: PrinterControlRequest? = nil
+        request: PrinterControlRequest? = nil,
+        monochromeConversion: MonochromeConversion? = nil
     ) throws -> PreparedJobPayload {
         let outputs = outputs ?? value.ticket.outputLabels
         let profile = profile ?? value.printer
@@ -127,7 +129,8 @@ final class AcceptedJobStoreTests: XCTestCase {
             return PreparedOutputLabel(output: output, prepared: prepared)
         }
         return try PreparedJobPayload(
-            labels: labels, expectedOutputLabels: outputs
+            labels: labels, expectedOutputLabels: outputs,
+            monochromeConversion: monochromeConversion ?? value.ticket.monochromeConversion
         )
     }
 
@@ -411,6 +414,9 @@ final class AcceptedJobStoreTests: XCTestCase {
             printerStore: value.printers
         )
         XCTAssertEqual(stored.bytes, payload.bytes)
+        XCTAssertEqual(
+            stored.monochromeConversion, value.ticket.monochromeConversion
+        )
         XCTAssertEqual(stored.outputLabels, value.ticket.outputLabels)
         XCTAssertEqual(stored.profileSnapshot, payload.profileSnapshot)
         XCTAssertEqual(stored.resolvedControls, value.ticket.controls)
@@ -549,6 +555,9 @@ final class AcceptedJobStoreTests: XCTestCase {
                 thermalMethod: .directThermal, finishing: .tearOff,
                 printSpeedIps: 2
             )),
+            preparedPayload(
+                value, monochromeConversion: .photographicOrderedDither4x4
+            ),
         ]
         for payload in mismatches {
             XCTAssertThrowsError(try states.publishPrepared(

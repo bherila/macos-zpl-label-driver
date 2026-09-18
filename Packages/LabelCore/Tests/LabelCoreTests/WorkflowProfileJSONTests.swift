@@ -13,6 +13,7 @@ final class WorkflowProfileJSONTests: XCTestCase {
         return try WorkflowProfile(
             id: "saved-letter", revision: 7,
             outputStockID: "gc420d-4x6-precut", outputStock: stock,
+            monochromeConversion: .photographicOrderedDither4x4,
             pageRules: [
                 try WorkflowPageRule(
                     sourcePage: 1,
@@ -42,7 +43,53 @@ final class WorkflowProfileJSONTests: XCTestCase {
         let first = try WorkflowProfileJSON.encode(original)
         XCTAssertEqual(try WorkflowProfileJSON.decode(first), original)
         XCTAssertEqual(try WorkflowProfileJSON.encode(original), first)
+        XCTAssertEqual(
+            try WorkflowProfileJSON.decode(first).monochromeConversion,
+            .photographicOrderedDither4x4
+        )
         XCTAssertLessThan(first.count, WorkflowProfileJSON.maximumBytes)
+    }
+
+    func testImagingPolicyIsRequiredAndRejectsInvalidParameters() throws {
+        var root = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: WorkflowProfileJSON.encode(profile())
+        ) as? [String: Any])
+        root.removeValue(forKey: "monochromeConversion")
+        XCTAssertThrowsError(try WorkflowProfileJSON.decode(
+            JSONSerialization.data(withJSONObject: root)
+        )) {
+            XCTAssertEqual(
+                $0 as? WorkflowProfileJSONError,
+                .missingField("monochromeConversion")
+            )
+        }
+
+        root = try XCTUnwrap(JSONSerialization.jsonObject(
+            with: WorkflowProfileJSON.encode(profile())
+        ) as? [String: Any])
+        root["monochromeConversion"] = [
+            "mode": "textAndBarcodeThreshold", "cutoff": 256,
+        ]
+        XCTAssertThrowsError(try WorkflowProfileJSON.decode(
+            JSONSerialization.data(withJSONObject: root)
+        )) {
+            XCTAssertEqual(
+                $0 as? WorkflowProfileJSONError,
+                .invalidValue("monochromeConversion")
+            )
+        }
+
+        root["monochromeConversion"] = [
+            "mode": "photographicOrderedDither4x4", "cutoff": 128,
+        ]
+        XCTAssertThrowsError(try WorkflowProfileJSON.decode(
+            JSONSerialization.data(withJSONObject: root)
+        )) {
+            XCTAssertEqual(
+                $0 as? WorkflowProfileJSONError,
+                .invalidValue("monochromeConversion")
+            )
+        }
     }
 
     func testUnknownFieldsCannotCarryCommandsPathsOrDocuments() throws {
@@ -85,7 +132,7 @@ final class WorkflowProfileJSONTests: XCTestCase {
         var root = try XCTUnwrap(JSONSerialization.jsonObject(
             with: WorkflowProfileJSON.encode(profile())
         ) as? [String: Any])
-        root["schemaVersion"] = 2
+        root["schemaVersion"] = 1
         XCTAssertThrowsError(try WorkflowProfileJSON.decode(
             JSONSerialization.data(withJSONObject: root)
         )) {

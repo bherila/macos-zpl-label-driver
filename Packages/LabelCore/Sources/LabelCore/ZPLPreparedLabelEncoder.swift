@@ -53,12 +53,14 @@ public struct PreparedJobPayload: Equatable, Sendable {
     public let bytes: Data
     public let labelCount: Int
     public let outputLabels: [ResolvedOutputLabel]
+    public let monochromeConversion: MonochromeConversion
     public let profileSnapshot: JobProfileSnapshot
     public let resolvedControls: ResolvedPrinterControls
 
     public init(
         labels: [PreparedOutputLabel],
         expectedOutputLabels: [ResolvedOutputLabel],
+        monochromeConversion: MonochromeConversion,
         maximumBytes: Int = maximumBytes
     ) throws {
         guard (1...Self.maximumLabels).contains(expectedOutputLabels.count),
@@ -92,6 +94,7 @@ public struct PreparedJobPayload: Equatable, Sendable {
         self.bytes = bytes
         labelCount = labels.count
         outputLabels = expectedOutputLabels
+        self.monochromeConversion = monochromeConversion
         profileSnapshot = first.profileSnapshot
         resolvedControls = first.resolvedControls
     }
