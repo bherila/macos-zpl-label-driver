@@ -1,3 +1,50 @@
+# Bounded legacy status fields and consolidated geometry admission — 2026-09-18
+
+Source `61c0a8667673a0dd9ceb801571846b90847a75f3` on `claude/determined-sagan-frse18`, over `main` `666c04d`.
+
+The remaining LabelCore work from checkpoint `eb71a41`. Unlike the three slices before it, every file
+here is portable, so it is verified by **running** the tests rather than by hosted CI alone.
+
+`LegacyHostStatusDecoder` bounds the R44 function-settings field to its documented eight-bit range.
+The field is discarded, but discarding it must not admit a reply outside the documented grammar.
+`LabelCoreLab` replaces `NSError`-with-message-as-domain throws with a typed `LabFailure` carrying a
+fixed diagnostic vocabulary, so filesystem failures cannot print caller paths.
+
+`PDFPageBox.init` delegates its finite, positive-extent and corner-overflow admission to
+`PDFSourceRect.validated` rather than repeating it inline.
+
+**A correction, because the opposite was believed earlier in this work.** This pair was previously
+assessed as a case where the checkpoint would revert `main`'s corner-overflow guard and delete both
+guarding tests, and it was skipped on that basis — it was cited as the example that justified strict
+per-file diffing over a wholesale copy. The per-file discipline was right and remains right, but this
+specific conclusion was wrong. `PDFSourceRect.validated` has been on `main` since #46, performs the
+same finite, corner and positivity checks and throws the same errors, and the test diff is a
+reordering plus an explanatory comment with no test removed. The guarding tests pass unchanged under
+the delegated form, which is checked directly rather than assumed. The general lesson is the mirror
+of the one recorded for `^PW` in `03f38af`: "the checkpoint looks dangerous here" is also a hypothesis
+to check against the source, not a reason to skip indefinitely.
+
+New coverage worth naming: exact integer identity for ticket queue references at
+`9_007_199_254_740_993` and `Int.max`. That is the precision boundary the token-preserving decoding
+work exists to protect, and it had no ticket-level test until now.
+
+Changed requirements: M1 printing-integration gains the bounded legacy status field; M2
+imaging-engine gains the consolidated geometry admission and the exact-identity ticket coverage.
+Neither milestone is declared complete.
+
+Tests actually run. Linux x86_64 Swift 6.1.2: LabelCore 311 tests, 0 failures, in **both debug and
+release**, up from 304. `PDFPageGeometryTests` passes its 7 tests under the delegated validator.
+`check_repo.py`, 105 Python tests and the offline accelerator suite pass.
+
+What this does not establish. No LabelMac file is touched, so nothing here bears on the macOS app,
+and Linux results cannot qualify macOS, GUI, signing, scheduler or hardware behaviour regardless.
+Those rows remain NOT RUN.
+
+Blockers: what remains of `eb71a41` is the GUI work for #80 Part B (`FinishingInspectionView`,
+`WorkflowEditor`, `WorkflowEditorBootstrap`, `WorkflowDocumentOpeningModel`, `USBRegistryDiscoveryView`
+and their tests), which CI cannot qualify, and `RawTCPDelivery`'s host-validation hardening with its
+tests, which is a security fix deserving its own slice. Issues #93 gap 2 and #97 remain open.
+
 # Accepted-finishing stores and headless inspection — 2026-09-18
 
 Source `1a4a8a96ea87a09b22ec81f13310d360093a479e` on `claude/determined-sagan-frse18`, over `main` `29b3fb3`.
