@@ -78,7 +78,7 @@ public enum PrinterProfileJSON {
         }
         guard data.count <= maximumBytes else { throw PrinterProfileJSONError.inputTooLarge }
         let raw: Any
-        do { raw = try JSONSerialization.jsonObject(with: data) }
+        do { raw = try TokenPreservingJSON.decode(data) }
         catch { throw PrinterProfileJSONError.malformedJSON }
         do {
             guard let dictionary = raw as? [String: Any] else {
@@ -614,14 +614,9 @@ public enum PrinterProfileJSON {
     }
 
     private static func integerValue(_ raw: Any, _ key: String) throws -> Int {
-        guard let number = raw as? NSNumber,
-              CFGetTypeID(number) != CFBooleanGetTypeID(),
-              number.doubleValue.isFinite,
-              number.doubleValue >= Double(Int.min), number.doubleValue < Double(Int.max),
-              number.doubleValue == Double(number.intValue) else {
-            throw PrinterProfileJSONError.invalidType(key)
-        }
-        return number.intValue
+        guard let value = raw as? TokenPreservingJSON.Number,
+              let exact = value.integerValue else { throw PrinterProfileJSONError.invalidType(key) }
+        return exact
     }
 
     private static func optionalInteger(
@@ -632,11 +627,9 @@ public enum PrinterProfileJSON {
     }
 
     private static func number(_ object: [String: Any], _ key: String) throws -> Double {
-        guard let value = try required(object, key) as? NSNumber,
-              CFGetTypeID(value) != CFBooleanGetTypeID(), value.doubleValue.isFinite else {
-            throw PrinterProfileJSONError.invalidType(key)
-        }
-        return value.doubleValue
+        guard let value = try required(object, key) as? TokenPreservingJSON.Number,
+              let parsed = value.doubleValue else { throw PrinterProfileJSONError.invalidType(key) }
+        return parsed
     }
 
     private static func enumeration<T: RawRepresentable>(

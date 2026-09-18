@@ -1,3 +1,126 @@
+# Manifest-validated evidence currency — 2026-09-18
+
+Source `52b7a451b4b1e30b1bf9ab723c6bebb3fe5fd0d1`, over `29c55f8` and `399f75b` on
+`claude/determined-sagan-frse18`.
+
+Follow-up to the exemption recorded below, which was too permissive in two ways. Review of `29c55f8`
+established that `manifest_describes_tree` verified the entries a manifest still listed but never
+compared the path set, so a commit deleting a line kept every older acceptance record current over
+reduced integrity coverage. Reproduced before changing anything: dropping the first entry returned
+true from both `manifest_describes_tree` and `source_is_unchanged`. Separately, every blob was
+buffered in one `cat-file --batch` allocation before any size check, so a manifest repeating one
+large entry could request far more than the tree holds within the 4096-entry allowance.
+
+The manifest at the evaluated commit is now parsed as well, and a refresh must cover every path the
+baseline covered: widening coverage stays legitimate, shrinking it fails currency like any other
+source change. Parsing rejects duplicate paths, a `--batch-check` pass resolves each entry to a blob
+identity and size under per-blob and cumulative ceilings before any content is read, and blobs are
+then read one at a time rather than collected as a batch.
+
+Changed requirements: F15 bounded parsing and F17/F19 evidence integrity. The integrity boundary
+moves, so no acceptance criterion is declared complete and the recording work stays blocked on
+issue #86.
+
+Tests actually run: `check_repo.py` passed; 105 Python tests passed, covering a truthful
+same-coverage refresh, a widened refresh, a dropped entry, a duplicated path, a wrong digest, an
+entry naming an absent path, and a real source change carried with a truthful manifest;
+`traceability_report.py` ran clean. Removing only the coverage-shrink guard fails the dropped-entry
+case. Hosted run 35326640646 on `52b7a45` passed `repository-preflight`, `swift-macos-arm64` and
+`ci-required`.
+
+Blockers: the exemption is only as good as the manifest's scope, and that scope is unresolved - it
+omits 123 tracked paths at this head (issue #87). Until that is settled, a truthful manifest still
+proves nothing about files it never covered.
+
+Next step: the workflow-v3 output-margins slice in issue #88. No printer, installation, scheduler,
+GUI or release acceptance is claimed.
+
+# Exact profile JSON decoding — 2026-09-18
+
+Source `399f75b5f249f71b0faf9df1ca1cb6deb04c4bd4` on `claude/determined-sagan-frse18`, over
+reconciliation `dd8778d` and `main` `56fdc7b`.
+
+Profile, queue and ticket codecs decoded through `JSONSerialization`, which routes every number
+through `Double`. On swift-corelibs-foundation that loses exactness, so ten profile round-trip tests
+failed on Linux with deltas near 2.8e-14 while passing on macOS, where the platform parser happens to
+be exact. The portable package was portable by accident. `TokenPreservingJSON` keeps each number's
+original token until typed admission, with `ExactJSONInteger` for exact integers, and applies its own
+byte, depth and node limits where `JSONSerialization` applied none. Eight decoders moved onto it:
+`PrinterProfileJSON`, `PrivateOffsetJSON`, `PrivatePhysicalGeometryJSON`, `FinishingQueueJSON`,
+`AcceptedJobState`, `ActiveVirtualQueueSelection`, `ResolvedJobTicket`, `VirtualQueueDefinition`.
+
+Changed requirements: F15 bounded parsing and F12/F13 immutable profile identity are strengthened;
+no acceptance criterion is declared complete by this slice. M3-AC02 settings validation and M3-AC12
+privacy/permissions gain exactness and explicit parse bounds, and both remain unrecorded pending
+issue #86.
+
+Tests actually run. Linux x86_64 Swift 6.1.2: LabelCore 290 tests, 0 failures, debug and release, up
+from 282 tests with 27 failures. `check_repo.py` passed. 105 Python tests passed. Accelerator suite
+passed: 180 independent ASCII round trips, 12 benchmark CLI cases, 15 inert CUPS ABI, 14 filter ABI,
+1 discard pipeline case. Hosted run 35323558351 on `399f75b`, macos-26 arm64 Swift 6.3.3, passed all
+three checks with LabelCore 290/0 and LabelMac 334/0, zero `error:` lines, `minos 26.0`,
+`Signature=adhoc`, "No printer accessed". Hosted `swift-macos-arm64` is the only gate for LabelMac,
+which cannot build on Linux.
+
+Blockers and exclusions. Two checkpoint changes were deliberately excluded because they depend on
+work not yet landed: `VirtualQueueError` keeps its current shape rather than the `eb71a41`
+`RedactedDiagnosticValue` conformance, and `ResolvedJobTicket` keeps the workflow `schemaVersion == 2`
+bound rather than the checkpoint's `2...3` range and `outputMargins` plan check, which need a
+`WorkflowProfile.outputMargins` member this tree does not have. Taking that file wholesale fails to
+compile. No printer, installation, scheduler, GUI or release acceptance is claimed or implied.
+
+Next step: the workflow-v3 output-margins slice tracked in issue #88, which adds `OutputMargins` and
+then restores both excluded changes. Per-file merging is mandatory there: a wholesale copy from the
+checkpoint regresses `main`-side fixes and removes the tests that would catch it, as recorded on that
+issue.
+
+# Acceptance ledger reconciliation — 2026-09-18
+
+Stack merge campaign is complete: `main` is `56fdc7b` with PRs #1-#84 landed as 70 squash commits,
+zero merge commits and no open PRs. Hosted run 35319736124 is green on all three checks
+(`repository-preflight`, `swift-macos-arm64`, `ci-required`).
+
+All 90 acceptance criteria are now classified by the evidence each actually requires. The repository
+levels stay verbatim; the 39 `I` criteria are subdivided by required session, because that decides
+what can proceed while the printer is unavailable: 30 automated, 8 repository/CI, 12 macOS-native
+(hosted `macos-26`), 10 GUI, 17 installed, 10 physical, 3 release. **50 of 90 are reachable without
+the printer or an interactive Mac; 27 wait on the test Mac, 10 on the named GC420d, 3 on the release
+gate.** Hardware and release rows stay `not-run`; neither passing CI nor the inert `labelprobe`
+discard sink promotes them. Full table:
+[acceptance ledger](validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md).
+
+Two integrity defects were found and one is fixed here.
+
+Fixed: `source_is_unchanged` in `scripts/traceability_report.py` treated `MANIFEST.sha256` as a
+source change. Recording acceptance evidence must refresh that manifest, so every evidence record was
+invalidated by the very commit that recorded it, leaving `readyForMaintainerReview` unreachable. The
+manifest holds only digests of other files and cannot mask a real change, because a changed file is
+compared under its own path; it now joins the evidence-metadata exemption, with a regression test that
+fails without the fix and still rejects a source change made alongside a manifest refresh.
+
+Reported, not changed: `MANIFEST.sha256` omits tracked files, and the totals move with this branch,
+so both points are stated exactly. On `main` at `56fdc7b` it held 347 entries against 465 tracked
+paths, omitting 118 files of which 52 were Swift. At this branch head it still holds 347 entries
+against 470 tracked paths, omitting 123 files of which 56 are Swift. The five-file increase is this
+branch's own additions - `ExactJSONInteger.swift`, `TokenPreservingJSON.swift`, their two tests and
+the acceptance-ledger receipt - so only the 118 are pre-existing drift and the remaining five are
+newly uncovered here. The 43 stale digests found on `main` were separate, and were pre-existing
+rather than rebase damage: the original pre-restack PR #81 head `3a27181` carried exactly the same
+43. They are refreshed here; no omission is added. Nothing verifies the manifest either -
+`check_repo.py` does not check digests and `ci_scope.py` only excludes it from scope classification -
+and its documented scope is the revision-2 packaged archive rather than the working tree, so
+restoring whole-tree coverage stays a maintainer scope decision, tracked in issue #87.
+
+`PROGRESS.json` recorded `automatedValidation: not-run` for M1-M6 while the suites were in fact
+executing and passing. Those rows now read `pass`, scoped explicitly to suite-level execution at
+`56fdc7b` - per-criterion evidence records remain pending and the ledger says so per criterion.
+
+The acceptance checkbox view and the structured ledger still disagree: 20 criteria are checked in the
+`ACCEPTANCE.md` tables but `ACCEPTANCE-EVIDENCE.json` holds records for only 2, so
+`traceability_report.py` reports 0 of 21 requirements satisfied and 82 pending criteria. Closing that
+gap needs a digest-bound record per criterion; 11 criteria have their coverage verified and are ready
+to record. No printer, installation, scheduler, GUI or release acceptance is claimed.
+
 # Swift CI cache — hosted evidence 2026-09-18
 
 PR #84 squash `654fd304f7f80f0bf94296f2dd731b50d665f8c1` passed hosted

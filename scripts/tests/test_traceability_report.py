@@ -122,6 +122,88 @@ class TraceabilityReportTests(unittest.TestCase):
         self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, changed_commit))
         self.assertFalse(reporter.source_is_unchanged(self.root, changed_commit, evaluated))
 
+    def test_manifest_exemption_requires_a_manifest_that_still_describes_the_tree(self):
+        subprocess.run(['git', '-C', str(self.root), 'init', '-q'], check=True)
+        def commit():
+            subprocess.run(['git', '-C', str(self.root), 'add', '-A'], check=True)
+            subprocess.run(['git', '-C', str(self.root), '-c', 'user.name=Synthetic',
+                            '-c', 'user.email=agent@example.test', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false',
+                            'commit', '-qm', 'Synthetic test checkpoint'], check=True)
+            return subprocess.check_output(['git', '-C', str(self.root), 'rev-parse', 'HEAD'], text=True).strip()
+        def write_manifest(*names):
+            lines = []
+            for name in names:
+                body = (self.root / name).read_bytes()
+                lines.append(f'{hashlib.sha256(body).hexdigest()}  {name}')
+            (self.root / 'MANIFEST.sha256').write_text('\n'.join(lines) + '\n')
+        write_manifest('implementation.swift')
+        evaluated = commit()
+        self.records[0]['sourceSHA'] = evaluated
+        self.records[1]['sourceSHA'] = evaluated
+        self.ledger()
+
+        # A truthful refresh is bookkeeping: recording evidence must rewrite this file, so it
+        # cannot be the thing that invalidates the records it describes.
+        self.records[0]['state'] = 'pass'
+        self.ledger()
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
+        refreshed = commit()
+        self.assertTrue(reporter.source_is_unchanged(self.root, evaluated, refreshed))
+        report = reporter.build_report(self.root, refreshed,
+            source_matches=lambda sha: reporter.source_is_unchanged(self.root, sha, refreshed))
+        self.assertTrue(report['readyForMaintainerReview'])
+
+        # A wrong digest is corrupted integrity metadata, not bookkeeping, even though it is the
+        # only changed path. It must not silently keep older evidence current.
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
+        (self.root / 'MANIFEST.sha256').write_text(
+            '1' * 64 + '  implementation.swift\n'
+            + (self.root / 'MANIFEST.sha256').read_text().splitlines()[1] + '\n')
+        corrupted = commit()
+        self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, corrupted))
+        self.assertFalse(reporter.build_report(self.root, corrupted,
+            source_matches=lambda sha: reporter.source_is_unchanged(self.root, sha, corrupted)
+        )['readyForMaintainerReview'])
+
+        # Dropping an entry shrinks integrity coverage. The remaining entries still verify, so this
+        # is only caught by comparing the path set against the evaluated manifest.
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
+        subprocess.run(['git', '-C', str(self.root), 'add', '-A'], check=True)
+        (self.root / 'MANIFEST.sha256').write_text(
+            '\n'.join((self.root / 'MANIFEST.sha256').read_text().splitlines()[1:]) + '\n')
+        dropped = commit()
+        self.assertFalse(reporter.manifest_describes_tree(self.root, dropped, evaluated))
+        self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, dropped))
+
+        # Widening coverage is a legitimate refresh and stays exempt.
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json', 'evidence.md')
+        widened = commit()
+        self.assertTrue(reporter.source_is_unchanged(self.root, evaluated, widened))
+
+        # A repeated path could request one blob many times, so it is rejected outright.
+        body = (self.root / 'implementation.swift').read_bytes()
+        line = f'{hashlib.sha256(body).hexdigest()}  implementation.swift'
+        (self.root / 'MANIFEST.sha256').write_text(line + '\n' + line + '\n')
+        duplicated = commit()
+        self.assertIsNone(reporter.manifest_entries(self.root, duplicated))
+        self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, duplicated))
+
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
+        commit()
+
+        # An entry naming a path that does not exist at that commit is equally untrustworthy.
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
+        (self.root / 'MANIFEST.sha256').write_text(
+            (self.root / 'MANIFEST.sha256').read_text() + '0' * 64 + '  absent.swift\n')
+        missing = commit()
+        self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, missing))
+
+        # A real source change is still caught even when the manifest truthfully moves with it.
+        (self.root / 'implementation.swift').write_text('changed build input\n')
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
+        changed_commit = commit()
+        self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, changed_commit))
+
     def test_current_failure_blocks_other_pass_levels(self):
         failure = self.record('M3-AC02', 'A')
         failure['state'] = 'fail'
