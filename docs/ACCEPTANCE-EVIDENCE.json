@@ -31,7 +31,7 @@
         },
         {
           "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "c5cb439fb3be1210e4e117fd4edc30461e46bd4f9b089bc1cd4ec8bac544898c"
+          "sha256": "79aec5d6f8f4d1a8ddbeb9ce4c0955d1e205dbaf7e3f4370e0f7ae4b3422332a"
         }
       ]
     },
@@ -65,57 +65,7 @@
         },
         {
           "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "c5cb439fb3be1210e4e117fd4edc30461e46bd4f9b089bc1cd4ec8bac544898c"
-        }
-      ]
-    },
-    {
-      "acceptanceID": "M2-AC05",
-      "level": "A",
-      "state": "pass",
-      "sourceSHA": "78acd9bde132211e0af9fdba01b9795f5d98d35b",
-      "implementation": [
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/MonochromeBitmap.swift",
-          "sha256": "c6bd617eda5558a0b9657e9b3e9580b261ffbe41aa97983896acfd9b80de4703"
-        },
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/ZPLGraphicEncoder.swift",
-          "sha256": "a15fdd3327d19234b6d35f6ccbd679c64f3b5f44366fcf14c94e89a1e44b5a3b"
-        }
-      ],
-      "evidence": [
-        {
-          "path": "Packages/LabelCore/Sources/LabelCoreLab/main.swift",
-          "sha256": "18a641b1fae348d00885f73b7a9f6a0051329d100e2abda9a3c25accd6efbc3c"
-        },
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/MonochromeBitmapTests.swift",
-          "sha256": "3a50af86364dbadc14013f939d5772c28f26afb53a011671fbf1edafc33b8a67"
-        },
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLGraphicEncoderTests.swift",
-          "sha256": "273fdc5fb6788b1e24ee8f069f480e14fe5521783d882258c936e881aea34d3b"
-        },
-        {
-          "path": "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md",
-          "sha256": "73a04cfa8bb643cbd739ebef4133799abf93e7a7a55ffcbe93d8a9c2e5d7d0c2"
-        },
-        {
-          "path": "scripts/zpl_oracle.py",
-          "sha256": "1353600f5d1a0a47d90d020cc7603432d71dde38c4285885f82d9eb0c19982c7"
-        },
-        {
-          "path": "scripts/tests/test_zpl_oracle.py",
-          "sha256": "57df8288716bd623a0f1b81d12c1ac0e7d83f93d7d63511f58ce17555ef51c17"
-        },
-        {
-          "path": "scripts/run-accelerator-checks.py",
-          "sha256": "ee6f179502d98254f1736e269043d99aca565c616c5fc27ddc27b9d4b1ad644b"
-        },
-        {
-          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "c5cb439fb3be1210e4e117fd4edc30461e46bd4f9b089bc1cd4ec8bac544898c"
+          "sha256": "79aec5d6f8f4d1a8ddbeb9ce4c0955d1e205dbaf7e3f4370e0f7ae4b3422332a"
         }
       ]
     },
@@ -181,7 +131,7 @@
         },
         {
           "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "c5cb439fb3be1210e4e117fd4edc30461e46bd4f9b089bc1cd4ec8bac544898c"
+          "sha256": "79aec5d6f8f4d1a8ddbeb9ce4c0955d1e205dbaf7e3f4370e0f7ae4b3422332a"
         },
         {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/PhysicalGeometryQualificationTests.swift",
@@ -239,7 +189,11 @@
         },
         {
           "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "c5cb439fb3be1210e4e117fd4edc30461e46bd4f9b089bc1cd4ec8bac544898c"
+          "sha256": "79aec5d6f8f4d1a8ddbeb9ce4c0955d1e205dbaf7e3f4370e0f7ae4b3422332a"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/PhysicalGeometryTests.swift",
+          "sha256": "11060d2f7e6159f0eca00621b7905c6cacd0bd3fb3971b9a425545e07040bb22"
         }
       ]
     },
@@ -297,7 +251,7 @@
         },
         {
           "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "c5cb439fb3be1210e4e117fd4edc30461e46bd4f9b089bc1cd4ec8bac544898c"
+          "sha256": "79aec5d6f8f4d1a8ddbeb9ce4c0955d1e205dbaf7e3f4370e0f7ae4b3422332a"
         },
         {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/MotorSpeedIntegrationTests.swift",
@@ -314,6 +268,10 @@
         {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/ThermalControlQualificationTests.swift",
           "sha256": "911d3997a5b00855b060ea3c04e105df927cb8e947af02c1e822328f9e925dcd"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/DarknessIntegrationTests.swift",
+          "sha256": "b13a06b5dcea2578788d7eb3650c704bbb5cb11dac395ecb32291979b84b53cc"
         }
       ]
     },
@@ -342,6 +300,10 @@
         {
           "path": "Packages/LabelCore/Sources/LabelCore/FinishingJobPlan.swift",
           "sha256": "c9182de39d3fd268f9f13ceff22d0c4cb0e19834d55c283746b6b2b26c8fc084"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/PrinterControlResolution.swift",
+          "sha256": "655da604915d195b56de495042a9402306ba358345680c999027e9b0a52ec0ac"
         }
       ],
       "evidence": [
@@ -383,7 +345,7 @@
         },
         {
           "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "c5cb439fb3be1210e4e117fd4edc30461e46bd4f9b089bc1cd4ec8bac544898c"
+          "sha256": "79aec5d6f8f4d1a8ddbeb9ce4c0955d1e205dbaf7e3f4370e0f7ae4b3422332a"
         },
         {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingControlQualificationTests.swift",
@@ -392,6 +354,14 @@
         {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingJobPlanTests.swift",
           "sha256": "9de69cd7303b1ba49c35db3b23929ed67b3c5cc0fe826ad350831488d4053d73"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/GeometryControlIntegrationTests.swift",
+          "sha256": "7f342cd61978a2e4af4badb3ca3783d2cd46cd020869982f74d3a88688558238"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/OffsetControlIntegrationTests.swift",
+          "sha256": "4d68c9cbf0dbc2ec5b876e42ebdbf2e0c01d35ef3aceedd164acb8d7f04dbc8a"
         }
       ]
     }

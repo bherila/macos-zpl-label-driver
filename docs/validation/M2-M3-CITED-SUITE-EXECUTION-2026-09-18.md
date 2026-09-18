@@ -2,11 +2,11 @@
 
 - Date/time and operator: 2026-09-18, automated Claude session, unattended
 - Exact repository commit SHA: `78acd9bde132211e0af9fdba01b9795f5d98d35b`
-- Related requirement and acceptance IDs: M2-AC01, M2-AC04, M2-AC05, M2-AC06,
-  M2-AC13, M3-AC01 and M3-AC02 — that is, every record currently in
+- Related requirement and acceptance IDs: M2-AC01, M2-AC04, M2-AC06, M2-AC13,
+  M3-AC01 and M3-AC02 — that is, every record currently in
   `docs/ACCEPTANCE-EVIDENCE.json`. The requirements those IDs map to in
   `docs/requirements.json` are F03, F04, F06, F09 and F20; M2-AC06 maps to none.
-  M3-AC03 and M3-AC04 are **not** among them; see Limitations. This run
+  M3-AC03, M3-AC04 and M2-AC05 are **not** among them; see Limitations. This run
   contributes nothing to F07, which maps only to M2-AC07, M2-AC12 and M6-AC09.
 - Evidence level: A
 - Status: PASS
@@ -39,7 +39,7 @@ overflowing-corner admission changes landed, and M3-AC01 and M3-AC04 cited a
 2026-09-17 per-ID assessment taken before the documented-control encoder grew
 its darkness, thermal, tracking, dimension and offset paths. A digest proves
 which source is present, not that it passed. This document is therefore the
-current execution artifact for **all seven** records, which is possible because
+current execution artifact for **all six** records, which is possible because
 the command below runs the whole package, not a selected subset.
 
 The following was executed with the Swift 6.1.2 toolchain on `PATH`:
@@ -178,6 +178,17 @@ command, but inspecting literals is not the executed evidence the criterion
 needs, and accepting it would apply a weaker standard than the one that
 withdrew M3-AC03 one round earlier. Both records need the hosted macOS run
 tracked in #103.
+
+**M2-AC05 is withdrawn on the same principle.** The criterion requires preview
+reconstruction to match the complete encoder input byte-for-byte. The product
+enforces that in `Packages/LabelMac/Sources/LabelMac/WorkerBitmapBinding.swift`,
+which re-encodes the accepted bitmap and requires
+`encoder.diagnosticFormat(bitmap) == output.zpl` before either render parent will
+take worker output. The 132-vector round trip above proves the *engine*
+reconstructs its own output exactly; it does not prove the *application* accepts
+only that exact encoder input, and `WorkerBitmapBindingTests` did not run here.
+The oracle evidence stays in this document because it remains correct and
+necessary for that record — it is simply not sufficient on its own.
 
 This is Linux, Swift 6.1.2, evidence level A only. It qualifies the portable
 `LabelCore` engine and the Python oracles. It does not qualify Core Graphics

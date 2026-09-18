@@ -11,28 +11,29 @@ IDs, both at stale source SHAs. `traceability_report.py` counts a criterion only
 checked **and** a digest-bound record is current, so the report read 0 of 21 requirements and 0
 criteria satisfied.
 
-Seven records now satisfy their criteria: M2-AC01, M2-AC04, M2-AC05, M2-AC06, M2-AC13, M3-AC01 and
-M3-AC02. The report reads **0 of 21 requirements and 7 criteria**, with distinct pending acceptance
-IDs at 76 of 82 mapped. Six of the seven satisfied criteria are requirement-mapped; `M2-AC06` is not,
-which is why seven records move six pending IDs.
+Six records now satisfy their criteria: M2-AC01, M2-AC04, M2-AC06, M2-AC13, M3-AC01 and M3-AC02. The
+report reads **0 of 21 requirements and 6 criteria**, with distinct pending acceptance IDs at 77 of 82
+mapped. Five of the six satisfied criteria are requirement-mapped; `M2-AC06` is not, which is why six
+records move five pending IDs.
 
 **No requirement is satisfied, and that is the corrected result.** An earlier revision of this slice
 claimed F04, which needs M3-AC01, M3-AC02 and M3-AC03. Review withdrew M3-AC03 and F04 went with it;
 the reasoning is in the round-5 note below. Getting a requirement to zero pending IDs turns out to be
 the hard part of this issue, not the bookkeeping.
 
-Review removed two records in all. `M3-AC13` was recorded and then withdrawn: the criterion requires
+Review removed four records in all — `M3-AC13`, `M3-AC03`, `M3-AC04` and `M2-AC05`. `M3-AC13` was recorded and then withdrawn: the criterion requires
 the reference profile to constrain pitch, and `gc420dUSBReference` carries no `DotResolution`, no
 `dotsPerMillimeter` and no native-pitch field, so a caller can pair it with an arbitrary raster pitch.
 Its checkbox is cleared too, because leaving it set restates the unsupported claim this ledger exists
 to settle. That is a pre-existing declaration the evidence does not support, not a regression here.
-`M3-AC03` and `M3-AC04` went the same way, for the reasons below.
+`M3-AC03`, `M3-AC04` and `M2-AC05` went the same way, for the reasons below.
 
 The batch was chosen by what can be **executed here**, not by what is easiest to assert. Every cited
-suite was run before its record was written — 138 LabelCore tests across nineteen cited suites, inside
+suite was run before its record was written — 139 LabelCore tests across nineteen cited suites, inside
 a whole-package run of 311 tests with 0 failures, plus 31 Python tests across the three cited oracle
-modules. No record rests on a checkbox alone. M3-AC01 and M3-AC04 keep the maintainer's curated file
-lists from the stale records; only their source SHA and digests are refreshed.
+modules. No record rests on a checkbox alone. M3-AC01 keeps the maintainer's curated file list from
+the stale record; only its source SHA and digests are refreshed, and the domains review found missing
+are added.
 
 **Review round 3 found five records citing suites that do not reach their criterion, and it was
 right.** M2-AC05, M2-AC06 and M2-AC13 all turn on *reconstruction* — byte-for-byte unpack/repack, no
@@ -105,6 +106,32 @@ nine" records after one was withdrawn, and it claimed F07, which maps only to M2
 M6-AC09 — none of them in this run. The requirements these IDs actually map to are F03, F04, F06, F09
 and F20.
 
+**Round 7 withdrew M2-AC05 and closed three more binding gaps.** The pattern is now explicit and worth
+stating as a rule: *a criterion is only as bound as its least-covered implementation site.* M2-AC05
+requires preview reconstruction to match the complete encoder input byte-for-byte, and the product
+enforces exactly that in `Packages/LabelMac/Sources/LabelMac/WorkerBitmapBinding.swift`, which
+re-encodes the accepted bitmap and requires `encoder.diagnosticFormat(bitmap) == output.zpl`. That is
+the AGENTS.md invariant "packed output previews exactly match encoder input; no independent flattering
+preview", living in a file that cannot run here. The Python oracle proves the *engine* round-trips;
+it does not prove the *application* accepts only that exact encoder input. Withdrawn.
+
+The three bindings: M3-AC02 gained `GeometryControlIntegrationTests`, `OffsetControlIntegrationTests`
+and `PrinterControlResolution.swift`, because the qualification suites call the policy objects
+directly and never exercise the wiring through `PrinterProfile.resolveControls` where per-field
+precedence and conflicting tracking/length combinations are decided. M3-AC01 gained
+`DarknessIntegrationTests`, the only suite constructing supported, unknown, unsupported and
+supported-with-unobserved-evidence darkness capabilities. M2-AC13 gained `PhysicalGeometryTests`,
+whose `testGC420dPhysicalPitchOracle` is the only test driving `PhysicalGeometry` from 4×6 inches at
+8 dots/mm — the Python reference test checks planning JSON and rational examples, and the lab starts
+from the already-derived 813×1219 constants, so neither would catch a Swift unit-conversion or
+dot-rounding regression.
+
+Before withdrawing M2-AC05 the remaining records were checked for the same defect rather than waiting
+for review to find them one at a time. `QuartzPDFToMonochrome` delegates packing to
+`MonochromeBitmap.threshold`, so M2-AC04's layout contract has no second site; M2-AC01's Quartz
+placement is M2-AC02's subject, already deferred; M2-AC06's profile-limit half and M3-AC01/AC02's
+policy objects are LabelCore-only. Those five stand.
+
 **M3-AC03 was declared complete here and then withdrawn.** `03f38af` landed
 `ZPLControlProtocolCoverage` and deliberately deferred the declaration to this issue, and all seven
 categories are indeed mapped with `sourceID`s resolving to real `docs/REFERENCES.md` entries. What
@@ -142,7 +169,7 @@ printer-controls gain executed
 acceptance evidence. No milestone is declared complete.
 
 Tests actually run. Linux x86_64, Swift 6.1.2: `python3 scripts/run-accelerator-checks.py` passed end
-to end — 311 LabelCore tests, 0 failures, covering the nineteen cited suites' 138 tests; 132
+to end — 311 LabelCore tests, 0 failures, covering the nineteen cited suites' 139 tests; 132
 cross-language ZPL/PBM/analytic round-trips; 180 independent ASCII compression round-trips; 12
 encoding-benchmark CLI cases; 15 inert CUPS ABI, 14 inert filter ABI and 1 inert filter-to-discard
 pipeline case. Separately `python3 -m unittest` over the three cited oracle modules, 31 tests, OK, and
@@ -151,8 +178,8 @@ bound `78acd9b` only in documentation, so no Swift or Python source differs betw
 
 What this does not establish. Recording evidence is a maintainer declaration with checked references,
 which is what the report itself says — not independent semantic verification, and not hardware.
-M3-AC03 and M3-AC04 now need a hosted macOS run too, for the LabelMac finishing paths. Eleven other
-checked criteria stay deliberately unrecorded because their evidence cannot be executed here:
+M3-AC03, M3-AC04 and M2-AC05 now need a hosted macOS run too — the first two for the LabelMac
+finishing paths, M2-AC05 for `WorkerBitmapBinding`. Eleven other checked criteria stay deliberately unrecorded because their evidence cannot be executed here:
 M2-AC02, M4-AC02, M4-AC04 and M4-AC07 rest on LabelMac suites that do not build on Linux; M2-AC12 is
 level I and needs a named reference Mac; M4-AC03, M4-AC05, M4-AC08, M4-AC13 and M5-AC12 need their
 mapping derived from documents naming types since renamed. Hardware and release criteria remain
