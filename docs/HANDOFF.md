@@ -1215,6 +1215,35 @@ suite. This is partial automated M2-AC09/10 and M3-AC09/12 evidence only. It is
 not scheduler intake, installed-spooler, transport, or physical-printer
 evidence, and no system or printer state changed.
 
+
+At `9019eb6`, the final PR #30 review findings were addressed conservatively.
+Because the scheduler create operation can also modify an existing destination,
+neither command success nor matching URI readback is treated as exclusive queue
+acquisition. Automatic rollback now retains any present queue and its protected
+recovery evidence; only explicit record-validated recovery may remove it. New
+regressions cover a successful create-or-modify race and TERM during queue
+readback, with zero destructive action against the ambiguous queue. The Python
+suite now has 64 passing tests. No administrator authorization, queue, protected
+path, scheduler job, system setting, or printer was changed.
+
+At `5a1d04a`, review finding R11 is closed at the native persistence boundary.
+Lifecycle state schema 2 names the digest of the exact canonical accepted
+ticket, and `AcceptedJobStateStore` is constructed from a stable
+descriptor-backed `AcceptedJobStore` capability. Ticket authorization, state
+comparison, prepared-artifact validation, and mutation now occur under the same
+locked bundle descriptor. Cross-store tests prove that two valid repositories
+sharing an acceptance identifier cannot lend cancellation tokens or expected
+states to one another, and a path-replacement test proves that a bound store
+cannot be redirected to a new repository at the old pathname. Local validation
+passes with 64 Python, 164 LabelCore, and 109 LabelMac tests, including 20
+focused lifecycle tests. Review remediation `8a3ef38` additionally migrates
+canonical schema-1 lifecycle records only under the descriptor-bound bundle
+lock after binding them to the verified ticket digest. Waiting jobs remain
+cancellable, and transmitting or uncertain jobs retain exact byte progress.
+The complete local sequence now passes with 64 Python, 165 LabelCore, and 111
+LabelMac tests. R12 and R13 remain open; no scheduler, transport,
+administrator, or hardware path was exercised.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

@@ -27,22 +27,27 @@ public enum AcceptedJobStateError: Error, Equatable, Sendable {
 public struct AcceptedJobStateRecord: Equatable, Sendable {
     public let schemaVersion: Int
     public let acceptanceID: String
+    public let acceptedTicketSHA256: String
     public let generation: Int
     public let previousStateSHA256: String?
     public let phase: AcceptedJobPhase
 
     public init(
-        schemaVersion: Int = 1,
+        schemaVersion: Int = 2,
         acceptanceID: String,
+        acceptedTicketSHA256: String,
         generation: Int,
         previousStateSHA256: String?,
         phase: AcceptedJobPhase
     ) throws {
-        guard schemaVersion == 1,
+        guard schemaVersion == 2,
               (try? ImmutableProfileReference(
                 id: acceptanceID, revision: 1,
                 sha256: String(repeating: "0", count: 64)
-              )) != nil else { throw AcceptedJobStateError.invalidIdentity }
+              )) != nil,
+              VirtualQueueDefinition.isSHA256(acceptedTicketSHA256) else {
+            throw AcceptedJobStateError.invalidIdentity
+        }
         guard generation > 0 else { throw AcceptedJobStateError.invalidGeneration }
         if generation == 1 {
             guard previousStateSHA256 == nil, phase == .accepted else {
@@ -58,14 +63,20 @@ public struct AcceptedJobStateRecord: Equatable, Sendable {
         try Self.validatePayload(phase)
         self.schemaVersion = schemaVersion
         self.acceptanceID = acceptanceID
+        self.acceptedTicketSHA256 = acceptedTicketSHA256
         self.generation = generation
         self.previousStateSHA256 = previousStateSHA256
         self.phase = phase
     }
 
-    public static func accepted(acceptanceID: String) throws -> Self {
+    public static func accepted(
+        acceptanceID: String,
+        acceptedTicketSHA256: String
+    ) throws -> Self {
         try Self(
-            acceptanceID: acceptanceID, generation: 1,
+            acceptanceID: acceptanceID,
+            acceptedTicketSHA256: acceptedTicketSHA256,
+            generation: 1,
             previousStateSHA256: nil, phase: .accepted
         )
     }
@@ -80,7 +91,9 @@ public struct AcceptedJobStateRecord: Equatable, Sendable {
             throw AcceptedJobStateError.invalidTransition
         }
         return try Self(
-            acceptanceID: acceptanceID, generation: generation + 1,
+            acceptanceID: acceptanceID,
+            acceptedTicketSHA256: acceptedTicketSHA256,
+            generation: generation + 1,
             previousStateSHA256: previousStateSHA256, phase: next
         )
     }
@@ -168,6 +181,7 @@ public enum AcceptedJobStateJSON {
         let data = try JSONSerialization.data(withJSONObject: [
             "schemaVersion": record.schemaVersion,
             "acceptanceID": record.acceptanceID,
+            "acceptedTicketSHA256": record.acceptedTicketSHA256,
             "generation": record.generation,
             "previousStateSHA256": record.previousStateSHA256.map { $0 as Any } ?? NSNull(),
             "phase": phaseObject(record.phase),
@@ -178,6 +192,46 @@ public enum AcceptedJobStateJSON {
 
     public static func decode(
         _ data: Data,
+        maximumBytes: Int = maximumBytes
+    ) throws -> AcceptedJobStateRecord {
+        guard (1...Self.maximumBytes).contains(maximumBytes) else {
+            throw AcceptedJobStateJSONError.invalidLimit
+        }
+        guard data.count <= maximumBytes else { throw AcceptedJobStateJSONError.inputTooLarge }
+        let raw: Any
+        do { raw = try JSONSerialization.jsonObject(with: data) }
+        catch { throw AcceptedJobStateJSONError.malformedJSON }
+        do {
+            let root = try object(raw, allowed: [
+                "schemaVersion", "acceptanceID", "acceptedTicketSHA256", "generation",
+                "previousStateSHA256", "phase",
+            ])
+            guard try integer(root, "schemaVersion") == 2 else {
+                throw AcceptedJobStateJSONError.unsupportedSchema
+            }
+            let previousRaw = try required(root, "previousStateSHA256")
+            let previous: String?
+            if previousRaw is NSNull { previous = nil }
+            else if let value = previousRaw as? String { previous = value }
+            else { throw AcceptedJobStateJSONError.invalidType("previousStateSHA256") }
+            return try AcceptedJobStateRecord(
+                acceptanceID: string(root, "acceptanceID"),
+                acceptedTicketSHA256: string(root, "acceptedTicketSHA256"),
+                generation: integer(root, "generation"),
+                previousStateSHA256: previous,
+                phase: phase(try required(root, "phase"))
+            )
+        } catch let error as AcceptedJobStateJSONError { throw error }
+        catch { throw AcceptedJobStateJSONError.invalidValue }
+    }
+
+    /// Decodes the canonical schema-1 representation only when a caller can
+    /// supply the digest of the immutable accepted ticket that owns it. The
+    /// returned value is schema 2 and must be published under the same bundle
+    /// lock before it is exposed to another writer.
+    public static func migrateLegacyV1(
+        _ data: Data,
+        acceptedTicketSHA256: String,
         maximumBytes: Int = maximumBytes
     ) throws -> AcceptedJobStateRecord {
         guard (1...Self.maximumBytes).contains(maximumBytes) else {
@@ -200,12 +254,22 @@ public enum AcceptedJobStateJSON {
             if previousRaw is NSNull { previous = nil }
             else if let value = previousRaw as? String { previous = value }
             else { throw AcceptedJobStateJSONError.invalidType("previousStateSHA256") }
-            return try AcceptedJobStateRecord(
+            let record = try AcceptedJobStateRecord(
                 acceptanceID: string(root, "acceptanceID"),
+                acceptedTicketSHA256: acceptedTicketSHA256,
                 generation: integer(root, "generation"),
                 previousStateSHA256: previous,
                 phase: phase(try required(root, "phase"))
             )
+            let canonical = try JSONSerialization.data(withJSONObject: [
+                "schemaVersion": 1,
+                "acceptanceID": record.acceptanceID,
+                "generation": record.generation,
+                "previousStateSHA256": record.previousStateSHA256.map { $0 as Any } ?? NSNull(),
+                "phase": phaseObject(record.phase),
+            ], options: [.sortedKeys])
+            guard canonical == data else { throw AcceptedJobStateJSONError.invalidValue }
+            return record
         } catch let error as AcceptedJobStateJSONError { throw error }
         catch { throw AcceptedJobStateJSONError.invalidValue }
     }
