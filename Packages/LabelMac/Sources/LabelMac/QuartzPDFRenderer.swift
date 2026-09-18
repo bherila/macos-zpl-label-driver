@@ -94,6 +94,37 @@ public enum QuartzPDFRenderer {
         guard pixels <= maximumPixels else {
             throw Error.pixelLimitExceeded(actual: pixels, limit: maximumPixels)
         }
+        // A canvas within the pixel budget can still exceed the graphics
+        // encoder's per-axis coordinate limit, which the exact preview hits.
+        // Ask the encoder itself rather than repeating its bound here.
+        _ = try ZPLGraphicEncoder().bands(for: canvas.bitmapLayout)
+    }
+
+    /// Admits a candidate's planned labels the way `render` will place them,
+    /// mirroring its source-size derivation including the rotation swap. The
+    /// stock is not a usable surrogate for the source: region geometry and
+    /// rotation decide the placement that the renderer actually performs.
+    public static func admitPlannedLabels(
+        _ plan: ExtractionPlan,
+        analyzedPages: [AnalyzedSourcePage],
+        canvas: DotCanvas,
+        policy: PagePlacementPolicy = .fit
+    ) throws {
+        for label in plan.outputLabels {
+            guard label.sourcePage >= 1, label.sourcePage <= analyzedPages.count else {
+                throw Error.invalidPageGeometry
+            }
+            let page = try analyzedPages[label.sourcePage - 1].pageBox.effectivePhysicalSize()
+            let region = label.normalizedRect
+            var source = PhysicalSize(
+                width: try Millimeters(page.width.value * region.width),
+                height: try Millimeters(page.height.value * region.height))
+            if label.rotation == .degrees90 || label.rotation == .degrees270 {
+                source = PhysicalSize(width: source.height, height: source.width)
+            }
+            _ = try PagePlacementPlanner.plan(source: source, canvas: canvas,
+                policy: policy, margins: label.outputMargins)
+        }
     }
 
     /// Top-to-bottom grayscale pixels: 0 is black and 255 is white.

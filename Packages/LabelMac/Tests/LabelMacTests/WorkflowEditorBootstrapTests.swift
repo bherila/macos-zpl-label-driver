@@ -127,40 +127,49 @@ final class WorkflowEditorBootstrapTests: XCTestCase {
     /// region geometry nor rotation. A narrow crop onto a long thin stock passes
     /// that probe and the pixel budget, yet the renderer plans the actual region
     /// and rounds its target to zero. Third variant of one structural gap: the
-    /// surrogate source, which is why this validates the real planned labels.
-    func testNarrowRegionOnChangedStockIsRejectedDespitePassingSurrogateProbe() async throws {
-        let source = try fixture("letter-one")
-        let profileStore = try store()
-        let model = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
-            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
-        let current = model.profile
+    /// surrogate source. Exercised against the shared admission directly, so it
+    /// does not depend on store or worker plumbing to reach the check.
+    func testPlannedLabelAdmissionRejectsNarrowRegionThatSurrogateProbeAdmits() throws {
         let stock = PhysicalSize(width: try Millimeters(1000), height: try Millimeters(0.1))
-
-        // The surrogate probe and the pixel budget both admit this stock, which
-        // is exactly why the earlier admission let it through.
         let canvas = try DotCanvas(physicalSize: stock,
             resolution: try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        // Both the canvas admission and the stock-as-source probe admit this,
+        // which is exactly why the surrogate let it through.
+        XCTAssertEqual(canvas.width, 8_000)
         XCTAssertNoThrow(try QuartzPDFRenderer.admitRenderableCanvas(canvas))
         XCTAssertNoThrow(try PagePlacementPlanner.plan(source: stock, canvas: canvas,
                                                       policy: .fit, margins: .zero))
 
-        let narrow = try WorkflowPageRule(
-            sourcePage: current.pageRules[0].sourcePage,
-            expectedInput: current.pageRules[0].expectedInput,
-            disposition: .extract([try ExtractionRegion(id: "narrow-strip",
-                normalizedRect: try NormalizedRect(x: 0, y: 0, width: 0.1, height: 1),
-                outputOrder: 0)]))
-        let candidate = try WorkflowProfile(id: current.id, revision: current.revision,
-            outputStockID: "long-thin-stock", outputStock: stock, pageRules: [narrow])
-        do {
-            _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
-                store: profileStore, workerExecutable: worker(), deadlineSeconds: 5,
-                savedProfile: candidate, stockPolicy: .offlineCandidate)
-            XCTFail("a region that cannot be placed on the candidate stock was admitted")
-        } catch {
-            XCTAssertEqual(error as? PagePlacementError, .placementExceedsLimit)
+        let box = try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792)
+        let analyzed = [try AnalyzedSourcePage(pageBox: box, anchors: nil)]
+        let profile = try WorkflowProfile(id: "narrow-region", revision: 1,
+            outputStockID: "long-thin-stock", outputStock: stock,
+            pageRules: [try WorkflowPageRule(sourcePage: 1,
+                expectedInput: ExpectedInputPage(uprightPhysicalSize: try box.effectivePhysicalSize()),
+                disposition: .extract([try ExtractionRegion(id: "narrow-strip",
+                    normalizedRect: try NormalizedRect(x: 0, y: 0, width: 0.1, height: 1),
+                    outputOrder: 0)]))])
+        let plan = try ExtractionPlanner.plan(analyzedPages: analyzed, profile: profile)
+        XCTAssertThrowsError(try QuartzPDFRenderer.admitPlannedLabels(plan,
+            analyzedPages: analyzed, canvas: canvas)) {
+            XCTAssertEqual($0 as? PagePlacementError, .placementExceedsLimit)
         }
-        XCTAssertEqual(model.profile, current)
+    }
+
+    /// A canvas inside the pixel budget can still exceed the graphics encoder's
+    /// per-axis coordinate limit, which is what the exact preview hits.
+    func testCanvasAdmissionAppliesTheGraphicsEncoderCoordinateLimit() throws {
+        let stock = PhysicalSize(width: try Millimeters(100), height: try Millimeters(5_000))
+        let canvas = try DotCanvas(physicalSize: stock,
+            resolution: try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        XCTAssertEqual(canvas.width, 800)
+        XCTAssertEqual(canvas.height, 40_000)
+        // Under the pixel budget, so only the encoder bound can reject it.
+        XCTAssertLessThan(canvas.width * canvas.height,
+                          QuartzPDFRenderer.Request.defaultMaximumPixels)
+        XCTAssertThrowsError(try QuartzPDFRenderer.admitRenderableCanvas(canvas)) {
+            XCTAssertEqual($0 as? ZPLGraphicEncoder.EncodingError, .coordinateLimit)
+        }
     }
 
     /// The editor's own stock edit shares the gap, so it shares the admission.

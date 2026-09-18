@@ -214,8 +214,11 @@ public final class WorkflowEditorModel: ObservableObject {
         try QuartzPDFRenderer.admitRenderableCanvas(nextCanvas)
         var next = try editableDraft()
         try next.setOutputStock(id: id, size: size)
-        _ = try PagePlacementPlanner.plan(source: size, canvas: nextCanvas, policy: .fit,
-            margins: next.profile.outputMargins)
+        // The stock is not a surrogate for the source; validate the labels the
+        // renderer will actually place, as bootstrap admission does.
+        try QuartzPDFRenderer.admitPlannedLabels(
+            try ExtractionPlanner.plan(analyzedPages: analyzedPages, profile: next.validatedProfile()),
+            analyzedPages: analyzedPages, canvas: nextCanvas)
         try replaceDraft(next)
         canvas = nextCanvas
         cancelPreview()
@@ -228,8 +231,9 @@ public final class WorkflowEditorModel: ObservableObject {
         try validateEditBinding(expectedBinding)
         var next = try editableDraft()
         try next.setOutputMargins(margins)
-        _ = try PagePlacementPlanner.plan(source: next.profile.outputStock, canvas: canvas,
-            policy: .fit, margins: margins)
+        try QuartzPDFRenderer.admitPlannedLabels(
+            try ExtractionPlanner.plan(analyzedPages: analyzedPages, profile: next.validatedProfile()),
+            analyzedPages: analyzedPages, canvas: canvas)
         try replaceDraft(next)
         cancelPreview()
         isSaved = false
