@@ -1624,6 +1624,17 @@ PR #51 first review completed cleanly at exact `ee36a34`; run `35080396474`
 passed that head with 67/166/184 debug/release and all independent/signing checks.
 No repeat review or merge follows. GUI and installed acceptance remain open.
 
+
+The source-page-reference slice is connected locally to the editor. It reuses the
+bounded original-PDF child and strict packed-output validator, labels display
+pixels separately from exact print output, and overlays normalized bounds for
+numerical/keyboard editing. Independent UUID/cancellation protects stale source
+results and replacement opening. Four real-worker tests and combined `cdedc71`
+full gate pass 67/167/192 debug/release, independent checks, signatures and
+packaged-worker equality. Own hosted/review and parent's correction checks remain
+pending. `M4-SOURCE-PAGE-REFERENCE-2026-09-16.md` records remaining GUI,
+zoom and direct-selection gates. No installed or physical acceptance follows.
+
 PR #52's first review identified fixed manual IDs preventing a second workflow
 save. The same-branch correction assigns distinct IDs to new manual drafts and
 preserves existing immutable records. Twelve focused bootstrap tests pass,
@@ -1633,6 +1644,14 @@ signing checks. Second review and new exact-head hosted validation remain
 pending. Source-reference work is checkpointed locally
 at `f1adeeb`; its full gate passed 67/167/191 debug/release with all independent
 and signing checks, but publication waits for this dependency correction.
+
+The source-page-reference slice is connected locally to the editor. It reuses the
+bounded original-PDF child and strict packed-output validator, labels display
+pixels separately from exact print output, and overlays normalized bounds for
+numerical/keyboard editing. Independent UUID/cancellation protects stale source
+results and replacement opening. Four real-worker tests pass; full validation
+is pending. `M4-SOURCE-PAGE-REFERENCE-2026-09-16.md` records remaining GUI,
+zoom and direct-selection gates. No installed or physical acceptance follows.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository

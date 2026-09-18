@@ -16,12 +16,18 @@ public struct WorkflowEditorRegion: Identifiable, Equatable, Sendable {
 public final class WorkflowEditorModel: ObservableObject {
     @Published public private(set) var draft: WorkflowProfileDraft
     @Published public var selectedRegionID: String? {
-        didSet { if selectedRegionID != oldValue { cancelPreview() } }
+        didSet { if selectedRegionID != oldValue { cancelPreview(); cancelSourcePreview() } }
     }
     @Published public private(set) var preview: PreparedExtractionLabel?
     @Published public private(set) var lastError: String?
     @Published public private(set) var isSaved = false
     @Published public private(set) var isPreparingPreview = false
+    @Published public private(set) var sourcePreview: WorkflowSourcePagePreview?
+    @Published public private(set) var sourcePreviewError: String?
+    @Published public private(set) var isPreparingSourcePreview = false
+
+    private var sourceRequest: UUID?
+    private var sourceCancellation: OfflineRenderWorkerCancellation?
 
     private var previewRequest: UUID?
     private var previewCancellation: OfflineRenderWorkerCancellation?
@@ -53,6 +59,62 @@ public final class WorkflowEditorModel: ObservableObject {
     public var regions: [WorkflowEditorRegion] { Self.regions(in: profile) }
 
     public func select(_ id: String) { selectedRegionID = id }
+
+    public func cancelSourcePreview() {
+        sourceCancellation?.cancel()
+        sourceCancellation = nil
+        sourceRequest = nil
+        sourcePreview = nil
+        sourcePreviewError = nil
+        isPreparingSourcePreview = false
+    }
+
+    public func refreshSourcePageInWorker(workerExecutable: URL, deadlineSeconds: Double = 60) async {
+        await refreshSourcePageInWorker(workerExecutable: workerExecutable,
+            deadlineSeconds: deadlineSeconds, afterPreparation: {})
+    }
+
+    func refreshSourcePageInWorker(workerExecutable: URL, deadlineSeconds: Double,
+        afterPreparation: @escaping @Sendable () async -> Void) async {
+        cancelSourcePreview()
+        let selection = selectedRegionID
+        let request = UUID()
+        let cancellation = OfflineRenderWorkerCancellation()
+        sourceRequest = request
+        sourceCancellation = cancellation
+        isPreparingSourcePreview = true
+        defer {
+            if sourceRequest == request {
+                sourceRequest = nil
+                sourceCancellation = nil
+                isPreparingSourcePreview = false
+            }
+        }
+        do {
+            guard let region = regions.first(where: { $0.id == selection }),
+                  analyzedPages.indices.contains(region.sourcePage - 1) else {
+                throw WorkflowProfileDraft.Error.regionNotFound(selection ?? "")
+            }
+            let source = originalPDF
+            let box = analyzedPages[region.sourcePage - 1].pageBox
+            let result = try await withTaskCancellationHandler {
+                try await Task.detached {
+                    try WorkflowSourcePagePreview.render(originalPDF: source,
+                        sourcePage: region.sourcePage, pageBox: box,
+                        workerExecutable: workerExecutable, deadlineSeconds: deadlineSeconds,
+                        cancellation: cancellation)
+                }.value
+            } onCancel: { cancellation.cancel() }
+            await afterPreparation()
+            guard sourceRequest == request, selectedRegionID == selection,
+                  !Task.isCancelled, !cancellation.isCancelled else { return }
+            sourcePreview = result
+        } catch {
+            guard sourceRequest == request, selectedRegionID == selection,
+                  !Task.isCancelled, !cancellation.isCancelled else { return }
+            sourcePreviewError = "Source reference could not be prepared."
+        }
+    }
 
     public func setSelectedRegionMillimeters(
         left: Double, top: Double, width: Double, height: Double
@@ -248,6 +310,7 @@ public struct WorkflowEditorView: View {
                         .accessibilityLabel("Manual extraction requires region and preview review")
                 }
                 if let region = selectedRegion { regionControls(region) }
+                sourceReferenceView
                 previewView
                 if let error = model.lastError {
                     Text(error).foregroundStyle(.red).accessibilityLabel("Editor error: \(error)")
@@ -273,7 +336,7 @@ public struct WorkflowEditorView: View {
             .padding()
             .frame(minWidth: 480)
         }
-        .onDisappear { model.cancelPreview() }
+        .onDisappear { model.cancelPreview(); model.cancelSourcePreview() }
     }
 
     private var selectedRegion: WorkflowEditorRegion? {
@@ -336,6 +399,40 @@ public struct WorkflowEditorView: View {
                 ContentUnavailableView("Preview not generated", systemImage: "doc.viewfinder")
             }
         }.frame(maxWidth: .infinity, minHeight: 240)
+    }
+
+    private var sourceReferenceView: some View {
+        VStack(alignment: .leading) {
+            Text("Monochrome source-page reference — not the print preview").font(.caption)
+            if let source = model.sourcePreview, let image = Self.image(source.bitmap) {
+                Image(image, scale: 1, label: Text("Source page \(source.sourcePage) reference"))
+                    .resizable().interpolation(.none)
+                    .aspectRatio(CGFloat(source.canvas.width) / CGFloat(source.canvas.height), contentMode: .fit)
+                    .overlay {
+                        GeometryReader { geometry in
+                            if let region = selectedRegion, region.sourcePage == source.sourcePage {
+                                Rectangle().stroke(style: StrokeStyle(lineWidth: 2, dash: [6, 3]))
+                                    .frame(width: geometry.size.width * region.normalizedRect.width,
+                                           height: geometry.size.height * region.normalizedRect.height)
+                                    .position(x: geometry.size.width * (region.normalizedRect.x + region.normalizedRect.width / 2),
+                                              y: geometry.size.height * (region.normalizedRect.y + region.normalizedRect.height / 2))
+                                    .accessibilityLabel("Selected extraction bounds; edit using the millimeter fields")
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 300)
+            }
+            Button("Show Source Page") {
+                if let workerExecutable {
+                    Task { await model.refreshSourcePageInWorker(workerExecutable: workerExecutable) }
+                }
+            }.disabled(workerExecutable == nil || model.isPreparingSourcePreview)
+            if model.isPreparingSourcePreview {
+                ProgressView("Preparing source reference…")
+                Button("Cancel Source Reference") { model.cancelSourcePreview() }
+            }
+            if let error = model.sourcePreviewError { Text(error).accessibilityLabel(error) }
+        }
     }
 
     private func measurementField(

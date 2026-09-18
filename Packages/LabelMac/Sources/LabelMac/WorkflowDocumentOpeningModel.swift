@@ -43,6 +43,7 @@ public final class WorkflowDocumentOpeningModel: ObservableObject {
     public func open(_ url: URL, mode: WorkflowOpeningMode = .assisted) {
         cancelOpening()
         editor?.cancelPreview()
+        editor?.cancelSourcePreview()
         error = nil
         let id = UUID()
         let cancellation = OfflineRenderWorkerCancellation()
