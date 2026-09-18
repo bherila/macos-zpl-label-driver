@@ -1556,6 +1556,21 @@ Hosted/review and all GUI evidence remain pending in
 `M4-ISOLATED-EDITOR-PREVIEW-2026-09-16.md`. PDF opening/bootstrap remains
 in-process; no scheduler or physical acceptance follows.
 
+
+Setup document opening now moves bounded reading and original-PDF analysis off
+the main actor, preserving failed/cancelled replacement drafts and rejecting
+obsolete editor installation. The existing layout worker adds explicit capped
+all-page analysis, and unchanged bootstrap builds unsaved profiles from checked
+facts. Eighteen focused tests and the full local 67/166/178 debug/release gate
+passed. Publication is deferred pending PR #50's genuine parent-death worker
+supervision finding; its hosted CI is green but review is not clean. Evidence is in
+`M4-ISOLATED-DOCUMENT-OPENING-2026-09-16.md`. Lifetime fix `6ff328a` is now
+integrated locally at `26ee086`; the combined full gate passes 67/166/183 in
+debug/release with independent checks, signatures and packaged-worker equality.
+Publication remains held on PR #50's live second review/hosted CI. A finite
+synthetic GUI checklist is prepared but unrun. GUI, security-scope policy and all
+scheduler/privilege/device acceptance remain unverified.
+
 PR #50's first independent review found that parent-only deadlines could leave
 an orphaned native worker after app termination. The same-branch remediation
 adds child-owned finite supervision and nonce/inode-bound scratch ownership with
@@ -1573,6 +1588,23 @@ controller's setup initialization. Six focused native tests pass; full local
 validation of this follow-up passed 67/166/178 debug/release with independent
 checks, signatures and packaged-worker equality. The existing hosted run remains live;
 it is not restarted or claimed terminal. No third review is requested.
+
+Setup document opening now moves bounded reading and original-PDF analysis off
+the main actor, preserving failed/cancelled replacement drafts and rejecting
+obsolete editor installation. The existing layout worker adds explicit capped
+all-page analysis, and unchanged bootstrap builds unsaved profiles from checked
+facts. Eighteen focused tests and the full local 67/166/178 debug/release gate
+passed. Publication is deferred pending PR #50's genuine parent-death worker
+supervision finding; its hosted CI is green but review is not clean. Evidence is in
+`M4-ISOLATED-DOCUMENT-OPENING-2026-09-16.md`. GUI, security-scope policy and all
+scheduler/privilege/device acceptance remain unverified.
+
+Document-opening local combined `bf9d21c` incorporates correction `5830f5b`.
+The final full local gate passes 67/166/184 debug/release, all independent/ABI/
+inert checks, ad-hoc signatures and packaged-worker equality. PR #50's two
+findings are addressed and resolved. Its exact-head hosted run `35080048258`
+remains live, so the opening slice remains unpublished. GUI inspection is
+NOT RUN after the runtime startup failure; no installed acceptance follows.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository

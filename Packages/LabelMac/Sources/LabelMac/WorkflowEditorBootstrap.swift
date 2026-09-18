@@ -29,6 +29,47 @@ public enum WorkflowEditorBootstrap {
                 maximumSourcePages: maximumPages
             )
         }
+        return try makeModel(originalPDF: originalPDF, store: store,
+                             analyzedPages: analyzed, maximumPages: maximumPages)
+    }
+
+    public static func makeModelUsingWorker(
+        originalPDF: Data, store: WorkflowProfileStore, workerExecutable: URL,
+        maximumPages: Int = 32, deadlineSeconds: Double = 60,
+        cancellation: OfflineRenderWorkerCancellation = .init()
+    ) async throws -> WorkflowEditorModel {
+        guard (1...32).contains(maximumPages) else { throw QuartzStructuralAnalyzer.Error.invalidLimits }
+        guard deadlineSeconds.isFinite, deadlineSeconds > 0, deadlineSeconds <= 60 else {
+            throw OfflineRenderWorkerProcess.Error.invalidDeadline
+        }
+        let deadline = ContinuousClock.now.advanced(by: .nanoseconds(Int64(deadlineSeconds * 1e9)))
+        let analyzed = try await withTaskCancellationHandler {
+            try await Task.detached {
+                let parts = ContinuousClock.now.duration(to: deadline).components
+                let remaining = Double(parts.seconds) + Double(parts.attoseconds) / 1e18
+                guard remaining > 0 else { throw OfflineRenderWorkerProcess.Error.timedOut }
+                return try OfflineLayoutWorker.analyze(originalPDF: originalPDF, structuralPages: [],
+                    workerExecutable: workerExecutable, maximumSourcePages: maximumPages,
+                    analyzeAllPages: true, deadlineSeconds: min(remaining, 60), cancellation: cancellation)
+            }.value
+        } onCancel: {
+            cancellation.cancel()
+        }
+        try Task.checkCancellation()
+        guard !cancellation.isCancelled else { throw OfflineRenderWorkerProcess.Error.cancelled }
+        let model = try makeModel(originalPDF: originalPDF, store: store,
+                                  analyzedPages: analyzed, maximumPages: maximumPages)
+        guard ContinuousClock.now < deadline else { throw OfflineRenderWorkerProcess.Error.timedOut }
+        return model
+    }
+
+    private static func makeModel(originalPDF: Data, store: WorkflowProfileStore,
+                                  analyzedPages analyzed: [AnalyzedSourcePage],
+                                  maximumPages: Int) throws -> WorkflowEditorModel {
+        guard !analyzed.isEmpty, analyzed.count <= maximumPages else {
+            throw QuartzStructuralAnalyzer.Error.invalidLimits
+        }
+        let boxes = analyzed.map(\.pageBox)
         let references = try ReferenceWorkflowDefinition.gc420dInitialSet()
         let matches = try boxes.enumerated().map { index, box -> ReferenceWorkflowDefinition in
             let size = try box.effectivePhysicalSize()

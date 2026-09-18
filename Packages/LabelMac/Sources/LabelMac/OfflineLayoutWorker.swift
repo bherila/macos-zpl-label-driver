@@ -12,12 +12,30 @@ public enum OfflineLayoutWorker {
     struct Request: Codable {
         let schemaVersion: Int
         let structuralPages: [Int]
+        let maximumPages: Int?
+        let analyzeAllPages: Bool?
+
+        init(schemaVersion: Int, structuralPages: [Int], maximumPages: Int? = nil,
+             analyzeAllPages: Bool? = nil) {
+            self.schemaVersion = schemaVersion
+            self.structuralPages = structuralPages
+            self.maximumPages = maximumPages
+            self.analyzeAllPages = analyzeAllPages
+        }
+
+        var pageLimit: Int { maximumPages ?? ResolvedJobTicket.maximumSourcePages }
+
+        func requestedPages(count: Int) -> Set<Int> {
+            analyzeAllPages == true ? Set(1...count) : Set(structuralPages)
+        }
 
         func validate() throws {
             guard schemaVersion == 1,
+                  (1...ResolvedJobTicket.maximumSourcePages).contains(pageLimit),
+                  analyzeAllPages != true || structuralPages.isEmpty,
                   structuralPages.count <= ResolvedJobTicket.maximumSourcePages,
                   structuralPages == Array(Set(structuralPages)).sorted(),
-                  structuralPages.allSatisfy({ (1...ResolvedJobTicket.maximumSourcePages).contains($0) }) else {
+                  structuralPages.allSatisfy({ (1...pageLimit).contains($0) }) else {
                 throw OfflineConversionTicket.TicketError.malformedJSON
             }
         }
@@ -81,10 +99,13 @@ public enum OfflineLayoutWorker {
 
     public static func analyze(
         originalPDF: Data, structuralPages: [Int], workerExecutable: URL,
+        maximumSourcePages: Int = ResolvedJobTicket.maximumSourcePages,
+        analyzeAllPages: Bool = false,
         deadlineSeconds: Double = OfflineRenderWorkerProcess.defaultDeadlineSeconds,
         cancellation: OfflineRenderWorkerCancellation = .init()
     ) throws -> [AnalyzedSourcePage] {
-        let request = Request(schemaVersion: 1, structuralPages: structuralPages.sorted())
+        let request = Request(schemaVersion: 1, structuralPages: structuralPages.sorted(),
+                              maximumPages: maximumSourcePages, analyzeAllPages: analyzeAllPages)
         try request.validate()
         let ticket = try JSONEncoder().encode(request)
         return try OfflineRenderWorkerProcess.runJob(
@@ -105,11 +126,11 @@ public enum OfflineLayoutWorker {
             try request.validate()
             let result = try JSONDecoder().decode(Result.self, from: data)
             guard result.schemaVersion == 1, result.sourceSHA256 == digest(originalPDF),
-                  !result.pages.isEmpty, result.pages.count <= ResolvedJobTicket.maximumSourcePages,
+                  !result.pages.isEmpty, result.pages.count <= request.pageLimit,
                   request.structuralPages.allSatisfy({ $0 <= result.pages.count }) else {
                 throw OfflineRenderWorkerProcess.Error.invalidResult
             }
-            let requested = Set(request.structuralPages)
+            let requested = request.requestedPages(count: result.pages.count)
             var total = 0
             return try result.pages.enumerated().map { index, page in
                 guard (page.anchors != nil) == requested.contains(index + 1),
@@ -148,17 +169,17 @@ extension OfflineRenderWorkerProcess {
         }
         let boxes = try QuartzPDFRenderer.documentPageBoxes(originalPDF: source,
             maximumInputBytes: ResolvedJobTicket.maximumSourceBytes,
-            maximumSourcePages: ResolvedJobTicket.maximumSourcePages)
+            maximumSourcePages: request.pageLimit)
         for page in request.structuralPages where page > boxes.count {
             throw QuartzPDFRenderer.Error.pageOutOfRange(requested: page, pageCount: boxes.count)
         }
-        let requested = Set(request.structuralPages)
+        let requested = request.requestedPages(count: boxes.count)
         var total = 0
         let pages = try boxes.enumerated().map { index, box in
             let page = requested.contains(index + 1)
                 ? try QuartzStructuralAnalyzer.analyzeBorders(originalPDF: source, pageNumber: index + 1,
                     maximumInputBytes: ResolvedJobTicket.maximumSourceBytes,
-                    maximumSourcePages: ResolvedJobTicket.maximumSourcePages)
+                    maximumSourcePages: request.pageLimit)
                 : try AnalyzedSourcePage(pageBox: box, anchors: nil)
             total += page.anchors?.count ?? 0
             guard total <= OfflineLayoutWorker.maximumAnchors else { throw Error.outputLimitExceeded }
