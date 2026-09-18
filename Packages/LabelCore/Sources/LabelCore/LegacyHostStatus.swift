@@ -111,7 +111,10 @@ public enum LegacyHostStatusDecoder {
             }
             numbers.append(values)
         }
-        guard numbers[0][8] == 0, numbers[1][9] == 1 else { throw Error.malformedResponse }
+        // R44 defines function settings as an eight-bit value. Discarding
+        // this field must not admit a reply outside the documented grammar.
+        guard numbers[1][0] <= 255,
+              numbers[0][8] == 0, numbers[1][9] == 1 else { throw Error.malformedResponse }
         var flags: LegacyHostStatusFlags = []
         let mappings: [(Int,Int,LegacyHostStatusFlags)] = [
             (0,1,.paperOut),(0,2,.paused),(0,5,.bufferFull),(0,6,.diagnosticMode),

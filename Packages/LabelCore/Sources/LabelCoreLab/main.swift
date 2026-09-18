@@ -7,13 +7,26 @@ import Darwin
 import Glibc
 #endif
 
+// Fixed diagnostic vocabulary; filesystem failures never print caller paths.
+private enum LabFailure: Error {
+    case invalidBenchmarkArguments, unstableBenchmarkResult, usage, existingDirectory
+    var message: String {
+        switch self {
+        case .invalidBenchmarkArguments: "Invalid finite encoding benchmark arguments."
+        case .unstableBenchmarkResult: "Unstable encoding benchmark result."
+        case .usage: "Usage: label-core-lab --vectors-dir NEW_DIRECTORY"
+        case .existingDirectory: "Refusing existing output directory."
+        }
+    }
+}
+
 // Finite encoding-only comparison on synthetic packed 4x6 input. No files,
 // parser, queue, transport or printer capability qualification is involved.
 func encodingBenchmark(_ arguments: [String]) throws {
     guard arguments.count == 5, ["plain", "ascii"].contains(arguments[2]),
           ["white", "checker", "analytic"].contains(arguments[3]),
           let iterations = Int(arguments[4]), (1...100).contains(iterations) else {
-        throw NSError(domain: "Invalid finite encoding benchmark arguments", code: 2)
+        throw LabFailure.invalidBenchmarkArguments
     }
     let width = 813, height = 1219
     let layout = try BitmapLayout(width: width, height: height)
@@ -44,7 +57,7 @@ func encodingBenchmark(_ arguments: [String]) throws {
         let result = try encode()
         let elapsed = DispatchTime.now().uptimeNanoseconds - started
         guard elapsed > 0, result == expected else {
-            throw NSError(domain: "Unstable encoding benchmark result", code: 2)
+            throw LabFailure.unstableBenchmarkResult
         }
         nanoseconds.append(elapsed)
     }
@@ -63,11 +76,11 @@ do {
         exit(0)
     }
     guard CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--vectors-dir" else {
-        throw NSError(domain: "Usage: label-core-lab --vectors-dir NEW_DIRECTORY", code: 2)
+        throw LabFailure.usage
     }
     let dir = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
     guard !FileManager.default.fileExists(atPath: dir.path) else {
-        throw NSError(domain: "Refusing existing output directory", code: 2)
+        throw LabFailure.existingDirectory
     }
     try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
     var entries: [[String: Any]] = []
@@ -112,6 +125,8 @@ do {
     try compressionManifest.write(to: dir.appendingPathComponent("compression.json"), options: .withoutOverwriting)
     print("Offline vectors written. No printer accessed. Diagnostic ZPL is not a qualified job.")
 } catch {
-    FileHandle.standardError.write(Data("ERROR: \(error)\n".utf8))
+    let message = (error as? LabFailure)?.message
+        ?? "Offline vector or benchmark preparation failed. No printer was accessed."
+    FileHandle.standardError.write(Data("ERROR: \(message)\n".utf8))
     exit(2)
 }

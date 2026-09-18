@@ -3,6 +3,14 @@ import XCTest
 @testable import LabelCore
 
 final class ActiveVirtualQueueSelectionTests: XCTestCase {
+    func testExactIntegerIdentityAcrossLargeQueueReferences() throws {
+        for value in [9_007_199_254_740_993, Int.max] {
+            let expected = try ActiveVirtualQueueSelection(generation: 1,
+                queue: reference(revision: value), previousQueueSHA256: nil)
+            XCTAssertEqual(try ActiveVirtualQueueJSON.decode(ActiveVirtualQueueJSON.encode(expected)), expected)
+        }
+    }
+
     private let firstDigest = String(repeating: "a", count: 64)
     private let secondDigest = String(repeating: "b", count: 64)
 
