@@ -332,7 +332,7 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         XCTAssertEqual(recovered, first)
     }
 
-    func testUnavailableWorkerLeavesAcceptedJobWithoutPreparationOrSendIntent() throws {
+    func testUnavailableAnalysisWorkerRejectsBeforeAcceptanceOrSendIntent() throws {
         let original = try Data(contentsOf: fixtureURL("native-vector.pdf"))
         let fixture = try makeFixture(workflowSource: original,
             workerOverride: URL(fileURLWithPath: "/nonexistent-label-render-worker"))
@@ -344,15 +344,11 @@ final class SyntheticInertJobPipelineTests: XCTestCase {
         XCTAssertThrowsError(try fixture.pipeline.run(queueID: "shipping-native",
             sourcePDFDescriptor: descriptor, acceptanceID: "synthetic-worker-unavailable",
             cancellationToken: Data("synthetic capability".utf8), scenario: InertDeliveryScenario())) {
-            XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, .preparationFailed)
+            XCTAssertEqual($0 as? SyntheticInertJobPipeline.Error, .layoutRejected)
         }
-        let bundle = try fixture.jobs.load(acceptanceID: "synthetic-worker-unavailable",
+        let bundle = try fixture.jobs.loadIfPresent(acceptanceID: "synthetic-worker-unavailable",
             queueStore: fixture.queues, workflowStore: fixture.workflows, printerStore: fixture.printers)
-        XCTAssertEqual(bundle.sourcePDF, original)
-        let state = try AcceptedJobStateStore(acceptedJobStore: fixture.jobs).load(
-            acceptanceID: "synthetic-worker-unavailable", queueStore: fixture.queues,
-            workflowStore: fixture.workflows, printerStore: fixture.printers)
-        XCTAssertEqual(state.phase, .accepted)
+        XCTAssertNil(bundle)
     }
 
     private func renderWorkerExecutable() throws -> URL {

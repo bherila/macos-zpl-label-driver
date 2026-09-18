@@ -6,13 +6,17 @@ import LabelMac
 struct LabelRenderWorker {
     static func main() {
         let arguments = Array(CommandLine.arguments.dropFirst())
-        guard arguments.count == 2, arguments[0] == "--job-directory" else {
+        guard arguments.count == 2,
+              arguments[0] == "--job-directory" || arguments[0] == "--analysis-directory" else {
             fail(status: 64)
         }
         do {
-            try OfflineRenderWorkerProcess.performJob(
-                in: URL(fileURLWithPath: arguments[1], isDirectory: true)
-            )
+            let directory = URL(fileURLWithPath: arguments[1], isDirectory: true)
+            if arguments[0] == "--analysis-directory" {
+                try OfflineRenderWorkerProcess.performLayoutAnalysis(in: directory)
+            } else {
+                try OfflineRenderWorkerProcess.performJob(in: directory)
+            }
         } catch {
             try? OfflineRenderWorkerProcess.recordFailure(
                 error,
