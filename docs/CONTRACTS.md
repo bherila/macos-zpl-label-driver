@@ -49,6 +49,18 @@ delivery. Recovery never replays bytes or infers device confirmation.
 
 Precedence: explicit job choice > immutable workflow defaults > configured physical-device defaults. Validate the resolved combination against capabilities and installed accessories. An explicit unsupported option is an error, not silently ignored. A 'leave printer setting unchanged' option must be explicitly named and may not be represented as a known numeric default.
 
+Private printer-profile version 1 retains its original canonical field set and
+has no configured job defaults. Version 2 adds an exact `configuredDefaults`
+object with nullable `thermalMethod`, `finishing` and `printSpeedIps` fields.
+Construction and decoding validate these defaults against the existing supported
+control path. Unqualified darkness/tracking/media geometry remain rejected,
+not enabled by the version change. Read-only installed observations remain outside
+precedence. Jobs bind the full immutable profile reference and resolved controls;
+later printer-default revisions do not change accepted or prepared jobs. ID/revision
+store lookup discovers the validated actual schema; explicit reference lookup
+still requires exact schema, revision and canonical digest. No migration or
+replacement of version-1 revisions is implicit.
+
 PPD/IPP option strings map to typed internal values through a fixed table. Profile display names and job titles never become ZPL syntax. Selectors are IDs, not file paths. Regeneration of PPDs/defaults is transactional and preserves unrelated queues.
 
 ## Copies, ranges and ordering

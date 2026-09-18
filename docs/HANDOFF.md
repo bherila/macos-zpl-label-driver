@@ -30,6 +30,18 @@ tests passed; full corrected local gate/hosted/second review pending. See
 `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
 but has no PR; integrate this correction and run its combined gate before promotion.
 
+Private printer-profile version 2 adds explicit validated configured defaults;
+version 1 retains its canonical bytes and empty defaults. Resolution now follows
+job > workflow > printer, never read-only observations. The real immutable
+accepted/prepared store path retains speed 2 after a later default-4 revision and
+active-queue change; wrongly relabeled schema references fail. Thirty-five core
+and 63 native focused tests passed, including read-only observation isolation;
+Full local gate at `00180d3` passed exit 0: 67 Python, 178 Core and 248 Mac
+debug/release, both accelerator modes, independent/inert checks, signatures and
+packaged-worker PBM/ZPL equality. Own hosted/review remain pending. No new unqualified
+controls, migration, queue install or physical acceptance. See
+`validation/M3-CONFIGURED-PRINTER-DEFAULTS-2026-09-16.md`.
+
 The actual setup app now offers an explicit state-only offline diagnostic copy
 action. A fixed boolean allowlist excludes documents, identifiers, paths and raw
 errors, and explicitly establishes no scheduler/install/hardware acceptance.

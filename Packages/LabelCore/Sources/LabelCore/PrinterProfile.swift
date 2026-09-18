@@ -214,6 +214,9 @@ public struct PrinterProfile: Equatable, Sendable {
     public let installedHardware: InstalledHardware
     public let media: MediaConfiguration
     public let connection: ConnectionConfiguration
+    /// Explicit immutable defaults, never read-only observations. Version 1
+    /// has none; version 2 stores only controls already accepted by validation.
+    public let configuredDefaults: PrinterControlDefaults
 
     public init(
         schemaVersion: Int,
@@ -221,9 +224,13 @@ public struct PrinterProfile: Equatable, Sendable {
         capabilities: PrinterCapabilities,
         installedHardware: InstalledHardware,
         media: MediaConfiguration,
-        connection: ConnectionConfiguration
+        connection: ConnectionConfiguration,
+        configuredDefaults: PrinterControlDefaults = .init()
     ) throws {
-        guard schemaVersion == 1, revision > 0 else { throw PrinterProfileError.invalidProfileVersion }
+        guard (1...2).contains(schemaVersion), revision > 0,
+              schemaVersion == 2 || configuredDefaults == .init() else {
+            throw PrinterProfileError.invalidProfileVersion
+        }
         guard Self.isSafeModelIdentifier(capabilities.model) else {
             throw PrinterProfileError.invalidModelIdentifier
         }
@@ -242,6 +249,12 @@ public struct PrinterProfile: Equatable, Sendable {
         self.installedHardware = installedHardware
         self.media = media
         self.connection = connection
+        self.configuredDefaults = configuredDefaults
+        try validate(.init(thermalMethod: configuredDefaults.thermalMethod,
+            finishing: configuredDefaults.finishing,
+            printSpeedIps: configuredDefaults.printSpeedIps,
+            darkness: configuredDefaults.darkness, tracking: configuredDefaults.tracking,
+            mediaGeometry: configuredDefaults.mediaGeometry))
     }
 
     private static func isSafeModelIdentifier(_ model: String) -> Bool {
