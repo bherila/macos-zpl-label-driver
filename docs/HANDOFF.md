@@ -1,3 +1,50 @@
+# Editable output stock and margins — 2026-09-18
+
+Source `118a8d5a30f89bccb77d268951fde936f1c52f5a` on `claude/determined-sagan-frse18`, over `main` `10fd18c`.
+
+The last of checkpoint `eb71a41`. **After this the checkpoint is fully absorbed**: only four files
+still differ from it, and each carries an improvement made during this work rather than unlanded
+checkpoint content — the extracted `OfflineExtractionWorker.ticketJSON`, the reattached
+`recordFailure` doc comment, and the two test suites added in `29b3fb3`.
+
+`WorkflowEditorModel` gains `setOutputStock` and `setOutputMargins`. Both perform every fallible step
+— canvas rebuild, draft edit, placement planning — before committing the draft and canvas and
+invalidating review, so a rejected edit leaves no partial state. `WorkflowEditorView` grows the
+fields that drive them.
+
+`report(_:)` previously assigned `String(describing: error)` straight to user-facing state, which
+surfaces arbitrary error text. It now maps editor errors to a fixed localized vocabulary — the same
+diagnostic-hygiene change made for `LabelCoreLab` in `2b6131f`. Remaining user-facing strings move to
+`String(localized:)`, and `USBRegistryDiscoveryView`'s status messages are wrapped with no wording or
+diagnostic content changed.
+
+`WorkflowStockOpeningPolicy` is the one behaviour-widening change here and is flagged for reviewer
+attention rather than buried. Opening a saved profile still requires the configured reference stock
+by default: the policy defaults to `.configuredReference`, and that path is byte-for-byte the
+previous guard. The new `.offlineCandidate` case admits changed stock for explicit offline
+correction, and still validates the geometry by constructing a `DotCanvas` from it. Printer and media
+qualification remain a separate acceptance boundary that this does not cross.
+
+Changed requirements: M2 imaging-engine and M4 label-extraction gain editable destination geometry
+with bounded admission. Neither milestone is declared complete.
+
+Tests actually run. Linux x86_64 Swift 6.1.2: LabelCore 311 tests, 0 failures — unchanged, because no
+LabelCore file is touched. `check_repo.py` and 105 Python tests pass. All ten changed files parse and
+the `RepoType.member` check passes. The slice adds roughly 300 lines of tests across the editor,
+bootstrap, document-opening and accepted-job-store suites.
+
+**What this does not do, stated precisely because the distinction is easy to blur.** Hosted CI
+compiles this code and runs the model tests, so the editor's logic is covered. It cannot qualify
+rendered interface behaviour — that is GUI acceptance, issue #80 Part B, and it needs a human at a
+Mac. Landing the code does not advance that row, and a green CI run on this slice must not be read as
+GUI qualification. Installation, scheduler, hardware and release rows are untouched and remain NOT
+RUN.
+
+Blockers: nothing remains unported from `eb71a41`. Open work is GUI acceptance (#80 Part B), the
+redundant-analysis budget issue (#97), and gap 2 of #93, which needs a human security look at
+`OfflineConversionTicket.init(jsonData:)` because an explicit `@codex security review` request
+reliably starts a code review instead.
+
 # Bounded raw TCP host admission — 2026-09-18
 
 Source `90166cb454e4d4c4d96535e597842ac301224e9d` on `claude/determined-sagan-frse18`, over `main` `2b6131f`.
