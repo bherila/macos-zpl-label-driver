@@ -102,7 +102,8 @@
         "f1e2976 (read-only observed settings excluded from qualified default precedence and unqualified command authorization; additional partial M3-AC01/M3-AC02/M3-AC13 evidence)",
         "docs/validation/M3-AUTOMATED-CONTROLS-2026-09-15.md (7ee78db exact-head portable pass: M3-AC01/02/04/13 automated evidence; all installed transport and hardware rows remain open)",
         "docs/validation/M5-PRINTER-PROFILE-CODEC-2026-09-15.md (87c7e8c exact bounded canonical profile snapshots with capability evidence, observations, media, transport, and private connection identity; additional partial M3-AC01/13 evidence only)",
-        "docs/validation/M5-PRINTER-PROFILE-STORE-2026-09-15.md (3fc7e58 private immutable canonical profile publication and exact queue-reference resolution; additional partial M3-AC01/13 evidence only)"
+        "docs/validation/M5-PRINTER-PROFILE-STORE-2026-09-15.md (3fc7e58 private immutable canonical profile publication and exact queue-reference resolution; additional partial M3-AC01/13 evidence only)",
+        "docs/validation/M3-RESOLVED-JOB-TICKET-2026-09-15.md (d6c4130 exact immutable accepted-job references, ownership, ordering, bounds, and resolved controls; additional partial M3-AC02/12 evidence only)"
       ],
       "blockers": []
     },
@@ -145,7 +146,8 @@
         "docs/validation/M5-PRINTER-PROFILE-CODEC-2026-09-15.md (87c7e8c exact bounded canonical printer snapshots enabling trusted digest persistence; additional partial M5-AC05/07 only)",
         "docs/validation/M5-PRINTER-PROFILE-STORE-2026-09-15.md (3fc7e58 trusted canonical printer-profile store replaces caller-supplied queue digest, with tamper and conflict safety; additional partial M5-AC05/07 only)",
         "docs/validation/M5-ACTIVE-QUEUE-CONTRACT-2026-09-15.md (087458d exact immutable queue references plus bounded generation/previous-digest selection contract; additional partial M5-AC05/07 only)",
-        "docs/validation/M5-ACTIVE-QUEUE-STORE-2026-09-15.md (aa11db9 private cross-process compare-and-swap selection persistence, exact reference resolution, atomic replacement, and explicit uncertain-commit classification; additional partial M5-AC05/07 only)"
+        "docs/validation/M5-ACTIVE-QUEUE-STORE-2026-09-15.md (aa11db9 private cross-process compare-and-swap selection persistence, exact reference resolution, atomic replacement, and explicit uncertain-commit classification; additional partial M5-AC05/07 only)",
+        "docs/validation/M3-RESOLVED-JOB-TICKET-2026-09-15.md (d6c4130 exact immutable accepted-job references, ownership, ordering, bounds, and resolved controls; additional partial M5-AC05/07 evidence only)"
       ],
       "blockers": []
     },
