@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import unquote, urlsplit
 
 from check_reference_target import validate_target
+from traceability_report import build_report
 
 ROOT = Path(__file__).resolve().parents[1]
 IGNORED = {".git", ".build", ".venv-fixtures", ".swiftpm", "__pycache__", "local-private", "build-logs", "artifacts", "dist"}
@@ -19,6 +20,7 @@ REQUIRED = (
     "CONTRIBUTING.md", "docs/ARCHITECTURE.md", "docs/CONTRACTS.md",
     "docs/VALIDATION-PLAN.md", "docs/REFERENCES.md", "docs/PROGRESS.json",
     "docs/requirements.json", "docs/milestones.json",
+    "docs/ACCEPTANCE-EVIDENCE.json", "scripts/traceability_report.py",
     "docs/SPRINT-BASELINE.md", "docs/reference-target.json", "docs/LOCAL-SIGNING.md",
     "docs/RELEASE-SCOPES.md", "docs/SCOPE-STATUS.json", "docs/hardware/GC420D.md",
     "scripts/host-preflight.sh", "scripts/sign-local-diagnostic.sh",
@@ -154,7 +156,10 @@ def check(root: Path) -> list[str]:
             for identifier in item["acceptanceIDs"]:
                 if identifier not in acceptance:
                     errors.append(f"Unknown acceptance ID: {identifier}")
-    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        # Validate schema/references, never manufacture a current qualification
+        # from preflight. The CLI independently binds the actual source/worktree.
+        build_report(root, "0" * 40, workspace_dirty=True)
+    except (OSError, KeyError, TypeError, ValueError, RecursionError, UnicodeError) as exc:
         errors.append(f"Cannot validate project metadata: {exc}")
     return errors
 

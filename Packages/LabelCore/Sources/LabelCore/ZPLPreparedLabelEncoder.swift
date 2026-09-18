@@ -119,6 +119,11 @@ public struct ZPLPreparedLabelEncoder: Sendable {
 
     public func encode(bitmap: MonochromeBitmap, controls resolved: ResolvedPrinterControls) throws -> Data {
         let controlBytes = try controls.encode(resolved)
+        if case let .value(geometry) = resolved.mediaGeometry {
+            let offsets: OffsetControlRequest?
+            if case let .value(value) = resolved.offsets { offsets = value } else { offsets = nil }
+            try PhysicalGeometryQualification.validateKnownRaster(bitmap, request: geometry, offsets: offsets)
+        }
         let wrapperBytes = 8
         guard controlBytes.count <= maxOutputBytes - wrapperBytes else { throw EncodingError.outputLimit }
         let graphics = try ZPLGraphicEncoder(maxDecodedBandBytes: graphics.maxDecodedBandBytes,

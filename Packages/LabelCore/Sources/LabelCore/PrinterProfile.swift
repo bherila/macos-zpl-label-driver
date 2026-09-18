@@ -110,7 +110,7 @@ public enum PrinterTransport: String, Equatable, Sendable {
 /// A validated local connection identity. It is intentionally opaque to normal
 /// callers and diagnostics; transport URIs, serial numbers, and USB paths must
 /// not leak through routine status output.
-public struct StableConnectionIdentity: Equatable, Sendable, CustomStringConvertible, CustomDebugStringConvertible {
+public struct StableConnectionIdentity: Equatable, Sendable, RedactedDiagnosticValue {
     public enum ValidationError: Error, Equatable, Sendable { case invalidIdentifier }
 
     private let rawValue: String
@@ -128,8 +128,6 @@ public struct StableConnectionIdentity: Equatable, Sendable, CustomStringConvert
         rawValue = opaqueValue
     }
 
-    public var description: String { "StableConnectionIdentity(redacted)" }
-    public var debugDescription: String { description }
 }
 
 /// Connection facts live beside media and capabilities in the immutable
@@ -145,8 +143,24 @@ public struct ConnectionConfiguration: Equatable, Sendable {
     }
 }
 
+/// Separately qualified motor speeds. Unknown and unsupported both have no
+/// choices, but retain distinct facts. Profile construction validates this.
+public struct QualifiedSpeedChoices: Equatable, Sendable {
+    public let fact: CapabilityFact
+    public let choicesIps: Set<Int>
+
+    public init(fact: CapabilityFact, choicesIps: Set<Int>) {
+        self.fact = fact
+        self.choicesIps = choicesIps
+    }
+
+    public static let unverified = Self(
+        fact: .init(state: .unknown, evidence: .unobserved), choicesIps: [])
+}
+
 public struct PrinterCapabilities: Equatable, Sendable {
     public let model: String
+    public let directThermal: CapabilityFact
     public let thermalTransfer: CapabilityFact
     public let cutter: CapabilityFact
     public let peeler: CapabilityFact
@@ -154,6 +168,10 @@ public struct PrinterCapabilities: Equatable, Sendable {
     public let tracking: [MediaTracking: CapabilityFact]
     public let printSpeedChoicesIps: Set<Int>
     public let darkness: CapabilityFact
+    public let feedSpeeds: QualifiedSpeedChoices
+    public let physicalGeometry: PhysicalGeometryQualification
+    public let offsets: OffsetControlQualification
+    public let backfeedSpeeds: QualifiedSpeedChoices
 
     public init(
         model: String,
@@ -163,9 +181,15 @@ public struct PrinterCapabilities: Equatable, Sendable {
         rewind: CapabilityFact,
         tracking: [MediaTracking: CapabilityFact],
         printSpeedChoicesIps: Set<Int>,
-        darkness: CapabilityFact
+        darkness: CapabilityFact,
+        feedSpeeds: QualifiedSpeedChoices = .unverified,
+        backfeedSpeeds: QualifiedSpeedChoices = .unverified,
+        physicalGeometry: PhysicalGeometryQualification = .unverified,
+        offsets: OffsetControlQualification = .unverified,
+        directThermal: CapabilityFact = .init(state: .unknown, evidence: .unobserved)
     ) {
         self.model = model
+        self.directThermal = directThermal
         self.thermalTransfer = thermalTransfer
         self.cutter = cutter
         self.peeler = peeler
@@ -173,6 +197,10 @@ public struct PrinterCapabilities: Equatable, Sendable {
         self.tracking = tracking
         self.printSpeedChoicesIps = printSpeedChoicesIps
         self.darkness = darkness
+        self.feedSpeeds = feedSpeeds
+        self.backfeedSpeeds = backfeedSpeeds
+        self.physicalGeometry = physicalGeometry
+        self.offsets = offsets
     }
 }
 
@@ -217,6 +245,8 @@ public struct PrinterProfile: Equatable, Sendable {
     /// Explicit immutable defaults, never read-only observations. Version 1
     /// has none; version 2 stores only controls already accepted by validation.
     public let configuredDefaults: PrinterControlDefaults
+    public let thermalMedia: ThermalMediaConfiguration
+    public let finishingConfiguration: FinishingProfileConfiguration?
 
     public init(
         schemaVersion: Int,
@@ -225,10 +255,12 @@ public struct PrinterProfile: Equatable, Sendable {
         installedHardware: InstalledHardware,
         media: MediaConfiguration,
         connection: ConnectionConfiguration,
-        configuredDefaults: PrinterControlDefaults = .init()
+        configuredDefaults: PrinterControlDefaults = .init(),
+        thermalMedia: ThermalMediaConfiguration = .unobserved,
+        finishingConfiguration: FinishingProfileConfiguration? = nil
     ) throws {
-        guard (1...2).contains(schemaVersion), revision > 0,
-              schemaVersion == 2 || configuredDefaults == .init() else {
+        guard (1...8).contains(schemaVersion), revision > 0,
+              schemaVersion >= 2 || configuredDefaults == .init() else {
             throw PrinterProfileError.invalidProfileVersion
         }
         guard Self.isSafeModelIdentifier(capabilities.model) else {
@@ -236,6 +268,32 @@ public struct PrinterProfile: Equatable, Sendable {
         }
         guard capabilities.printSpeedChoicesIps.allSatisfy({ $0 > 0 }) else {
             throw PrinterProfileError.invalidPrintSpeedChoice
+        }
+        guard schemaVersion >= 3 ||
+              (capabilities.feedSpeeds == .unverified && capabilities.backfeedSpeeds == .unverified &&
+               configuredDefaults.feedSpeedIps == nil && configuredDefaults.backfeedSpeedIps == nil) else {
+            throw PrinterProfileError.invalidProfileVersion
+        }
+        guard schemaVersion >= 5 || capabilities.physicalGeometry == .unverified else {
+            throw PrinterProfileError.invalidProfileVersion
+        }
+        try capabilities.physicalGeometry.validateDeclaration()
+        guard schemaVersion >= 6 || (capabilities.offsets == .unverified && configuredDefaults.offsets == nil) else {
+            throw PrinterProfileError.invalidProfileVersion
+        }
+        try capabilities.offsets.validateDeclaration()
+        guard schemaVersion >= 7 || (thermalMedia == .unobserved &&
+            capabilities.directThermal == .init(state: .unknown, evidence: .unobserved)) else {
+            throw PrinterProfileError.invalidProfileVersion
+        }
+        for speeds in [capabilities.feedSpeeds, capabilities.backfeedSpeeds] {
+            guard speeds.choicesIps.count <= 11,
+                  speeds.choicesIps.allSatisfy({ (2...12).contains($0) }),
+                  speeds.fact.state == .supported
+                    ? (!speeds.choicesIps.isEmpty && speeds.fact.evidence != .unobserved)
+                    : speeds.choicesIps.isEmpty else {
+                throw PrinterProfileError.invalidMotorSpeedCapability
+            }
         }
         guard installedHardware.observedSpeedIps.map({ $0 > 0 }) ?? true else {
             throw PrinterProfileError.invalidInstalledPrintSpeed
@@ -250,11 +308,19 @@ public struct PrinterProfile: Equatable, Sendable {
         self.media = media
         self.connection = connection
         self.configuredDefaults = configuredDefaults
+        self.thermalMedia = thermalMedia
+        guard schemaVersion == 8 || finishingConfiguration == nil else {
+            throw PrinterProfileError.invalidProfileVersion
+        }
+        try finishingConfiguration?.validate(media: media, capabilities: capabilities, installed: installedHardware)
+        self.finishingConfiguration = finishingConfiguration
         try validate(.init(thermalMethod: configuredDefaults.thermalMethod,
             finishing: configuredDefaults.finishing,
             printSpeedIps: configuredDefaults.printSpeedIps,
+            feedSpeedIps: configuredDefaults.feedSpeedIps,
+            backfeedSpeedIps: configuredDefaults.backfeedSpeedIps,
             darkness: configuredDefaults.darkness, tracking: configuredDefaults.tracking,
-            mediaGeometry: configuredDefaults.mediaGeometry))
+            mediaGeometry: configuredDefaults.mediaGeometry, offsets: configuredDefaults.offsets))
     }
 
     private static func isSafeModelIdentifier(_ model: String) -> Bool {
@@ -269,12 +335,19 @@ public enum PrinterProfileError: Error, Equatable, Sendable {
     case invalidProfileVersion
     case invalidModelIdentifier
     case invalidPrintSpeedChoice
+    case invalidMotorSpeedCapability
+    case unavailableFeedSpeed(CapabilityState)
+    case unavailableBackfeedSpeed(CapabilityState)
+    case unsupportedFeedSpeed(Int)
+    case unsupportedBackfeedSpeed(Int)
+    case incompleteMotorSpeeds
     case invalidInstalledPrintSpeed
     case inconsistentConnectionTransport
     case unsupportedThermalMethod(ThermalMethod)
     case unsupportedFinishing(FinishingMode)
     case unsupportedPrintSpeed(Int)
     case unavailableDarkness
+    case unsupportedDarkness(Int)
     case unavailableTracking(MediaTracking)
     case unavailableMediaGeometry
 }
@@ -308,24 +381,33 @@ public struct PrinterControlRequest: Equatable, Sendable {
     public var thermalMethod: ThermalMethod?
     public var finishing: FinishingMode?
     public var printSpeedIps: Int?
+    public var feedSpeedIps: Int?
+    public var backfeedSpeedIps: Int?
     public var darkness: Int?
     public var tracking: MediaTracking?
     public var mediaGeometry: MediaGeometryRequest?
+    public var offsets: OffsetControlRequest?
 
     public init(
         thermalMethod: ThermalMethod? = nil,
         finishing: FinishingMode? = nil,
         printSpeedIps: Int? = nil,
+        feedSpeedIps: Int? = nil,
+        backfeedSpeedIps: Int? = nil,
         darkness: Int? = nil,
         tracking: MediaTracking? = nil,
-        mediaGeometry: MediaGeometryRequest? = nil
+        mediaGeometry: MediaGeometryRequest? = nil,
+        offsets: OffsetControlRequest? = nil
     ) {
         self.thermalMethod = thermalMethod
         self.finishing = finishing
         self.printSpeedIps = printSpeedIps
+        self.feedSpeedIps = feedSpeedIps
+        self.backfeedSpeedIps = backfeedSpeedIps
         self.darkness = darkness
         self.tracking = tracking
         self.mediaGeometry = mediaGeometry
+        self.offsets = offsets
     }
 }
 
@@ -334,26 +416,77 @@ public extension PrinterProfile {
     /// involved. An absent field means leave the corresponding device setting
     /// unchanged; it is never converted to a guessed current value.
     func validate(_ request: PrinterControlRequest) throws {
-        if let method = request.thermalMethod, method == .thermalTransfer {
-            throw PrinterProfileError.unsupportedThermalMethod(method)
-        }
         if let finishing = request.finishing, finishing != .tearOff {
             throw PrinterProfileError.unsupportedFinishing(finishing)
+        }
+        try validateNonFinishingControls(request)
+    }
+
+    internal func validateNonFinishingControls(_ request: PrinterControlRequest) throws {
+        if let method = request.thermalMethod {
+            if schemaVersion >= 7 {
+                _ = try ThermalControlQualification(directThermal: capabilities.directThermal,
+                    thermalTransfer: capabilities.thermalTransfer).control(for: method,
+                        media: thermalMedia.method, ribbonPresent: thermalMedia.ribbonPresent)
+            } else if method == .thermalTransfer {
+                throw PrinterProfileError.unsupportedThermalMethod(method)
+            }
         }
         if let speed = request.printSpeedIps, !capabilities.printSpeedChoicesIps.contains(speed) {
             throw PrinterProfileError.unsupportedPrintSpeed(speed)
         }
-        if request.darkness != nil { throw PrinterProfileError.unavailableDarkness }
-        if let tracking = request.tracking {
-            // Model capability and a read-only observation do not qualify a
-            // control command. Tracking remains unavailable until its command,
-            // installed-media semantics, and validation evidence are explicit.
-            throw PrinterProfileError.unavailableTracking(tracking)
+        if let speed = request.feedSpeedIps {
+            guard capabilities.feedSpeeds.fact.state == .supported else {
+                throw PrinterProfileError.unavailableFeedSpeed(capabilities.feedSpeeds.fact.state)
+            }
+            guard capabilities.feedSpeeds.choicesIps.contains(speed) else {
+                throw PrinterProfileError.unsupportedFeedSpeed(speed)
+            }
         }
-        // Nominal stock never authorizes device geometry. The reference profile
-        // has no observed calibration or cited ordinary-job mapping, so an
-        // explicit geometry request fails instead of being dropped or guessed.
-        if request.mediaGeometry != nil { throw PrinterProfileError.unavailableMediaGeometry }
+        if let speed = request.backfeedSpeedIps {
+            guard capabilities.backfeedSpeeds.fact.state == .supported else {
+                throw PrinterProfileError.unavailableBackfeedSpeed(capabilities.backfeedSpeeds.fact.state)
+            }
+            guard capabilities.backfeedSpeeds.choicesIps.contains(speed) else {
+                throw PrinterProfileError.unsupportedBackfeedSpeed(speed)
+            }
+        }
+        if request.feedSpeedIps != nil || request.backfeedSpeedIps != nil {
+            guard request.printSpeedIps != nil, request.feedSpeedIps != nil,
+                  request.backfeedSpeedIps != nil else {
+                throw PrinterProfileError.incompleteMotorSpeeds
+            }
+        }
+        if let darkness = request.darkness {
+            guard schemaVersion >= 4, capabilities.darkness.state == .supported,
+                  capabilities.darkness.evidence != .unobserved else {
+                throw PrinterProfileError.unavailableDarkness
+            }
+            guard (0...30).contains(darkness) else {
+                throw PrinterProfileError.unsupportedDarkness(darkness)
+            }
+        }
+        if let tracking = request.tracking {
+            guard schemaVersion >= 5, (tracking != .blackMark || schemaVersion >= 6),
+                  let fact = capabilities.tracking[tracking], fact.state == .supported,
+                  fact.evidence != .unobserved else { throw PrinterProfileError.unavailableTracking(tracking) }
+            if tracking == .continuous && request.mediaGeometry?.lengthDots == nil {
+                throw PhysicalGeometryQualification.Error.continuousLengthRequired
+            }
+        }
+        if request.tracking == .blackMark && request.offsets?.blackMarkOffsetDots == nil {
+            throw OffsetControlQualification.Error.blackMarkOffsetRequired
+        }
+        if let offsets = request.offsets {
+            guard schemaVersion >= 6 else { throw PrinterProfileError.invalidProfileVersion }
+            _ = try capabilities.offsets.controls(for: offsets, tracking: request.tracking,
+                trackingFact: capabilities.tracking[.blackMark] ?? .init(state: .unknown, evidence: .unobserved))
+        }
+        if let geometry = request.mediaGeometry {
+            guard schemaVersion >= 5 else { throw PrinterProfileError.unavailableMediaGeometry }
+            _ = try capabilities.physicalGeometry.controls(for: geometry, tracking: request.tracking,
+                trackingFact: capabilities.tracking[.continuous] ?? .init(state: .unknown, evidence: .unobserved))
+        }
     }
 }
 

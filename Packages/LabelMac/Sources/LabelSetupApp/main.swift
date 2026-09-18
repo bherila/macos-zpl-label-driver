@@ -12,7 +12,8 @@ final class SetupAppController: ObservableObject {
     @Published var diagnosticCopyStatus: String?
 
     let documents: WorkflowDocumentOpeningModel?
-    let printerSetup: ReferencePrinterSetupModel?
+    let printerDefaults: PrinterDefaultsEditingModel?
+    var printerSetup: ReferencePrinterSetupModel? { printerDefaults?.setup }
     let usbDiscovery = USBRegistryDiscoveryModel()
     let previewWorkerExecutable = (Bundle.main.executableURL?.deletingLastPathComponent()
         ?? Bundle.main.bundleURL.appending(path: "Contents/MacOS"))
@@ -34,12 +35,13 @@ final class SetupAppController: ObservableObject {
                 attributes: [.posixPermissions: 0o700]
             )
             let profileStore = try WorkflowProfileStore(root: support.appending(path: "profiles-v1"))
-            printerSetup = setup
+            printerDefaults = try PrinterDefaultsEditingModel(
+                store: PrinterProfileStore(root: support.appending(path: "printer-defaults-v1")), initialProfile: setup.profile)
             documents = WorkflowDocumentOpeningModel(store: profileStore,
                 workerExecutable: previewWorkerExecutable)
         } catch {
             documents = nil
-            printerSetup = nil
+            printerDefaults = nil
             self.error = String(describing: error)
         }
     }
@@ -65,8 +67,8 @@ struct SetupRootView: View {
                     Text(warning).foregroundStyle(.orange)
                         .accessibilityLabel(warning)
                 }
-                if let printerSetup = controller.printerSetup {
-                    ReferencePrinterSetupView(model: printerSetup)
+                if let printerDefaults = controller.printerDefaults {
+                    PrinterDefaultsEditingView(model: printerDefaults)
                 }
                 USBRegistryDiscoveryView(model: controller.usbDiscovery)
                 GroupBox("Offline diagnostics") {

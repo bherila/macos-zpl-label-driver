@@ -29,17 +29,40 @@ public enum PrinterProfileJSON {
         var root: [String: Any] = [
             "schemaVersion": profile.schemaVersion,
             "revision": profile.revision,
-            "capabilities": encodeCapabilities(profile.capabilities),
+            "capabilities": encodeCapabilities(profile.capabilities, version: profile.schemaVersion),
             "installedHardware": encodeInstalled(profile.installedHardware),
             "media": encodeMedia(profile.media),
             "connection": encodeConnection(profile.connection),
         ]
-        if profile.schemaVersion == 2 {
+        if profile.schemaVersion >= 7 {
+            root["thermalMedia"] = [
+                "method": encodeObservation(profile.thermalMedia.method) { $0.rawValue },
+                "ribbonPresent": encodeObservation(profile.thermalMedia.ribbonPresent) { $0 },
+            ]
+        }
+        if profile.schemaVersion == 8 {
+            root["finishingConfiguration"] = profile.finishingConfiguration.map(encodeFinishingConfiguration) ?? NSNull()
+        }
+        if profile.schemaVersion >= 2 {
             root["configuredDefaults"] = [
                 "thermalMethod": profile.configuredDefaults.thermalMethod.map { $0.rawValue as Any } ?? NSNull(),
                 "finishing": profile.configuredDefaults.finishing.map { $0.rawValue as Any } ?? NSNull(),
                 "printSpeedIps": profile.configuredDefaults.printSpeedIps.map { $0 as Any } ?? NSNull(),
             ]
+        }
+        if profile.schemaVersion >= 3 {
+            guard var defaults = root["configuredDefaults"] as? [String: Any] else {
+                throw PrinterProfileJSONError.invalidValue("configuredDefaults")
+            }
+            defaults["feedSpeedIps"] = profile.configuredDefaults.feedSpeedIps.map { $0 as Any } ?? NSNull()
+            defaults["backfeedSpeedIps"] = profile.configuredDefaults.backfeedSpeedIps.map { $0 as Any } ?? NSNull()
+            if profile.schemaVersion >= 4 { defaults["darkness"] = profile.configuredDefaults.darkness.map { $0 as Any } ?? NSNull() }
+            if profile.schemaVersion >= 5 {
+                defaults["tracking"] = profile.configuredDefaults.tracking.map { $0.rawValue as Any } ?? NSNull()
+                defaults["mediaGeometry"] = PrivatePhysicalGeometryJSON.encode(profile.configuredDefaults.mediaGeometry)
+            }
+            if profile.schemaVersion >= 6 { defaults["offsets"] = PrivateOffsetJSON.encode(profile.configuredDefaults.offsets) }
+            root["configuredDefaults"] = defaults
         }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
         guard data.count <= maximumBytes else { throw PrinterProfileJSONError.outputTooLarge }
@@ -62,44 +85,62 @@ public enum PrinterProfileJSON {
                 throw PrinterProfileJSONError.invalidType("object")
             }
             let version = try integer(dictionary, "schemaVersion")
-            guard (1...2).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
+            guard (1...8).contains(version) else { throw PrinterProfileJSONError.unsupportedSchema }
             var keys: Set<String> = [
                 "schemaVersion", "revision", "capabilities", "installedHardware",
                 "media", "connection",
             ]
-            if version == 2 { keys.insert("configuredDefaults") }
+            if version >= 2 { keys.insert("configuredDefaults") }
+            if version >= 7 { keys.insert("thermalMedia") }
+            if version == 8 { keys.insert("finishingConfiguration") }
             let root = try object(raw, allowed: keys)
             var defaults = PrinterControlDefaults()
-            if version == 2 {
-                let value = try object(required(root, "configuredDefaults"),
-                    allowed: ["thermalMethod", "finishing", "printSpeedIps"])
+            if version >= 2 {
+                var defaultKeys: Set<String> = ["thermalMethod", "finishing", "printSpeedIps"]
+                if version >= 3 { defaultKeys.formUnion(["feedSpeedIps", "backfeedSpeedIps"]) }
+                if version >= 4 { defaultKeys.insert("darkness") }
+                if version >= 5 { defaultKeys.formUnion(["tracking", "mediaGeometry"]) }
+                if version >= 6 { defaultKeys.insert("offsets") }
+                let value = try object(required(root, "configuredDefaults"), allowed: defaultKeys)
                 if !(try required(value, "thermalMethod") is NSNull) {
                     defaults.thermalMethod = try enumeration(value, "thermalMethod", ThermalMethod.self)
                 }
                 if !(try required(value, "finishing") is NSNull) {
                     defaults.finishing = try enumeration(value, "finishing", FinishingMode.self)
                 }
+                if version >= 6 { defaults.offsets = try PrivateOffsetJSON.decode(required(value, "offsets")) }
                 defaults.printSpeedIps = try optionalInteger(value, "printSpeedIps")
+                if version >= 4 { defaults.darkness = try optionalInteger(value, "darkness") }
+                if version >= 5 {
+                    if !(try required(value, "tracking") is NSNull) { defaults.tracking = try enumeration(value, "tracking", MediaTracking.self) }
+                    defaults.mediaGeometry = try PrivatePhysicalGeometryJSON.decode(required(value, "mediaGeometry"))
+                }
+                if version >= 3 {
+                    defaults.feedSpeedIps = try optionalInteger(value, "feedSpeedIps")
+                    defaults.backfeedSpeedIps = try optionalInteger(value, "backfeedSpeedIps")
+                }
             }
             return try PrinterProfile(
                 schemaVersion: version,
                 revision: integer(root, "revision"),
-                capabilities: decodeCapabilities(try required(root, "capabilities")),
+                capabilities: decodeCapabilities(try required(root, "capabilities"), version: version),
                 installedHardware: decodeInstalled(try required(root, "installedHardware")),
                 media: decodeMedia(try required(root, "media")),
                 connection: decodeConnection(try required(root, "connection")),
-                configuredDefaults: defaults
+                configuredDefaults: defaults,
+                thermalMedia: version >= 7 ? try decodeThermalMedia(required(root, "thermalMedia")) : .unobserved,
+                finishingConfiguration: version == 8 ? try decodeFinishingConfiguration(required(root, "finishingConfiguration")) : nil
             )
         } catch let error as PrinterProfileJSONError { throw error }
         catch { throw PrinterProfileJSONError.invalidValue("profile") }
     }
 
-    private static func encodeCapabilities(_ value: PrinterCapabilities) -> [String: Any] {
+    private static func encodeCapabilities(_ value: PrinterCapabilities, version: Int) -> [String: Any] {
         var tracking: [String: Any] = [:]
         for choice in [MediaTracking.gap, .blackMark, .continuous] {
             tracking[choice.rawValue] = value.tracking[choice].map(encodeFact) ?? NSNull()
         }
-        return [
+        var result: [String: Any] = [
             "model": value.model,
             "thermalTransfer": encodeFact(value.thermalTransfer),
             "cutter": encodeFact(value.cutter),
@@ -109,18 +150,154 @@ public enum PrinterProfileJSON {
             "printSpeedChoicesIps": value.printSpeedChoicesIps.sorted(),
             "darkness": encodeFact(value.darkness),
         ]
+        if version >= 7 { result["directThermal"] = encodeFact(value.directThermal) }
+        if version >= 3 {
+            result["feedSpeeds"] = encodeSpeedChoices(value.feedSpeeds)
+            result["backfeedSpeeds"] = encodeSpeedChoices(value.backfeedSpeeds)
+        }
+        if version >= 5 {
+            let p = value.physicalGeometry
+            func limit(_ value: QualifiedDotLimit) -> Any {
+                ["fact": encodeFact(value.fact), "maximumDots": value.maximumDots.map { $0 as Any } ?? NSNull()]
+            }
+            result["physicalGeometry"] = ["width": limit(p.width), "continuousLength": limit(p.continuousLength),
+                                          "homeX": limit(p.homeX), "homeY": limit(p.homeY)]
+        }
+        if version >= 6 {
+            func limit(_ value: QualifiedDotRange) -> Any {
+                ["fact": encodeFact(value.fact), "minimumDots": value.range.map { $0.lowerBound as Any } ?? NSNull(),
+                 "maximumDots": value.range.map { $0.upperBound as Any } ?? NSNull()]
+            }
+            result["offsets"] = ["blackMark": limit(value.offsets.blackMark), "shiftLeft": limit(value.offsets.shiftLeft),
+                                 "labelTop": limit(value.offsets.labelTop)]
+        }
+        return result
+    }
+
+    private static func decodeOffsets(_ raw: Any) throws -> OffsetControlQualification {
+        let value = try object(raw, allowed: ["blackMark", "shiftLeft", "labelTop"])
+        func limit(_ key: String) throws -> QualifiedDotRange {
+            let item = try object(required(value, key), allowed: ["fact", "minimumDots", "maximumDots"])
+            let low = try optionalInteger(item, "minimumDots"), high = try optionalInteger(item, "maximumDots")
+            guard (low == nil) == (high == nil) else { throw PrinterProfileJSONError.invalidType("offset range") }
+            let range: ClosedRange<Int>?
+            if let low, let high {
+                guard low >= -9_999, high <= 9_999, low <= high else { throw PrinterProfileJSONError.invalidType("offset range") }
+                range = low...high
+            } else { range = nil }
+            return .init(fact: try decodeFact(required(item, "fact")), range: range)
+        }
+        return try .init(blackMark: limit("blackMark"), shiftLeft: limit("shiftLeft"), labelTop: limit("labelTop"))
+    }
+
+    private static func decodePhysicalGeometry(_ raw: Any) throws -> PhysicalGeometryQualification {
+        let object = try object(raw, allowed: ["width", "continuousLength", "homeX", "homeY"])
+        func limit(_ key: String) throws -> QualifiedDotLimit {
+            let value = try self.object(required(object, key), allowed: ["fact", "maximumDots"])
+            return try .init(fact: decodeFact(required(value, "fact")), maximumDots: optionalInteger(value, "maximumDots"))
+        }
+        return try .init(width: limit("width"), continuousLength: limit("continuousLength"), homeX: limit("homeX"), homeY: limit("homeY"))
+    }
+
+    private static func encodeSpeedChoices(_ value: QualifiedSpeedChoices) -> [String: Any] {
+        ["fact": encodeFact(value.fact), "choicesIps": value.choicesIps.sorted()]
+    }
+
+    private static func decodeSpeedChoices(_ raw: Any) throws -> QualifiedSpeedChoices {
+        let value = try object(raw, allowed: ["fact", "choicesIps"])
+        guard let array = try required(value, "choicesIps") as? [Any], array.count <= 11 else {
+            throw PrinterProfileJSONError.invalidValue("choicesIps")
+        }
+        let choices = try array.map { try integerValue($0, "choicesIps") }
+        guard Set(choices).count == choices.count else {
+            throw PrinterProfileJSONError.invalidValue("choicesIps")
+        }
+        return QualifiedSpeedChoices(fact: try decodeFact(required(value, "fact")), choicesIps: Set(choices))
+    }
+
+
+    private static let finishingModes: [FinishingMode] = [.tearOff, .cut, .peel, .rewind]
+
+    private static func encodeFinishingConfiguration(_ value: FinishingProfileConfiguration) -> [String: Any] {
+        var modes: [String: Any] = [:], stock: [String: Any] = [:]
+        for mode in finishingModes {
+            modes[mode.rawValue] = value.finishing.modes[mode].map(encodeFact) ?? NSNull()
+            stock[mode.rawValue] = value.stock.compatibleModes[mode].map { encodeObservation($0) { $0 } } ?? NSNull()
+        }
+        return ["modes": modes, "enabledModes": value.finishing.enabledModes.map(\.rawValue).sorted(),
+            "installed": ["cutter": encodeObservation(value.finishing.installed.cutter) { $0 },
+                "peeler": encodeObservation(value.finishing.installed.peeler) { $0 },
+                "rewinder": encodeObservation(value.finishing.installed.rewinder) { $0 }],
+            "stock": ["media": encodeMedia(value.stock.media), "compatibleModes": stock],
+            "schedules": ["everyLabel": encodeFact(value.schedules.everyLabel),
+                "batch": encodeFact(value.schedules.batch), "endOfJob": encodeFact(value.schedules.endOfJob),
+                "maximumBatchSize": value.schedules.maximumBatchSize.map { $0 as Any } ?? NSNull()]]
+    }
+
+    private static func decodeFinishingBoolean(_ raw: Any) throws -> Observation<Bool> {
+        try decodeObservation(raw) {
+            guard let number = $0 as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else {
+                throw PrinterProfileJSONError.invalidType("finishingBoolean")
+            }
+            return number.boolValue
+        }
+    }
+
+    private static func decodeFinishingConfiguration(_ raw: Any) throws -> FinishingProfileConfiguration? {
+        if raw is NSNull { return nil }
+        let value = try object(raw, allowed: ["modes", "enabledModes", "installed", "stock", "schedules"])
+        let keys = Set(finishingModes.map(\.rawValue))
+        let modes = try object(required(value, "modes"), allowed: keys)
+        let stock = try object(required(value, "stock"), allowed: ["media", "compatibleModes"])
+        let compatible = try object(required(stock, "compatibleModes"), allowed: keys)
+        var facts: [FinishingMode: CapabilityFact] = [:], observations: [FinishingMode: Observation<Bool>] = [:]
+        for mode in finishingModes {
+            let fact = try required(modes, mode.rawValue)
+            if !(fact is NSNull) { facts[mode] = try decodeFact(fact) }
+            let observation = try required(compatible, mode.rawValue)
+            if !(observation is NSNull) { observations[mode] = try decodeFinishingBoolean(observation) }
+        }
+        guard let enabled = try required(value, "enabledModes") as? [String], enabled.count <= 4,
+              enabled == enabled.sorted(), Set(enabled).count == enabled.count,
+              enabled.allSatisfy({ FinishingMode(rawValue: $0) != nil }) else {
+            throw PrinterProfileJSONError.invalidValue("enabledModes")
+        }
+        let installed = try object(required(value, "installed"), allowed: ["cutter", "peeler", "rewinder"])
+        let schedules = try object(required(value, "schedules"), allowed: ["everyLabel", "batch", "endOfJob", "maximumBatchSize"])
+        return .init(finishing: .init(modes: facts, enabledModes: Set(enabled.compactMap(FinishingMode.init(rawValue:))),
+            installed: .init(cutter: try decodeFinishingBoolean(required(installed, "cutter")),
+                peeler: try decodeFinishingBoolean(required(installed, "peeler")),
+                rewinder: try decodeFinishingBoolean(required(installed, "rewinder")))),
+            stock: .init(media: try decodeMedia(required(stock, "media")), compatibleModes: observations),
+            schedules: .init(everyLabel: try decodeFact(required(schedules, "everyLabel")),
+                batch: try decodeFact(required(schedules, "batch")), endOfJob: try decodeFact(required(schedules, "endOfJob")),
+                maximumBatchSize: try optionalInteger(schedules, "maximumBatchSize")))
     }
 
     private static func validateForEncoding(_ profile: PrinterProfile) throws {
+        if let configuration = profile.finishingConfiguration {
+            for fact in Array(configuration.finishing.modes.values) + [configuration.schedules.everyLabel,
+                configuration.schedules.batch, configuration.schedules.endOfJob] { try validateEvidence(fact.evidence) }
+            for observation in Array(configuration.stock.compatibleModes.values) + [configuration.finishing.installed.cutter,
+                configuration.finishing.installed.peeler, configuration.finishing.installed.rewinder] {
+                try validateObservationEvidence(observation)
+            }
+        }
         let capabilities = profile.capabilities
         for fact in [
-            capabilities.thermalTransfer, capabilities.cutter, capabilities.peeler,
-            capabilities.rewind, capabilities.darkness,
+            capabilities.directThermal, capabilities.thermalTransfer, capabilities.cutter, capabilities.peeler,
+            capabilities.rewind, capabilities.darkness, capabilities.feedSpeeds.fact,
+            capabilities.backfeedSpeeds.fact, capabilities.physicalGeometry.width.fact,
+            capabilities.physicalGeometry.continuousLength.fact, capabilities.physicalGeometry.homeX.fact,
+            capabilities.physicalGeometry.homeY.fact, capabilities.offsets.blackMark.fact,
+            capabilities.offsets.shiftLeft.fact, capabilities.offsets.labelTop.fact,
         ] + Array(capabilities.tracking.values) {
             try validateEvidence(fact.evidence)
         }
         try validateEvidence(profile.installedHardware.cutter.evidence)
         try validateEvidence(profile.installedHardware.peeler.evidence)
+        try validateObservationEvidence(profile.thermalMedia.method)
+        try validateObservationEvidence(profile.thermalMedia.ribbonPresent)
         try validateObservationEvidence(profile.media.form)
         try validateObservationEvidence(profile.media.nominalLabelFace)
         try validateObservationEvidence(profile.media.configuredTracking)
@@ -147,11 +324,14 @@ public enum PrinterProfileJSON {
         }
     }
 
-    private static func decodeCapabilities(_ raw: Any) throws -> PrinterCapabilities {
-        let value = try object(raw, allowed: [
-            "model", "thermalTransfer", "cutter", "peeler", "rewind", "tracking",
-            "printSpeedChoicesIps", "darkness",
-        ])
+    private static func decodeCapabilities(_ raw: Any, version: Int) throws -> PrinterCapabilities {
+        var keys: Set<String> = ["model", "thermalTransfer", "cutter", "peeler", "rewind", "tracking",
+                                 "printSpeedChoicesIps", "darkness"]
+        if version >= 7 { keys.insert("directThermal") }
+        if version >= 3 { keys.formUnion(["feedSpeeds", "backfeedSpeeds"]) }
+        if version >= 5 { keys.insert("physicalGeometry") }
+        if version >= 6 { keys.insert("offsets") }
+        let value = try object(raw, allowed: keys)
         let trackingObject = try object(try required(value, "tracking"), allowed: [
             MediaTracking.gap.rawValue, MediaTracking.blackMark.rawValue,
             MediaTracking.continuous.rawValue,
@@ -177,7 +357,12 @@ public enum PrinterProfileJSON {
             rewind: try decodeFact(required(value, "rewind")),
             tracking: tracking,
             printSpeedChoicesIps: Set(speeds),
-            darkness: try decodeFact(required(value, "darkness"))
+            darkness: try decodeFact(required(value, "darkness")),
+            feedSpeeds: version >= 3 ? try decodeSpeedChoices(required(value, "feedSpeeds")) : .unverified,
+            backfeedSpeeds: version >= 3 ? try decodeSpeedChoices(required(value, "backfeedSpeeds")) : .unverified,
+            physicalGeometry: version >= 5 ? try decodePhysicalGeometry(required(value, "physicalGeometry")) : .unverified,
+            offsets: version >= 6 ? try decodeOffsets(required(value, "offsets")) : .unverified,
+            directThermal: version >= 7 ? try decodeFact(required(value, "directThermal")) : .init(state: .unknown, evidence: .unobserved)
         )
     }
 
@@ -331,6 +516,24 @@ public enum PrinterProfileJSON {
         default:
             throw PrinterProfileJSONError.invalidValue("evidence")
         }
+    }
+
+    private static func decodeThermalMedia(_ raw: Any) throws -> ThermalMediaConfiguration {
+        let value = try object(raw, allowed: ["method", "ribbonPresent"])
+        let method: Observation<ThermalMethod> = try decodeObservation(required(value, "method")) {
+            guard let name = $0 as? String, let method = ThermalMethod(rawValue: name) else {
+                throw PrinterProfileJSONError.invalidType("thermalMethod")
+            }
+            return method
+        }
+        let ribbon: Observation<Bool> = try decodeObservation(required(value, "ribbonPresent")) {
+            guard let number = $0 as? NSNumber,
+                  CFGetTypeID(number) == CFBooleanGetTypeID() else {
+                throw PrinterProfileJSONError.invalidType("ribbonPresent")
+            }
+            return number.boolValue
+        }
+        return .init(method: method, ribbonPresent: ribbon)
     }
 
     private static func encodeObservation<T>(

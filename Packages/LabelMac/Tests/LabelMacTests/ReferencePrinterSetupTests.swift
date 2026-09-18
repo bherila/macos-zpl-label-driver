@@ -68,4 +68,388 @@ final class ReferencePrinterSetupTests: XCTestCase {
     func testReferenceSetupViewCanBeConstructed() throws {
         _ = ReferencePrinterSetupView(model: try .gc420dUSB())
     }
+    private func configuredMotorProfile() throws -> PrinterProfile {
+        let b = try PrinterProfile.gc420dUSBReference()
+        let c = b.capabilities
+        let fact = CapabilityFact(state: .supported, evidence: .documentedModel(sourceID: "synthetic-speed-fixture"))
+        return try PrinterProfile(schemaVersion: 3, revision: 2,
+            capabilities: PrinterCapabilities(model: "synthetic-qualified-speed-profile",
+                thermalTransfer: c.thermalTransfer, cutter: c.cutter, peeler: c.peeler,
+                rewind: c.rewind, tracking: c.tracking, printSpeedChoicesIps: c.printSpeedChoicesIps,
+                darkness: c.darkness, feedSpeeds: .init(fact: fact, choicesIps: [2, 4]),
+                backfeedSpeeds: .init(fact: fact, choicesIps: [2, 3])),
+            installedHardware: b.installedHardware, media: b.media, connection: b.connection,
+            configuredDefaults: .init(printSpeedIps: 3, feedSpeedIps: 4, backfeedSpeedIps: 2))
+    }
+
+    func testConfiguredMotorDefaultsSurviveSetupEditing() throws {
+        let model = ReferencePrinterSetupModel(profile: try configuredMotorProfile())
+        XCTAssertEqual(model.selectedSpeedIps, 3)
+        let initial = try model.workflowDefaults()
+        XCTAssertEqual(initial.printSpeedIps, 3)
+        XCTAssertEqual(initial.feedSpeedIps, 4)
+        XCTAssertEqual(initial.backfeedSpeedIps, 2)
+        try model.selectSpeed(4)
+        let edited = try model.workflowDefaults()
+        XCTAssertEqual(edited.printSpeedIps, 4)
+        XCTAssertEqual(edited.feedSpeedIps, 4)
+        XCTAssertEqual(edited.backfeedSpeedIps, 2)
+        XCTAssertEqual(model.profile.revision, 2)
+        XCTAssertEqual(model.profile.configuredDefaults.printSpeedIps, 3)
+    }
+
+    func testUnqualifiedSecondarySpeedsRemainUnavailable() throws {
+        let model = try ReferencePrinterSetupModel.gc420dUSB()
+        for kind in [ReferencePrinterSetupModel.MotorSpeedKind.feed, .backfeed] {
+            XCTAssertEqual(model.speedChoices(for: kind), [])
+            XCTAssertNil(model.selectedSpeed(for: kind))
+            XCTAssertThrowsError(try model.selectSpeed(4, kind: kind)) {
+                XCTAssertEqual($0 as? ReferencePrinterSetupModel.Error,
+                               .unavailableMotorSpeed(kind, .unknown))
+            }
+            XCTAssertNil(model.selectedSpeed(for: kind))
+        }
+        for id in ["feedSpeed", "backfeedSpeed"] {
+            XCTAssertEqual(model.facts.first { $0.id == id }?.status, .unknown)
+        }
+    }
+
+    func testMotorChoicesAreIndependentAndNilUsesConfiguredFallback() throws {
+        let model = ReferencePrinterSetupModel(profile: try configuredMotorProfile())
+        try model.selectSpeed(2, kind: .feed)
+        try model.selectSpeed(3, kind: .backfeed)
+        XCTAssertEqual(try model.workflowDefaults().feedSpeedIps, 2)
+        XCTAssertEqual(try model.workflowDefaults().backfeedSpeedIps, 3)
+        XCTAssertThrowsError(try model.selectSpeed(3, kind: .feed)) {
+            XCTAssertEqual($0 as? ReferencePrinterSetupModel.Error, .unsupportedMotorSpeed(.feed, 3))
+        }
+        XCTAssertThrowsError(try model.selectSpeed(4, kind: .backfeed)) {
+            XCTAssertEqual($0 as? ReferencePrinterSetupModel.Error, .unsupportedMotorSpeed(.backfeed, 4))
+        }
+        XCTAssertEqual(model.selectedSpeed(for: .feed), 2)
+        XCTAssertEqual(model.selectedSpeed(for: .backfeed), 3)
+        for kind in [ReferencePrinterSetupModel.MotorSpeedKind.print, .feed, .backfeed] {
+            try model.selectSpeed(nil, kind: kind)
+            XCTAssertTrue(model.defaultChoiceLabel(for: kind).contains("configured device default"))
+        }
+        let fallback = try model.workflowDefaults()
+        XCTAssertEqual(fallback.printSpeedIps, 3)
+        XCTAssertEqual(fallback.feedSpeedIps, 4)
+        XCTAssertEqual(fallback.backfeedSpeedIps, 2)
+        XCTAssertNil(model.validationMessage)
+    }
+
+    func testIncompleteDraftCannotBecomeInstallationReady() throws {
+        let b = try configuredMotorProfile()
+        let profile = try PrinterProfile(schemaVersion: 3, revision: b.revision,
+            capabilities: b.capabilities, installedHardware: b.installedHardware,
+            media: b.media, connection: .init(transport: .usb,
+                stableIdentity: .observed(.init(opaqueValue: "synthetic-device"),
+                    evidence: .reportedInstallation)))
+        let model = ReferencePrinterSetupModel(profile: profile)
+        model.stockLoadedConfirmed = true
+        model.tearOffConfirmed = true
+        XCTAssertTrue(model.canInstallQueue)
+        try model.selectSpeed(4, kind: .feed)
+        XCTAssertTrue(model.canEditOfflineWorkflows)
+        XCTAssertFalse(model.canInstallQueue)
+        XCTAssertNotNil(model.validationMessage)
+        XCTAssertEqual(model.installationReadinessMessage, model.validationMessage)
+        XCTAssertThrowsError(try model.workflowDefaults()) {
+            XCTAssertEqual($0 as? PrinterProfileError, .incompleteMotorSpeeds)
+        }
+        try model.selectSpeed(3)
+        try model.selectSpeed(2, kind: .backfeed)
+        XCTAssertNil(model.validationMessage)
+        XCTAssertTrue(model.canInstallQueue)
+        XCTAssertEqual(try model.workflowDefaults().feedSpeedIps, 4)
+    }
+
+    private func darknessProfile(fact: CapabilityFact = .init(state: .supported,
+        evidence: .documentedModel(sourceID: "synthetic-darkness-fixture")),
+        version: Int = 4, defaultValue: Int? = nil) throws -> PrinterProfile {
+        let b = try PrinterProfile.gc420dUSBReference()
+        let c = b.capabilities
+        return try PrinterProfile(schemaVersion: version, revision: 7,
+            capabilities: .init(model: "synthetic-darkness-profile", thermalTransfer: c.thermalTransfer,
+                cutter: c.cutter, peeler: c.peeler, rewind: c.rewind, tracking: c.tracking,
+                printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: fact),
+            installedHardware: b.installedHardware, media: b.media, connection: b.connection,
+            configuredDefaults: .init(printSpeedIps: 3, darkness: defaultValue))
+    }
+
+    func testConfiguredDarknessSurvivesOfflineWorkflowEditing() throws {
+        let model = ReferencePrinterSetupModel(profile: try darknessProfile(defaultValue: 15))
+        XCTAssertEqual(try model.workflowDefaults().darkness, 15)
+        try model.selectSpeed(4)
+        XCTAssertEqual(try model.workflowDefaults().darkness, 15)
+        XCTAssertEqual(model.profile.configuredDefaults.darkness, 15)
+        XCTAssertEqual(model.profile.revision, 7)
+    }
+
+    func testQualifiedDarknessIncludesExplicitZeroAndNilConfiguredFallback() throws {
+        let model = ReferencePrinterSetupModel(profile: try darknessProfile(defaultValue: 15))
+        XCTAssertEqual(model.selectedDarkness, 15)
+        XCTAssertEqual(model.darknessChoices, Array(0...30))
+        for value in model.darknessChoices {
+            try model.selectDarkness(value)
+            XCTAssertEqual(try model.workflowDefaults().darkness, value)
+        }
+        for value in [Int.min, -1, 31, Int.max] {
+            XCTAssertThrowsError(try model.selectDarkness(value)) {
+                XCTAssertEqual($0 as? ReferencePrinterSetupModel.Error, .unsupportedDarkness(value))
+            }
+            XCTAssertEqual(model.selectedDarkness, 30)
+        }
+        try model.selectDarkness(nil)
+        XCTAssertNil(model.selectedDarkness)
+        XCTAssertEqual(try model.workflowDefaults().darkness, 15)
+        XCTAssertEqual(model.defaultDarknessChoiceLabel, "Use configured device default (15)")
+        let unset = ReferencePrinterSetupModel(profile: try darknessProfile())
+        XCTAssertNil(try unset.workflowDefaults().darkness)
+        XCTAssertEqual(unset.defaultDarknessChoiceLabel, "Do not explicitly set darkness")
+        try unset.selectDarkness(0)
+        XCTAssertEqual(try unset.workflowDefaults().darkness, 0)
+        _ = ReferencePrinterSetupView(model: model)
+    }
+
+    func testLegacyUnknownUnsupportedAndUnobservedDarknessOfferNoChoices() throws {
+        let facts = [CapabilityFact(state: .unknown, evidence: .unobserved),
+                     .init(state: .unsupported, evidence: .documentedModel(sourceID: "synthetic-fixture")),
+                     .init(state: .supported, evidence: .unobserved)]
+        var models = try facts.map { ReferencePrinterSetupModel(profile: try darknessProfile(fact: $0)) }
+        models.append(ReferencePrinterSetupModel(profile: try darknessProfile(version: 3)))
+        models.append(try .gc420dUSB())
+        for model in models {
+            XCTAssertEqual(model.darknessChoices, [])
+            XCTAssertNil(model.selectedDarkness)
+            XCTAssertThrowsError(try model.selectDarkness(15)) {
+                XCTAssertEqual($0 as? ReferencePrinterSetupModel.Error, .unavailableDarkness)
+            }
+            XCTAssertNil(try model.workflowDefaults().darkness)
+            let expected: PrinterSetupFact.Status = model.profile.capabilities.darkness.state == .unsupported ? .unavailable : .unknown
+            XCTAssertEqual(model.facts.first { $0.id == "darkness" }?.status, expected)
+        }
+    }
+
+    func testDarknessEditingRetainsIndependentQualifiedMotorTuple() throws {
+        let b = try configuredMotorProfile()
+        let c = b.capabilities
+        let profile = try PrinterProfile(schemaVersion: 4, revision: b.revision,
+            capabilities: .init(model: c.model, thermalTransfer: c.thermalTransfer, cutter: c.cutter,
+                peeler: c.peeler, rewind: c.rewind, tracking: c.tracking,
+                printSpeedChoicesIps: c.printSpeedChoicesIps,
+                darkness: .init(state: .supported, evidence: .documentedModel(sourceID: "synthetic-darkness-fixture")),
+                feedSpeeds: c.feedSpeeds, backfeedSpeeds: c.backfeedSpeeds),
+            installedHardware: b.installedHardware, media: b.media, connection: b.connection,
+            configuredDefaults: .init(printSpeedIps: 3, feedSpeedIps: 4, backfeedSpeedIps: 2, darkness: 15))
+        let model = ReferencePrinterSetupModel(profile: profile)
+        try model.selectDarkness(0)
+        let defaults = try model.workflowDefaults()
+        XCTAssertEqual(defaults.printSpeedIps, 3)
+        XCTAssertEqual(defaults.feedSpeedIps, 4)
+        XCTAssertEqual(defaults.backfeedSpeedIps, 2)
+        XCTAssertEqual(defaults.darkness, 0)
+        XCTAssertNil(model.validationMessage)
+        XCTAssertEqual(profile.configuredDefaults.darkness, 15)
+    }
+
+    private func geometryProfile(defaults: PrinterControlDefaults? = nil, qualifiedOffsets: Bool = false, qualifiedMark: Bool = false) throws -> PrinterProfile {
+        let b = try darknessProfile(defaultValue: 15)
+        let c = b.capabilities
+        let fact = CapabilityFact(state: .supported, evidence: .documentedModel(sourceID: "synthetic-geometry-fixture"))
+        var tracking = c.tracking; tracking[.continuous] = fact
+        if qualifiedMark { tracking[.blackMark] = fact }
+        func limit(_ value: Int) -> QualifiedDotLimit { .init(fact: fact, maximumDots: value) }
+        let geometry = try MediaGeometryRequest(widthDots: 20, lengthDots: 10, originXDot: 1, originYDot: 1)
+        return try PrinterProfile(schemaVersion: qualifiedOffsets ? 6 : 5, revision: b.revision,
+            capabilities: .init(model: c.model, thermalTransfer: c.thermalTransfer, cutter: c.cutter, peeler: c.peeler,
+                rewind: c.rewind, tracking: tracking, printSpeedChoicesIps: c.printSpeedChoicesIps, darkness: c.darkness,
+                physicalGeometry: .init(width: limit(832), continuousLength: limit(1500), homeX: limit(100), homeY: limit(200)),
+                offsets: qualifiedOffsets ? .init(blackMark: qualifiedMark ? .init(fact: fact, range: -10...20) : .unverified, shiftLeft: .init(fact: fact, range: -30...40),
+                    labelTop: .init(fact: fact, range: -5...6)) : .unverified),
+            installedHardware: b.installedHardware, media: b.media, connection: b.connection,
+            configuredDefaults: defaults ?? .init(printSpeedIps: 3, darkness: 15, tracking: .continuous, mediaGeometry: geometry,
+                offsets: qualifiedOffsets ? .init(shiftLeftDots: 0, labelTopDots: 0) : nil))
+    }
+
+    func testProfileFiveOfflineSpeedEditRetainsGeometryTrackingAndDarkness() throws {
+        let p = try geometryProfile()
+        let geometry = try XCTUnwrap(p.configuredDefaults.mediaGeometry)
+        let model = ReferencePrinterSetupModel(profile: p)
+        XCTAssertEqual(model.darknessChoices, Array(0...30))
+        XCTAssertEqual(model.facts.first { $0.id == "tracking" }?.status, .configured)
+        XCTAssertTrue(model.facts.first { $0.id == "tracking" }?.value.contains("current setting unknown") == true)
+        try model.selectSpeed(4)
+        let defaults = try model.workflowDefaults()
+        XCTAssertEqual(defaults.printSpeedIps, 4)
+        XCTAssertEqual(defaults.darkness, 15)
+        XCTAssertEqual(defaults.tracking, .continuous)
+        XCTAssertEqual(defaults.mediaGeometry, geometry)
+        XCTAssertEqual(p.configuredDefaults.printSpeedIps, 3)
+    }
+
+    func testGeometryDraftPreservesIndependentDefaultsAndExplicitZeroHome() throws {
+        let profile = try geometryProfile()
+        let model = ReferencePrinterSetupModel(profile: profile)
+        XCTAssertEqual(model.trackingChoices, [.gap, .continuous])
+        XCTAssertEqual(model.geometryRange(for: .width), 2...832)
+        XCTAssertEqual(model.geometryRange(for: .homeX), 0...100)
+        model.geometryDraft[.homeX] = "0"
+        model.geometryDraft[.width] = "30"
+        let defaults = try model.workflowDefaults()
+        XCTAssertEqual(defaults.mediaGeometry, try .init(widthDots: 30, lengthDots: 10, originXDot: 0, originYDot: 1))
+        XCTAssertEqual(defaults.tracking, .continuous)
+        XCTAssertEqual(defaults.darkness, 15)
+        XCTAssertEqual(defaults.printSpeedIps, 3)
+        model.geometryDraft[.width] = ""
+        XCTAssertEqual(try model.workflowDefaults().mediaGeometry?.widthDots, 20)
+        XCTAssertEqual(profile.configuredDefaults.mediaGeometry?.originXDot, 1)
+        XCTAssertFalse(model.canInstallQueue)
+    }
+
+    func testInvalidGeometryDraftNeverFallsBackOrClamps() throws {
+        let model = ReferencePrinterSetupModel(profile: try geometryProfile())
+        for field in ReferencePrinterSetupModel.GeometryField.allCases {
+            for text in ["broken", "2.5", "nan", "999999999999999999999999999", "-1", "32001"] {
+                model.geometryDraft = [field: text]
+                XCTAssertThrowsError(try model.workflowDefaults())
+                XCTAssertNotNil(model.validationMessage)
+                XCTAssertEqual(model.geometryDraft[field], text)
+                XCTAssertFalse(model.canInstallQueue)
+            }
+        }
+        model.geometryDraft = [.width: "1"]
+        XCTAssertThrowsError(try model.workflowDefaults())
+        model.geometryDraft = [.length: "0"]
+        XCTAssertThrowsError(try model.workflowDefaults())
+    }
+
+    func testTrackingChangeDoesNotDropInheritedLengthAndResetRestoresDefaults() throws {
+        let model = ReferencePrinterSetupModel(profile: try geometryProfile())
+        try model.selectTracking(.gap)
+        XCTAssertThrowsError(try model.workflowDefaults())
+        XCTAssertTrue(model.validationMessage?.contains("inherited length") == true)
+        XCTAssertThrowsError(try model.selectTracking(.blackMark))
+        XCTAssertEqual(model.selectedTracking, .gap)
+        try model.selectTracking(nil)
+        XCTAssertEqual(try model.workflowDefaults().tracking, .continuous)
+        XCTAssertEqual(try model.workflowDefaults().mediaGeometry?.lengthDots, 10)
+    }
+
+    func testUnqualifiedReferenceDoesNotExposeGeometryOrTrackingDrafts() throws {
+        let model = try ReferencePrinterSetupModel.gc420dUSB()
+        XCTAssertTrue(model.trackingChoices.isEmpty)
+        for field in ReferencePrinterSetupModel.GeometryField.allCases {
+            XCTAssertNil(model.geometryRange(for: field))
+            model.geometryDraft = [field: "0"]
+            XCTAssertThrowsError(try model.workflowDefaults())
+        }
+        XCTAssertThrowsError(try model.selectTracking(.gap))
+        model.geometryDraft = [:]
+        XCTAssertNil(try model.workflowDefaults().mediaGeometry)
+        XCTAssertNil(try model.workflowDefaults().tracking)
+    }
+
+    func testHomePairAndContinuousLengthMustBeCompleteBeforeDraftCanBeUsed() throws {
+        let p = try geometryProfile(defaults: .init(tracking: .gap))
+        let model = ReferencePrinterSetupModel(profile: p)
+        model.geometryDraft[.homeX] = "0"
+        XCTAssertThrowsError(try model.workflowDefaults())
+        XCTAssertTrue(model.validationMessage?.contains("both label-home") == true)
+        model.geometryDraft[.homeY] = "0"
+        XCTAssertEqual(try model.workflowDefaults().mediaGeometry?.originYDot, 0)
+        try model.selectTracking(.continuous)
+        XCTAssertThrowsError(try model.workflowDefaults())
+        XCTAssertTrue(model.validationMessage?.contains("requires a qualified label length") == true)
+        model.geometryDraft[.length] = "10"
+        XCTAssertEqual(try model.workflowDefaults().tracking, .continuous)
+        XCTAssertEqual(try model.workflowDefaults().mediaGeometry?.lengthDots, 10)
+        XCTAssertEqual(model.facts.first { $0.id == "geometry-homeX" }?.status, .configured)
+        let reference = try ReferencePrinterSetupModel.gc420dUSB()
+        XCTAssertEqual(reference.facts.first { $0.id == "geometry-homeX" }?.status, .unknown)
+    }
+
+    func testSchemaSixSetupEditsRetainIndependentlyBoundOffsets() throws {
+        let profile = try geometryProfile(qualifiedOffsets: true)
+        let model = ReferencePrinterSetupModel(profile: profile)
+        model.geometryDraft[.homeX] = "0"
+        try model.selectSpeed(4)
+        let defaults = try model.workflowDefaults()
+        XCTAssertEqual(defaults.offsets, .init(shiftLeftDots: 0, labelTopDots: 0))
+        XCTAssertEqual(defaults.printSpeedIps, 4)
+        XCTAssertEqual(defaults.mediaGeometry?.originXDot, 0)
+        XCTAssertEqual(model.geometryRange(for: .width), 2...832)
+        XCTAssertEqual(profile.configuredDefaults.mediaGeometry?.originXDot, 1)
+    }
+
+    func testOffsetDraftPreservesIndependentControlsAndExplicitSignedZero() throws {
+        let profile = try geometryProfile(qualifiedOffsets: true)
+        let model = ReferencePrinterSetupModel(profile: profile)
+        XCTAssertEqual(model.offsetRange(for: .shiftLeft), -30...40)
+        XCTAssertEqual(model.offsetRange(for: .labelTop), -5...6)
+        model.offsetDraft[.shiftLeft] = "-2"
+        let first = try model.workflowDefaults()
+        XCTAssertEqual(first.offsets, .init(shiftLeftDots: -2, labelTopDots: 0))
+        model.offsetDraft[.labelTop] = "0"
+        model.offsetDraft[.shiftLeft] = ""
+        let defaults = try model.workflowDefaults()
+        XCTAssertEqual(defaults.offsets, .init(shiftLeftDots: 0, labelTopDots: 0))
+        XCTAssertEqual(defaults.tracking, .continuous)
+        XCTAssertEqual(defaults.darkness, 15)
+        XCTAssertEqual(defaults.mediaGeometry?.lengthDots, 10)
+        XCTAssertEqual(profile.configuredDefaults.offsets, .init(shiftLeftDots: 0, labelTopDots: 0))
+        XCTAssertFalse(model.canInstallQueue)
+    }
+
+    func testEveryInvalidOffsetDraftStaysVisibleAndBlocksReadiness() throws {
+        let profile = try geometryProfile(qualifiedOffsets: true, qualifiedMark: true)
+        let model = ReferencePrinterSetupModel(profile: profile)
+        for field in ReferencePrinterSetupModel.OffsetField.allCases {
+            for text in ["broken", "1.5", "nan", "9999999999999999999999999999", "-10000", "10000"] {
+                model.offsetDraft = [field: text]
+                XCTAssertThrowsError(try model.workflowDefaults())
+                XCTAssertTrue(model.validationMessage?.contains("signed whole dots") == true)
+                XCTAssertEqual(model.offsetDraft[field], text)
+                XCTAssertFalse(model.canInstallQueue)
+            }
+        }
+        model.offsetDraft = [.labelTop: "7"]
+        XCTAssertThrowsError(try model.workflowDefaults())
+        model.offsetDraft = [.shiftLeft: "41"]
+        XCTAssertThrowsError(try model.workflowDefaults())
+    }
+
+    func testBlackMarkDraftRequiresExplicitOffsetAndModeChangesDoNotDropIt() throws {
+        let profile = try geometryProfile(defaults: .init(printSpeedIps: 3, darkness: 15, tracking: .gap,
+            mediaGeometry: MediaGeometryRequest(widthDots: 20, originXDot: 0, originYDot: 0),
+            offsets: .init(shiftLeftDots: 0, labelTopDots: 0)), qualifiedOffsets: true, qualifiedMark: true)
+        let model = ReferencePrinterSetupModel(profile: profile)
+        XCTAssertTrue(model.trackingChoices.contains(.blackMark))
+        try model.selectTracking(.blackMark)
+        XCTAssertThrowsError(try model.workflowDefaults())
+        XCTAssertTrue(model.validationMessage?.contains("black-mark offset") == true)
+        model.offsetDraft[.blackMark] = "0"
+        XCTAssertEqual(try model.workflowDefaults().offsets?.blackMarkOffsetDots, 0)
+        XCTAssertEqual(try model.workflowDefaults().tracking, .blackMark)
+        try model.selectTracking(.gap)
+        XCTAssertThrowsError(try model.workflowDefaults())
+        model.offsetDraft[.blackMark] = ""
+        XCTAssertEqual(try model.workflowDefaults().tracking, .gap)
+        XCTAssertNil(try model.workflowDefaults().offsets?.blackMarkOffsetDots)
+        XCTAssertEqual(model.facts.first { $0.id == "offset-blackMark" }?.status, .configured)
+    }
+
+    func testUnqualifiedReferenceDoesNotExposeOrAcceptOffsetDrafts() throws {
+        let model = try ReferencePrinterSetupModel.gc420dUSB()
+        for field in ReferencePrinterSetupModel.OffsetField.allCases {
+            XCTAssertNil(model.offsetRange(for: field))
+            model.offsetDraft = [field: "0"]
+            XCTAssertThrowsError(try model.workflowDefaults())
+        }
+        XCTAssertEqual(model.facts.first { $0.id == "offset-shiftLeft" }?.status, .unknown)
+        model.offsetDraft = [:]
+        XCTAssertNil(try model.workflowDefaults().offsets)
+    }
+
 }

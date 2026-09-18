@@ -40,9 +40,10 @@ final class OfflineLayoutWorkerTests: XCTestCase {
     }
 
     func testRealBarcodeChildUsesOriginalQuartzRasterAndCanonicalFixturePlacement() throws {
+        // Correctness uses the production bound; dedicated tests exercise short deadlines.
         let source = try fixture("native-vector")
         let analyzed = try OfflineLayoutWorker.analyze(originalPDF: source,
-            structuralPages: [1], workerExecutable: worker(), barcodePages: [1], deadlineSeconds: 5)
+            structuralPages: [1], workerExecutable: worker(), barcodePages: [1], deadlineSeconds: NativeBarcodeCorrectnessBudget.seconds)
         let page = try XCTUnwrap(analyzed.first)
         XCTAssertEqual(page.pageBox, try QuartzPDFRenderer.pageBox(originalPDF: source, pageNumber: 1))
         let locations = try XCTUnwrap(page.anchors).filter { $0.kind == .barcodeLike }
@@ -62,7 +63,7 @@ final class OfflineLayoutWorkerTests: XCTestCase {
         let borders = try QuartzStructuralAnalyzer.analyzeBorders(originalPDF: source, pageNumber: 1)
         XCTAssertEqual(page.anchors?.filter { $0.kind == .border }, borders.anchors)
         let repeated = try OfflineLayoutWorker.analyze(originalPDF: source,
-            structuralPages: [1], workerExecutable: worker(), barcodePages: [1], deadlineSeconds: 5)
+            structuralPages: [1], workerExecutable: worker(), barcodePages: [1], deadlineSeconds: NativeBarcodeCorrectnessBudget.seconds)
         XCTAssertEqual(repeated, analyzed)
     }
 
@@ -100,7 +101,7 @@ final class OfflineLayoutWorkerTests: XCTestCase {
 
     func testRealNonLabelPageReturnsObservedEmptyBarcodeLocationsWithoutAnalyzingOtherPage() throws {
         let analyzed = try OfflineLayoutWorker.analyze(originalPDF: fixture("non-label-pages"),
-            structuralPages: [2], workerExecutable: worker(), barcodePages: [2], deadlineSeconds: 5)
+            structuralPages: [2], workerExecutable: worker(), barcodePages: [2], deadlineSeconds: NativeBarcodeCorrectnessBudget.seconds)
         XCTAssertEqual(analyzed.count, 2)
         XCTAssertNil(analyzed[0].anchors)
         let observed = try XCTUnwrap(analyzed[1].anchors)

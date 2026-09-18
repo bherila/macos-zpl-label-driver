@@ -7,6 +7,7 @@ if [[ -n "${EXPECTED_ARCH:-}" && "$(uname -m)" != "$EXPECTED_ARCH" ]]; then
   exit 2
 fi
 export MACOSX_DEPLOYMENT_TARGET=26.0
+python3 scripts/traceability_report.py >/dev/null
 python3 scripts/run-accelerator-checks.py
 python3 scripts/run-accelerator-checks.py --configuration release
 core_bin_dir="$(xcrun swift build --package-path Packages/LabelCore --configuration release --show-bin-path)"

@@ -497,9 +497,11 @@ public struct SyntheticInertJobPipeline: @unchecked Sendable {
                 thermalMethod: queue.workflowDefaults.thermalMethod,
                 finishing: queue.workflowDefaults.finishing,
                 printSpeedIps: queue.workflowDefaults.printSpeedIps,
+                feedSpeedIps: queue.workflowDefaults.feedSpeedIps,
+                backfeedSpeedIps: queue.workflowDefaults.backfeedSpeedIps,
                 darkness: queue.workflowDefaults.darkness,
                 tracking: queue.workflowDefaults.tracking,
-                mediaGeometry: queue.workflowDefaults.mediaGeometry
+                mediaGeometry: queue.workflowDefaults.mediaGeometry, offsets: queue.workflowDefaults.offsets
             )
             guard plan.outputLabels.count == ticket.outputLabels.count else {
                 throw Error.preparationFailed

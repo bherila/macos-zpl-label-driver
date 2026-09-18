@@ -1,3 +1,932 @@
+# Swift CI cache — hosted evidence 2026-09-18
+
+PR #84 squash `654fd304f7f80f0bf94296f2dd731b50d665f8c1` passed hosted
+PR/main gates and seeded a 369 MB compressed cache. Main alone saves; PRs
+restore and still run every required check. Three-day retention and 10 GB cap
+are verified. Unchanged #61 source native gate improved from 6m10s to 5m01s;
+whole Mac job 6m20s to 5m25s including restore. Queue time is separate. See
+[exact cache evidence](validation/M0-SWIFT-CACHE-2026-09-17.md). No printer,
+installation, scheduler, GUI or release acceptance is inferred.
+
+# Inert finishing lease source checkpoint — 2026-09-17
+
+Implementation 3a5b79a6d543c749fb6998379af594c70582d84f passed local89/272/324 full gate.
+Next source/remote/PR equality and exact hosted verification. Actual accepted adapter,
+file/status/pitch/ticket integration and persistent recovery remain open.
+
+# Inert finishing lease lifetime — 2026-09-17
+
+Finite discard coordinator now holds the existing shared kernel lease through all
+finishing file/status steps, including last peel removal. Nine focused/restored native
+cases passed; early status-wait release failed45assertions then source byte-restored.
+Full finite900s session42783 passed ownexit0:89Python/272Core/324native debug/release
+plus independent/inert/signature/packaged checks; artifact artifacts/setup-app.DeJXCW;
+log /tmp/zpl-inert-finishing-lease-full.log. Next commit/push/exact hosted readback;
+source/disclosure review passed and restored coordinator hash unchanged; see
+validation/M3-INERT-FINISHING-LEASE-2026-09-17.md. Actual accepted device/ticket/pitch,
+file/status adapter, persistence/recovery and installed/physical gates remain open.
+Frozen B unchanged; no printer/admin/merge/binary action.
+
+# Finishing delivery accounting source checkpoint — 2026-09-17
+
+Implementation d02212eff311358675ea3bb65a1f7389f64e3240 passed the local89/272/324 full gate.
+Next verify source/PR/remote equality and exact hosted CI. Actual correlated status,
+file delivery, persistent recovery, lease and accepted admission remain open.
+
+# Finishing delivery accounting — 2026-09-17
+
+Local tracker now preserves exact file/step order and post-attempt uncertainty through
+status and final peel-removal waits. Nine focused/restored native cases passed; zero-byte
+attempt regression independently failed then source restored. Full finite900s gate session75954 passed ownexit0:89Python/272Core/324native
+debug/release plus independent/inert/signature/packaged checks. Artifact
+artifacts/setup-app.8BT8lP; log /tmp/zpl-finishing-delivery-full.log. Source/disclosure
+review passed and restored tracker hash unchanged; next commit/push/readback;
+see validation/M3-FINISHING-DELIVERY-ACCOUNTING-2026-09-17.md. No actual sender/status/
+lease or accepted adapter integration; M3-AC09 remains open. Frozen B unchanged.
+
+# Qualified finishing framing source checkpoint — 2026-09-17
+
+Implementation b76cfd3903d05076ded9074a3e3d3ae06b847d3c passed the recorded local 89/272/324 full gate.
+Next verify source push, PR equality and exact hosted run. No physical/admin/merge/
+binary publication. Actual sender/status/lease and accepted admission remain open.
+
+Finishing framing full gate session6593 completed ownexit0: 89 Python/272 Core/324
+native debug/release, independent oracle, inert ABI/pipeline, metadata/signature and
+packaged-worker equality checks passed. Artifact artifacts/setup-app.P5wHzx.
+Previous published 07ef316 exact hosted run35229621380 passed; new slice hosted pending.
+
+# In-memory qualified finishing output framing — 2026-09-17
+
+Local framed candidates now preserve actual original-source graphics, exact profile/
+normal controls, quantity1 expanded labels, delayed-cut files and required status waits.
+Additional qualification binds the complete profile and independently gates delayed
+mode/readiness/completion, file delivery, peel removal/prepeel syntax and non-RFID scope.
+Six Core/nine native focused and restored cases passed; quantity2, ^MMC substitution and
+same-model profile-binding omissions failed independently then byte-restored. See
+validation/M3-FINISHING-OUTPUT-FRAMING-2026-09-17.md. Full gate and source/disclosure
+review passed; next same-PR source commit/readback. No delivery adapter consumes these
+steps; actual status/file/lease/uncertainty, accepted queue/ticket/device/pitch/persistence
+and manual/hardware qualification remain open. Ordinary8 remains gated. Frozen B unchanged.
+
+# Bound normal-control encoding source checkpoint — 2026-09-17
+
+Implementation 7481e23c1deb63252b70f76ec9775fbd8233e098 passed the recorded local finite gate.
+Next verify pushed source/PR equality and exact hosted run; no merge/binary release.
+
+# Finishing normal-control encoding terminal gate — 2026-09-17
+
+Full finite900s session87326 completed ownexit0:89Python/272Core/323Mac debug/release,132 strict and180 ASCII oracle round trips per mode, finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.I8weej. No printer accessed.
+Six Core/eight native restored focused cases passed; thermal omission failed then
+byte-restored. Source/disclosure review passed. Next commit/push and verify remote/
+PR equality and exact hosted run. Mechanical format/cut/file/peel policy, accepted
+queue/ticket/device/pitch context and manual/hardware gates remain open. Ordinary
+schema8 admission stays gated. Frozen B unchanged; no merge/binary publication.
+
+Normal-control encoding source/disclosure review passed; restored encoder hash unchanged.
+Same finite full gate session87326 passed272Core debug/release; native/package stages
+remain live. Keep source unpublished until own terminal result; no full/hosted pass claimed.
+
+Finite900s full gate live session87326, log `/tmp/zpl-finishing-normalization-full.log`.
+Poll the same process; source unchanged since restored focused ownexit0.
+
+# Bound normal-control finishing prefix — 2026-09-17
+
+Local preparation now retains a sealed profile/plan/effective-controls/normal-bytes
+context from the shared ordinary encoder. Schema8 thermal is explicit; finishing/
+format/quantity/cut triggers are outside this prefix. Six Core/eight native restored
+focused cases passed; thermal omission reproduced failures then source byte-restored.
+See validation/M3-FINISHING-NORMAL-CONTROL-ENCODING-2026-09-17.md. Next finite900s
+full gate, source/disclosure review and same-PR source commit/readback. Mechanical
+output policy, accepted ticket/queue/device/pitch and manual/hardware gates open.
+Source remains local only; frozen B unchanged.
+
+# Effective-control preparation source checkpoint — 2026-09-17
+
+Implementation 6baef390eeea89b90e711125eed8ffb68bf90bbb passed the recorded local finite gate.
+Next verify pushed source/PR equality and hosted run. No merge/binary release.
+
+# Effective controls in finishing preparation terminal gate — 2026-09-17
+
+Full finite900s session25902 completed ownexit0:89Python/272Core/323Mac debug/release,132 strict and180 ASCII oracle round trips per mode, finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.yFKWag. No printer accessed.
+Eight restored focused cases passed; omitted equality and home/shift forwarding each
+failed independently then byte-restored. Source/disclosure review passed. Next commit/
+push and verify exact remote/PR head and hosted run. Ordinary mechanical encoding,
+accepted ticket/queue/device/pitch context, cut/file boundaries, peel waits and manual/
+hardware gates remain open. Frozen B unchanged. No merge or binary publication.
+
+Source/disclosure review passed; both restored source hashes unchanged. Same finite
+full-gate session25902 passed272Core debug/release; remaining inert/native/package
+stages live. Keep unpublished until terminal own exit; no full/hosted pass claimed.
+
+Finite900s full gate live session25902; log `/tmp/zpl-finishing-controls-preparation-full.log`.
+Poll same process; no source change since restored focused ownexit0.
+
+# Finishing preparation effective-control integration — 2026-09-17
+
+Local source preparation now resolves valid effective controls before workers,
+retains them with exact profile/policy/source/raster context, and applies qualified
+known containment including offsets. Eight focused/restored cases passed; control
+substitution and home/shift forwarding faults independently failed then byte-restored.
+See validation/M3-FINISHING-PREPARATION-CONTROLS-2026-09-17.md. Next finite900s full
+gate, review/disclosure and same-PR source commit/readback. No accepted queue/ticket/
+device, pitch, mechanical wire/cut/peel or manual/physical acceptance inferred.
+Source remains local only; frozen B unchanged.
+
+# Shared finishing resolution source checkpoint — 2026-09-17
+
+Implementation 74b030ed45766b4e1df0caa35900d9449a68d796 passed the local finite gate recorded below.
+Next verify source publication/readback and exact hosted run; no merge/binary release.
+
+# Shared finishing resolution terminal gate — 2026-09-17
+
+Full finite900s session15513 completed ownexit0:89Python/272Core/323Mac debug/release,132 strict and180 ASCII oracle round trips per mode, finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.GmXaIw. No printer accessed.
+Six restored focused cases passed; normal-validation omission failed12 assertions and
+policy-equality omission failed2. Source/disclosure review passed. Next commit/push
+and verify remote/PR equality and exact hosted run. Mechanical encoding, accepted
+queue/ticket/device context, qualified pitch/framing/cut/peel and manual/physical gates
+remain open. Frozen B unchanged. No merge or binary publication.
+
+Shared finishing resolution source/disclosure review passed; restored SHA unchanged.
+Same finite full-gate session15513 passed272Core debug/release; native/package stages
+remain live. Source remains local only; no full pass or hosted pass claimed.
+
+Full finite900s gate live under session15513, log `/tmp/zpl-finishing-resolution-full.log`.
+Poll the same handle; source unchanged since restored focused result.
+
+# Shared finishing control resolution — 2026-09-17
+
+Local schema8 offline resolution checks the complete stored finishing policy and
+selected effective mode, then shares normal control precedence/validation with
+ordinary jobs. Ordinary profile8 encoders remain gated. Six focused/restored cases
+passed; omitting normal validation failed12 assertions, policy equality failed2.
+See validation/M3-FINISHING-CONTROL-RESOLUTION-2026-09-17.md. Next finite900s full
+gate, source/disclosure review and same-PR commit/readback. No mechanical encoding,
+accepted queue/ticket/device binding or manual/physical acceptance inferred.
+Frozen B unchanged; source remains local/unpushed.
+
+# Original-source preparation source checkpoint — 2026-09-17
+
+Implementation 181cf15534dd60c98e3b7c1978accbeaa6d2e575 passed the local finite gate documented below.
+Source publication/readback and hosted verification follow; no binary release or merge.
+
+# Original-source finishing preparation terminal gate — 2026-09-17
+
+Full finite900s session77319 completed ownexit0:89Python/270Core/323Mac debug/release, independent strict and ASCII oracles, finite benchmark/inert ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures, unavailable Developer-ID negative and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.0bWZBw. No printer accessed.
+Eight restored focused cases passed; source-hash omission reproduced independent
+same-size substitution failure. Source review and disclosure scan passed. Next commit
+and verify pushed source/PR exact head and its hosted run. Accepted ticket/queue/device
+binding, qualified pitch, normalized mechanical bytes/file framing, peel waits and
+manual/hardware gates remain open. Frozen B unchanged; no merge/binary publication.
+
+Full-gate session77319 remains live:89Python/270Core debug-release and323Mac
+debug passed zero failures; native release/packaging pending. Source/disclosure review
+passed with restored hash unchanged. Keep local slice unpublished until own full exit.
+
+Restored eight focused cases passed ownexit0; full finite900s gate now live
+under session77319, log `/tmp/zpl-finishing-source-full.log`. Poll the same process;
+do not restart on observation timeout or claim full success before own terminal exit.
+
+# Original-source finishing preparation — 2026-09-17
+
+New local preparation renders original PDF bytes via isolated analysis/render workers,
+retains complete extraction/copy order and source/canvas/conversion provenance, and
+binds actual packed inputs to the exact finishing job. Eight focused cases passed;
+omitted source hash reproduced same-size mutation acceptance, then source restored.
+See validation/M3-FINISHING-SOURCE-PREPARATION-2026-09-17.md. Next restored focused
+and finite900s full gate; source remains unpublished. Canvas pitch, accepted ticket,
+normalized mechanical bytes/wire boundaries, peel waits and manual/physical gates
+remain open. Frozen B unchanged. Published raster checkpoint186a76f hosted35226005783
+was last observed in progress; no pass claimed.
+
+# Ordered raster binding terminal gate — 2026-09-17
+
+Full finite900s gate completed ownexit0:89Python/270Core/322Mac debug/release, independent oracle/finite inert ABI and pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures and packaged-worker PBM/ZPL equality. Artifact artifacts/setup-app.JX0Qc6. No printer accessed; no scheduler/GUI/installation/physical acceptance inferred.
+Previous published checkpoint61c17fb hosted35224479619 completed success at exact head.
+Budget audit and raster binding are separate source commits; next verify pushed head
+and its hosted run. Original-source provenance, normalized mechanical command framing,
+peel waits and adapter/manual/hardware gates remain open. Frozen B unchanged.
+
+# Full barcode correctness-site budget audit — 2026-09-17
+
+Raster full gate failed release321 on existing saved-barcode analyzer timedOut;
+89/270debug-release and321native debug pass, no full pass. Four real-barcode
+correctness scenarios now use shared NativeBarcodeCorrectnessBudget (existing60s
+production bound), with site-enumeration audit2/1/3/4 calls. Dedicated short-deadline
+tests unchanged. Focused budget/layout/opening/pipeline/render suites then finite
+900s full gate run under session9657; poll same handle. Full log
+`/tmp/zpl-finishing-raster-full-budget-audit.log`. Source/budget restructure remain
+local/unpushed; no timing root-cause or physical acceptance claimed. Next inspect
+terminal evidence, separate budget fix from raster feature commits, disclosure gate.
+Frozen B unchanged. No printer/admin/merge/binary release.
+
+# Ordered finishing raster inputs — 2026-09-17
+
+Local FinishingRasterBinding now hashes actual packed input dimensions/layout/bytes
+and whole order against the immutable profile/count/mode/schedule job context.
+Changed pixels/order/dimensions or job context fail; bounded geometry/byte totals
+and cancellation are separate gates. Seven focused/restored native cases passed
+ownexit0; omitting dimensions from the digest reproduced a failing independent
+same-bytes/changed-width assertion, then byte-restored source. Full finite900s gate
+is live under session30468, log `/tmp/zpl-finishing-raster-full.log`; poll same handle.
+See `validation/M3-FINISHING-RASTER-BINDING-2026-09-17.md`. This does not prove
+original-PDF provenance, encoded bytes or physical delivery. Ordinary profile8 remains
+rejected. Next inspect terminal gate and review/push; source currently local only.
+Manual/physical gates and frozen B unchanged. No printer/admin/merge/binary release.
+
+# Profile-bound finishing source checkpoint — 2026-09-17
+
+Implementation `7c97afa8df33852f181bcd30f0fc0b59ec6f958e` is locally validated as recorded below.
+Publish source checkpoint, verify remote/PR equality and observe exact hosted run.
+Remaining ordinary/prepared-order/delivery/manual gates unchanged; frozen B unchanged.
+
+# Profile-bound finishing terminal local gate — 2026-09-17
+
+Full finite CI-equivalent gate passed ownexit0:89Python/270Core/318Mac debug/release
+plus independent/inert/native/signature/packaged checks. Artifact `artifacts/setup-app.w04t7p`.
+Four focused/restored cases passed; omitted reference equality failed four independent
+reference components. Disclosure scan and manual source review passed. Next commit/
+push this slice and verify remote/PR exact head and hosted run. Binding is limited
+to profile/count/mode/schedule; prepared raster-order and transmission authority
+remain work. Profile8 ordinary output still rejected. Frozen B unchanged.
+
+# Profile-bound finishing intentions — 2026-09-17
+
+Local PrinterProfileStore planning now verifies the exact full profile reference
+and constructs intents from its immutable profile8 configuration. Retained inputs
+reject reference/count/mode/schedule substitution; newer revisions cannot change
+old limits. Four focused native cases passed ownexit0; removing reference equality
+reproduced four failures, then byte-restored four focused pass. Full finite900s gate
+is live under session87489, log `/tmp/zpl-profile-bound-finishing-full.log`;
+poll same handle. No full pass/source push yet. See
+`validation/M3-PROFILE-BOUND-FINISHING-PLAN-2026-09-17.md`. Count/reference binding
+is not prepared raster-order or delivery authority. Ordinary profile8 remains
+rejected until job/normalization/transport integration. Physical/manual gates open.
+Frozen B unchanged. No printer/admin/merge/binary release.
+
+# Finishing profile source checkpoint — 2026-09-17
+
+Implementation `44e6893d7ffc7dfb97180919227196cd9ef0a08d` follows separate test-budget commit4af29a3.
+Local full89/270/314 and restored270Core passed ownexit0 as recorded below.
+Push/readback source checkpoint next; new exact hosted validation is separate.
+Ordinary profile8 remains gated pending job/normalization/delivery integration.
+
+# Finishing profile8 terminal local validation — 2026-09-17
+
+Full finite CI-equivalent gate passed ownexit0:89Python/270Core/314Mac debug/release
+plus independent/inert/native/signature/packaged checks. Artifact `artifacts/setup-app.FwiqW0`.
+Exact-media profile binding fault reproduced ownexit1, source byte-restored,
+all270Core restored pass. Four ordinary admission calls failed before sharedguard;
+profile8 remains storage-only. Two correctness test budgets explicitly align to
+existing production60s; dedicated short-deadline/cancellation cases unchanged.
+Prior native timeout causes remain unestablished, not claimed repaired. Next
+coherent commits/source push and exact hosted readback after disclosure review.
+Ordinary finishing job/encoder/delivery integration and physical gates remain open.
+Frozen B unchanged. No printer/admin/merge/binary release.
+
+# Barcode-budget focused evidence and hosted prerequisite — 2026-09-17
+
+Layout9/pipeline16/render-worker11 focused tests passed ownexit0, including short
+deadline and cancellation cases. Full gate session67662 remains live; poll same
+handle. Explicit correctness success budgets changed5->existing bounded default60;
+production limits and dedicated short-deadline cases unchanged. Prior failures
+and unestablished timing cause remain recorded. Published checkpointa8c8db3 exact
+hosted35221905583 passed, not evidence for local profile8/admission/budget changes.
+No source publication yet; frozen B unchanged.
+
+# Barcode correctness-budget restructure — 2026-09-17
+
+Profile8 full-final gate failed ownexit1 on existing barcode pipeline timedOut.
+Cause remains unestablished. A temporary60s diagnostic passed and source restored.
+Two real-barcode correctness cases now explicitly use the existing production60s
+bounded default, preserving every semantic assertion. Dedicated0.05s worker and0.1s
+preparation deadline tests are unchanged. This is a test-budget change, not a
+production timeout/performance fix. See `validation/M2-BARCODE-CORRECTNESS-BUDGET-2026-09-17.md`.
+Layout-worker/pipeline/render-worker focused suites then full finite900s gate run
+under session67662; poll that handle. Full log `/tmp/zpl-finishing-profile-full-budget.log`.
+Profile8/new guards remain local/unpushed. Next inspect focused/full terminal,
+media-binding negative, staged/tree disclosure review and coherent source commits.
+Frozen B unchanged. No printer/admin/merge/binary release.
+
+# Profile8 admission constraint implemented — 2026-09-17
+
+New four-call regression failed without the guard, then all270 Core passed ownexit0
+with shared ordinary profile-version admission in control resolution and encoding.
+Both bitmap encode and profile prepare exercise it; qualified profile7 stays valid.
+Strict boolean negatives enumerate accessory and stock paths. Profile8 storage
+remains available but ordinary controls cannot resolve/encode until full mechanical
+binding is implemented. Initial full gate failed ownexit1 on existing native
+barcode-child timeout (89/269 Core debug/release pass, native debug314 one failure);
+no cause established or deadlines changed. Updated full finite900s gate is live
+under session82592, log `/tmp/zpl-finishing-profile-full-final.log`; poll that handle.
+No publication yet; next inspect terminal, finish media-binding regression and
+disclosure review before source push. Frozen B unchanged.
+
+# Profile8 pre-publication boundary finding — 2026-09-17
+
+The current full gate remains live under session58188. Review found that storage-
+only profile8 requires explicit direct control-resolution and ordinary-encoder
+version rejection in addition to existing queue/ticket profile7 role checks.
+Thermal normalization is profile7-only, so direct profile8 encoding cannot be
+admitted by compile/storage success. After terminal gate, add shared unsupported-
+version guards and meaningful regression coverage for both encoding entry paths
+and resolution, then rerun affected/full checks before pushing. No source push or
+mechanical acceptance yet; frozen B unchanged.
+
+# Immutable finishing profile8 declarations — 2026-09-17
+
+Local source adds strict bounded immutable profile8 finishing configuration, with
+exact media, model/inventory consistency, enabled stock gates and finite schedule
+bounds. Legacy canonical fields remain exact; queue6/ticket7 still reject profile8
+and ordinary non-tear controls. All269 Core passed ownexit0. Native cold-store
+readback/conflicting-policy test runs before finite full gate under session58188;
+poll the same handle. Logs `/tmp/zpl-finishing-profile-native-focused.log` and
+`/tmp/zpl-finishing-profile-full.log`. No full pass or publication yet. See
+`validation/M3-FINISHING-PROFILE-PERSISTENCE-2026-09-17.md`. Next inspect terminal
+results, reproduce independent media-binding regression, restore byte-for-byte,
+then source review/push. Ordinary mechanical binding and physical gates remain.
+Frozen B unchanged. No printer/admin/merge/binary release.
+
+# Finishing stock implementation checkpoint — 2026-09-17
+
+Implementation `c1a0ff7e1b7000674eb1b96c415890af9f8afbe5` is locally validated as recorded below.
+Publish source checkpoint and read back remote/PR head; hosted result remains separate.
+
+# Finishing stock-plan terminal validation — 2026-09-17
+
+Full finite CI-equivalent recheck passed ownexit0:89Python/266Core/313Mac
+debug/release plus independent/inert/native/signature/packaged checks. Artifact
+`artifacts/setup-app.DaVytl`. Prior native deadline failures remain recorded and
+cause unestablished; no deadlines/assertions/source were changed to obtain green.
+Exact-media binding fault reproduced and byte-restored266Core passed. See
+`validation/M3-FINISHING-STOCK-PLAN-2026-09-17.md`. Ready for source review/push
+after disclosure gate, not mechanical acceptance. Next ordinary schema binding
+and qualified delivery boundaries; M1/GUI/accessibility/USB/physical gates remain.
+Frozen B unchanged. No printer/admin/merge/binary release.
+
+# Finishing prerequisite hosted readback — 2026-09-17
+
+Exact hosted run35220870087 completed successfully at checkpoint
+2ca28a5f044625bd2b422a07a22cec9f267cbfca. This covers the published finishing
+mode/accessory and cut-boundary prerequisite, not the local stock-plan slice.
+Local stock-plan full recheck remains live under session46907.
+
+# Worker deadline diagnosis follow-up — 2026-09-17
+
+Existing five-second layout/barcode deadlines and assertions are unchanged. Nine
+debug layout-worker tests passed ownexit0; the previously failing original-source/
+changed-anchor pipeline passed release1.35s and debug1.72s ownexit0. Prior two
+timeouts remain recorded; cause unestablished. Full finite900s recheck is live
+under tool session46907, log `/tmp/zpl-finishing-stock-full-recheck.log`. Poll the
+same handle; do not restart merely from observation timeout. Local stock-plan
+changes remain unpushed. Next inspect terminal full result and publish only after
+required green checks and disclosure review. Frozen B remains unchanged.
+
+# Finishing stock and output plans — 2026-09-17
+
+New local source ties per-mode stock suitability to the exact media snapshot and
+combines enabled/model/accessory, stock and explicit schedule validation for the
+complete engine-expanded output count. Unknown/model-only declarations cannot
+admit stock; non-cut modes cannot silently drop a cut schedule. Four focused tests
+passed own exit0; deliberately removing media binding reproduced the regression,
+then byte-restored all266 Core passed ownexit0. Full gate failed ownexit1:
+89Python/266Core debug/release passed, but native debug313 had one existing
+barcode-anchor preparation deadline failure. Focused recheck also timed out in
+OfflineRenderWorker. No cause or broad pass established; source remains local,
+unpushed. Next inspect finite worker timing and diagnose before full-gate rerun;
+do not weaken deadlines. Previous checkpoint2ca28a5 hosted35220870087 still live.
+See `validation/M3-FINISHING-STOCK-PLAN-2026-09-17.md`. Ordinary mechanical jobs,
+qualified delivery boundaries and physical behavior remain open. Frozen B unchanged.
+
+# Finishing qualification and cut intentions — 2026-09-17
+
+Implementation `b768a172cd78d43e2d2046ec7df8894357c43cc6` is locally validated and adds explicit enabled/model/accessory gates for bounded
+offline finishing-mode fragments and independently qualified engine-output cut
+boundary planning, including explicit final partial-batch behavior. No cut schedule
+is equated to a mode fragment or unqualified delayed-cut/file delivery boundary.
+Six focused Core cases passed ownexit0; full finite CI-equivalent gate passed
+ownexit0:89Python/262Core/313Mac debug/release plus independent/inert/signature/
+packaged checks. Model-documentation-as-installation fault reproduced all three
+accessory assertions; source restored byte-for-byte and all262Core passed ownexit0.
+See `validation/M3-QUALIFIED-FINISHING-POLICY-2026-09-17.md`. Ordinary integration,
+stock compatibility, native finishing and physical/accessory waits/faults/isolation
+remain work; profile7/queue6/ticket7 still tear-off only. No printer/admin/merge/
+binary release. Frozen B unchanged. Previous6c8e16a remote/PR81 confirmed;
+exact hosted35219619085 completed successfully at6c8e16a, not finishing evidence.
+
+# Thermal utility publication readback — 2026-09-17
+
+Source140dd0e/checkpoint6c8e16a8bd1bac2bfd3c1c0ca474b17af6c0a3ed pushed;
+remote branch andPR81 head read back equal to6c8e16a. Exact hosted35219619085
+observed in progress, not pass evidence. Preceding8eca8ef run35218734631 passed
+at its exact source. Full local89/256/313 ownexit0 and restored37focused ownexit0
+are automated evidence only. Next finishing policies and remaining native queue/
+profile/installer management; manual GUI/accessibility/M1/USB/physical gates open.
+No printer/admin/merge/binary release; B frozen bytes unchanged.
+
+# Qualified thermal utility drafts — 2026-09-17
+
+Validated source140dd0ec5a7355bedab2cca12929dcd1ff220b1a preserves configured transfer/direct defaults, exposes
+only evidenced model choices, retains incompatible drafts and distinguishes model
+support from declared media/ribbon. Unknown declarations/confirmation flags cannot
+admit defaults or fabricate observations. Native picker/hint and profile7 stock
+text are explicit; legacy GC420d remains direct-only. Initial37 focused cases passed
+ownexit0 including five new thermal cases; support-fact assertions added before
+native full-gate compilation. Full finite CI-equivalent gate passed ownexit0:89Python/256Core/313Mac
+debug/release plus independent/inert/signature/packaged checks. Forced-direct
+thermal regression failed ownexit1; source restored byte-for-byte and all37
+focused cases passed ownexit0. See
+`validation/M5-QUALIFIED-THERMAL-EDITING-2026-09-17.md`. Manual GUI/accessibility,
+finishing, M1/installed/USB/physical gates remain open. Published8eca8ef thermal job
+binding remote/PR81 confirmed; hosted35218734631 last observed live. No printer/
+admin/merge/binary release; frozen B unchanged.
+
+# Thermal job publication readback — 2026-09-17
+
+Source5698f2f/checkpoint8eca8efae392b2f8a6bbe20f0ae0fdf22527b5b7 pushed.
+Remote branch andPR81 head read back equal to8eca8ef. Exact hosted35218734631
+observed queued, not pass evidence. Priorbe681ca run35218292332 last live;
+preceding4970335 run35217368100 passed. Full local gate89/256/308 ownexit0 and
+restored256Core ownexit0 remain automated evidence only. Next qualified thermal
+utility editing/finishing; installed/M1/GUI/USB/physical gates remain open.
+No printer/admin/merge/binary release. Part B unchanged.
+
+# Immutable thermal jobs — 2026-09-17
+
+Validated source5698f2f34ba5322af9bb86789033cd952806d204 adds queue6/ticket7 thermal defaults/references, explicit
+profile7 method requirement and ordinary per-label ^MTD/^MTT with declared consumables
+in prepared/delivery snapshots. Legacy formats/bytes and GC420d transfer rejection
+remain unchanged. All256Core and52 focused native cases passed ownexit0, including
+original-PDF two-label direct-thermal inert transmission. Full finite CI-equivalent
+gate passed ownexit0:89Python/256Core/308Mac debug/release plus independent/inert/
+signature/packaged checks. Omitted ordinary thermal command fault failed both
+method assertions; source byte-for-byte restored and all256Core passed ownexit0. See `validation/M3-IMMUTABLE-THERMAL-JOBS-2026-09-17.md`. Qualified thermal
+utility controls, finishing, M1/installed/GUI/USB/physical qualification remain open.
+Preceding profile sourceb24a618/checkpointbe681ca pushed; remote/PR81 exact
+readback confirmed, hosted35218292332 live, not pass evidence. Preceding4970335
+hosted35217368100 passed exact source. No physical/admin/merge/
+binary action; B unchanged.
+
+# Exact thermal profile7 persistence — 2026-09-17
+
+Local unpushedb24a618fa421e58e35a30e138e8a59ceb1d83a2e source adds required private thermal observations and independent
+direct-thermal fact, configured-default consumable validation, strict boolean/evidence
+JSON, legacy exactness and utility save/restart preservation. Five initial focused
+Core and8 native editing cases passed ownexit0; sixth Core case adds generic-reference
+versus legacy-queue admission combination. Full finite CI-equivalent gate passed ownexit0:89Python/252Core/307Mac
+debug/release plus independent/inert/signature/packaged checks. Omitted-save
+thermal snapshot fault failed ownexit1, source byte-for-byte restored and all8
+editing cases passed ownexit0.
+See `validation/M3-THERMAL-PROFILE-PERSISTENCE-2026-09-17.md`. Profile7 is deliberately
+not admitted to queue1..5/ticket2..6; ordinary thermal integration is next. Reference
+GC420d and frozen B unchanged; no physical/admin/merge/binary action.
+Previous policy62dd3c5/checkpoint4970335 pushed, remote/PR81 exact readback
+confirmed. Exact hosted35217368100 live, not pass evidence; persistencecacca16
+hosted35216715041 passed at its exact source.
+
+# Qualified thermal consumable policy — 2026-09-17
+
+Local unpushed62dd3c5000ac746e79c2e28c9157eb19d5c1d09a source adds independent model/matching loaded-media/ribbon
+validation and bounded offline thermal fragments. Four focused tests passed
+own exit0; full finite CI-equivalent gate passed own exit0:89Python/246Core/306Mac
+debug/release plus independent/inert/signature/packaged checks. Ribbon-check fault
+failed both method combinations; source byte-for-byte restored and all246Core
+tests passed own exit0. See
+`validation/M3-QUALIFIED-THERMAL-POLICY-2026-09-17.md`. Ordinary revision binding,
+prepared-job/encoder integration and utility controls remain work; GC420d stays
+direct-thermal only. No physical/admin/merge/binary action. Part B unchanged.
+Preceding persistence cacca16 pushed; remote/PR81 exact readback confirmed.
+Hosted run35216715041 in progress, not pass evidence. Preceding8b70383
+hosted run35216048756 passed at its exact source.
+
+# Persistent immutable utility defaults — 2026-09-17
+
+Current unpublished source adds native save/reopen/refresh, latest canonical startup
+restore and private bounded profile catalog. Saves capture all effective defaults,
+preserve qualification and old revisions, advance beyond historical/latest revision
+and replace the model only after exact readback. Invalid/uncertain operations retain
+draft; no automatic retry. Fifteen focused tests passed ownexit0, including schema6
+geometry/offset/motor/darkness zero, historical/restart, nested observation and full
+capacity/symlink/canonical protections. Full finite CI-equivalent gate passed ownexit0:89Python/242Core/306Mac debug/release plus independent/inert/signature/packaged checks. See
+`validation/M5-PERSISTENT-UTILITY-DEFAULTS-2026-09-17.md`. Utility user storage is not
+privileged spooler/installed queue management. GUI/accessibility/M1/hardware gates
+remain, plus thermal/finishing work. Preceding offset editor8b70383 published and fully validated89/242/296; remote/PR
+exact readback confirmed, new35216048756 hosted live, not pass evidence.
+Preceding272fc90 hosted35215154447 passed exact source. No printer/
+admin/merge/binary action. B frozen bytes unchanged.
+
+# Qualified signed offset utility drafts — 2026-09-17
+
+Published8b70383 setup source adds independently qualified black-mark/shift/top
+signed whole-dot drafts, configured inheritance, explicit zero and retained invalid
+text with actionable errors. Mark mode/offset combination is validated. Bound
+geometry/motor/darkness and reference unknown qualification survive.24focused setup
+tests passed ownexit0;full finite CI-equivalent gate passed ownexit0:89Python/242Core/296Mac debug/release plus independent/inert/signature/packaged checks. See
+`validation/M5-QUALIFIED-OFFSET-EDITING-2026-09-17.md`. Persistent native default/profile
+management, installed dialog, keyboard/VoiceOver, thermal/finishing and physical
+qualification remain. Preceding272fc90 offset snapshot slice published and locally validated89/242/292;
+remote/PR exact readback confirmed, new35215154447 hosted live, not pass evidence.
+Preceding64272f0 hosted35214380345 passed at its exact source.
+No printer/admin/merge/binary action. B frozen bytes unchanged.
+
+# Immutable offset binding and known placement — 2026-09-17
+
+Published272fc90 source adds profile6/queue5/ticket6 exact qualification/default
+persistence, per-field offset precedence, explicit mark mode/offset qualification,
+ordinary encoding before graphics and shared signed packed-raster containment.
+Legacy schemas/reference qualification remain unchanged.242 Core and21 focused
+native/setup cases passed exit0, including two original-PDF inert output regions
+whose stored/prepared offsets agree. Full finite CI-equivalent gate passed ownexit0:89Python/242Core/292Mac debug/release plus independent/inert/signature/packaged checks. Ignored-offset fault failed1 case/nine assertions; byte-for-byte restoration and full242Core positive verified.
+See `validation/M3-PERSISTED-OFFSETS-2026-09-17.md`. Offset selectors/native persistent
+default management, thermal/finishing, M1 adapter/install and physical gates remain.
+Precedinga2de872 hosted35213680526 passed exact source; prerequisite64272f0 remote/PR
+readback confirmed, hosted35214380345 live, not pass evidence. No third cloud review,
+printer/admin action, merge or binary release. Part B frozen candidate unchanged.
+
+# Independently qualified offset policy — 2026-09-17
+
+Published64272f0 policy separately qualifies model intervals for black-mark
+offset, horizontal shift and label top; explicit zero survives, unsupported/unknown
+intervals stay absent, black-mark mode requires explicit offset plus separate
+tracking qualification. Five focused Core cases passed exit0. Full finite gate
+passed ownexit0 89Python/236Core/290Mac debug/release, independent/inert/signature/packaged checks. See `validation/M3-QUALIFIED-OFFSET-POLICY-2026-09-17.md`.
+Persistence/default/prepared placement/UI integration remains work. Source setup
+slice publisheda2de872 and validated89/231/290; remote/PR exact readback confirmed.
+Preceding65314a1 hosted35212808079 passed; new35213680526 observed queued, not pass evidence. No admin/printer/merge/binary action.
+
+# Qualified geometry draft editing — 2026-09-17
+
+Publisheda2de872 source adds evidenced schema5 tracking/geometry session drafts
+with whole-dot ranges, blank per-field inheritance and explicit zero home values.
+Invalid text stays visible and blocks readiness; incomplete home/continuous length
+and inherited-length tracking conflicts fail rather than dropping settings.
+Reference choices stay unavailable; current device settings remain unknown.
+19 focused setup tests passed exit0, including five new geometry combinations.
+Full CI-equivalent gate passed ownexit0: 89Python/231Core/290Mac debug/release, independent/inert checks, ad-hoc signatures and packaged-worker equality.
+Preceding65314a1 hosted35212808079 remains in progress; defer source push until terminal to preserve that exact-head result.
+See `validation/M5-QUALIFIED-GEOMETRY-EDITING-2026-09-17.md`. Installed dialog,
+GUI/keyboard/VoiceOver, persistent default management and USB/physical qualification
+remain open. No printer/admin/merge/binary action. Part B frozen bytes unchanged.
+
+# Immutable physical geometry/tracking implementation — 2026-09-17
+
+Published source `65314a16e1b9f6f9e22ab2d5f63c291eb2c65cd1` on PR #81 binds separately qualified physical limits and defaults
+in profile5/queue4/ticket5, resolves each field independently and rejects incomplete
+home/mode/length/conflicting defaults. Gap and continuous mappings are explicit;
+black-mark offset and sensed-stock length remain unavailable. Known containment
+runs on both encoding entry points before original graphics; width/home/mode/length
+controls precede first field separator. Legacy formats and reference remain unchanged.
+Setup edits retain geometry/tracking/darkness; configured tracking is not current state.
+
+231Core and15focused native/setup cases pass, including two original-PDF synthetic
+regions whose complete stored/prepared/inert controls agree. Whole-object precedence
+fault reproduced1 failure; restored per-field resolution passes. A profile5 version
+in a queue slot reproduced1 missing rejection, now guarded by slot-specific limits.
+Remote branch and PR head read back at that exact SHA. Hosted run35212808079 is queued, not pass evidence.
+Full CI-equivalent gate passed exit0: 89 Python/231 Core/285 Mac debug/release, independent/inert checks, ad-hoc signatures and packaged-worker equality. See
+`validation/M3-PERSISTED-PHYSICAL-GEOMETRY-2026-09-17.md` for exact limits,
+remaining black-mark/shift/top/thermal/finishing/UI implementation and installed/
+USB/physical gates. Partial M3-AC02/03/11,M2-AC08,M4-AC12,M5-AC04 only. No
+printer/admin/merge/binary release. B stays frozen. Precedingb9c6e5c hosted35211447478
+passed at its exact source; it does not cover this new implementation.
+
+# Physical geometry qualification policy — 2026-09-17
+
+Published source `b9c6e5c7e93f029e60916a6b91fab772018eff66` on PR #81. Remote branch and PR
+head read back exact. Changed-head hosted35211447478 is live; no pass claim.
+Precedingcd86738 hosted35210640524 passed at its exact source.
+
+Current component validates separately qualified width/continuous
+length/home-X/home-Y limits and resolves every supplied physical field. It rejects
+empty/incomplete/unavailable/out-of-range geometry and requires explicit qualified
+continuous mode/length pairing. Known packed containment uses guarded subtraction,
+including known nonzero home; unknown shift/home state is not a claimed zero.
+Five focused cases passed; full CI-equivalent gate exit0:
+89 Python / 224 Core / 283 Mac debug/release, both132 original and180 ASCII round-trips, twelve benchmark CLI cases, fifteen inert ABI cases, native builds, nested local-ad-hoc signatures, ARM/minimum26 metadata and packaged PBM/ZPL equality. This reusable offline
+policy/fragment bridge is not ordinary profile admission. Next coherent strict
+profile/queue/ticket slice must bind all limits/defaults, resolve fields individually
+and call raster containment before original graphics/first field separator.
+See `validation/M3-PHYSICAL-GEOMETRY-POLICY-2026-09-17.md`. Additional partial
+M3-AC02/03,M2-AC08 only. Reference remains unchanged; Part B stays frozen.
+
+# Offline continuous tracking/length fragment — 2026-09-17
+
+Published source `cd86738a9368dee56dac7cd80021bc51693c389a` on PR #81; remote and PR head
+read back exact. Changed-head hosted35210640524 is queued, not pass evidence.
+
+Current fragment pairs explicit continuous mode with a positive
+model-memory-bounded length; R46 records official indexed provenance, direct-fetch
+limitations and unchanged optional scope flag. Y/N both apply to explicitly
+continuous media; no second-argument delimiter is guessed. Competing tracking
+modes, unknown qualification, absent bounds and output limits fail closed.
+Seven focused tests pass. The initial full run failed the old complete-kind test
+input enumeration; that coverage assertion was retained and extended. Corrected
+full gate passed exit0: 89 Python / 219 Core / 283 Mac debug/release, both132 original and180 ASCII round-trips, twelve benchmark CLI cases, fifteen inert ABI cases, native builds, nested local-ad-hoc signatures, ARM/minimum26 metadata and packaged PBM/ZPL equality. See `validation/M3-CONTINUOUS-LENGTH-FRAGMENT-2026-09-17.md`.
+This is partial M3-AC03/04/12 only; ordinary profile4 admission stays unchanged.
+Next slice is coherent qualified geometry/memory/default/profile/queue/ticket
+integration before packed graphics, not claiming sensed-stock length semantics.
+
+Published editor348b367 remote/PR head read back exact, source hosted35209880271
+passed at that exact source. Its local89/217/283 full gate passed. Preceding83cfaa8 hosted35209283943
+passed exact. Part B is separately frozen; no printer/admin/merge/binary release.
+
+# Offline qualified darkness editor — 2026-09-17
+
+Current source preserves configured darkness in returned workflow defaults and
+exposes absolute0..30 only for supported/evidenced profile4 qualification.
+Invalid values preserve selection; nil uses configured fallback or no explicit
+control. Editing darkness retains independent qualified motor defaults. Factory
+reference darkness remains unknown with no selector; no revision or device change.
+Old model regression reproduced2 assertion failures; all13 focused native setup
+cases passed. Full CI-equivalent gate passed exit0:
+89 Python / 217 Core / 283 Mac debug/release, both132 original and180 ASCII round-trips, twelve benchmark CLI cases, fifteen inert ABI cases, native builds, nested local-ad-hoc signatures, ARM/minimum26 metadata and packaged PBM/ZPL equality. See
+`validation/M5-QUALIFIED-DARKNESS-EDITING-2026-09-17.md`. Additional partial
+M5-AC04/10 and M3-AC02/03 only; keyboard/VoiceOver/system-dialog/installed/physical
+acceptance remains open. Part B is separately frozen unchanged.
+
+# Qualified absolute darkness persistence — 2026-09-17
+
+Published source `83cfaa8de97fe933f7884d79d63b64add8dc49dc` on PR #81. Remote branch and PR
+head read back at that exact SHA. Changed-head hosted run35209283943 is queued;
+preceding editor success is separate evidence. No cloud verdict covers this source.
+
+Current feature adds profile4/queue3/ticket4 darkness persistence and
+qualified ordinary encoding (^MD0 then ~SDnn). Earlier canonical formats remain
+strict, and reference GC420d darkness stays unknown. Nearest independent constraint:
+absolute values survive immutable default binding and normalize relative adjustment.
+Old-code regression reproduced3 failures; preliminary serializer round trip failed2
+assertions and motivated versioned persistence before publication. Seven focused
+Core cases and the combined native two-label inert case passed; full gate exit0:
+89 Python / 217 Core / 279 Mac debug/release, both132 original and180 ASCII round-trips, twelve benchmark CLI cases, fifteen inert ABI cases, native builds, nested local-ad-hoc signatures, ARM/minimum26 metadata and packaged PBM/ZPL equality.
+See `validation/M3-QUALIFIED-DARKNESS-2026-09-17.md` for exact tests and remaining
+UI/installed/physical gates. No administrator action, printer I/O or merge/release.
+Frozen Part B is unchanged; editor18a03c3 hosted35208318962 passed at that exact head; this feature is a separate checkpoint.
+
+# Offline motor default editor — 2026-09-17
+
+Current source preserves configured print/feed/backfeed defaults while editing,
+exposes separate qualified choice sets and validates effective tuples against
+the ordinary encoder. Incomplete drafts remain editable but block installation
+readiness even with synthetic observed identity and confirmed stock/tear-off.
+Fallback labels describe configured defaults or no explicit setting; they do
+not promise unchanged physical state. The actual readiness reason is exposed.
+
+Old-code regression reproduced six assertion failures; nine focused native
+tests passed. Full CI-equivalent validation passed exit0: 89 Python / 210 Core / 278 Mac debug/release; both 132 original and 180 ASCII oracle round-trips, 12 finite benchmark CLI cases, 15 inert CUPS ABI cases, native builds, nested local-ad-hoc signatures, ARM/minimum26 and packaged PBM/ZPL equality. See
+`validation/M5-MOTOR-DEFAULT-EDITING-2026-09-17.md`. Partial M5-AC04/10 and
+M3-AC02/03 only. No manual GUI/accessibility/queue/physical evidence.
+Preceding published4a647fe hosted35207150736 completed successfully at that
+exact head. This new editor source is not covered by that hosted checkpoint
+or the two earlier cloud review passes. Frozen Part B is unchanged.
+
+# Next model-backed control evidence — 2026-09-17
+
+Public GC420d User Guide P1052685-001, printed pages30 and84, explicitly lists
+~SD as the darkness control (official `gc420d-ug-en.pdf`, indexed primary source
+checked live). Combined with R45 integer command semantics and additive ^MD,
+this provides a model-backed basis for the next ordinary darkness integration.
+It does not establish the installed current value or physical quality. Do not
+copy the published nominal default into observations. Next slice must carry
+qualified darkness through defaults/private schemas/queue/ticket/encoder and
+normalize relative adjustment when setting an explicit absolute value. No
+factory profile, acceptance box or support row is promoted by this research.
+Refined persisted motor-source full gate passed separately.
+
+# Qualified persisted motor speed implementation — 2026-09-17
+
+Published source `4a647fe` on PR #81 after full local gate exit0. Remote branch
+and PR head were independently read back at that exact SHA. Hosted run35207150736
+is queued for this new source; preceding436f413 success is a separate checkpoint.
+No independent cloud verdict covers this new source.
+
+Separate qualified feed/backfeed capabilities/defaults now resolve per field,
+persist in explicit profile3/queue2/ticket3 formats, bind immutable prepared jobs
+and reach the native inert pipeline as one complete ^PR tuple. Legacy bytes and
+unknown reference facts remain unchanged. 210Core debug tests and the earlier new native
+case passed; missing-workflow handoff and preliminary-reader regressions were
+reproduced then restored/fixed. Initial full gate passed89/209/274 before refinement. The two-test secondary
+state/default-drop regression reproduced3 failures; refined motor metadata now
+uses notExplicitlyControlled and decoded controls must match effective bound
+defaults. All210Core tests pass; refined full native gate passed exit0:89/210/274debug/release plus both oracles,
+twelve CLI cases, inert ABI/pipeline, native/signature/ARM/min26/packaged equality. See
+`validation/M3-PERSISTED-MOTOR-SPEEDS-2026-09-17.md` for exact boundaries and
+remaining gates. Additional partial M3-AC02/03/11,M2-AC08,M4-AC12 only; no
+physical isolation/qualification or production adapter claim. B remains frozen.
+Preceding published436f413 hosted run35205027228 passed; new source not covered
+by that checkpoint or the earlier final cloud review.
+
+# Offline documented control encoder — 2026-09-17
+
+Published source436f413 on PR #81; changed-head hosted run35205027228 is
+active. Earlier exactdf657e9 hosted run35204155422 passed. These are separate
+source checkpoints; no cloud verdict covers the new encoder.
+
+New explicit typed fragment mapping covers print/feed/backfeed, absolute integer
+darkness with relative normalization, thermal method, gap/mark tracking, home,
+shift, top, width and tear-off using R45 primary public tables. Each requested
+kind requires supported qualification; model bounds apply independently. Input
+conflicts/duplicates/output limits fail without returned partial bytes. Five
+focused tests pass, original accelerator passed. Full native gate passed exit0:
+89Python/202Core/273Mac debug/release, both132/180 oracles, twelve CLI cases,
+inert ABI/pipeline and nested signatures/ARM/min26/packaged equality.
+Ordinary GC420d admission is unchanged; this is not a qualified/persisted profile
+or production adapter. Remaining codec/snapshot integration, continuous length
+semantics, accessory hardware and physical isolation are explicit in
+`validation/M3-DOCUMENTED-CONTROL-ENCODING-2026-09-17.md`. Partial M3-AC03/04/12;
+M3-AC03 stays unchecked. B remains frozen. No printer/scheduler/privilege action.
+
+# Control coverage audit and next implementation — 2026-09-17
+
+Source inspection at published df657e9 identifies the full ordinary control gap:
+only tear-off and print speed are currently emitted; darkness/tracking/geometry
+fail explicitly and feed/backfeed speeds have no typed request/default fields.
+See `validation/M3-CONTROL-COVERAGE-AUDIT-2026-09-17.md`. M3-AC03 stays unchecked.
+Next independent slice is cited offline typed control representation/validation,
+including all snapshot/codec boundaries, while preserving unqualified production
+reference rejection. Actual backend/USB integration still follows ADR 0003 and
+M1 evidence. B candidate unchanged. No broad completion claim.
+
+# Current offline status decoder slice — 2026-09-17
+
+On the existing PR #81 branch, a pure bounded legacy ~HS decoder exposes typed
+observations only after explicit support, with distinct unavailable states for
+unknown/unsupported/missing input. Fixed-width three-string framing, 64KiB cap,
+flags, reserved constants and numeric fields validate before any snapshot.
+Opaque fields are discarded and default diagnostic descriptions/dumps redact
+snapshot data. No query, I/O, profile mutation or print-completion inference.
+Six focused tests pass, including all nonempty truncated prefixes and twelve
+independent flags; zero-batch status does not confirm or replay a transmitted job.
+See `validation/M3-OFFLINE-HOST-STATUS-2026-09-17.md` and R44 provenance.
+Full local checks passed exit0: 89Python/197Core/273Mac debug/release, both
+independent oracles, twelve CLI cases and inert/signature/packaged checks.
+Published at df657e9 on PR #81 after preceding exact406d6a4 hosted
+run35203016675 passed, including packaged worker equality and native checks.
+Exact status-source run35204155422 passed with retained native/oracle/packaged
+evidence; new documented-control source hosted checks pending. No later-source independent
+review claim. Actual GC420d
+status/channel/freshness/coordinator and physical evidence remain unobserved.
+Additional partial M3-AC01/09/12 only. Frozen B candidate unchanged; no privilege,
+queue, device, merge, third review request or binary release action.
+
+# Latest hosted checkpoint and next status work — 2026-09-17
+
+Hosted run35202180091 passed at exact `c3e03af`, with retained log confirming
+273 native tests, both132/180 oracles, twelve benchmark CLI cases and packaged
+worker equality. The following compression performance source passed its full
+local89/191/273debug/release gate and is now ready for publication on PR #81.
+The earlier cloud review remains scoped to a370e05/base77c29ff.
+
+Next independent task: bounded offline legacy host-status decoding. Public Zebra
+~HS framing returns three strings; some fault conditions suppress replies.
+Missing/unsupported/unverified replies must remain unknown, never healthy or
+zero. General status is not a job-specific print receipt. The decoder must drop
+opaque private fields, validate framing/counts/flags, reject oversized/truncated/
+malformed input, preserve observations separately from configured defaults,
+and add no device query or transport I/O. Current GC420d query/channel support
+remains unobserved. First physical compression remains OFF; B remains frozen.
+
+# Current experimental compression performance slice — 2026-09-17
+
+Published previous lease/benchmark stack at `c3e03af` on PR #81. Its exact-head
+hosted run35202180091 remains active; previous8c041aa hosted success is separate.
+The next performance slice avoids per-run temporary Data and per-byte nibble
+arrays without changing command bytes, count/literal choices or output limits.
+Six compression tests pass before/after, including new explicit count boundaries.
+A second twenty-iteration reference report observes analytic ASCII p95 falling
+from45.358ms to8.795ms while all six output sizes remain unchanged. This is
+informational; analytic compression still costs about2.4x plain encoding for
+roughly5% output reduction, so production and first physical compression stay OFF.
+See `validation/M2-COMPRESSION-FASTPATH-2026-09-17.md` and raw reports.
+Full local checks passed exit0: 89Python/191Core/273Mac debug/release, both
+unchanged oracles, twelve CLI cases and inert/signature/packaged checks.
+Publication waits for the already-active preceding hosted run. Cloud
+review applies only to a370e05/base77c29ff; no later source verdict is inferred.
+Frozen B remains unchanged; no queue/privileged/device mutation or publication.
+
+# Current encoding benchmark slice — 2026-09-17
+
+Exact-head hosted run 35200866409 passed at preceding `8c041aa`; its retained
+log confirms native 269-test suites, both oracles and packaged worker equality.
+The validated lease commit is still local, waiting to publish with this coherent
+benchmark follow-on. A finite lab command measures plain/ASCII encoding on three
+synthetic 4x6 patterns, checking full byte equality outside each timed interval.
+Twelve release CLI cases and three Python schema tests pass. Twenty-iteration
+reference report shows very large savings for repeated content, but only about
+5% bytes and roughly13x slower encoding on the analytic pattern. Production
+selection remains plain hex; no hardware/firmware throughput claim.
+See `validation/M2-ENCODING-BENCHMARK-2026-09-17.md` and its exact raw report.
+Full local checks passed exit 0: 89 Python / 190 Core / 273 Mac debug/release,
+both independent/inert/signature/packaged checks and twelve CLI benchmark cases
+per configuration. Both coherent commits are ready to push. The preceding
+hosted pass does not validate the
+later lease/benchmark source; second cloud review covers only a370e05/base77c29ff.
+B remains unchanged and separately frozen. No merge/release.
+
+# Current lease namespace admission slice — 2026-09-17
+
+Previous diagnostic fix was pushed as `8c041aa` on PR #81. Exact-head hosted
+run 35200866409 remains active; no hosted success is inferred. The next safe
+follow-on validates a private effective-user-owned 0700 lease root and empty
+0600 lock, opens descriptor-relative and checks both named inode bindings
+before/after flock. Old six-test run reproduced five failures; all eight fixed
+lease tests pass, including replacement at opened/locked checkpoints and
+reacquisition after rejection. Required full local gate passed exit 0:
+86 Python / 190 Core / 273 Mac debug/release, both independent/inert/signature/
+packaged checks. Publication waits for the already-active hosted run.
+See `validation/M3-LEASE-NAMESPACE-ADMISSION-2026-09-17.md`.
+The trusted owner must preserve the namespace throughout delivery; installed
+scheduler/ownership/USB/physical claims remain open. Additional partial
+M3-AC07/08/12 only. Do not supersede the active hosted run merely to publish.
+Second cloud review covers a370e05/base77c29ff, not these later source changes.
+B remains its original separately frozen candidate; no privileged action here.
+
+# Current identity diagnostics slice — 2026-09-17
+
+Prior complete-job handoff was pushed as `052e83e` on PR #81. Exact-head hosted
+run 35200301828 is active; earlier a370e05 run was superseded/cancelled, not passed.
+A new shared diagnostic policy covers StableConnectionIdentity, RawTCPEndpoint
+and USBPrinterObservation. Three old-code tests reproduced fourteen assertion
+failures; corrected 14 profile / 15 TCP / 6 registry focused tests pass.
+Typed values, private codec and transport behavior remain explicit and unchanged;
+routine descriptions and structural dumps expose no stored identity fields.
+The full required local gate passed exit 0: 86 Python / 190 Core / 269 Mac
+debug/release, both independent/inert/signature/packaged checks. See
+`validation/M3-IDENTITY-DIAGNOSTIC-REDACTION-2026-09-17.md`.
+Additional partial M3-AC12 only. Second cloud review is clean at a370e05/base
+77c29ff and does not cover later complete-job/redaction source. No merge/release.
+The frozen B candidate is not replaced by normal package builds.
+
+# Current complete-job delivery handoff — 2026-09-17
+
+Published previous delivery fix: `a370e05` on PR #81, base `77c29ff`.
+Exact-head hosted run 35199700601 is active, with preflight success and native
+checks running. The second/final review is clean at base `77c29ff` / head
+`a370e05`: reviewer thumbs-up, no inline findings or review threads. That
+review does not cover the following new source changes.
+The next coherent follow-on binds `PreparedJobPayload` bytes/profile directly
+into the existing tracker and TCP adapter. Nine focused portable and fourteen
+native TCP tests pass, including pre-write equal-size substitution rejection,
+exact ordered two-label loopback equality and all failure-boundary snapshots.
+The required full local gate passed exit 0: 86 Python / 189 Core / 267 Mac
+debug/release, both independent/inert/signature/packaged checks. This follow-on
+is ready for publication; its changed-head hosted evidence remains pending.
+See `validation/M3-COMPLETE-JOB-DELIVERY-BINDING-2026-09-17.md`.
+No production lease/scheduler/USB/physical claim is made. B remains a separately
+frozen administrator experiment, not replaced by these rebuilds.
+
+# Current independent delivery slice — 2026-09-17
+
+On the existing PR #81 branch, the shared delivery loop now bounds each copied
+write window to 64 KiB and treats invalid sink byte counts as delivery uncertainty,
+including a known zero-byte prefix. This preserves exact immutable payload order
+and prevents automatic replay based on invalid accounting. The old eight-test
+focused run reproduced 12 assertion failures; all eight corrected tests pass.
+Required full local checks passed exit 0: 86 Python / 188 Core / 265 Mac
+debug/release, both independent/inert/signature/packaged checks. The fix was pushed as `a370e05`; its exact-head hosted checks and second
+review was clean at that exact pair; hosted outcome remains pending.
+See `validation/M3-BOUNDED-WRITE-WINDOWS-2026-09-17.md`.
+PR #81 first review is clean at head `52ba93f` / base `77c29ff`: reviewer
+thumbs-up, no inline findings or review threads. Hosted run 35198999638 remains
+verified active at that head; no hosted outcome is inferred. The separately frozen B
+candidate remains at its original hashes/checkpoint while the maintainer performs
+the administrator step. No queue/job/device/privileged mutation is inferred.
+
+# Current GUI blocker correction — 2026-09-17
+
+Issue #80's native allocation regression reproduced height 0 in the old editor.
+The fixed editor reserves a finite viewport and scrolls details inside it;
+31 focused native editor/bootstrap/layout tests pass, including three widths.
+Visible millimeter labels retain the existing generation-bound callbacks.
+Corrected app build/signatures/packaged equality passed exit 0; the local
+maintainer retest candidate is `artifacts/setup-app.N8tFGX`. Full local gate at source `f665d36` passed exit 0: 86 Python / 185 Core /
+265 Mac debug/release with both independent/inert/signature/packaged checks;
+first review is clean at `52ba93f` / `77c29ff`, with hosted checks running.
+The maintainer reports **issue #80 part A passed** on macOS Golden Gate
+27.0 with that local artifact. Full accessibility, Tahoe, scheduler, download
+and physical acceptance remain open. See `validation/M5-EDITOR-LAYOUT-2026-09-17.md`.
+The withdrawn preview must not be used for acceptance. No replacement public
+release, queue, device or administrator action is authorized by this correction.
+
+# Active independent implementation — 2026-09-17
+
+The maintainer attempted the separate issue #80 manual Mac test and reported
+corrupted/overlapping layout after PDF selection in the withdrawn preview;
+that failure was corrected and local section A subsequently passed on macOS27.
+The broken preview release and GitHub tag were removed at their explicit
+request and read back absent. Implementation continues. No additional queue/device/privileged action is
+inferred from that parallel activity.
+
+M2.5 experimental ASCII compression is in progress on
+`codex/m2-ascii-graphic-compression`, based on PR #79 `77c29ff`.
+The ordinary prepared-job path remains plain hex, and the original oracle is
+unchanged. Five focused Swift and four Python tests pass. Full local CI-equivalent
+checks passed exit 0: 86 Python / 185 Core / 264 Mac debug/release, both
+independent/inert/signature/packaged checks. Actual local host is macOS 27.0,
+not a new Tahoe qualification. PR #81 first review at `52ba93f` / `77c29ff`
+is clean; exact-head hosted CI is running.
+See `validation/M2-ASCII-COMPRESSION-2026-09-17.md`. Firmware/profile selection,
+broader GUI/accessibility, administrator scheduler and physical gates remain
+unperformed; the specific corrected local offline section A passed.
+
 # Current implementation handoff — revision 3
 
 Swift CI cache slice: see [cache evidence](validation/M0-SWIFT-CACHE-2026-09-17.md).
@@ -2215,3 +3144,263 @@ commit hash for this preparation archive or convert partial tests into full acce
 ## PR2 merge preparation — finite extents
 
 Source 2e56f2e3a38f80555cd6a81170adbfac97fe1f7a; [receipt](validation/M2-PR2-FINITE-EXTENTS-2026-09-17.md). Eight before-fix overflow acceptances reproduced; corner checks preserve negative origins across rotations/UserUnit.57Core both/native scaffold both/accelerator both/local-ad-hoc diagnostic and34Python/preflight passed. No scheduler/printer claim. Maintainer authorized merges through38; PR1 merged separately, native stack82 registered2–59. Next cascading rebase and exact-head hosted CI before further merges.
+
+# Current implementation handoff — 2026-09-17
+
+## Scope and authorization
+
+The active goal is the full system in [EPIC.md](../EPIC.md), completing independent
+implementation without inventing manual scheduler, GUI, administrator or physical
+printer evidence. No merge or binary publication is authorized. Source changes stay
+on the existing branch and PR. No printer I/O is the default. Preserve the frozen
+Part B candidate; newer software artifacts are separate checkpoints.
+
+Read the project [agent instructions](../AGENTS.md), [contracts](CONTRACTS.md),
+[execution protocol](EXECUTION.md), and four active milestone files before work.
+Historical checkpoints are preserved in [HANDOFF-HISTORY-2026-09-17.md](HANDOFF-HISTORY-2026-09-17.md).
+Detailed per-slice evidence remains in [PROGRESS.json](PROGRESS.json) and validation files.
+
+## Verified source and checks
+
+- Branch: `codex/m2-ascii-graphic-compression`; open PR81, base
+  `codex/m3-control-speed-boundary`. This is stacked unmerged work, not main.
+- Published source/remote/PR equality verified at
+  `37775b42007f3ca19ceb8e26970772ea30c896b8`. Latest published software
+  implementation `f5a7483`: native-pitch/profile/device-domain geometry binding.
+  Earlier explicit A assessments remain historical; new source needs reassessment.
+- Latest completed finite900s `bash scripts/ci-swift.sh`, session88103, completed
+  `FULL_GATE_EXIT 0`:104 Python/281 Core/334 native tests in debug/release,
+  132 strict and180 ASCII oracle round trips per mode, finite benchmark and inert
+  ABI/pipeline checks, ARM/minimum26 metadata, nested local ad-hoc signatures,
+  unavailable Developer-ID negative, and packaged-worker PBM/ZPL equality.
+  Local artifact: `artifacts/setup-app.B7XMVz`; no printer accessed.
+- Restored focused tests passed after independent fault checks. Early lease release
+  before status waits failed45assertions. Previous framing faults detected quantity2,
+  ordinary cutter-mode substitution and omitted complete-profile binding; delivery
+  accounting detected treating zero known accepted bytes as a retryable send attempt.
+- Hosted run35236186182 completed success at exact604aef7 (archive store).
+  Attempt-store run35238690886 passed at exact385a545. New coordinator/evidence
+  run35240005700 passed at exactfc24c3d. CI-history/evidence run35241292200
+  passed at exact8c24997. Queue run35244168027 passed at exact029ddd5. Geometry run35245718555 is
+  in progress at exact37775b4; it does not cover local acceptance. Poll this exact handle.
+- The two earlier cloud review passes apply to older base/head pairs. No third pass
+  was requested, and these passes are not a verdict on subsequent changes.
+- Local host evidence is macOS27 ARM; minimum-runtime26 and hosted checks are
+  separate. No local compile or signature result proves retail installation policy.
+
+## Implemented software boundaries
+
+Original PDFs feed isolated Quartz rendering. Geometry, PDF boxes/rotation/UserUnit,
+extraction/copy order and monochrome conversion are explicit. Packed previews and
+canonical graphic encoding share actual bitmap inputs; the independent oracle stays
+separate. Resource caps, finite worker budgets and cancellation are enforced.
+
+Ordinary qualified controls cover motor speeds, darkness, tracking, geometry, signed
+offsets and thermal method with immutable profile/queue/ticket snapshots and configured
+defaults. Native utility drafts save/reopen exact bounded private-store revisions.
+This private catalog does not manage installed product queues. Reference GC420d facts
+remain constrained:USB, native8dots/mm, direct thermal, tear-off,2/3/4ips model choices;
+unit sensing, current settings and identity remain unobserved.
+
+Finishing schema8 storage binds independently qualified mode/accessory/stock and cut
+intentions. Private-store plans, ordered raster hashes and original-source preparation
+retain complete immutable context and shared validated normal-control bytes. Additional
+output facts bind the exact full profile. Bounded framed candidates preserve quantity1
+per expanded label, separate delayed-cut files and explicit completion/removal waits.
+The delivery tracker preserves uncertainty after every attempted file. The inert
+coordinator holds the kernel lease through all files and waits, then releases on scope
+exit. Its bytes are discarded and all status is synthetic. Caller-provided simulator
+coordination is not accepted device admission. Ordinary schema8 queue/ticket/encoder
+admission remains gated.
+
+Read the current finishing evidence in
+[framing](validation/M3-FINISHING-OUTPUT-FRAMING-2026-09-17.md),
+[delivery accounting](validation/M3-FINISHING-DELIVERY-ACCOUNTING-2026-09-17.md), and
+[inert lease execution](validation/M3-INERT-FINISHING-LEASE-2026-09-17.md).
+
+## Published exact-context artifact serialization
+
+FinishingFramedArtifact now serializes exact immutable context plus separate ordered
+files/status requirements. Reopen compares canonical bytes against independently supplied
+context; it never parses attacker-controlled counts or manufactures replay authority.
+Nine restored native focused cases passed; omitting original-source hash failed four
+assertions with identical rasters/files. Full finite900s session1032 passed ownexit0 with the checks above;
+log /tmp/zpl-finishing-artifact-full.log. Source/disclosure review passed with restored
+hash unchanged. Implementation 9a14f80b7efa857f01a98e96a87e79e651501a50 is published;
+hosted run35235059609 passed at its exact60257d1 checkpoint.
+See [artifact serialization](validation/M3-FINISHING-FRAMED-ARTIFACT-2026-09-17.md).
+The consolidated handoff/history and serialization checkpoints are now pushed.
+The private finishing archive store below is also published and hosted-tested.
+
+## Published immutable archive store
+
+FinishingArtifactStore now publishes private bounded binary archives using the existing
+immutable directory helper. Typed record-format capacity keeps four-record admission
+and idempotent full-store readback consistent.38combined focused/restored native cases
+passed; JSON-only capacity regression failed four assertions. Full finite900s session57062 passed ownexit0 with the current checks above;
+log /tmp/zpl-finishing-store-full.log. Implementation 425e584c673d6316951be5a7e8c24b7791fd88ba is published;
+hosted run35236186182 passed at exact604aef7;
+see [store evidence](validation/M3-FINISHING-ARTIFACT-STORE-2026-09-17.md).
+This does not supply durable delivery lifecycle or post-crash replay authorization.
+
+## Locally validated M6 traceability tooling
+
+The read-only report covers all 90 acceptance IDs / 21 requirements. It preserves exact
+prescribed evidence levels, candidate/file bindings and current-failure veto. Explicit
+per-ID ledger is empty; milestone prose/checkmarks cannot qualify rows. 14 focused/restored
+and 103 Python cases passed with independent level/failure/source faults detected.
+Finite full gate session24242 passed own exit0 with 103/272/324 tests and the
+checks above; log /tmp/zpl-traceability-full.log. Implementation 947557476c5f4dd52dcd87d8600cd1089de5ada7 committed locally; exact hosted coverage pending; [tool guide](TRACEABILITY.md) and
+[evidence](validation/M6-TRACEABILITY-REPORT-2026-09-17.md). No release qualified.
+
+## Local conservative finishing attempt intent
+
+FinishingAttemptStore adds bounded immutable intent tied to the independently revalidated
+archive reference/context. Cold reopen preserves uncertainty without any byte callback;
+absence is observation only, never retry authorization. All four modes exercise cold reopen,
+idempotence, corrupt/context/cancel rejection and uncertain sync. Nine focused cases passed;
+missing-intent fault failed exit1 and restored nine cases passed exit0; finite full gate session87410 passed FULL_GATE_EXIT 0 with 103/272/324 tests and
+the checks above; log /tmp/zpl-finishing-intent-full.log. Implementation 3c96e68acdeeef4152aa5381f77be6e9dbd3d9c5 committed locally;
+source push/remote/PR equality verified at385a545; hosted run35238690886 pending.
+See [intent evidence](validation/M3-FINISHING-ATTEMPT-INTENT-2026-09-17.md).
+Accepted lifecycle/device binding and sender integration remain open.
+
+## Local inert persisted finishing integration
+
+InertPersistedFinishingDelivery now composes exact archive/context intent with the
+existing device lease before first discard, plus an artifact lease across simulator
+aliases. Previous intent rejects restart. All four modes exercise no-attempt cancel/stop,
+zero-byte attempt, synthetic waits, uncertain sync and lease release. Expanded nine tests
+passed; publication/replay faults detected exit1, restored nine cases passed exit0.
+Full finite gate session64896 passed FULL_GATE_EXIT 0 with 103/272/324 tests and
+the checks above; log /tmp/zpl-persisted-finishing-full.log. Implementation 42a4caec2fb28ce8e752860cf494ddf9c37c6b69 committed locally; source push and hosted
+coverage pending. See
+[integration evidence](validation/M3-INERT-PERSISTED-FINISHING-2026-09-17.md).
+No actual accepted sender/device status or replay authority is introduced.
+
+## Local compatibility inventory refresh
+
+[COMPATIBILITY.md](COMPATIBILITY.md) now records actual hosted26.6.2/25G83 arm64 and
+local27.0/26A428 arm64 automation, separate from narrow reported GUI and absent installed/
+physical qualification. Runtime, application, transport/accessory and distribution rows
+retain exact pending gates; no qualified physical row or broad family/runtime claim.
+Preflight/diffcheck passed. See [inventory evidence](validation/M6-COMPATIBILITY-INVENTORY-2026-09-17.md).
+Documentation checkpoint 523fa6b committed locally; push pending.
+Per-ID assessments and semantic review remain open.
+
+## Explicit per-ID automated assessments
+
+The ledger now records reviewed A-level assessments for M3-AC01 capability truthfulness
+and M3-AC04 no implicit persistent mutation. Exact implementation/test/evidence bytes and
+evaluated source bind these two declarations. Focused26Core tests passed exit0 and executable
+inputs match the previous passing full gate. No integration/H/R criterion is promoted.
+See [assessments](validation/M3-PER-ID-AUTOMATED-ASSESSMENTS-2026-09-17.md).
+Global qualification remains incomplete and semantic review remains required.
+
+## Local source-history inputs for CI qualification
+
+Native CI and both compatibility candidates now fetch full history, matching the existing
+preflight checkout. A real-Git regression enumerates all four settings, rejects a missing
+ancestor, and recognizes evidence-only ancestry. Removing Intel candidate history failed
+exit1; restored15focused/full104Python cases passed own exit0. Finite native full gate session76225 passed FULL_GATE_EXIT0 with104/272/324 tests and
+the checks above; log /tmp/zpl-traceability-history-full.log;
+see [history evidence](validation/M6-TRACEABILITY-CI-HISTORY-2026-09-17.md).
+Implementation b4eb3bc8ef7bae8a63bd14f021c4502be0b097df committed locally, push/hosted validation pending.
+After the passing full gate, M3-AC01/04 implementation/test hashes were checked unchanged
+and fresh A records bind this source and new gate evidence. Earlier records remain
+historical. Never exempt CI inputs from source binding; integration/H/R stay pending.
+
+## Local offline finishing queue policy
+
+FinishingQueueDefinition binds exact workflow/profile snapshots, stock and explicit whole
+mode/schedule selection. Five focused/restored tests passed; snapshot/selection/stock
+omissions independently failed exit1. No installed queue, actual reference-digest check or
+accepted ticket is produced. Full gate session76703 passed exit0 with104Python/277Core/324Mac
+in debug/release and oracle/inert/signature/packaged checks. Local implementation
+8493efcbea4420ada22d70002a5d08e2010b5c37; publication pending. See
+[queue evidence](validation/M3-FINISHING-QUEUE-DEFINITION-2026-09-17.md).
+The canonical codec is now implemented locally; seven focused/restored cases passed and
+canonical-byte omission failed two assertions. Full gate session28149 passed exit0 with
+104Python/279Core/324Mac debug/release and oracle/inert/signature/packaged checks. Local implementation
+a6d90b4a1d9ed8b7eb4e73e42513be2c39f56092; source publication pending. See
+[codec evidence](validation/M3-FINISHING-QUEUE-CODEC-2026-09-17.md).
+Private finishing queue storage is now locally implemented; five focused/restored cases
+passed, including cold recovery of uncertain publication. Snapshot and both digest faults
+independently failed exit1. Full gate session41257 passed exit0 with104Python/279Core/329Mac
+debug/release and oracle/inert/signature/packaged checks. Local implementation
+a6d90b4a1d9ed8b7eb4e73e42513be2c39f56092; source publication pending. See
+[store evidence](validation/M3-FINISHING-QUEUE-STORE-2026-09-17.md).
+Native-pitch/profile/domain geometry binding is locally implemented; eight focused/restored
+cases passed and three independent guard omissions failed exit1. Full gate session56035
+passed exit0 with104Python/279Core/332Mac debug/release and oracle/inert/signature/packaged checks; see
+[geometry evidence](validation/M3-FINISHING-DEVICE-GEOMETRY-2026-09-17.md).
+Original-PDF in-memory acceptance and retained-source preparation are now locally implemented.
+Eight Core/ten native focused/restored cases passed; six selection/copy/control/source
+omissions independently failed exit1. Full gate session88103 passed exit0 with104Python/281Core/334Mac
+debug/release plus oracle/inert/signature/packaged checks. Local implementation
+ccd7a9aab1175518fda1a8db783862ed865b1d81; source publication pending. See
+[acceptance evidence](validation/M3-ORIGINAL-FINISHING-ACCEPTANCE-2026-09-17.md).
+Next: durable canonical finishing ticket/source publication and identity-bound framing,
+attempt intent, cancellation/lifecycle recovery. Actual identified unit correspondence remains open.
+
+## Manual Part A and Part B
+
+The maintainer reported issue80 Part A passed with the corrected local editor artifact
+on the same macOS27 Mac. This is narrow reported GUI evidence; keyboard/VoiceOver,
+minimum-runtime26 and the full GUI matrix remain open. See
+[editor layout](validation/M5-EDITOR-LAYOUT-2026-09-17.md).
+
+Part B has no result yet. The separately frozen local candidate is from source52ba93f;
+the private pointer `/tmp/zpl-current-m1-candidate-path.txt` identifies its directory.
+Do not replace those bytes with newer builds. The maintainer has been given the frozen
+script's interactive `--apply` command. Await its output and stop on failure without
+retry. The script prompts through OS authentication; agents never collect passwords
+or invoke privileged installation.
+
+The approved finite experiment is one discard queue transaction, one held synthetic
+single-page PDF/one copy, one release, at most60seconds of observation and guarded
+cleanup. Zero physical labels/device commands. No Zebra printer is required.
+After successful apply, follow [single-job admission](validation/M1-SINGLE-JOB-ADMISSION.md):
+strict final PPD and planned filter-chain checks; exact stopped/rejecting/unshared
+`file:///dev/null` queue/default readback; held-job attributes; one resume; correlated
+schema2 filter metadata and finite discard completion; then owned-job/queue cleanup.
+Missing metadata is inconclusive, not a pass or reason to enable global verbose logging.
+Use the fixed verified local scheduler endpoint and controlled client environment.
+Recovery and readback details:
+[transaction recovery](validation/M1-TRANSACTION-RECOVERY.md),
+[IPP readback](validation/M1-READONLY-IPP-READBACK-2026-09-16.md).
+Part B alone does not accept the production adapter or complete M1.
+
+## Remaining implementation and evidence
+
+Next independent software work: validate the local intent/coordinator integration,
+then accepted-context framed-artifact binding and durable lifecycle/restart recovery; persistent exact-profile output qualifications; accepted finishing
+queue/ticket/device and qualified-pitch binding; actual bounded file/status provider
+integration retaining ownership throughout waits. These must reuse established
+immutable stores and coordination invariants, not manufacture accepted-device authority
+from the private utility catalog or flatten finishing files into raw TCP bytes.
+
+Accepted-context gap inspection: VirtualQueueDefinition admits schemas1–6 and profile1–7,
+with tear-off defaults; ResolvedJobTicket admits schemas2–7 and independently checks queue/
+printer references in its initializer. Finishing profile8 cannot enter either path. The
+next admission slice must extend typed queue/defaults and ticket serialization/validation,
+then store/load and preparation binding together, with regressions for every reference,
+mode/schedule/output-order/source/device/cancellation combination. Preserve ordinary role
+rejection until the separate finishing path is complete; M1 privilege/backend identity
+still requires its prescribed real scheduler evidence before production assumptions.
+
+
+Manual M1 must establish actual scheduler fidelity/options, sandbox/helper identity,
+backend lifetime and retry behavior before production adapter assumptions. Installed
+queue management, privileged authorization/lifecycle, restart repair and system-dialog
+visibility remain open. GUI/accessibility and compatibility/release matrices also remain
+open. M6 traceability/evidence-integrity tooling is implemented; deliberate per-ID
+evidence backfill and semantic review remain open. Empty/blocked evidence cannot
+promote local compilation to installation or hardware qualification. M6 is not implemented/accepted simply because local builds pass.
+
+Physical qualification requires separately authorized named hardware and finite label/
+command budget. GC420d USB4×6pre-cut tear-off/no cutter is the primary target; retain
+separate S2 accessory/model evidence. USB unplug/replug, output quality/count/order,
+physical status/faults, actual cross-queue serialization and finishing remain unobserved.
+Never promote compiled, inert, reported GUI or hosted checks into printed evidence.
+Do not automatically calibrate/reset/save/upgrade firmware/erase or replay ambiguity.

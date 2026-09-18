@@ -361,3 +361,72 @@ and subprocess setup opens that stdout as `/dev/null`. Source inspection informs
 the direct-descriptor regression, not installed Tahoe scheduler acceptance.
 No CUPS implementation is copied or bundled. Native direct-executable tests
 remain distinct from administrator admission and actual spooler execution.
+
+<a id="r43"></a>
+## R43 — Zebra ASCII hexadecimal repeat-count compression
+
+[ZPL II Programming Guide Volume Two](https://www.zebra.com/content/dam/support-dam/en/documentation/unrestricted/guide/software/zplii-pm-vol2-en.pdf),
+45542L-002 Rev. A, printed page 52, documents additive hexadecimal repeat
+counts and previous-row repetition. [Graphic Field](https://docs.zebra.com/content/tcm/us/en/printers/software/zpl-pg/zpl-commands/%5Egf.html)
+defines ASCII download conventions and decoded-byte metadata. The experimental
+writer uses only count tokens and previous-row repetition; it does not implement
+binary compression, download stored objects, or enable a device capability.
+The plain-hex oracle and ordinary prepared-job encoder remain unchanged.
+Original Swift code and a separate Python decoder are independently checked
+against documented count examples and boundary vectors. Firmware qualification
+is still required before production selection; no manual PDF is redistributed.
+
+<a id="r44"></a>
+## R44 — Public Zebra legacy host-status reply grammar
+
+[Zebra ~HS protocol documentation](https://docs.zebra.com/content/tcm/us/en/printers/software/zpl-pg/zpl-commands/~hs4.html)
+and [public programming guide](https://www.zebra.com/content/dam/support-dam/en/documentation/unrestricted/guide/software/zpl-zbi2-pg-en.pdf).
+The official indexed reference was checked on 2026-09-17; direct HTML retrieval
+returned 404, so its indexed text supplies the framing/field tables. The guide's
+indexed text independently confirms response suppression under some faults.
+No manual PDF is bundled or redistributed.
+
+The decoder implements only the documented three-string fixed-width subset,
+validates flags/numbers and drops opaque third-string data. It does not issue a
+query, authenticate/freshen a reply, enable unit support, infer readiness from
+silence, or turn general status into a job-specific receipt. Actual GC420d USB
+status transport and firmware support remain unobserved. Its 64KiB input cap is
+project policy, not a vendor claim. Source tables describe observations rather
+than permissions to configure hardware.
+
+
+<a id="r45"></a>
+## R45 — Public Zebra ordinary control command tables
+
+[Zebra Programming Guide P1134473-11EN Rev A](https://www.zebra.com/content/dam/support-dam/en/documentation/unrestricted/guide/software/zpl-zbi2-pg-en.pdf)
+
+Checked 2026-09-17; document dated 2026-07-05; temporary fetched PDF SHA256
+`b1f83b0822f176bb20b7cfe14a37ea33fb552c3d6bcf05da1b4c2704ad3aaa0c`.
+Public protocol specification only, not proprietary driver material; not bundled.
+Printed pages293 (^LH),296 (^LS),297 (^LT),301 (^MD),307–308 (^MN),311
+(^MT),305 (^MM),326–327 (^PR),329 (^PW),333 (~SD). Text tables inspected; page294
+rendered to resolve a delimiter ambiguity for ^LL, which is not implemented
+in this slice. Speeds are independent parameters with model restrictions;
+relative ^MD is added to ~SD. Model-specific accepted ranges, installed defaults
+and physical behavior remain separately qualified. No device command sent.
+
+
+## R46 — Public Zebra continuous mode and label-length scope
+
+[Zebra ^MN command](https://docs.zebra.com/us/en/printers/software/zpl-pg/zpl-commands/%5Emn.html),
+[Zebra ^LL command](https://docs.zebra.com/content/tcm/us/en/printers/software/zpl-pg/zpl-commands/%5Ell.html),
+and [legacy Zebra Programming Guide, ^LL section](https://cpws.zebra.com/cpws/docs/zpl/zpl_manual.pdf).
+
+Checked2026-09-17 using indexed official primary content; direct HTML fetches
+returned404 and the legacy PDF fetch returned502, so no new direct-fetch/hash
+claim. R45's directly inspected current guide is separate corroborating evidence.
+No manual is bundled. ^MNN explicitly selects continuous tracking; ^LL supplies
+its length in dots. The accepted1..32000 range is further limited by actual model
+memory/label-size bounds, which cannot be inferred from nominal stock or PDF size.
+Modern ^LL has a media-scope flag: Y applies to all media, N to continuous only;
+omitting it retains current scope. This flag does not change applicability to an
+explicitly continuous format. The implemented paired operation emits the documented
+single length argument after ^MNN, avoiding ambiguous second-argument syntax.
+This does not normalize the flag or establish later gap/mark length behavior.
+^LL must precede first ^FS; retained until replaced/power-off, with no ^JUS emitted.
+Unit qualification and physical behavior remain unobserved.

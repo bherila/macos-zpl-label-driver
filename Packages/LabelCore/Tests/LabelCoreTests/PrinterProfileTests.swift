@@ -2,6 +2,17 @@ import XCTest
 @testable import LabelCore
 
 final class PrinterProfileTests: XCTestCase {
+    func testConnectionIdentityDumpDoesNotExposePrivateProfileValue() throws {
+        let identity = try StableConnectionIdentity(opaqueValue: "usb://synthetic.example.test/private-token")
+        var output = ""
+        dump([identity], to: &output)
+        XCTAssertFalse(output.contains("synthetic.example.test"))
+        XCTAssertFalse(output.contains("private-token"))
+        XCTAssertTrue(Mirror(reflecting: identity).children.isEmpty)
+        XCTAssertEqual(identity.privateProfileValue, "usb://synthetic.example.test/private-token")
+        XCTAssertEqual(identity, try StableConnectionIdentity(opaqueValue: identity.privateProfileValue))
+    }
+
     func testGC420dReferencePreservesModelAndInstalledFactBoundaries() throws {
         let profile = try PrinterProfile.gc420dUSBReference(revision: 7)
         XCTAssertEqual(profile.schemaVersion, 1)
@@ -65,7 +76,7 @@ final class PrinterProfileTests: XCTestCase {
     func testProfileVersionIsBounded() throws {
         let reference = try PrinterProfile.gc420dUSBReference()
         XCTAssertThrowsError(try PrinterProfile(
-            schemaVersion: 3,
+            schemaVersion: 9,
             revision: 1,
             capabilities: reference.capabilities,
             installedHardware: reference.installedHardware,

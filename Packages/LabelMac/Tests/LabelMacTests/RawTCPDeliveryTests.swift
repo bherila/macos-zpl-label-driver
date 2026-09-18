@@ -1,10 +1,83 @@
 @preconcurrency import Network
 import Darwin
 import XCTest
-import LabelCore
+@testable import LabelCore
 @testable import LabelMac
 
 final class RawTCPDeliveryTests: XCTestCase {
+    func testEndpointDiagnosticsRedactCoordinatesWithoutChangingTransportValues() throws {
+        let endpoint = try RawTCPEndpoint(host: "synthetic.example.test", port: 19101)
+        XCTAssertEqual(String(describing: endpoint), "RawTCPEndpoint(redacted)")
+        XCTAssertEqual(String(reflecting: endpoint), "RawTCPEndpoint(redacted)")
+        var output = ""
+        dump([endpoint], to: &output)
+        XCTAssertFalse(output.contains("synthetic.example.test"))
+        XCTAssertFalse(output.contains("19101"))
+        XCTAssertTrue(Mirror(reflecting: endpoint).children.isEmpty)
+        XCTAssertEqual(endpoint.host, "synthetic.example.test")
+        XCTAssertEqual(endpoint.port, 19101)
+        XCTAssertEqual(endpoint, try RawTCPEndpoint(host: endpoint.host, port: endpoint.port))
+        XCTAssertNotEqual(endpoint, try RawTCPEndpoint(host: endpoint.host, port: 19102))
+    }
+
+    private func completeJob() throws -> PreparedJobPayload {
+        let profile = try PrinterProfile.gc420dUSBReference(revision: 29)
+        let encoder = try ZPLPreparedLabelEncoder()
+        let outputs = [ResolvedOutputLabel(sourcePage: 2, regionID: "first"),
+                       ResolvedOutputLabel(sourcePage: 1, regionID: "second")]
+        let labels = try zip(outputs, [UInt8(0x80), UInt8(0x40)]).map { output, pixel in
+            PreparedOutputLabel(output: output, prepared: try encoder.prepare(
+                bitmap: MonochromeBitmap(width: 8, height: 1, bytes: [pixel]), profile: profile))
+        }
+        return try PreparedJobPayload(labels: labels, expectedOutputLabels: outputs,
+            monochromeConversion: .textAndBarcodeThreshold(cutoff: 128))
+    }
+
+    func testCompleteJobLoopbackPreservesEveryLabelAndBoundSnapshot() async throws {
+        let job = try completeJob()
+        let peer = try LoopbackFaultPeer()
+        let complete = expectation(description: "complete two-label job")
+        let finished = expectation(description: "bounded peer finished")
+        peer.start(resetAfterPrefix: false, prefixReceived: complete, finished: finished,
+            readGoal: job.bytes.count, readSizes: [1, 7, 2, 31])
+        defer { peer.release() }
+        let result = try await RawTCPDelivery.send(job,
+            to: RawTCPEndpoint(host: "127.0.0.1", port: peer.port),
+            configuration: RawTCPDeliveryConfiguration(timeoutMilliseconds: 2_000))
+        peer.release()
+        await fulfillment(of: [complete, finished], timeout: 3)
+        XCTAssertNil(peer.failure.value)
+        XCTAssertEqual(peer.received.value, job.bytes)
+        XCTAssertEqual(String(decoding: peer.received.value, as: UTF8.self)
+            .components(separatedBy: "^XA").count - 1, 2)
+        XCTAssertEqual(result.receipt.profileSnapshot, job.profileSnapshot)
+        XCTAssertEqual(result.receipt.state, .transmitted(bytesAccepted: job.bytes.count))
+        XCTAssertNil(result.failure)
+        XCTAssertFalse(result.receipt.mayRetryAutomatically)
+    }
+
+    func testCompleteJobSnapshotSurvivesEveryTransportFailureBoundary() throws {
+        let job = try completeJob()
+        let cases: [(RawTCPAttemptResult, DeliveryState, RawTCPDeliveryFailure?)] = [
+            (.completed, .transmitted(bytesAccepted: job.bytes.count), nil),
+            (.connectionFailed, .failedBeforeTransmission, .connectionFailed),
+            (.timedOutBeforeSend, .failedBeforeTransmission, .timedOutBeforeSend),
+            (.cancelledBeforeSend, .cancelledBeforeTransmission, .cancelledBeforeSend),
+            (.timedOutAfterSendAttempt, .uncertain(bytesAccepted: 0), .timedOutAfterSendAttempt),
+            (.cancelledAfterSendAttempt, .uncertain(bytesAccepted: 0), .cancelledAfterSendAttempt),
+            (.sendFailedAfterAttempt, .uncertain(bytesAccepted: 0), .sendFailedAfterAttempt)
+        ]
+        for (attempt, state, failure) in cases {
+            let result = try RawTCPDelivery.result(for: attempt, preparedJob: job)
+            XCTAssertEqual(result.receipt.profileSnapshot, job.profileSnapshot)
+            XCTAssertEqual(result.receipt.profileRevision, 29)
+            XCTAssertEqual(result.receipt.expectedBytes, job.bytes.count)
+            XCTAssertEqual(result.receipt.state, state)
+            XCTAssertEqual(result.failure, failure)
+            XCTAssertNotEqual(result.receipt.state, .deviceConfirmed)
+        }
+    }
+
     func testEndpointAndTimeoutRejectUnsafeValues() {
         XCTAssertThrowsError(try RawTCPEndpoint(host: "", port: 9100))
         XCTAssertThrowsError(try RawTCPEndpoint(host: "printer\nother", port: 9100))

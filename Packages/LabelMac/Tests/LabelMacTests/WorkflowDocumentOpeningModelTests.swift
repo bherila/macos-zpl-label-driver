@@ -96,10 +96,10 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
         let source = try Data(contentsOf: fixture("native-vector"))
         let executable = try worker()
         let analyzed = try OfflineLayoutWorker.analyze(originalPDF: source,
-            structuralPages: [1], workerExecutable: executable, barcodePages: [1], deadlineSeconds: 5)
+            structuralPages: [1], workerExecutable: executable, barcodePages: [1], deadlineSeconds: NativeBarcodeCorrectnessBudget.seconds)
         let barcode = try XCTUnwrap(analyzed[0].anchors?.first { $0.kind == .barcodeLike })
         let manual = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
-            store: store, workerExecutable: executable, deadlineSeconds: 5, mode: .manual)
+            store: store, workerExecutable: executable, deadlineSeconds: NativeBarcodeCorrectnessBudget.seconds, mode: .manual)
         let definition = manual.profile
         let rule = definition.pageRules[0]
         let saved = try WorkflowProfile(id: definition.id, revision: definition.revision,
@@ -119,8 +119,8 @@ final class WorkflowDocumentOpeningModelTests: XCTestCase {
         XCTAssertEqual(reopened.profile.pageRules, saved.pageRules)
         XCTAssertFalse(reopened.canApproveForUnattendedUse)
         XCTAssertThrowsError(try store.qualification(for: reopened.profile)) // Not published yet.
-        await manual.refreshPreviewInWorker(workerExecutable: executable, deadlineSeconds: 5)
-        await reopened.refreshPreviewInWorker(workerExecutable: executable, deadlineSeconds: 5)
+        await manual.refreshPreviewInWorker(workerExecutable: executable, deadlineSeconds: NativeBarcodeCorrectnessBudget.seconds)
+        await reopened.refreshPreviewInWorker(workerExecutable: executable, deadlineSeconds: NativeBarcodeCorrectnessBudget.seconds)
         XCTAssertNotNil(reopened.preview)
         XCTAssertEqual(reopened.preview?.bitmap, manual.preview?.bitmap)
         try reopened.save()

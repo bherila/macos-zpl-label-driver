@@ -218,6 +218,7 @@ public enum ExtractionPlanError: Error, Equatable, Sendable {
     case ambiguousAnchor(page: Int, anchorID: String)
     case invalidAnalysis
     case invalidCopyPolicy
+    case invalidPageSelection
     case invalidOutputLimit
     case tooManyOutputLabels
 }
@@ -253,6 +254,7 @@ public enum ExtractionPlanner {
     public static func plan(
         sourcePages: [PDFPageBox],
         profile: WorkflowProfile,
+        selectedSourcePages: Set<Int>? = nil,
         copyPolicy: LabelOrderPlan.CopyPolicy = .alreadyExpanded,
         maximumOutputLabels: Int = 10_000
     ) throws -> ExtractionPlan {
@@ -260,6 +262,7 @@ public enum ExtractionPlanner {
         return try plan(
             analyzedPages: analyzed,
             profile: profile,
+            selectedSourcePages: selectedSourcePages,
             copyPolicy: copyPolicy,
             maximumOutputLabels: maximumOutputLabels
         )
@@ -268,6 +271,7 @@ public enum ExtractionPlanner {
     public static func plan(
         analyzedPages: [AnalyzedSourcePage],
         profile: WorkflowProfile,
+        selectedSourcePages: Set<Int>? = nil,
         copyPolicy: LabelOrderPlan.CopyPolicy = .alreadyExpanded,
         maximumOutputLabels: Int = 10_000
     ) throws -> ExtractionPlan {
@@ -275,6 +279,12 @@ public enum ExtractionPlanner {
             throw ExtractionPlanError.invalidSourcePageCount
         }
         guard maximumOutputLabels > 0 else { throw ExtractionPlanError.invalidOutputLimit }
+        if let selectedSourcePages {
+            guard !selectedSourcePages.isEmpty,
+                  selectedSourcePages.allSatisfy({ (1...analyzedPages.count).contains($0) }) else {
+                throw ExtractionPlanError.invalidPageSelection
+            }
+        }
 
         let rules = Dictionary(uniqueKeysWithValues: profile.pageRules.map { ($0.sourcePage, $0) })
         for page in 1...analyzedPages.count where rules[page] == nil {
@@ -312,6 +322,7 @@ public enum ExtractionPlanner {
         do {
             expanded = try LabelOrderPlan.make(
                 labels: base,
+                selectedSourcePages: selectedSourcePages.map { $0.intersection(Set(base.map(\.sourcePage))) },
                 copyPolicy: copyPolicy,
                 maxOutputLabels: maximumOutputLabels
             )
@@ -348,7 +359,7 @@ public enum ExtractionPlanner {
         return ExtractionPlan(
             sourcePageCount: analyzedPages.count,
             outputLabels: labels,
-            skippedPages: skipped,
+            skippedPages: skipped.filter { selectedSourcePages?.contains($0.sourcePage) ?? true },
             profileID: profile.id,
             profileRevision: profile.revision
         )
