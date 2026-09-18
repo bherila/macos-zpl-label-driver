@@ -1,7 +1,7 @@
 # Editable output stock and margins — 2026-09-18
 
-Source `69f637148551be803e9a4a5cf09febc3c1f921c1` on `claude/determined-sagan-frse18`, over `main` `10fd18c`. The slice opened at
-`118a8d5`; the four commits after it are admission corrections from review and are described below.
+Source `809192f98e4ec478d1d6acbdd7e445b316acc127` on `claude/determined-sagan-frse18`, over `main` `10fd18c`. The slice opened at
+`118a8d5`; the six commits after it are admission corrections from review, described below.
 
 The last of checkpoint `eb71a41`. **After this the checkpoint is fully absorbed**: only four files
 still differ from it, and each carries an improvement made during this work rather than unlanded
@@ -43,7 +43,7 @@ RUN.
 
 ## Admission corrections after `118a8d5`
 
-Four review rounds found six issues, all on the candidate-stock admission introduced by this slice,
+Six review rounds found nine issues, all on the candidate-stock admission introduced by this slice,
 and all traceable to one substitution: the **output stock was used as a surrogate for the extraction
 source**, so the probe saw neither region geometry nor rotation while the renderer plans the actual
 region. Recording the shape rather than only the fixes, because the first three rounds were spent
@@ -56,6 +56,12 @@ patching symptoms before the cause was named.
 - `69f6371` — completed it. The derivation is now one shared `QuartzPDFRenderer.admitPlannedLabels`
   used by all three sites, and canvas admission asks `ZPLGraphicEncoder` to band the layout rather
   than repeating its 32,000-dot bound.
+- `2fecc63` — admission was point in time, so a later crop could invalidate an already admitted
+  canvas. The invariant moved to the `save()` boundary, which is what persists a revision, rather
+  than guarding one more mutation.
+- `809192f` — that boundary checked placement but not the canvas, so a canvas rebuilt by
+  `reloadForCorrection` could still be persisted unrenderable. `save()` now applies both, and the
+  reload admits its rebuilt canvas before committing the draft.
 
 CI failed once, on `208401b`, in a test of mine that built a candidate profile it never saved, so
 `correctionDraft` threw before the validation under test ran. That scenario is now exercised directly
