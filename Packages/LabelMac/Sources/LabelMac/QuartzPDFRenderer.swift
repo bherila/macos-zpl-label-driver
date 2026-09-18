@@ -45,6 +45,10 @@ public enum QuartzPDFRenderer {
         /// destination-pixel budget.
         public let maximumSourcePages: Int
         public let maximumPixels: Int
+        /// The renderer's destination-pixel budget. Named so that callers
+        /// admitting a candidate canvas check the same number the renderer
+        /// will enforce, rather than repeating the literal.
+        public static let defaultMaximumPixels = 32 * 1024 * 1024
 
         public init(
             originalPDF: Data,
@@ -58,7 +62,7 @@ public enum QuartzPDFRenderer {
             expectedSourceRect: PDFSourceRect? = nil,
             maximumInputBytes: Int = 100 * 1024 * 1024,
             maximumSourcePages: Int = 1_000,
-            maximumPixels: Int = 32 * 1024 * 1024
+            maximumPixels: Int = Request.defaultMaximumPixels
         ) {
             self.originalPDF = originalPDF
             self.pageNumber = pageNumber
@@ -72,6 +76,54 @@ public enum QuartzPDFRenderer {
             self.maximumInputBytes = maximumInputBytes
             self.maximumSourcePages = maximumSourcePages
             self.maximumPixels = maximumPixels
+        }
+    }
+
+    /// Admits a candidate destination canvas against the same pixel budget the
+    /// renderer enforces. Constructing a `DotCanvas` bounds dimensions and packed
+    /// bytes but not their product, so a canvas can be individually valid yet
+    /// never renderable; without this an editable revision can be saved and
+    /// reopened whose every exact preview is rejected.
+    public static func admitRenderableCanvas(
+        _ canvas: DotCanvas,
+        maximumPixels: Int = Request.defaultMaximumPixels
+    ) throws {
+        guard maximumPixels > 0 else { throw Error.invalidLimits }
+        let (pixels, overflow) = canvas.width.multipliedReportingOverflow(by: canvas.height)
+        guard !overflow else { throw Error.allocationOverflow }
+        guard pixels <= maximumPixels else {
+            throw Error.pixelLimitExceeded(actual: pixels, limit: maximumPixels)
+        }
+        // A canvas within the pixel budget can still exceed the graphics
+        // encoder's per-axis coordinate limit, which the exact preview hits.
+        // Ask the encoder itself rather than repeating its bound here.
+        _ = try ZPLGraphicEncoder().bands(for: canvas.bitmapLayout)
+    }
+
+    /// Admits a candidate's planned labels the way `render` will place them,
+    /// mirroring its source-size derivation including the rotation swap. The
+    /// stock is not a usable surrogate for the source: region geometry and
+    /// rotation decide the placement that the renderer actually performs.
+    public static func admitPlannedLabels(
+        _ plan: ExtractionPlan,
+        analyzedPages: [AnalyzedSourcePage],
+        canvas: DotCanvas,
+        policy: PagePlacementPolicy = .fit
+    ) throws {
+        for label in plan.outputLabels {
+            guard label.sourcePage >= 1, label.sourcePage <= analyzedPages.count else {
+                throw Error.invalidPageGeometry
+            }
+            let page = try analyzedPages[label.sourcePage - 1].pageBox.effectivePhysicalSize()
+            let region = label.normalizedRect
+            var source = PhysicalSize(
+                width: try Millimeters(page.width.value * region.width),
+                height: try Millimeters(page.height.value * region.height))
+            if label.rotation == .degrees90 || label.rotation == .degrees270 {
+                source = PhysicalSize(width: source.height, height: source.width)
+            }
+            _ = try PagePlacementPlanner.plan(source: source, canvas: canvas,
+                policy: policy, margins: label.outputMargins)
         }
     }
 

@@ -8,6 +8,253 @@ import LabelCore
 final class WorkflowEditorBootstrapTests: XCTestCase {
     private enum TestError: Error { case unavailable }
 
+    func testChangedStockReopensAsUnreviewedCorrectionAndRendersOriginalPDF() async throws {
+        let source = try fixture("letter-one")
+        let profileStore = try store()
+        let original = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let stock = PhysicalSize(width: try .inches(2), height: try .inches(3))
+        try original.setOutputStock(id: "custom-stock", size: stock)
+        try original.save()
+        let saved = original.profile
+        let reopened = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, savedProfile: saved, stockPolicy: .offlineCandidate)
+        XCTAssertTrue(reopened.isReopenedWorkflow)
+        XCTAssertFalse(reopened.isSaved)
+        XCTAssertEqual(reopened.profile.revision, saved.revision + 1)
+        XCTAssertEqual(reopened.profile.pageRules, saved.pageRules)
+        XCTAssertEqual(reopened.profile.outputStock, stock)
+        XCTAssertEqual(reopened.unreviewedRegionCount, reopened.regions.count)
+        XCTAssertEqual(try profileStore.load(profileID: saved.id, revision: saved.revision), saved)
+        await reopened.refreshPreviewInWorker(workerExecutable: try worker(), deadlineSeconds: 5)
+        let preview = try XCTUnwrap(reopened.preview)
+        XCTAssertEqual(preview.bitmap.layout.width, 406)
+        XCTAssertEqual(preview.bitmap.layout.height, 610)
+        XCTAssertEqual(preview.previewPBM, preview.bitmap.pbmData())
+        XCTAssertFalse(reopened.canApproveForUnattendedUse)
+    }
+
+    func testOversizedSavedStockRejectedBeforeWorkerLaunch() async throws {
+        let source = try fixture("letter-one")
+        let profileStore = try store()
+        let model = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let current = model.profile
+        let oversized = try WorkflowProfile(id: current.id, revision: current.revision,
+            outputStockID: "oversized-stock", outputStock: PhysicalSize(
+                width: Millimeters(10_000), height: Millimeters(10)),
+            pageRules: current.pageRules)
+        do {
+            _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+                store: profileStore, workerExecutable: URL(fileURLWithPath: "/nonexistent-worker"),
+                deadlineSeconds: 5, savedProfile: oversized, stockPolicy: .offlineCandidate)
+            XCTFail("oversized saved stock admitted")
+        } catch {
+            XCTAssertEqual(error as? PhysicalGeometryError, .exceedsDotLimit(actual: 80_000, limit: 8_192))
+        }
+        XCTAssertEqual(model.profile, current)
+    }
+
+    /// 600x900mm is admissible to DotCanvas on every individual bound but its
+    /// 4800x7200 dot product exceeds the renderer's pixel budget. Without
+    /// admission here a revision saves and reopens whose every preview fails.
+    /// The neighbouring oversized-stock test only covers the dimension limit.
+    func testCandidateStockInsideDotLimitsButBeyondPixelBudgetIsRejected() async throws {
+        let stock = PhysicalSize(width: try Millimeters(600), height: try Millimeters(900))
+        let resolution = try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8)
+        // The canvas itself is valid: rejection below is the pixel product alone.
+        let canvas = try DotCanvas(physicalSize: stock, resolution: resolution)
+        XCTAssertEqual(canvas.width, 4_800)
+        XCTAssertEqual(canvas.height, 7_200)
+        XCTAssertGreaterThan(canvas.width * canvas.height,
+                             QuartzPDFRenderer.Request.defaultMaximumPixels)
+        XCTAssertThrowsError(try QuartzPDFRenderer.admitRenderableCanvas(canvas)) {
+            XCTAssertEqual($0 as? QuartzPDFRenderer.Error,
+                .pixelLimitExceeded(actual: 34_560_000,
+                                    limit: QuartzPDFRenderer.Request.defaultMaximumPixels))
+        }
+
+        let source = try fixture("letter-one")
+        let profileStore = try store()
+        let model = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let current = model.profile
+        let candidate = try WorkflowProfile(id: current.id, revision: current.revision,
+            outputStockID: "pixel-budget-stock", outputStock: stock, pageRules: current.pageRules)
+        do {
+            _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+                store: profileStore, workerExecutable: URL(fileURLWithPath: "/nonexistent-worker"),
+                deadlineSeconds: 5, savedProfile: candidate, stockPolicy: .offlineCandidate)
+            XCTFail("stock beyond the renderer pixel budget was admitted")
+        } catch {
+            XCTAssertEqual(error as? QuartzPDFRenderer.Error,
+                .pixelLimitExceeded(actual: 34_560_000,
+                                    limit: QuartzPDFRenderer.Request.defaultMaximumPixels))
+        }
+        XCTAssertEqual(model.profile, current)
+    }
+
+    /// Margins round to dots independently, so physical area can stay positive
+    /// while the rounded insets consume the whole canvas. 0.45 and 0.54mm on a
+    /// 1mm stock leaves 0.01mm physically but rounds to 4 + 4 dots on an 8-dot
+    /// canvas. Distinct from the pixel-product case: this is quantization.
+    func testSavedCandidateWithMarginsQuantizingToTheWholeCanvasIsRejected() async throws {
+        let stock = PhysicalSize(width: try Millimeters(1), height: try Millimeters(10))
+        let margins = try OutputMargins(left: 0.45, top: 0, right: 0.54, bottom: 0)
+        // The profile itself is valid: physical area remains positive.
+        XCTAssertGreaterThan(stock.width.value - margins.left - margins.right, 0)
+
+        let source = try fixture("letter-one")
+        let profileStore = try store()
+        let model = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let current = model.profile
+        let candidate = try WorkflowProfile(schemaVersion: 3, id: current.id, revision: current.revision,
+            outputStockID: "quantizing-margin-stock", outputStock: stock, outputMargins: margins,
+            pageRules: current.pageRules)
+        do {
+            _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+                store: profileStore, workerExecutable: URL(fileURLWithPath: "/nonexistent-worker"),
+                deadlineSeconds: 5, savedProfile: candidate, stockPolicy: .offlineCandidate)
+            XCTFail("margins quantizing to the whole canvas were admitted")
+        } catch {
+            XCTAssertEqual(error as? PagePlacementError, .invalidMargins)
+        }
+        XCTAssertEqual(model.profile, current)
+    }
+
+    /// The pre-worker probe uses the stock as its own source, so it sees neither
+    /// region geometry nor rotation. A narrow crop onto a long thin stock passes
+    /// that probe and the pixel budget, yet the renderer plans the actual region
+    /// and rounds its target to zero. Third variant of one structural gap: the
+    /// surrogate source. Exercised against the shared admission directly, so it
+    /// does not depend on store or worker plumbing to reach the check.
+    func testPlannedLabelAdmissionRejectsNarrowRegionThatSurrogateProbeAdmits() throws {
+        let stock = PhysicalSize(width: try Millimeters(1000), height: try Millimeters(0.1))
+        let canvas = try DotCanvas(physicalSize: stock,
+            resolution: try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        // Both the canvas admission and the stock-as-source probe admit this,
+        // which is exactly why the surrogate let it through.
+        XCTAssertEqual(canvas.width, 8_000)
+        XCTAssertNoThrow(try QuartzPDFRenderer.admitRenderableCanvas(canvas))
+        XCTAssertNoThrow(try PagePlacementPlanner.plan(source: stock, canvas: canvas,
+                                                      policy: .fit, margins: .zero))
+
+        let box = try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792)
+        let analyzed = [try AnalyzedSourcePage(pageBox: box, anchors: nil)]
+        let profile = try WorkflowProfile(id: "narrow-region", revision: 1,
+            outputStockID: "long-thin-stock", outputStock: stock,
+            pageRules: [try WorkflowPageRule(sourcePage: 1,
+                expectedInput: ExpectedInputPage(uprightPhysicalSize: try box.effectivePhysicalSize()),
+                disposition: .extract([try ExtractionRegion(id: "narrow-strip",
+                    normalizedRect: try NormalizedRect(x: 0, y: 0, width: 0.1, height: 1),
+                    outputOrder: 0)]))])
+        let plan = try ExtractionPlanner.plan(analyzedPages: analyzed, profile: profile)
+        XCTAssertThrowsError(try QuartzPDFRenderer.admitPlannedLabels(plan,
+            analyzedPages: analyzed, canvas: canvas)) {
+            XCTAssertEqual($0 as? PagePlacementError, .placementExceedsLimit)
+        }
+    }
+
+    /// Per-edit admission validates only the regions present at that moment, so
+    /// a later crop can invalidate an already admitted canvas. save() is the
+    /// boundary that persists a revision, so the invariant is enforced there:
+    /// a full-page region admits 1000 x 0.1mm stock at 1 x 1 dots, and narrowing
+    /// the region afterwards must not be persistable.
+    func testSaveRejectsARevisionInvalidatedByALaterRegionEdit() throws {
+        let box = try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792)
+        let analyzed = [try AnalyzedSourcePage(pageBox: box, anchors: nil)]
+        let stock = PhysicalSize(width: try Millimeters(1000), height: try Millimeters(0.1))
+        let canvas = try DotCanvas(physicalSize: stock,
+            resolution: try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        func profile(regionWidth: Double) throws -> WorkflowProfile {
+            try WorkflowProfile(id: "late-edit", revision: 1,
+                outputStockID: "long-thin-stock", outputStock: stock,
+                pageRules: [try WorkflowPageRule(sourcePage: 1,
+                    expectedInput: ExpectedInputPage(uprightPhysicalSize: try box.effectivePhysicalSize()),
+                    disposition: .extract([try ExtractionRegion(id: "region",
+                        normalizedRect: try NormalizedRect(x: 0, y: 0, width: regionWidth, height: 1),
+                        outputOrder: 0)]))])
+        }
+        // The full-page region is placeable on this stock, so admission passes.
+        let whole = try profile(regionWidth: 1)
+        XCTAssertNoThrow(try QuartzPDFRenderer.admitPlannedLabels(
+            try ExtractionPlanner.plan(analyzedPages: analyzed, profile: whole),
+            analyzedPages: analyzed, canvas: canvas))
+
+        // Narrowing it afterwards is not, and save() must refuse to persist it.
+        let narrowed = try profile(regionWidth: 0.1)
+        let model = WorkflowEditorModel(draft: WorkflowProfileDraft(profile: narrowed),
+            originalPDF: Data(), analyzedPages: analyzed, canvas: canvas, store: try store())
+        XCTAssertThrowsError(try model.save()) {
+            XCTAssertEqual($0 as? PagePlacementError, .placementExceedsLimit)
+        }
+        XCTAssertFalse(model.isSaved)
+    }
+
+    /// save() must apply the canvas admission as well as placement. A 600x900mm
+    /// profile is schema-valid and builds a DotCanvas, but its 34,560,000 pixels
+    /// exceed the renderer budget, so checking placement alone would persist a
+    /// revision whose every exact preview fails.
+    func testSaveAppliesCanvasAdmissionAndNotOnlyLabelPlacement() throws {
+        let box = try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792)
+        let analyzed = [try AnalyzedSourcePage(pageBox: box, anchors: nil)]
+        let stock = PhysicalSize(width: try Millimeters(600), height: try Millimeters(900))
+        let canvas = try DotCanvas(physicalSize: stock,
+            resolution: try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        let profile = try WorkflowProfile(id: "oversized-canvas", revision: 1,
+            outputStockID: "oversized-stock", outputStock: stock,
+            pageRules: [try WorkflowPageRule(sourcePage: 1,
+                expectedInput: ExpectedInputPage(uprightPhysicalSize: try box.effectivePhysicalSize()),
+                disposition: .extract([try ExtractionRegion(id: "region",
+                    normalizedRect: try NormalizedRect(x: 0, y: 0, width: 1, height: 1),
+                    outputOrder: 0)]))])
+        // Placement alone admits this, so only the canvas check can reject it.
+        XCTAssertNoThrow(try QuartzPDFRenderer.admitPlannedLabels(
+            try ExtractionPlanner.plan(analyzedPages: analyzed, profile: profile),
+            analyzedPages: analyzed, canvas: canvas))
+        let model = WorkflowEditorModel(draft: WorkflowProfileDraft(profile: profile),
+            originalPDF: Data(), analyzedPages: analyzed, canvas: canvas, store: try store())
+        XCTAssertThrowsError(try model.save()) {
+            XCTAssertEqual($0 as? QuartzPDFRenderer.Error,
+                .pixelLimitExceeded(actual: 34_560_000,
+                                    limit: QuartzPDFRenderer.Request.defaultMaximumPixels))
+        }
+        XCTAssertFalse(model.isSaved)
+    }
+
+    /// A canvas inside the pixel budget can still exceed the graphics encoder's
+    /// per-axis coordinate limit, which is what the exact preview hits.
+    func testCanvasAdmissionAppliesTheGraphicsEncoderCoordinateLimit() throws {
+        let stock = PhysicalSize(width: try Millimeters(100), height: try Millimeters(5_000))
+        let canvas = try DotCanvas(physicalSize: stock,
+            resolution: try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        XCTAssertEqual(canvas.width, 800)
+        XCTAssertEqual(canvas.height, 40_000)
+        // Under the pixel budget, so only the encoder bound can reject it.
+        XCTAssertLessThan(canvas.width * canvas.height,
+                          QuartzPDFRenderer.Request.defaultMaximumPixels)
+        XCTAssertThrowsError(try QuartzPDFRenderer.admitRenderableCanvas(canvas)) {
+            XCTAssertEqual($0 as? ZPLGraphicEncoder.EncodingError, .coordinateLimit)
+        }
+    }
+
+    /// The editor's own stock edit shares the gap, so it shares the admission.
+    func testSetOutputStockRejectsStockBeyondRendererPixelBudget() async throws {
+        let source = try fixture("letter-one")
+        let model = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: try store(), workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let before = model.profile
+        XCTAssertThrowsError(try model.setOutputStock(id: "pixel-budget-stock",
+            size: PhysicalSize(width: try Millimeters(600), height: try Millimeters(900)))) {
+            XCTAssertEqual($0 as? QuartzPDFRenderer.Error,
+                .pixelLimitExceeded(actual: 34_560_000,
+                                    limit: QuartzPDFRenderer.Request.defaultMaximumPixels))
+        }
+        // A rejected edit commits no draft or canvas state.
+        XCTAssertEqual(model.profile, before)
+    }
+
     func testDistinctManualWorkflowsCanBeSavedInTheSameImmutableStore() async throws {
         let profileStore = try store()
         let first = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: fixture("letter-one"),
