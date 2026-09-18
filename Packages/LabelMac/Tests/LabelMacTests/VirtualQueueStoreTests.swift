@@ -6,7 +6,6 @@ import LabelCore
 @testable import LabelMac
 
 final class VirtualQueueStoreTests: XCTestCase {
-    private let printerDigest = String(repeating: "b", count: 64)
     private let deviceDigest = String(repeating: "c", count: 64)
 
     private func temporaryRoot() throws -> URL {
@@ -51,6 +50,7 @@ final class VirtualQueueStoreTests: XCTestCase {
 
     private func queue(
         workflow: WorkflowProfile,
+        printerReference: ImmutableProfileReference,
         displayName: String = "Native labels",
         workflowDigest: String? = nil
     ) throws -> VirtualQueueDefinition {
@@ -63,9 +63,7 @@ final class VirtualQueueStoreTests: XCTestCase {
                 id: reference.id, revision: reference.revision,
                 sha256: workflowDigest ?? reference.sha256
             ),
-            printerProfile: ImmutableProfileReference(
-                id: "gc420d-usb", revision: 7, sha256: printerDigest
-            ),
+            printerProfile: printerReference,
             workflowDefaults: PrinterControlRequest(
                 thermalMethod: .directThermal, finishing: .tearOff, printSpeedIps: 3
             ),
@@ -75,31 +73,36 @@ final class VirtualQueueStoreTests: XCTestCase {
 
     private func qualifiedStores(
         root: URL
-    ) throws -> (WorkflowProfileStore, VirtualQueueStore, WorkflowProfile) {
+    ) throws -> (
+        WorkflowProfileStore, PrinterProfileStore, VirtualQueueStore,
+        WorkflowProfile, ImmutableProfileReference
+    ) {
         let workflows = try WorkflowProfileStore(root: root)
+        let printers = try PrinterProfileStore(root: root)
         let queues = try VirtualQueueStore(root: root)
         let value = try workflow()
         try workflows.save(value)
         try workflows.confirmForUnattendedUse(value)
-        return (workflows, queues, value)
+        let printerReference = try printers.save(
+            id: "gc420d-usb", profile: PrinterProfile.gc420dUSBReference(revision: 7)
+        )
+        return (workflows, printers, queues, value, printerReference)
     }
 
     func testImmutableQueueRoundTripRevalidatesExactQualifiedReferences() throws {
-        let (workflows, queues, value) = try qualifiedStores(root: temporaryRoot())
-        let original = try queue(workflow: value)
-        let printer = try PrinterProfile.gc420dUSBReference(revision: 7)
+        let (workflows, printers, queues, value, printerReference) = try qualifiedStores(
+            root: temporaryRoot()
+        )
+        let original = try queue(workflow: value, printerReference: printerReference)
         try queues.save(
-            original, workflowStore: workflows,
-            printerProfile: printer, printerProfileSHA256: printerDigest
+            original, workflowStore: workflows, printerStore: printers
         )
         try queues.save(
-            original, workflowStore: workflows,
-            printerProfile: printer, printerProfileSHA256: printerDigest
+            original, workflowStore: workflows, printerStore: printers
         )
         XCTAssertEqual(try queues.load(
             queueID: original.id, revision: original.revision,
-            workflowStore: workflows, printerProfile: printer,
-            printerProfileSHA256: printerDigest
+            workflowStore: workflows, printerStore: printers
         ), original)
         XCTAssertFalse(VirtualQueueStore.fileName(original.id, original.revision).contains("/"))
     }
@@ -107,50 +110,58 @@ final class VirtualQueueStoreTests: XCTestCase {
     func testUnqualifiedOrChangedWorkflowCannotBePublished() throws {
         let root = try temporaryRoot()
         let workflows = try WorkflowProfileStore(root: root)
+        let printers = try PrinterProfileStore(root: root)
         let queues = try VirtualQueueStore(root: root)
         let value = try workflow()
         try workflows.save(value)
         let printer = try PrinterProfile.gc420dUSBReference(revision: 7)
+        let printerReference = try printers.save(id: "gc420d-usb", profile: printer)
         XCTAssertThrowsError(try queues.save(
-            queue(workflow: value), workflowStore: workflows,
-            printerProfile: printer, printerProfileSHA256: printerDigest
+            queue(workflow: value, printerReference: printerReference),
+            workflowStore: workflows, printerStore: printers
         )) { XCTAssertEqual($0 as? VirtualQueueStore.Error, .workflowNotQualified) }
 
         try workflows.confirmForUnattendedUse(value)
         XCTAssertThrowsError(try queues.save(
-            queue(workflow: value, workflowDigest: String(repeating: "a", count: 64)),
-            workflowStore: workflows, printerProfile: printer,
-            printerProfileSHA256: printerDigest
+            queue(
+                workflow: value, printerReference: printerReference,
+                workflowDigest: String(repeating: "a", count: 64)
+            ),
+            workflowStore: workflows, printerStore: printers
         )) { XCTAssertEqual($0 as? VirtualQueueStore.Error, .workflowReferenceMismatch) }
     }
 
     func testPrinterDigestAndConflictingQueueBytesFailClosed() throws {
-        let (workflows, queues, value) = try qualifiedStores(root: temporaryRoot())
-        let printer = try PrinterProfile.gc420dUSBReference(revision: 7)
-        let original = try queue(workflow: value)
+        let (workflows, printers, queues, value, printerReference) = try qualifiedStores(
+            root: temporaryRoot()
+        )
+        let original = try queue(workflow: value, printerReference: printerReference)
+        let wrongReference = try ImmutableProfileReference(
+            id: printerReference.id, revision: printerReference.revision,
+            sha256: String(repeating: "d", count: 64)
+        )
         XCTAssertThrowsError(try queues.save(
-            original, workflowStore: workflows, printerProfile: printer,
-            printerProfileSHA256: String(repeating: "d", count: 64)
+            queue(workflow: value, printerReference: wrongReference),
+            workflowStore: workflows, printerStore: printers
         )) { XCTAssertEqual($0 as? VirtualQueueStore.Error, .printerReferenceMismatch) }
 
         try queues.save(
             original, workflowStore: workflows,
-            printerProfile: printer, printerProfileSHA256: printerDigest
+            printerStore: printers
         )
         XCTAssertThrowsError(try queues.save(
-            queue(workflow: value, displayName: "Changed"), workflowStore: workflows,
-            printerProfile: printer, printerProfileSHA256: printerDigest
+            queue(workflow: value, printerReference: printerReference, displayName: "Changed"),
+            workflowStore: workflows, printerStore: printers
         )) { XCTAssertEqual($0 as? VirtualQueueStore.Error, .queueConflict) }
     }
 
     func testTamperedIdentityAndUnsafeRootsAreRejected() throws {
         let root = try temporaryRoot()
-        let (workflows, queues, value) = try qualifiedStores(root: root)
+        let (workflows, printers, queues, value, printerReference) = try qualifiedStores(root: root)
         let printer = try PrinterProfile.gc420dUSBReference(revision: 7)
-        let original = try queue(workflow: value)
+        let original = try queue(workflow: value, printerReference: printerReference)
         try queues.save(
-            original, workflowStore: workflows,
-            printerProfile: printer, printerProfileSHA256: printerDigest
+            original, workflowStore: workflows, printerStore: printers
         )
         let target = root.appending(path: "queues").appending(
             path: VirtualQueueStore.fileName(original.id, original.revision)
@@ -166,8 +177,7 @@ final class VirtualQueueStoreTests: XCTestCase {
         try VirtualQueueJSON.encode(changed).write(to: target)
         XCTAssertThrowsError(try queues.load(
             queueID: original.id, revision: original.revision,
-            workflowStore: workflows, printerProfile: printer,
-            printerProfileSHA256: printerDigest
+            workflowStore: workflows, printerStore: printers
         )) { XCTAssertEqual($0 as? VirtualQueueStore.Error, .queueIdentityMismatch) }
 
         let insecure = FileManager.default.temporaryDirectory.appending(
@@ -182,22 +192,22 @@ final class VirtualQueueStoreTests: XCTestCase {
     }
 
     func testConcurrentConflictingWritersNeverReplaceWinner() async throws {
-        let (workflows, queues, value) = try qualifiedStores(root: temporaryRoot())
-        let printer = try PrinterProfile.gc420dUSBReference(revision: 7)
-        let first = try queue(workflow: value)
-        let second = try queue(workflow: value, displayName: "Alternate")
-        let expectedPrinterDigest = printerDigest
+        let (workflows, printers, queues, value, printerReference) = try qualifiedStores(
+            root: temporaryRoot()
+        )
+        let first = try queue(workflow: value, printerReference: printerReference)
+        let second = try queue(
+            workflow: value, printerReference: printerReference, displayName: "Alternate"
+        )
         let results = await withTaskGroup(of: Bool.self, returning: [Bool].self) { group in
             group.addTask {
                 (try? queues.save(
-                    first, workflowStore: workflows, printerProfile: printer,
-                    printerProfileSHA256: expectedPrinterDigest
+                    first, workflowStore: workflows, printerStore: printers
                 )) != nil
             }
             group.addTask {
                 (try? queues.save(
-                    second, workflowStore: workflows, printerProfile: printer,
-                    printerProfileSHA256: expectedPrinterDigest
+                    second, workflowStore: workflows, printerStore: printers
                 )) != nil
             }
             var values: [Bool] = []
@@ -207,8 +217,7 @@ final class VirtualQueueStoreTests: XCTestCase {
         XCTAssertEqual(results.filter { $0 }.count, 1)
         let stored = try queues.load(
             queueID: first.id, revision: first.revision,
-            workflowStore: workflows, printerProfile: printer,
-            printerProfileSHA256: printerDigest
+            workflowStore: workflows, printerStore: printers
         )
         XCTAssertTrue(stored == first || stored == second)
     }
