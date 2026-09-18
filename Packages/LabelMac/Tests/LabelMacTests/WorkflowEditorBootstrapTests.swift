@@ -94,6 +94,35 @@ final class WorkflowEditorBootstrapTests: XCTestCase {
         XCTAssertEqual(model.profile, current)
     }
 
+    /// Margins round to dots independently, so physical area can stay positive
+    /// while the rounded insets consume the whole canvas. 0.45 and 0.54mm on a
+    /// 1mm stock leaves 0.01mm physically but rounds to 4 + 4 dots on an 8-dot
+    /// canvas. Distinct from the pixel-product case: this is quantization.
+    func testSavedCandidateWithMarginsQuantizingToTheWholeCanvasIsRejected() async throws {
+        let stock = PhysicalSize(width: try Millimeters(1), height: try Millimeters(10))
+        let margins = try OutputMargins(left: 0.45, top: 0, right: 0.54, bottom: 0)
+        // The profile itself is valid: physical area remains positive.
+        XCTAssertGreaterThan(stock.width.value - margins.left - margins.right, 0)
+
+        let source = try fixture("letter-one")
+        let profileStore = try store()
+        let model = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let current = model.profile
+        let candidate = try WorkflowProfile(schemaVersion: 3, id: current.id, revision: current.revision,
+            outputStockID: "quantizing-margin-stock", outputStock: stock, outputMargins: margins,
+            pageRules: current.pageRules)
+        do {
+            _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+                store: profileStore, workerExecutable: URL(fileURLWithPath: "/nonexistent-worker"),
+                deadlineSeconds: 5, savedProfile: candidate, stockPolicy: .offlineCandidate)
+            XCTFail("margins quantizing to the whole canvas were admitted")
+        } catch {
+            XCTAssertEqual(error as? PagePlacementError, .invalidMargins)
+        }
+        XCTAssertEqual(model.profile, current)
+    }
+
     /// The editor's own stock edit shares the gap, so it shares the admission.
     func testSetOutputStockRejectsStockBeyondRendererPixelBudget() async throws {
         let source = try fixture("letter-one")

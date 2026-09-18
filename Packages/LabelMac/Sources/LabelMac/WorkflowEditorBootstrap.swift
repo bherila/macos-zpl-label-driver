@@ -73,9 +73,15 @@ public enum WorkflowEditorBootstrap {
             // This opens an offline editable candidate, not an installed queue.
             // Admit changed stock under the same finite preview geometry budgets;
             // printer/media qualification remains a separate acceptance boundary.
-            try QuartzPDFRenderer.admitRenderableCanvas(
-                DotCanvas(physicalSize: savedProfile.outputStock,
-                          resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8)))
+            let candidate = try DotCanvas(physicalSize: savedProfile.outputStock,
+                resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+            try QuartzPDFRenderer.admitRenderableCanvas(candidate)
+            // Margins round to dots independently, so a profile with positive
+            // physical area can still inset the entire canvas. Validate the same
+            // placement the editor's own margin edit validates, or the editor
+            // opens a candidate whose every exact preview is rejected.
+            _ = try PagePlacementPlanner.plan(source: savedProfile.outputStock, canvas: candidate,
+                policy: .fit, margins: savedProfile.outputMargins)
             guard savedProfile.pageRules.allSatisfy({ rule in
                 rule.structuralAnchors.allSatisfy { $0.kind == .border || $0.kind == .barcodeLike }
             }) else { throw Error.unsupportedLayoutDetector }
