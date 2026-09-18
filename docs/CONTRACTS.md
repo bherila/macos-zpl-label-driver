@@ -24,6 +24,12 @@ Output uses integer dots, origin top-left. Round physical placement once with a 
 
 All external schemas are versioned, validated and bounded. Reject unknown major versions; migrate old supported versions with explicit tests. Do not use Swift's implicit synthesized Codable layout as an unreviewed public wire contract. A defaulted absent capability is not automatically false or zero.
 
+Immutable publication distinguishes failure before a final name exists from a
+visible but durability-unconfirmed commit. The latter carries the exact logical
+identity and canonical digest, and an identical retry must repeat the required
+directory barrier before returning success. Conflicting bytes never reconcile
+as an identical retry.
+
 ## Option resolution
 
 Precedence: explicit job choice > immutable workflow defaults > configured physical-device defaults. Validate the resolved combination against capabilities and installed accessories. An explicit unsupported option is an error, not silently ignored. A 'leave printer setting unchanged' option must be explicitly named and may not be represented as a known numeric default.

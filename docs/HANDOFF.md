@@ -1253,7 +1253,39 @@ while a duplicate writer confirms durability, and prove that retries never
 reset an already-prepared lifecycle record. Local validation passes with 64
 Python, 165 LabelCore, and 114 LabelMac tests, including 25 focused store tests.
 This does not claim universal power-loss persistence, scheduler acceptance, or
-hardware evidence. R13 remains open for the other immutable reference stores.
+hardware evidence.
+
+At `f42226d`, review finding R13 is closed at the immutable configuration-store
+boundary. Workflow profiles, unattended qualifications, printer profiles, and
+virtual queues share a publisher that distinguishes pre-rename failure from a
+visible but durability-unconfirmed commit. The latter carries the exact ID,
+schema, revision, and canonical digest. Identical retries repeat the real
+directory barrier; conflicts remain conflicts. Fault injection proves no final
+record before rename, persistent uncertainty after rename, exact-byte recovery,
+and later successful reconciliation. The complete local sequence passes with
+64 Python, 165 LabelCore, and 119 LabelMac tests in debug and release. The
+R10-R14 source findings are now addressed, but review and hosted exact-head CI
+remain separate gates. No administrator, scheduler, transport, or hardware path
+was exercised.
+
+Review remediation `f4bb7f8` extends that durability boundary to the stable
+store root. Every successful immutable publication now syncs both the category
+directory containing the renamed record and its parent store directory. A
+targeted fault test proves that successful category sync followed by failing
+root sync returns exact commit uncertainty, leaves recoverable bytes, and
+requires an identical retry to complete both barriers. The complete local
+sequence passes with 64 Python, 165 LabelCore, and 120 LabelMac tests in debug
+and release. This remains host-filesystem barrier evidence, not an
+unconditional device-level power-loss claim.
+
+Second-pass review remediation `c4798ef` completes the pathname publication
+boundary. After syncing the record category and store root, publication reopens
+the root through its containing directory, verifies the inode matches the
+already validated root descriptor, and syncs that containing directory before
+success. Exact visible bytes are now reconciled before fallible temporary-file
+staging, so an ambiguous retry cannot be downgraded by a redundant staging
+failure. Two targeted regressions cover both cases; LabelMac reaches 121 tests
+in debug and release on the PR #34 stack.
 
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository

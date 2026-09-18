@@ -16,6 +16,7 @@ public struct PrinterProfileStore: @unchecked Sendable {
         case unsafeStoreDirectory
         case cannotRead
         case cannotWrite
+        case commitUncertain(ImmutablePublicationIdentity)
         case profileConflict
         case profileIdentityMismatch
     }
@@ -27,6 +28,11 @@ public struct PrinterProfileStore: @unchecked Sendable {
         self.root = root
         do { storage = try PrivateImmutableDirectory(root: root) }
         catch { throw Self.mapStorage(error) }
+    }
+
+    init(root: URL, storage: PrivateImmutableDirectory) {
+        self.root = root
+        self.storage = storage
     }
 
     @discardableResult
@@ -50,6 +56,11 @@ public struct PrinterProfileStore: @unchecked Sendable {
             )
         } catch PrivateImmutableDirectory.Error.conflict {
             throw Error.profileConflict
+        } catch PrivateImmutableDirectory.Error.commitUncertain {
+            throw Error.commitUncertain(ImmutablePublicationIdentity(
+                id: reference.id, schemaVersion: reference.schemaVersion,
+                revision: reference.revision, sha256: reference.sha256
+            ))
         } catch {
             throw Self.mapStorage(error)
         }
@@ -108,7 +119,7 @@ public struct PrinterProfileStore: @unchecked Sendable {
         case .cannotCreate: .cannotCreateStore
         case .cannotOpen: .cannotOpenStore
         case .unsafeDirectory: .unsafeStoreDirectory
-        case .cannotWrite, .conflict: .cannotWrite
+        case .cannotWrite, .commitUncertain, .conflict: .cannotWrite
         case .cannotRead, .notFound, .none: .cannotRead
         }
     }

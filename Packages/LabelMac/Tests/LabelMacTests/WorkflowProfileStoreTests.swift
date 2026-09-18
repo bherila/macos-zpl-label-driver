@@ -1,3 +1,4 @@
+import CryptoKit
 import Darwin
 import Foundation
 import XCTest
@@ -127,5 +128,207 @@ final class WorkflowProfileStoreTests: XCTestCase {
         XCTAssertEqual(results.filter { $0 }.count, 1)
         let stored = try store.load(profileID: first.id, revision: first.revision)
         XCTAssertTrue(stored == first || stored == second)
+    }
+
+    func testProfilePublicationReportsAndRecoversExactCommitUncertainty() throws {
+        let root = try temporaryRoot()
+        let sync = FailingDirectorySync()
+        let storage = try PrivateImmutableDirectory(
+            root: root, syncDirectory: sync.call
+        )
+        let faulted = WorkflowProfileStore(root: root, storage: storage)
+        let value = try profile()
+        let bytes = try WorkflowProfileJSON.encode(value)
+        let identity = ImmutablePublicationIdentity(
+            id: value.id, schemaVersion: value.schemaVersion,
+            revision: value.revision, sha256: Self.digest(bytes)
+        )
+        for _ in 0..<2 {
+            XCTAssertThrowsError(try faulted.save(value)) {
+                XCTAssertEqual($0 as? WorkflowProfileStore.Error, .commitUncertain(identity))
+            }
+        }
+        XCTAssertEqual(sync.count, 2)
+
+        let normal = try WorkflowProfileStore(root: root)
+        XCTAssertEqual(try normal.load(
+            profileID: value.id, revision: value.revision
+        ), value)
+        try normal.save(value)
+        XCTAssertThrowsError(try normal.save(profile(x: 0.2))) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .profileConflict)
+        }
+    }
+
+    func testQualificationPublicationReportsAndRecoversExactCommitUncertainty() throws {
+        let root = try temporaryRoot()
+        let normal = try WorkflowProfileStore(root: root)
+        let value = try profile()
+        try normal.save(value)
+        let bytes = try WorkflowProfileJSON.encode(value)
+        let identity = ImmutablePublicationIdentity(
+            id: value.id, schemaVersion: value.schemaVersion,
+            revision: value.revision, sha256: Self.digest(bytes)
+        )
+        let sync = FailingDirectorySync()
+        let storage = try PrivateImmutableDirectory(
+            root: root, syncDirectory: sync.call
+        )
+        let faulted = WorkflowProfileStore(root: root, storage: storage)
+        for _ in 0..<2 {
+            XCTAssertThrowsError(try faulted.confirmForUnattendedUse(value)) {
+                XCTAssertEqual($0 as? WorkflowProfileStore.Error, .commitUncertain(identity))
+            }
+        }
+        XCTAssertEqual(sync.count, 2)
+        XCTAssertNotNil(try normal.qualification(for: value))
+        try normal.confirmForUnattendedUse(value)
+    }
+
+    func testFailureBeforeRenameLeavesNoPublishedRecord() throws {
+        enum Injected: Swift.Error { case stop }
+        let root = try temporaryRoot()
+        let storage = try PrivateImmutableDirectory(
+            root: root,
+            injectFault: { point in
+                if point == .beforeRename { throw Injected.stop }
+            }
+        )
+        XCTAssertThrowsError(try storage.publish(
+            Data("bounded".utf8), directory: "profiles",
+            fileName: "before-rename.json", maximumBytes: 32
+        )) { XCTAssertEqual($0 as? PrivateImmutableDirectory.Error, .cannotWrite) }
+        XCTAssertThrowsError(try storage.read(
+            directory: "profiles", fileName: "before-rename.json", maximumBytes: 32
+        )) { XCTAssertEqual($0 as? PrivateImmutableDirectory.Error, .notFound) }
+        XCTAssertEqual(
+            try FileManager.default.contentsOfDirectory(
+                at: root.appending(path: "profiles"),
+                includingPropertiesForKeys: nil
+            ), []
+        )
+    }
+
+    func testFirstPublicationRequiresCategoryRootAndContainingDirectoryBarriers() throws {
+        let root = try temporaryRoot()
+        let sync = SequencedDirectorySync(results: [0, 0, -1])
+        let storage = try PrivateImmutableDirectory(
+            root: root, syncDirectory: sync.call
+        )
+        let faulted = WorkflowProfileStore(root: root, storage: storage)
+        let value = try profile()
+        let bytes = try WorkflowProfileJSON.encode(value)
+        let identity = ImmutablePublicationIdentity(
+            id: value.id, schemaVersion: value.schemaVersion,
+            revision: value.revision, sha256: Self.digest(bytes)
+        )
+
+        XCTAssertThrowsError(try faulted.save(value)) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .commitUncertain(identity))
+        }
+        XCTAssertEqual(sync.count, 3)
+        XCTAssertEqual(try faulted.load(
+            profileID: value.id, revision: value.revision
+        ), value)
+
+        try faulted.save(value)
+        XCTAssertEqual(sync.count, 6)
+        XCTAssertThrowsError(try faulted.save(profile(x: 0.2))) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .profileConflict)
+        }
+    }
+
+    func testIdenticalUncertainRetryReconcilesBeforeFallibleStaging() throws {
+        let root = try temporaryRoot()
+        let value = try profile()
+        let bytes = try WorkflowProfileJSON.encode(value)
+        let identity = ImmutablePublicationIdentity(
+            id: value.id, schemaVersion: value.schemaVersion,
+            revision: value.revision, sha256: Self.digest(bytes)
+        )
+        let initialSync = FailingDirectorySync()
+        let initial = WorkflowProfileStore(
+            root: root,
+            storage: try PrivateImmutableDirectory(
+                root: root, syncDirectory: initialSync.call
+            )
+        )
+        XCTAssertThrowsError(try initial.save(value)) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .commitUncertain(identity))
+        }
+
+        let fault = CountingInjectedFault()
+        let retrySync = SequencedDirectorySync(results: [0, -1])
+        let retry = WorkflowProfileStore(
+            root: root,
+            storage: try PrivateImmutableDirectory(
+                root: root, syncDirectory: retrySync.call,
+                injectFault: fault.call
+            )
+        )
+        XCTAssertThrowsError(try retry.save(value)) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .commitUncertain(identity))
+        }
+        XCTAssertEqual(fault.count, 0)
+        XCTAssertEqual(retrySync.count, 2)
+        XCTAssertEqual(try retry.load(
+            profileID: value.id, revision: value.revision
+        ), value)
+    }
+
+    private static func digest(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+}
+
+private final class FailingDirectorySync: @unchecked Sendable {
+    private let lock = NSLock()
+    private var calls = 0
+
+    var count: Int {
+        lock.withLock { calls }
+    }
+
+    func call(_ descriptor: Int32) -> Int32 {
+        _ = descriptor
+        lock.withLock { calls += 1 }
+        return -1
+    }
+}
+
+private final class SequencedDirectorySync: @unchecked Sendable {
+    private let lock = NSLock()
+    private var results: [Int32]
+    private var calls = 0
+
+    init(results: [Int32]) {
+        self.results = results
+    }
+
+    var count: Int {
+        lock.withLock { calls }
+    }
+
+    func call(_ descriptor: Int32) -> Int32 {
+        _ = descriptor
+        return lock.withLock {
+            calls += 1
+            return results.isEmpty ? 0 : results.removeFirst()
+        }
+    }
+}
+
+private final class CountingInjectedFault: @unchecked Sendable {
+    private let lock = NSLock()
+    private var calls = 0
+
+    var count: Int {
+        lock.withLock { calls }
+    }
+
+    func call(_ point: PrivateImmutableDirectory.FaultPoint) throws {
+        _ = point
+        lock.withLock { calls += 1 }
+        throw PrivateImmutableDirectory.Error.cannotWrite
     }
 }
