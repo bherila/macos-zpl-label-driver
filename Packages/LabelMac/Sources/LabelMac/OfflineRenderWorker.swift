@@ -113,6 +113,9 @@ public enum OfflineRenderWorkerProcess {
               ticketJSON.count <= maximumTicketBytes else {
             throw Error.outputLimitExceeded
         }
+        // A request cancelled before admission must not stage its source or
+        // launch a child merely to terminate it on the first polling turn.
+        guard !cancellation.isCancelled else { throw Error.cancelled }
         var executableStat = stat()
         guard lstat(workerExecutable.path, &executableStat) == 0,
               (executableStat.st_mode & S_IFMT) == S_IFREG,
@@ -136,7 +139,10 @@ public enum OfflineRenderWorkerProcess {
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         do {
+            guard !cancellation.isCancelled else { throw Error.cancelled }
             try process.run()
+        } catch Error.cancelled {
+            throw Error.cancelled
         } catch {
             throw Error.workerUnavailable
         }

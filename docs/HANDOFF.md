@@ -1489,6 +1489,18 @@ immediate rejection, job-correlated filter metadata, and unchanged baselines.
 It remains NOT RUN and grants no new privilege/device consent; broader M1
 application/fidelity/restart/identity evidence stays open.
 
+The isolated offline worker now rejects pre-cancelled bounded requests before
+executable inspection/source staging and rechecks before child launch. A focused
+regression preserves the distinct cancellation error; live-child termination
+tests remain passing. The full local gate completed with 67 Python, 165 Core
+and 153 Mac tests in debug/release, all independent oracle/ABI/inert checks,
+and ad-hoc signatures. This is M2-AC09 evidence only, not atomic transport
+arbitration or isolated-region integration into the synthetic pipeline.
+PR #45 independent review completed cleanly at `cf379e8` against `42a4c80`.
+Automatic hosted run `35071875026` passed the same exact head; inspected logs
+confirm full 67/165/153 suites, all oracle/ABI/inert checks, and ad-hoc
+signatures. No repeat review, merge, installation, or printer acceptance follows.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
