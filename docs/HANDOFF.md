@@ -1,6 +1,7 @@
 # Editable output stock and margins — 2026-09-18
 
-Source `118a8d5a30f89bccb77d268951fde936f1c52f5a` on `claude/determined-sagan-frse18`, over `main` `10fd18c`.
+Source `69f637148551be803e9a4a5cf09febc3c1f921c1` on `claude/determined-sagan-frse18`, over `main` `10fd18c`. The slice opened at
+`118a8d5`; the four commits after it are admission corrections from review and are described below.
 
 The last of checkpoint `eb71a41`. **After this the checkpoint is fully absorbed**: only four files
 still differ from it, and each carries an improvement made during this work rather than unlanded
@@ -39,6 +40,32 @@ rendered interface behaviour — that is GUI acceptance, issue #80 Part B, and i
 Mac. Landing the code does not advance that row, and a green CI run on this slice must not be read as
 GUI qualification. Installation, scheduler, hardware and release rows are untouched and remain NOT
 RUN.
+
+## Admission corrections after `118a8d5`
+
+Four review rounds found six issues, all on the candidate-stock admission introduced by this slice,
+and all traceable to one substitution: the **output stock was used as a surrogate for the extraction
+source**, so the probe saw neither region geometry nor rotation while the renderer plans the actual
+region. Recording the shape rather than only the fixes, because the first three rounds were spent
+patching symptoms before the cause was named.
+
+- `73d1089` — pixel product. `DotCanvas` bounds width, height and packed bytes but not their product.
+- `c2dd232` — margin quantization. Margins round to dots independently, so positive physical area can
+  still inset the whole canvas.
+- `208401b` — region placement. Fixed the cause, but applied it only in `makeModelUsingWorker`.
+- `69f6371` — completed it. The derivation is now one shared `QuartzPDFRenderer.admitPlannedLabels`
+  used by all three sites, and canvas admission asks `ZPLGraphicEncoder` to band the layout rather
+  than repeating its 32,000-dot bound.
+
+CI failed once, on `208401b`, in a test of mine that built a candidate profile it never saved, so
+`correctionDraft` threw before the validation under test ran. That scenario is now exercised directly
+against the shared admission instead of through store and worker plumbing.
+
+Each scenario was confirmed on Linux before being asserted: 4,800 × 7,200 at 34,560,000 pixels against
+a 33,554,432 budget; 0.45 and 0.54mm margins leaving 0.01mm physically but 4 + 4 dots on an 8-dot
+canvas; 800 × 40,000 at 32,000,000 pixels throwing `coordinateLimit`; and a 0.1-width letter crop on
+1000 × 0.1mm stock where the surrogate probe passes while the real region throws
+`placementExceedsLimit`.
 
 Blockers: nothing remains unported from `eb71a41`. Open work is GUI acceptance (#80 Part B), the
 redundant-analysis budget issue (#97), and gap 2 of #93, which needs a human security look at
