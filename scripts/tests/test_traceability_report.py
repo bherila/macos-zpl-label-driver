@@ -155,15 +155,44 @@ class TraceabilityReportTests(unittest.TestCase):
 
         # A wrong digest is corrupted integrity metadata, not bookkeeping, even though it is the
         # only changed path. It must not silently keep older evidence current.
-        (self.root / 'MANIFEST.sha256').write_text('1' * 64 + '  implementation.swift\n')
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
+        (self.root / 'MANIFEST.sha256').write_text(
+            '1' * 64 + '  implementation.swift\n'
+            + (self.root / 'MANIFEST.sha256').read_text().splitlines()[1] + '\n')
         corrupted = commit()
         self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, corrupted))
         self.assertFalse(reporter.build_report(self.root, corrupted,
             source_matches=lambda sha: reporter.source_is_unchanged(self.root, sha, corrupted)
         )['readyForMaintainerReview'])
 
+        # Dropping an entry shrinks integrity coverage. The remaining entries still verify, so this
+        # is only caught by comparing the path set against the evaluated manifest.
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
+        subprocess.run(['git', '-C', str(self.root), 'add', '-A'], check=True)
+        (self.root / 'MANIFEST.sha256').write_text(
+            '\n'.join((self.root / 'MANIFEST.sha256').read_text().splitlines()[1:]) + '\n')
+        dropped = commit()
+        self.assertFalse(reporter.manifest_describes_tree(self.root, dropped, evaluated))
+        self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, dropped))
+
+        # Widening coverage is a legitimate refresh and stays exempt.
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json', 'evidence.md')
+        widened = commit()
+        self.assertTrue(reporter.source_is_unchanged(self.root, evaluated, widened))
+
+        # A repeated path could request one blob many times, so it is rejected outright.
+        body = (self.root / 'implementation.swift').read_bytes()
+        line = f'{hashlib.sha256(body).hexdigest()}  implementation.swift'
+        (self.root / 'MANIFEST.sha256').write_text(line + '\n' + line + '\n')
+        duplicated = commit()
+        self.assertIsNone(reporter.manifest_entries(self.root, duplicated))
+        self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, duplicated))
+
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
+        commit()
+
         # An entry naming a path that does not exist at that commit is equally untrustworthy.
-        write_manifest('implementation.swift')
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
         (self.root / 'MANIFEST.sha256').write_text(
             (self.root / 'MANIFEST.sha256').read_text() + '0' * 64 + '  absent.swift\n')
         missing = commit()
@@ -171,7 +200,7 @@ class TraceabilityReportTests(unittest.TestCase):
 
         # A real source change is still caught even when the manifest truthfully moves with it.
         (self.root / 'implementation.swift').write_text('changed build input\n')
-        write_manifest('implementation.swift')
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
         changed_commit = commit()
         self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, changed_commit))
 

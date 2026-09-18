@@ -17,6 +17,7 @@ DIGEST = re.compile(r'[0-9a-f]{64}\Z')
 MAXIMUM_FILE_BYTES = 2 * 1024 * 1024
 MANIFEST_PATH = 'MANIFEST.sha256'
 MAXIMUM_MANIFEST_ENTRIES = 4096
+MAXIMUM_MANIFEST_BYTES = 64 * 1024 * 1024
 
 
 def repository_file(root, relative, cache=None, total=None):
@@ -112,64 +113,92 @@ def source_is_unchanged(root, evaluated_sha, current_sha):
         if name == MANIFEST_PATH:
             # Recording evidence must refresh this derived manifest, so treating any edit to it as a
             # source change would invalidate every record it describes. Exempt it only when it still
-            # describes the tree exactly: a deleted entry or a wrong digest is corrupted integrity
-            # metadata, not bookkeeping, and must not silently keep older evidence current.
-            if manifest_describes_tree(root, current_sha):
+            # refresh is truthful and does not shrink coverage: a dropped entry, a wrong digest or a
+            # path that no longer exists is corrupted integrity metadata, not bookkeeping, and must
+            # not silently keep older evidence current.
+            if manifest_describes_tree(root, current_sha, evaluated_sha):
                 continue
             return False
         return False
     return True
 
 
-def manifest_describes_tree(root, sha):
-    """True when every MANIFEST.sha256 entry at `sha` matches that path's content at `sha`."""
+def manifest_entries(root, sha):
+    """Parsed `MANIFEST.sha256` entries at `sha`, or None when absent or malformed."""
     try:
         listing = subprocess.check_output(['git', '-C', str(root), 'show', f'{sha}:{MANIFEST_PATH}'],
                                           stderr=subprocess.DEVNULL, timeout=10)
     except subprocess.SubprocessError:
-        return False
+        return None
     if len(listing) > MAXIMUM_FILE_BYTES:
-        return False
-    entries = []
-    for line in listing.decode('utf-8', errors='strict').splitlines():
+        return None
+    try:
+        text = listing.decode('utf-8')
+    except UnicodeError:
+        return None
+    entries, seen = [], set()
+    for line in text.splitlines():
         if not line.strip():
             continue
         digest, separator, path = line.partition('  ')
-        if not separator or not DIGEST.fullmatch(digest) or not path or '\0' in path:
-            return False
+        # A repeated path would also let a short manifest request one blob many times.
+        if not separator or not DIGEST.fullmatch(digest) or not path or '\0' in path or path in seen:
+            return None
+        seen.add(path)
         entries.append((digest, path))
         if len(entries) > MAXIMUM_MANIFEST_ENTRIES:
-            return False
+            return None
+    return entries
+
+
+def manifest_describes_tree(root, sha, baseline_sha):
+    """True when the manifest at `sha` covers everything it did at `baseline_sha` and every entry
+    matches that path's content at `sha`. A refresh may widen coverage, never shrink it."""
+    entries = manifest_entries(root, sha)
     if not entries:
         return False
+    baseline = manifest_entries(root, baseline_sha) or []
+    if not {path for _, path in baseline} <= {path for _, path in entries}:
+        return False
+    # Resolve identities and sizes first so no oversized or absent blob is ever buffered.
     request = ''.join(f'{sha}:{path}\n' for _, path in entries).encode()
+    if len(request) > MAXIMUM_FILE_BYTES:
+        return False
     try:
-        batch = subprocess.run(['git', '-C', str(root), 'cat-file', '--batch'],
-                               input=request, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60)
+        check = subprocess.run(['git', '-C', str(root), 'cat-file', '--batch-check'], input=request,
+                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60)
     except subprocess.SubprocessError:
         return False
-    if batch.returncode != 0:
+    if check.returncode != 0:
         return False
-    stream, offset = batch.stdout, 0
-    for digest, _ in entries:
-        end = stream.find(b'\n', offset)
-        if end < 0:
-            return False
-        header = stream[offset:end].split(b' ')
-        # A missing path yields "<request> missing"; only a blob can back an entry.
-        if len(header) != 3 or header[1] != b'blob':
+    reported = check.stdout.decode('utf-8', errors='replace').splitlines()
+    if len(reported) != len(entries):
+        return False
+    identifiers, total = [], 0
+    for line in reported:
+        fields = line.split(' ')
+        # A path absent at `sha` reports "<request> missing"; only a blob can back an entry.
+        if len(fields) != 3 or fields[1] != 'blob' or not SHA.fullmatch(fields[0]):
             return False
         try:
-            size = int(header[2])
+            size = int(fields[2])
         except ValueError:
             return False
-        start = end + 1
-        offset = start + size + 1
-        if size < 0 or offset > len(stream):
+        if size < 0 or size > MAXIMUM_FILE_BYTES:
             return False
-        if hashlib.sha256(stream[start:start + size]).hexdigest() != digest:
+        total += size
+        if total > MAXIMUM_MANIFEST_BYTES:
             return False
-    return offset == len(stream)
+        identifiers.append(fields[0])
+    for (digest, _), identifier in zip(entries, identifiers):
+        try:
+            blob = subprocess.check_output(['git', '-C', str(root), 'cat-file', 'blob', identifier],
+                                           stderr=subprocess.DEVNULL, timeout=30)
+        except subprocess.SubprocessError:
+            return False
+        if len(blob) > MAXIMUM_FILE_BYTES or hashlib.sha256(blob).hexdigest() != digest:
+            return False
+    return True
 
 
 def build_report(root, source_sha, workspace_dirty=False, source_matches=None):
