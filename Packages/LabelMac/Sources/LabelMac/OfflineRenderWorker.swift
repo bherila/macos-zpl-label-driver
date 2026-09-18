@@ -259,7 +259,7 @@ public enum OfflineRenderWorkerProcess {
              ZPLGraphicEncoder.EncodingError.coordinateLimit,
              OfflineRenderWorkerProcess.Error.outputLimitExceeded:
             code = .limitExceeded
-        case is PhysicalGeometryError:
+        case is PhysicalGeometryError, is PageGeometryError:
             code = .geometryInvalid
         case QuartzPDFRenderer.Error.contextUnavailable:
             code = .renderFailed

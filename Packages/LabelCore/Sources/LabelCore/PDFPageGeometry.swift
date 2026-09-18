@@ -35,6 +35,16 @@ public struct PDFSourceRect: Equatable, Sendable {
     public let y: Double
     public let width: Double
     public let height: Double
+
+    /// Validates a rectangle received across an external contract boundary.
+    public static func validated(x: Double, y: Double, width: Double, height: Double) throws -> Self {
+        guard x.isFinite, y.isFinite, width.isFinite, height.isFinite,
+              (x + width).isFinite, (y + height).isFinite else {
+            throw PageGeometryError.nonFiniteValue
+        }
+        guard width > 0, height > 0 else { throw PageGeometryError.nonPositiveBox }
+        return Self(x: x, y: y, width: width, height: height)
+    }
 }
 
 public struct PDFPageBox: Equatable, Sendable {
