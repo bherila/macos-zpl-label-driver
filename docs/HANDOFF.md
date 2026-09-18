@@ -1481,6 +1481,14 @@ M0-AC06 outcomes are now observed; fork/protection evidence remains separate.
 No product, installation, scheduler, or printer
 behavior changed; never merge the historical failing head.
 
+The first administrator procedure is now explicitly limited to one held
+synthetic PDF, one release, a 60-second observation deadline, and immediate
+validated removal in `M1-SINGLE-JOB-ADMISSION.md`. It requires exact final filter
+chain/URI verification before submission, brief acceptance while disabled,
+immediate rejection, job-correlated filter metadata, and unchanged baselines.
+It remains NOT RUN and grants no new privilege/device consent; broader M1
+application/fidelity/restart/identity evidence stays open.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

@@ -54,6 +54,9 @@ calibration, or device-control command. The controls record selection only.
 
 ## Next Mac experiment — do not install automatically
 
+Start with the finite [single held PDF admission procedure](../../docs/validation/M1-SINGLE-JOB-ADMISSION.md).
+It precedes the larger application matrix below and has no physical-printer I/O.
+
 1. Run the existing host preflight, build natively and locally ad-hoc sign the
    probe. Verify the exact signed binary. No Apple identity is required by design;
    actual admission remains the M1 experiment.
