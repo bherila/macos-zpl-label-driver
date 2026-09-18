@@ -83,6 +83,21 @@ final class LegacyHostStatusTests: XCTestCase {
         for bytes in variants { XCTAssertThrowsError(try LegacyHostStatusDecoder.decode(bytes, support: .supported)) }
     }
 
+    func testDiscardedFunctionSettingsStillRequireAnEightBitValue() throws {
+        for settings in ["000", "255"] {
+            XCTAssertNotNil(snapshot(try LegacyHostStatusDecoder.decode(
+                response(second: settings + ",0,0,0,0,2,0,0,00000042,1,003"),
+                support: .supported)))
+        }
+        for settings in ["256", "511", "999"] {
+            XCTAssertThrowsError(try LegacyHostStatusDecoder.decode(
+                response(second: settings + ",0,0,0,0,2,0,0,00000042,1,003"),
+                support: .supported)) {
+                XCTAssertEqual($0 as? LegacyHostStatusDecoder.Error, .malformedResponse)
+            }
+        }
+    }
+
     func testZeroBatchObservationNeverConfirmsATransmittedJob() throws {
         var tracker = try DeliveryTracker(expectedBytes: 4, profileRevision: 1)
         try tracker.prepared(); try tracker.waiting()

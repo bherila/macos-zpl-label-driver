@@ -63,14 +63,9 @@ public struct PDFPageBox: Equatable, Sendable {
         rotationDegreesClockwise: Int = 0,
         userUnit: Double = 1
     ) throws {
-        guard originX.isFinite, originY.isFinite, width.isFinite, height.isFinite else {
-            throw PageGeometryError.nonFiniteValue
-        }
-        guard width > 0, height > 0 else { throw PageGeometryError.nonPositiveBox }
-        // Finite components alone do not bound original-coordinate corners.
-        guard (originX + width).isFinite, (originY + height).isFinite else {
-            throw PageGeometryError.nonFiniteValue
-        }
+        // Same finite, positive extent admission as externally supplied source
+        // rectangles; finite components alone do not bound corner arithmetic.
+        _ = try PDFSourceRect.validated(x: originX, y: originY, width: width, height: height)
         guard (0...270).contains(rotationDegreesClockwise), rotationDegreesClockwise % 90 == 0 else {
             throw PageGeometryError.unsupportedRotation
         }

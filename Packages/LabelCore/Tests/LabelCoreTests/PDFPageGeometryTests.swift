@@ -2,6 +2,15 @@ import XCTest
 @testable import LabelCore
 
 final class PDFPageGeometryTests: XCTestCase {
+    func testExternalSourceRectangleValidationRejectsInvalidAndOverflowingExtents() throws {
+        XCTAssertEqual(try PDFSourceRect.validated(x: -10, y: 20, width: 30, height: 40),
+                       PDFSourceRect(x: -10, y: 20, width: 30, height: 40))
+        XCTAssertThrowsError(try PDFSourceRect.validated(x: .nan, y: 0, width: 1, height: 1))
+        XCTAssertThrowsError(try PDFSourceRect.validated(x: 0, y: 0, width: 0, height: 1))
+        XCTAssertThrowsError(try PDFSourceRect.validated(x: Double.greatestFiniteMagnitude,
+            y: 0, width: Double.greatestFiniteMagnitude, height: 1))
+    }
+
     func testPageBoxRejectsOverflowingExtentsAcrossRotationAndUserUnit() throws {
         let large = Double.greatestFiniteMagnitude
         for rotation in [0, 90, 180, 270] {
@@ -11,20 +20,14 @@ final class PDFPageGeometryTests: XCTestCase {
                     XCTAssertEqual($0 as? PageGeometryError, .nonFiniteValue)
                 }
             }
+            // Large negative origins are not rejected merely for magnitude;
+            // finite corners and original source coordinates remain distinct
+            // from later physical-size/resource admission.
             let box = try PDFPageBox(originX: -large, originY: -large, width: large, height: large,
                 rotationDegreesClockwise: rotation, userUnit: 2)
             XCTAssertEqual(box.sourceRect(for: try NormalizedRect(x: 0, y: 0, width: 1, height: 1)),
                 PDFSourceRect(x: -large, y: -large, width: large, height: large))
         }
-    }
-
-    func testExternalSourceRectangleValidationRejectsInvalidAndOverflowingExtents() throws {
-        XCTAssertEqual(try PDFSourceRect.validated(x: -10, y: 20, width: 30, height: 40),
-                       PDFSourceRect(x: -10, y: 20, width: 30, height: 40))
-        XCTAssertThrowsError(try PDFSourceRect.validated(x: .nan, y: 0, width: 1, height: 1))
-        XCTAssertThrowsError(try PDFSourceRect.validated(x: 0, y: 0, width: 0, height: 1))
-        XCTAssertThrowsError(try PDFSourceRect.validated(x: Double.greatestFiniteMagnitude,
-            y: 0, width: Double.greatestFiniteMagnitude, height: 1))
     }
 
     private func makeBox(rotation: Int) throws -> PDFPageBox {

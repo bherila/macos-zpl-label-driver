@@ -3,6 +3,15 @@ import XCTest
 @testable import LabelCore
 
 final class AcceptedJobStateTests: XCTestCase {
+    func testExactIntegerIdentityAcrossLargeStateGenerations() throws {
+        for value in [9_007_199_254_740_993, Int.max] {
+            let expected = try AcceptedJobStateRecord(acceptanceID: "large-generation",
+                acceptedTicketSHA256: hashA, generation: value, previousStateSHA256: hashA,
+                phase: .prepared(payloadSHA256: hashA, byteCount: 10))
+            XCTAssertEqual(try AcceptedJobStateJSON.decode(AcceptedJobStateJSON.encode(expected)), expected)
+        }
+    }
+
     private let hashA = String(repeating: "a", count: 64)
     private let hashB = String(repeating: "b", count: 64)
 
