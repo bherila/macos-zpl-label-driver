@@ -5,6 +5,33 @@ import LabelCore
 
 @MainActor
 final class WorkflowDocumentOpeningModelTests: XCTestCase {
+    func testDefinitionTransferPreservesCurrentOriginalEditorAndLocalApproval() async throws {
+        let store = try store()
+        let model = WorkflowDocumentOpeningModel(store: store, workerExecutable: try worker())
+        model.open(fixture("letter-one"))
+        await model.currentOpeningTask?.value
+        let original = try XCTUnwrap(model.editor)
+        try original.save()
+        try original.approveForUnattendedUse()
+        await original.refreshPreviewInWorker(workerExecutable: try worker())
+        let preview = try XCTUnwrap(original.preview)
+        let definition = await model.prepareProfileExport(original.profile)
+        let file = store.root.appending(path: "synthetic-export.json")
+        try XCTUnwrap(definition?.canonicalDefinition).write(to: file)
+        await model.importProfileDefinition(file)
+        XCTAssertTrue(model.editor === original)
+        XCTAssertEqual(original.preview, preview)
+        XCTAssertTrue(original.isSaved)
+        XCTAssertNotNil(try store.qualification(for: original.profile))
+        let imported = try XCTUnwrap(model.savedWorkflows.first { $0.profile.id != original.profile.id }?.profile)
+        XCTAssertNil(try store.qualification(for: imported))
+        try Data("invalid".utf8).write(to: file)
+        await model.importProfileDefinition(file)
+        XCTAssertTrue(model.editor === original)
+        XCTAssertEqual(original.preview, preview)
+        XCTAssertNotNil(try store.qualification(for: original.profile))
+    }
+
     func testSavedManualWorkflowReopensAgainstOriginalAsNewUnqualifiedRevision() async throws {
         let store = try store()
         let creating = WorkflowDocumentOpeningModel(store: store, workerExecutable: try worker())

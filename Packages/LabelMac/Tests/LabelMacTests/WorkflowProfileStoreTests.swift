@@ -385,6 +385,80 @@ final class WorkflowProfileStoreTests: XCTestCase {
         ), value)
     }
 
+    func testFullCatalogRefusesNewRevisionButAllowsExactRetryAndConflictDetection() throws {
+        let store = try WorkflowProfileStore(root: temporaryRoot())
+        for revision in 1...256 { try store.save(profile(revision: revision)) }
+        XCTAssertEqual(try store.savedWorkflows().count, 256)
+        try store.save(profile(revision: 1))
+        XCTAssertThrowsError(try store.save(profile(revision: 1, x: 0.2))) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .profileConflict)
+        }
+        XCTAssertThrowsError(try store.save(profile(revision: 257))) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .catalogCapacityReached)
+        }
+        XCTAssertEqual(try store.savedWorkflows().count, 256)
+        XCTAssertEqual(try store.load(profileID: profile().id, revision: 256), try profile(revision: 256))
+    }
+
+    func testIndependentWritersCannotBothAdmitTheLastCatalogSlot() async throws {
+        let root = try temporaryRoot()
+        let existing = try WorkflowProfileStore(root: root)
+        for revision in 1...255 { try existing.save(profile(revision: revision)) }
+        let admitted = DispatchSemaphore(value: 0), finish = DispatchSemaphore(value: 0)
+        let firstStore = WorkflowProfileStore(root: root, storage: try PrivateImmutableDirectory(root: root,
+            injectFault: { _ in
+                admitted.signal()
+                guard finish.wait(timeout: .now() + 10) == .success else {
+                    throw PrivateImmutableDirectory.Error.cannotWrite
+                }
+            }))
+        let firstProfile = try profile(revision: 256)
+        let first = Task.detached { try firstStore.save(firstProfile) }
+        defer { finish.signal() }
+        XCTAssertEqual(admitted.wait(timeout: .now() + 10), .success)
+        let secondStore = try WorkflowProfileStore(root: root)
+        let secondProfile = try profile(revision: 257)
+        XCTAssertThrowsError(try secondStore.save(secondProfile)) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .publicationBusy)
+        }
+        XCTAssertEqual(try secondStore.savedWorkflows().count, 255)
+        finish.signal()
+        try await first.value
+        XCTAssertThrowsError(try secondStore.save(secondProfile)) {
+            XCTAssertEqual($0 as? WorkflowProfileStore.Error, .catalogCapacityReached)
+        }
+        XCTAssertEqual(try secondStore.savedWorkflows().count, 256)
+    }
+
+    func testUnsafePublicationLockCannotBeAdoptedOrPublishARecord() throws {
+        for kind in ["symlink", "hardlink", "fifo", "permissions", "directory"] {
+            let root = try temporaryRoot()
+            let store = try WorkflowProfileStore(root: root)
+            let directory = root.appending(path: "profiles")
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false,
+                attributes: [.posixPermissions: 0o700])
+            let lock = directory.appending(path: ".publication.lock")
+            let target = directory.appending(path: "synthetic-target")
+            switch kind {
+            case "symlink":
+                try Data().write(to: target)
+                try FileManager.default.createSymbolicLink(at: lock, withDestinationURL: target)
+            case "hardlink":
+                try Data().write(to: target)
+                XCTAssertEqual(link(target.path, lock.path), 0)
+            case "fifo": XCTAssertEqual(mkfifo(lock.path, 0o600), 0)
+            case "permissions":
+                try Data().write(to: lock)
+                XCTAssertEqual(chmod(lock.path, 0o644), 0)
+            default: try FileManager.default.createDirectory(at: lock, withIntermediateDirectories: false)
+            }
+            XCTAssertThrowsError(try store.save(profile())) {
+                XCTAssertEqual($0 as? WorkflowProfileStore.Error, .cannotWrite)
+            }
+            XCTAssertEqual(try store.savedWorkflows(), [])
+        }
+    }
+
     private static func digest(_ data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }

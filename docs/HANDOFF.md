@@ -12,6 +12,60 @@ Corrected hosted CI is pending. Hosted 35091595114 passed the preceding
 `a1e1f58`, not this correction. No third review request or merge is authorized.
 The dependent profile-transfer slice remains held until this fix is integrated.
 
+PR #59 capacity correction `a1cf439` passed the full local gate exit 0 with
+67/173/223 debug/release, accelerator/independent/inert/signature and packaged
+worker equality checks. This supersedes corrected-local-gate pending statements
+below. Corrected hosted/second review pending; no installed/GUI/hardware result.
+
+PR #59 first finding 4025900013 is corrected locally with atomic bounded-category
+capacity admission: public workflow saves hold a validated directory-relative
+nonblocking flock through count/rename and preserve the unchanged 256-record cap.
+Exact retries remain reconcilable at capacity; contention and capacity errors
+are distinct, with no automatic retry or destructive repair. 39 focused native
+tests passed; full corrected local gate/hosted/second review pending. See
+`validation/M4-PROFILE-TRANSFER-2026-09-16.md`. Discovery WIP `30c1b46` is pushed
+but has no PR; integrate this correction and run its combined gate before promotion.
+
+Latest combined transfer checkpoint `f60d11a` integrates parent review correction
+`730d65b` and passed the full local gate exit 0: 67/173/219 debug/release,
+accelerator/independent/inert/signature and packaged-worker equality checks.
+46 focused native tests passed. Publication hold for the combined local gate
+is cleared; dependent draft PR, own hosted CI/review and native-dialog validation
+remain separate gates. Parent corrected hosted 35093979617 is still live.
+This supersedes older held/pending combined-gate checkpoints below.
+
+Latest local slice connects capped canonical workflow JSON import/export through
+native dialog adapters. Imports get a fresh unqualified identity; exports verify
+the exact own-store saved snapshot. Publication uncertainty retains/reconciles
+the same candidate, not a duplicate import. Nineteen focused native tests passed,
+including real-worker preservation of the current editor/preview/local approval.
+At `8067779`, full local 67/173/216 debug/release gate passed exit 0 with independent,
+inert, signature and packaged-worker checks. PR #58's exact-profile/displayed-preview
+review correction is now integrated from `a1e1f58`; 45 combined focused native
+tests passed. Combined `ac504a7` full local 67/173/218 gate passed exit 0 with
+independent/inert/signature/packaged checks. Publication held again on parent #58
+second-review finding 4025638071 (undo can resurrect value-bound review); fix on
+that branch and integrate before publication. Parent corrected hosted 35091595114
+passed `a1e1f58`; no clean second review or GUI acceptance claimed. The same finite
+AX access failure occurs in an inert minimal SwiftUI fixture, with an owned
+WindowServer window and no remaining live instance; cause remains unresolved. See
+`validation/M4-PROFILE-TRANSFER-2026-09-16.md`. No queue,
+privilege or device I/O. Noninteractive administrator authorization remains absent.
+
+
+PR #58 second-pass finding 4025638071 exposed review resurrection after an
+unsaved edit/undo. The current correction clears acknowledgements on every
+successful draft mutation/reload and binds displayed review to a checked edit
+generation, rejecting old callbacks even when profile/bitmap values match again.
+40 focused native tests passed, including the real-worker undo regression.
+At `501cdf1`, full local validation passed exit 0 with 67/173/213 debug/release,
+accelerator/independent/inert/signature and packaged-worker equality checks.
+Corrected hosted CI is pending. Hosted 35091595114 passed the preceding
+`a1e1f58`, not this correction. No third review request or merge is authorized.
+The fix is now integrated at `7cbbd56`; 46 combined focused native tests passed.
+Its full gate must pass before publication; the earlier 218-test gate predates
+this fix.
+
 PR #58 first review found restored full-page regions could be approved without
 explicit bounds/preview review. Same-branch correction requires acknowledgement
 of every region's current packed preview, bound to the complete current profile;
@@ -24,6 +78,18 @@ Corrected hosted/second review pending. See
 `validation/M4-EXPLICIT-PAGE-REVIEW-2026-09-16.md`. Original hosted run 35089709098
 passed exact `39b2936`; it does not validate the correction. Parent #57 latest
 35089708869 passed exact `626122d`; its source first review was clean at `5d9c2c2`.
+
+Latest local slice connects capped canonical workflow JSON import/export through
+native dialog adapters. Imports get a fresh unqualified identity; exports verify
+the exact own-store saved snapshot. Publication uncertainty retains/reconciles
+the same candidate, not a duplicate import. Nineteen focused native tests passed,
+including real-worker preservation of the current editor/preview/local approval.
+At `8067779`, full local 67/173/216 debug/release gate passed exit 0 with independent,
+inert, signature and packaged-worker checks. Publication held on PR #58's first
+review finding 4025449342: native-UI approval needs exact-profile region bounds/
+preview review, including restoration/reopening. Fix on #58 and integrate before
+publishing this dependent slice. See `validation/M4-PROFILE-TRANSFER-2026-09-16.md`. No queue,
+privilege or device I/O. Noninteractive administrator authorization remains absent.
 
 Latest local slice connects explicit non-label page confirmation and full-page
 restoration to the editor's existing typed planner. Page geometry/anchors remain
