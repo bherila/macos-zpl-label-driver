@@ -156,6 +156,42 @@ final class WorkflowEditorBootstrapTests: XCTestCase {
         }
     }
 
+    /// Per-edit admission validates only the regions present at that moment, so
+    /// a later crop can invalidate an already admitted canvas. save() is the
+    /// boundary that persists a revision, so the invariant is enforced there:
+    /// a full-page region admits 1000 x 0.1mm stock at 1 x 1 dots, and narrowing
+    /// the region afterwards must not be persistable.
+    func testSaveRejectsARevisionInvalidatedByALaterRegionEdit() throws {
+        let box = try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792)
+        let analyzed = [try AnalyzedSourcePage(pageBox: box, anchors: nil)]
+        let stock = PhysicalSize(width: try Millimeters(1000), height: try Millimeters(0.1))
+        let canvas = try DotCanvas(physicalSize: stock,
+            resolution: try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        func profile(regionWidth: Double) throws -> WorkflowProfile {
+            try WorkflowProfile(id: "late-edit", revision: 1,
+                outputStockID: "long-thin-stock", outputStock: stock,
+                pageRules: [try WorkflowPageRule(sourcePage: 1,
+                    expectedInput: ExpectedInputPage(uprightPhysicalSize: try box.effectivePhysicalSize()),
+                    disposition: .extract([try ExtractionRegion(id: "region",
+                        normalizedRect: try NormalizedRect(x: 0, y: 0, width: regionWidth, height: 1),
+                        outputOrder: 0)]))])
+        }
+        // The full-page region is placeable on this stock, so admission passes.
+        let whole = try profile(regionWidth: 1)
+        XCTAssertNoThrow(try QuartzPDFRenderer.admitPlannedLabels(
+            try ExtractionPlanner.plan(analyzedPages: analyzed, profile: whole),
+            analyzedPages: analyzed, canvas: canvas))
+
+        // Narrowing it afterwards is not, and save() must refuse to persist it.
+        let narrowed = try profile(regionWidth: 0.1)
+        let model = WorkflowEditorModel(draft: WorkflowProfileDraft(profile: narrowed),
+            originalPDF: Data(), analyzedPages: analyzed, canvas: canvas, store: try store())
+        XCTAssertThrowsError(try model.save()) {
+            XCTAssertEqual($0 as? PagePlacementError, .placementExceedsLimit)
+        }
+        XCTAssertFalse(model.isSaved)
+    }
+
     /// A canvas inside the pixel budget can still exceed the graphics encoder's
     /// per-axis coordinate limit, which is what the exact preview hits.
     func testCanvasAdmissionAppliesTheGraphicsEncoderCoordinateLimit() throws {

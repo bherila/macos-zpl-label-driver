@@ -413,6 +413,14 @@ public final class WorkflowEditorModel: ObservableObject {
     public func save() throws {
         let (following, overflow) = editGeneration.addingReportingOverflow(isSaved ? 0 : 1)
         guard !overflow else { throw Error.editSequenceExhausted }
+        // Per-edit admission only validates the regions that exist at that
+        // moment, so a later crop or rotation can still invalidate an already
+        // admitted canvas. This is the boundary that persists a revision, so
+        // the invariant belongs here: nothing is stored whose own exact preview
+        // would reject it, whatever sequence of edits produced it.
+        try QuartzPDFRenderer.admitPlannedLabels(
+            try ExtractionPlanner.plan(analyzedPages: analyzedPages, profile: profile),
+            analyzedPages: analyzedPages, canvas: canvas)
         try store.save(profile)
         // A successful draft-to-saved boundary invalidates displayed draft callbacks.
         editGeneration = following
