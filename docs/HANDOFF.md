@@ -1452,6 +1452,23 @@ regressions. This advances M0-AC06 implementation only; the hosted docs-only
 skip/aggregate result remains to be proven after this classifier is available
 in a PR base. No product code or scheduler behavior changed.
 
+Classifier implementation `431f0d6` additionally passed 165 LabelCore and 152
+LabelMac debug tests with pipe-failure propagation. The documentation-only
+follow-up records the concrete manifest regression and supplies the intended
+hosted skip/aggregate probe against that implementation branch. Its result is
+now proven at exact `83aec67` by automatic PR #42 run `35070738539`:
+repository preflight passed, native macOS skipped, and `ci-required` passed.
+Its log confirms the false scope and skipped native aggregate inputs; Linux
+ran 67 Python tests with one platform-specific skip. Deliberate-failure and
+fork acceptance remain separate.
+
+PR #41 full automatic run `35070667206` passed exact `431f0d6`; inspected logs
+confirm 67 Python, 165 Core and 152 Mac tests in debug/release, 132 independent
+round trips, every ABI/inert check, and ad-hoc signatures. PR #40 run
+`35070491708` also completed successfully. The docs-only evidence head
+`84ac6da` additionally passed run `35070883055` with native skipped and the
+aggregate green. No installation or physical acceptance follows.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.
