@@ -126,6 +126,57 @@ lookup, rendering, or bitmap allocation; native debug and release regressions
 exercise the error. This does not yet provide the separate 60-second isolated
 render-worker deadline or cancellation boundary.
 
+M2.6 offline conversion begins at `a07a42b888655a02f757b06898caeaf2cdc5228f`.
+The new `label-driver` executable accepts only an explicit, version-1 offline
+ticket (page, physical size, dots/mm and monochrome policy), renders the
+original PDF, derives the canonical packed bitmap, writes its exact PBM preview,
+and emits a bounded uncompressed graphics envelope. Output paths are command
+line arguments rather than ticket data; `convert` refuses overwrites, while
+`validate` writes nothing. A live synthetic 4×6 conversion produced 813×1219
+dots and the independent decoder reconstructed its PBM payload in the expected
+321/321/321/256 bands. The JSON result explicitly records no printer I/O and
+that the envelope lacks production state normalization. This is not a CUPS
+filter, device transport, profile schema, or printer-ready workflow.
+
+At `3ae8d4912f53ad2940f1995c864743e9a4b2d28d`, `convert` also preflights both
+the ZPL and preview destinations before it creates either artifact. A known
+preview-name collision now exits 73 with no stdout payload and leaves the ZPL
+path absent; a post-preflight filesystem race remains reported honestly rather
+than being represented as a complete conversion.
+
+At `a017234e1ba2ae99a18879c5ae74e60bd9c8c0cf`, a native executable-level
+regression invokes the real `label-driver` binary. It proves `validate` creates
+no artifacts, `convert` creates exactly the requested ZPL/PBM pair, and a
+repeat conversion exits 73 with no stdout payload. The test uses only a
+temporary directory and a synthetic PDF/ticket; it does not enumerate or
+contact a printer.
+
+At `d6e6a8627805605fc15e806bac5dc782543705fa`, `--json` errors gained stable
+stderr records with `USAGE`, `INPUT_ERROR`, or `OUTPUT_ERROR` codes while
+retaining conventional nonzero exits. The executable regression confirms that
+a malformed ticket returns exit 65, writes nothing to stdout, and yields an
+`INPUT_ERROR` JSON object on stderr. This establishes only the offline CLI
+contract; a CUPS filter's stdout/stderr contract remains unproven.
+
+M3.1 begins at `9a6e0fb391f3b54f994d453cd53edbba2667a4dc`. `LabelCore` now
+has a versioned, typed GC420d USB reference profile with provenance-bearing
+tri-state facts. Documented model facts remain distinct from installed-unit
+observations: thermal transfer is unsupported, model cutter/peeler/rewind
+facts remain unknown where the documentation does not establish them, while
+the reported installed cutter is absent and the selected tear-off setup is
+explicit. Current speed, darkness and tracking remain `nil`; no missing value
+becomes a guessed default. Portable regression vectors permit only documented
+2/3/4 ips and direct thermal/tear-off, reject transfer/cut/peel/rewind/speed
+5, and reject explicit darkness or tracking until their installed values and
+mapping are qualified. This partially advances M3-AC01, M3-AC02 and M3-AC13
+at automated evidence only. It emits no ZPL controls, device query, persistent
+command, queue change, or transport I/O; M3-AC03 through M3-AC12 remain open.
+
+The next safe M3 slice is deterministic settings resolution and a
+protocol-provenance table, retaining `leave unchanged` for unobserved values.
+It must not promote the offline diagnostic graphics envelope to production
+control output or contact the USB device.
+
 After each slice, record the actual commit SHA, acceptance IDs advanced, tests run,
 results, remaining evidence gates and next safe action. Do not fabricate a repository
 commit hash for this preparation archive or convert partial tests into full acceptance.

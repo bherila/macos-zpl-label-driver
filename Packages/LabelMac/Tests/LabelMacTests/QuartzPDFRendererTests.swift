@@ -11,6 +11,39 @@ final class QuartzPDFRendererTests: XCTestCase {
         return try Data(contentsOf: root.appending(path: "Fixtures/generated/\(name).pdf"))
     }
 
+    private func repositoryRoot() -> URL {
+        var root = URL(fileURLWithPath: #filePath)
+        for _ in 0..<5 { root.deleteLastPathComponent() }
+        return root
+    }
+
+    private func cliExecutable() throws -> URL {
+        let root = repositoryRoot()
+        let candidates = [
+            root.appending(path: "Packages/LabelMac/.build/debug/label-driver"),
+            root.appending(path: "Packages/LabelMac/.build/release/label-driver"),
+            root.appending(path: "Packages/LabelMac/.build/arm64-apple-macosx/debug/label-driver"),
+            root.appending(path: "Packages/LabelMac/.build/arm64-apple-macosx/release/label-driver"),
+        ]
+        guard let executable = candidates.first(where: { FileManager.default.isExecutableFile(atPath: $0.path) }) else {
+            throw TestError.unavailable
+        }
+        return executable
+    }
+
+    private func runCLI(_ arguments: [String]) throws -> (status: Int32, stdout: Data, stderr: Data) {
+        let process = Process()
+        process.executableURL = try cliExecutable()
+        process.arguments = arguments
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+        try process.run()
+        process.waitUntilExit()
+        return (process.terminationStatus, stdout.fileHandleForReading.readDataToEndOfFile(), stderr.fileHandleForReading.readDataToEndOfFile())
+    }
+
     private func lowerHalfBlackPDF() throws -> Data {
         let data = NSMutableData()
         guard let consumer = CGDataConsumer(data: data as CFMutableData) else { throw TestError.unavailable }
@@ -126,6 +159,79 @@ final class QuartzPDFRendererTests: XCTestCase {
         let negative = try QuartzPDFRenderer.render(request(pdf: source, page: 2, width: 100, height: 150))
         XCTAssertEqual(try packed(shifted), try packed(negative))
         XCTAssertGreaterThan(shifted.pixels.filter { $0 < 255 }.count, 0)
+    }
+
+    func testOfflineTicketDecodesExplicitSchemaAndPreparesExactPreview() throws {
+        let ticket = try OfflineConversionTicket(jsonData: Data("""
+        {
+          "schemaVersion": 1,
+          "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "textAndBarcodeThreshold", "cutoff": 128 }
+        }
+        """.utf8))
+        let prepared = try OfflineConversion.prepare(originalPDF: try lowerHalfBlackPDF(), ticket: ticket)
+        XCTAssertEqual(prepared.bitmap.layout.width, 10)
+        XCTAssertEqual(prepared.bitmap.layout.height, 10)
+        XCTAssertEqual(prepared.previewPBM, prepared.bitmap.pbmData())
+        XCTAssertTrue(String(decoding: prepared.zpl, as: UTF8.self).hasPrefix("^XA\n^FO0,0^GFA,"))
+        XCTAssertTrue(String(decoding: prepared.zpl, as: UTF8.self).hasSuffix("^XZ\n"))
+    }
+
+    func testOfflineTicketRejectsUnknownSchemaAndBadConversion() {
+        let unsupported = Data("""
+        { "schemaVersion": 2, "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "photographicOrderedDither4x4" } }
+        """.utf8)
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: unsupported)) {
+            XCTAssertEqual($0 as? OfflineConversionTicket.TicketError, .unsupportedSchemaVersion(2))
+        }
+        let invalidMode = Data("""
+        { "schemaVersion": 1, "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "unknown" } }
+        """.utf8)
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: invalidMode)) {
+            XCTAssertEqual($0 as? OfflineConversionTicket.TicketError, .malformedJSON)
+        }
+    }
+
+    func testOfflineCLIValidatesConvertsAndRefusesOverwrite() throws {
+        let directory = FileManager.default.temporaryDirectory.appending(path: "LabelDriverCLI-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let ticket = directory.appending(path: "ticket.json")
+        try Data("""
+        { "schemaVersion": 1, "pageNumber": 1,
+          "physicalSize": { "widthMillimeters": 10, "heightMillimeters": 10 },
+          "resolution": { "xDotsPerMillimeter": 1, "yDotsPerMillimeter": 1 },
+          "conversion": { "mode": "textAndBarcodeThreshold", "cutoff": 128 } }
+        """.utf8).write(to: ticket)
+        let source = repositoryRoot().appending(path: "Fixtures/generated/native-vector.pdf")
+        let validation = try runCLI(["validate", source.path, "--job-ticket", ticket.path, "--json"])
+        XCTAssertEqual(validation.status, 0)
+        XCTAssertTrue(String(decoding: validation.stdout, as: UTF8.self).contains("\"wroteFiles\":false"))
+        let zpl = directory.appending(path: "output.zpl")
+        let conversion = try runCLI(["convert", source.path, "--job-ticket", ticket.path, "--output", zpl.path, "--preview-dir", directory.path, "--json"])
+        XCTAssertEqual(conversion.status, 0)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: zpl.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: directory.appending(path: "page-0001.pbm").path))
+        let repeatConversion = try runCLI(["convert", source.path, "--job-ticket", ticket.path, "--output", zpl.path, "--preview-dir", directory.path, "--json"])
+        XCTAssertEqual(repeatConversion.status, 73)
+        XCTAssertTrue(repeatConversion.stdout.isEmpty)
+        XCTAssertTrue(String(decoding: repeatConversion.stderr, as: UTF8.self).contains("refusing to overwrite"))
+        let malformedTicket = directory.appending(path: "malformed-ticket.json")
+        try Data("{}".utf8).write(to: malformedTicket)
+        let invalid = try runCLI(["validate", source.path, "--job-ticket", malformedTicket.path, "--json"])
+        XCTAssertEqual(invalid.status, 65)
+        XCTAssertTrue(invalid.stdout.isEmpty)
+        let error = try JSONSerialization.jsonObject(with: invalid.stderr) as? [String: Any]
+        XCTAssertEqual(error?["status"] as? String, "error")
+        XCTAssertEqual(error?["code"] as? String, "INPUT_ERROR")
     }
 
     private enum TestError: Error { case unavailable }
