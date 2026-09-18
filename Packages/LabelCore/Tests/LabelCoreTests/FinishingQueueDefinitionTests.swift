@@ -3,6 +3,30 @@ import XCTest
 @testable import LabelCore
 
 final class FinishingQueueDefinitionTests: XCTestCase {
+    func testExactIntegerIdentityAcrossLargeFinishingQueueRevisions() throws {
+        let p = try profile(), w = try workflow()
+        for value in [9_007_199_254_740_993, Int.max] {
+            var root = try XCTUnwrap(JSONSerialization.jsonObject(with: FinishingQueueJSON.encode(
+                queue(printer: p, workflow: w))) as? [String: Any])
+            root["revision"] = value
+            let bytes = try JSONSerialization.data(withJSONObject: root, options: .sortedKeys)
+            XCTAssertEqual(try FinishingQueueJSON.decode(bytes, workflow: w, printer: p).revision, value)
+        }
+    }
+
+    func testMarginWorkflowFinishingQueueRoundtripAndSnapshotMismatch() throws {
+        let p = try profile(), original = try workflow()
+        var draft = try WorkflowProfileDraft(nextRevisionOf: original)
+        try draft.setOutputMargins(OutputMargins(left: 1, top: 2, right: 3, bottom: 4))
+        let w = draft.profile
+        let q = try queue(printer: p, workflow: w)
+        XCTAssertEqual(q.workflowProfile.schemaVersion, 3)
+        XCTAssertEqual(try FinishingQueueJSON.decode(FinishingQueueJSON.encode(q), workflow: w, printer: p), q)
+        var changed = draft
+        try changed.setOutputMargins(.zero)
+        XCTAssertThrowsError(try q.resolve(outputLabelCount: 2, workflow: changed.profile, printer: p))
+    }
+
     private let documented = CapabilityFact(state: .supported,
         evidence: .documentedModel(sourceID: "synthetic-finishing-queue"))
     private func profile(maximumBatch: Int = 3, stock: Observation<Bool> = .observed(true, evidence: .reportedInstallation)) throws -> PrinterProfile {

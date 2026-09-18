@@ -24,6 +24,26 @@ final class WorkflowProfileTransferTests: XCTestCase {
                 structuralAnchors: [StructuralAnchorExpectation(id: "layout", kind: .border, normalizedRect: rect)])])
     }
 
+    func testMarginsSurviveStoreCorrectionAndDefinitionImport() throws {
+        var draft = try WorkflowProfileDraft(nextRevisionOf: profile())
+        let margins = try OutputMargins(left: 1.5, top: 2, right: 2.5, bottom: 3)
+        try draft.setOutputMargins(margins)
+        let root = try directory()
+        let store = try WorkflowProfileStore(root: root.appending(path: "store"))
+        try store.save(draft.profile)
+        let correction = try store.correctionDraft(for: draft.profile)
+        XCTAssertEqual(correction.profile.schemaVersion, 3)
+        XCTAssertEqual(correction.profile.outputMargins, margins)
+        let file = root.appending(path: "definition.json")
+        try WorkflowProfileJSON.encode(draft.profile).write(to: file)
+        let imported = try WorkflowProfileTransfer.readImport(file)
+        XCTAssertNotEqual(imported.id, draft.profile.id)
+        XCTAssertEqual(imported.revision, 1)
+        XCTAssertEqual(imported.schemaVersion, 3)
+        XCTAssertEqual(imported.outputMargins, margins)
+        XCTAssertEqual(imported.pageRules, draft.profile.pageRules)
+    }
+
     func testImportUsesNewIdentityAndNeverCopiesLocalQualification() async throws {
         let root = try directory()
         let store = try WorkflowProfileStore(root: root.appending(path: "store"))

@@ -36,6 +36,7 @@ public enum QuartzPlannedExtraction {
             pageNumber: label.sourcePage,
             canvas: canvas,
             placementPolicy: .fit,
+            outputMargins: label.outputMargins,
             sourceRegion: label.normalizedRect,
             regionRotation: label.rotation,
             expectedSourceRect: label.sourceRect,

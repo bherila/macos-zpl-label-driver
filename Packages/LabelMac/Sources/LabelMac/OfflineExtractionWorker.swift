@@ -25,8 +25,8 @@ public enum OfflineExtractionWorker {
         }
         let region = label.normalizedRect
         let expected = label.sourceRect
-        let ticket = try JSONSerialization.data(withJSONObject: [
-            "schemaVersion": 2, "pageNumber": label.sourcePage,
+        var wire: [String: Any] = [
+            "schemaVersion": label.outputMargins == .zero ? 2 : 3, "pageNumber": label.sourcePage,
             "physicalSize": ["widthMillimeters": canvas.physicalSize.width.value,
                              "heightMillimeters": canvas.physicalSize.height.value],
             "resolution": ["xDotsPerMillimeter": canvas.resolution.xDotsPerMillimeter,
@@ -38,7 +38,13 @@ public enum OfflineExtractionWorker {
                                        "width": expected.width, "height": expected.height],
                 "rotation": label.rotation.rawValue,
             ],
-        ], options: [.sortedKeys])
+        ]
+        if label.outputMargins != .zero {
+            let margins = label.outputMargins
+            wire["outputMargins"] = ["left": margins.left, "top": margins.top,
+                "right": margins.right, "bottom": margins.bottom]
+        }
+        let ticket = try JSONSerialization.data(withJSONObject: wire, options: [.sortedKeys])
         let output = try OfflineRenderWorkerProcess.run(originalPDF: originalPDF,
             ticketJSON: ticket, workerExecutable: workerExecutable,
             deadlineSeconds: deadlineSeconds, cancellation: cancellation)
