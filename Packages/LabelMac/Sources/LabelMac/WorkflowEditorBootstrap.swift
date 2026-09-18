@@ -112,9 +112,28 @@ public enum WorkflowEditorBootstrap {
         let (analyzed, correction) = preparation
         let model: WorkflowEditorModel
         if let savedProfile {
-            _ = try ExtractionPlanner.plan(analyzedPages: analyzed, profile: savedProfile)
+            let plan = try ExtractionPlanner.plan(analyzedPages: analyzed, profile: savedProfile)
             let canvas = try DotCanvas(physicalSize: savedProfile.outputStock,
                 resolution: DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+            // The pre-worker probe can only use the stock as a surrogate source,
+            // which sees neither region geometry nor rotation. Those are known
+            // only here, and they are what the renderer actually places, so
+            // validate each planned label exactly as QuartzPDFRenderer will.
+            for label in plan.outputLabels {
+                guard label.sourcePage >= 1, label.sourcePage <= analyzed.count else {
+                    throw Error.unsupportedOutputStock
+                }
+                let page = try analyzed[label.sourcePage - 1].pageBox.effectivePhysicalSize()
+                let region = label.normalizedRect
+                var source = PhysicalSize(
+                    width: try Millimeters(page.width.value * region.width),
+                    height: try Millimeters(page.height.value * region.height))
+                if label.rotation == .degrees90 || label.rotation == .degrees270 {
+                    source = PhysicalSize(width: source.height, height: source.width)
+                }
+                _ = try PagePlacementPlanner.plan(source: source, canvas: canvas,
+                    policy: .fit, margins: label.outputMargins)
+            }
             guard let correction else { throw WorkflowProfileStore.Error.profileIdentityMismatch }
             model = WorkflowEditorModel(draft: correction,
                 originalPDF: originalPDF, analyzedPages: analyzed, canvas: canvas, store: store,

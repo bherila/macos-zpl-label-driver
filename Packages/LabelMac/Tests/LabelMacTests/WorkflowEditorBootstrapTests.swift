@@ -123,6 +123,46 @@ final class WorkflowEditorBootstrapTests: XCTestCase {
         XCTAssertEqual(model.profile, current)
     }
 
+    /// The pre-worker probe uses the stock as its own source, so it sees neither
+    /// region geometry nor rotation. A narrow crop onto a long thin stock passes
+    /// that probe and the pixel budget, yet the renderer plans the actual region
+    /// and rounds its target to zero. Third variant of one structural gap: the
+    /// surrogate source, which is why this validates the real planned labels.
+    func testNarrowRegionOnChangedStockIsRejectedDespitePassingSurrogateProbe() async throws {
+        let source = try fixture("letter-one")
+        let profileStore = try store()
+        let model = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+            store: profileStore, workerExecutable: worker(), deadlineSeconds: 5, mode: .manual)
+        let current = model.profile
+        let stock = PhysicalSize(width: try Millimeters(1000), height: try Millimeters(0.1))
+
+        // The surrogate probe and the pixel budget both admit this stock, which
+        // is exactly why the earlier admission let it through.
+        let canvas = try DotCanvas(physicalSize: stock,
+            resolution: try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        XCTAssertNoThrow(try QuartzPDFRenderer.admitRenderableCanvas(canvas))
+        XCTAssertNoThrow(try PagePlacementPlanner.plan(source: stock, canvas: canvas,
+                                                      policy: .fit, margins: .zero))
+
+        let narrow = try WorkflowPageRule(
+            sourcePage: current.pageRules[0].sourcePage,
+            expectedInput: current.pageRules[0].expectedInput,
+            disposition: .extract([try ExtractionRegion(id: "narrow-strip",
+                normalizedRect: try NormalizedRect(x: 0, y: 0, width: 0.1, height: 1),
+                outputOrder: 0)]))
+        let candidate = try WorkflowProfile(id: current.id, revision: current.revision,
+            outputStockID: "long-thin-stock", outputStock: stock, pageRules: [narrow])
+        do {
+            _ = try await WorkflowEditorBootstrap.makeModelUsingWorker(originalPDF: source,
+                store: profileStore, workerExecutable: worker(), deadlineSeconds: 5,
+                savedProfile: candidate, stockPolicy: .offlineCandidate)
+            XCTFail("a region that cannot be placed on the candidate stock was admitted")
+        } catch {
+            XCTAssertEqual(error as? PagePlacementError, .placementExceedsLimit)
+        }
+        XCTAssertEqual(model.profile, current)
+    }
+
     /// The editor's own stock edit shares the gap, so it shares the admission.
     func testSetOutputStockRejectsStockBeyondRendererPixelBudget() async throws {
         let source = try fixture("letter-one")
