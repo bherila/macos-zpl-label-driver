@@ -210,9 +210,9 @@ final class BoundedFinishingDeliveryTests: XCTestCase {
         let late = try harness("cancelled-late", framed: framed, in: directory)
         let token = OfflineRenderWorkerCancellation()
         let cancellingInner = try InertFinishingDeliveryProvider()
-        let cancelling = ObservingProvider(cancellingInner) { index, _ in
+        let cancelling = ObservingProvider(cancellingInner, beforeStep: { index, _ in
             if index == waits[0] { token.cancel() }
-        }
+        })
         let lateCancel = try deliver(late, framed: framed, provider: cancelling, cancellation: token)
         XCTAssertEqual(lateCancel.disposition, .cancelledAfterAttempt(step: files[1]))
         XCTAssertTrue(lateCancel.isUncertain)
@@ -361,7 +361,7 @@ final class BoundedFinishingDeliveryTests: XCTestCase {
         let owned = try harness("ownership", framed: framed, in: directory)
         let identity = PhysicalDeviceIdentity(coordinationID: owned.domain)
         let competingInner = try InertFinishingDeliveryProvider()
-        let competing = ObservingProvider(competingInner) { index, ownership in
+        let competing = ObservingProvider(competingInner, beforeStep: { index, ownership in
             XCTAssertTrue(ownership.isHeld)
             XCTAssertThrowsError(try PhysicalDeviceLease(acquiring: identity,
                                                          inExistingDirectory: owned.leases)) {
@@ -373,7 +373,7 @@ final class BoundedFinishingDeliveryTests: XCTestCase {
                     XCTAssertEqual($0 as? PhysicalDeviceLeaseError, .alreadyHeld)
             }
             if index == waits[0] { ownership.device.release() }
-        }
+        })
         let lost = try deliver(owned, framed: framed, provider: competing)
         XCTAssertEqual(lost.disposition, .ownershipLost(step: waits[0]))
         XCTAssertTrue(lost.isUncertain)
