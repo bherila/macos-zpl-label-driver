@@ -113,4 +113,65 @@ final class MonochromeBitmapTests: XCTestCase {
         XCTAssertEqual(preview.bytesPerRow, 9)
         XCTAssertEqual(preview.pixels, [0,255,0,255,255,255,255,0,0, 255,0,255,0,0,0,0,255,255])
     }
+
+    /// Decodes set bits MSB-first, which is the direction the layout claims, so a
+    /// transposed shift in the packer changes the recovered indices instead of
+    /// agreeing with a mirrored expectation.
+    private func blackColumns(_ bitmap: MonochromeBitmap, row: Int) -> [Int] {
+        let bytesPerRow = bitmap.layout.bytesPerRow
+        return (0..<bitmap.layout.width).filter { column in
+            bitmap.bytes[row * bytesPerRow + column / 8] & (UInt8(0x80) >> UInt8(column % 8)) != 0
+        }
+    }
+
+    /// M2-AC04 names these widths, and the ordered-dither branch packs rows itself
+    /// rather than delegating to `threshold`, so it needs its own vectors. Pure
+    /// black is below every Bayer threshold (the lowest is 8) and pure white is
+    /// above every one (the highest is 248), which pins stride, MSB-first
+    /// placement and the white tail without re-deriving the screen.
+    func testPhotographicDitherAdversarialWidths() throws {
+        let conversion = MonochromeConversion.photographicOrderedDither4x4
+        for width in [1, 7, 8, 9, 811, 812, 813] {
+            let bytesPerRow = (width + 7) / 8
+            let height = 5  // Exceeds the 4-row screen, so `y & 3` must wrap.
+
+            let allBlack = try conversion.convert(
+                width: width, height: height,
+                grayscale: Data(repeating: 0, count: width * height), stride: width)
+            XCTAssertEqual(allBlack.bytes.count, bytesPerRow * height, "width \(width)")
+            for row in 0..<height {
+                XCTAssertEqual(blackColumns(allBlack, row: row), Array(0..<width), "width \(width) row \(row)")
+            }
+
+            let allWhite = try conversion.convert(
+                width: width, height: height,
+                grayscale: Data(repeating: 255, count: width * height), stride: width)
+            XCTAssertEqual(allWhite.bytes, [UInt8](repeating: 0, count: bytesPerRow * height), "width \(width)")
+
+            // Black only at the first and last column: the recovered indices are
+            // mirrored within their byte if the packer shifts from the wrong end.
+            var edges = Data(repeating: 255, count: width * height)
+            for row in 0..<height {
+                edges[row * width] = 0
+                edges[row * width + width - 1] = 0
+            }
+            let edged = try conversion.convert(
+                width: width, height: height, grayscale: edges, stride: width)
+            let expected = width == 1 ? [0] : [0, width - 1]
+            for row in 0..<height {
+                XCTAssertEqual(blackColumns(edged, row: row), expected, "width \(width) row \(row)")
+            }
+        }
+    }
+
+    /// Row 0 of the screen ranks columns 0,8,2,10 by `x & 3`, so a uniform mid
+    /// gray of 128 is black exactly where the rank is at least 8 — the odd
+    /// columns. Checking that across 813 dots pins the phase against the column
+    /// index rather than the byte offset.
+    func testPhotographicDitherScreenPhaseHoldsAcrossByteBoundaries() throws {
+        let width = 813
+        let bitmap = try MonochromeConversion.photographicOrderedDither4x4.convert(
+            width: width, height: 1, grayscale: Data(repeating: 128, count: width), stride: width)
+        XCTAssertEqual(blackColumns(bitmap, row: 0), (0..<width).filter { $0 % 2 == 1 })
+    }
 }
