@@ -88,7 +88,7 @@ public enum FinishingQueueJSON {
         guard let value = T(rawValue: try string(d, key)) else { throw FinishingQueueJSONError.invalidValue(key) }
         return value
     }
-    private static func encodeSchedule(_ schedule: CutSchedule?) -> Any {
+    static func encodeSchedule(_ schedule: CutSchedule?) -> Any {
         guard let schedule else { return NSNull() }
         switch schedule {
         case .everyLabel: return ["kind": "everyLabel"]
@@ -96,7 +96,7 @@ public enum FinishingQueueJSON {
         case let .batch(size, remainder): return ["kind": "batch", "size": size, "cutRemainderAtJobEnd": remainder]
         }
     }
-    private static func decodeSchedule(_ raw: Any) throws -> CutSchedule? {
+    static func decodeSchedule(_ raw: Any) throws -> CutSchedule? {
         if raw is NSNull { return nil }
         guard let d = raw as? [String: Any] else { throw FinishingQueueJSONError.invalidType("schedule") }
         switch try string(d, "kind") {
