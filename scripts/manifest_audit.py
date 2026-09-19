@@ -17,6 +17,13 @@ Exit codes:
   2  could not measure
 
 Unreadable, malformed or unbounded input is exit 2, never a quiet pass.
+
+A manifest is untrusted input on a fork's pull request, so an entry is a path *claim*, not a path
+to open. A name that is absolute, carries `..` or `.` components, or holds a backslash or NUL is
+refused while parsing, before any filesystem call; every component of an accepted name is opened
+`O_NOFOLLOW` relative to the previous descriptor, so no symlink inside the tree can redirect a
+read outside it; and no file is read past its cap, which bounds the read rather than being checked
+against `st_size` afterwards.
 """
 from __future__ import annotations
 
@@ -24,7 +31,9 @@ import argparse
 import collections
 import hashlib
 import json
+import os
 import re
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -54,14 +63,72 @@ def tracked_files(root: Path) -> list[str]:
         raise CannotMeasure('git ls-files produced non-UTF-8 paths') from exc
 
 
-def parse_manifest(root: Path) -> dict[str, str]:
-    path = root / MANIFEST_PATH
+def repository_relative(name: str) -> bool:
+    """True only for a path that can name a file inside the repository.
+
+    A manifest is untrusted input on a fork's pull request, and `root / name` resolves an absolute
+    entry or one carrying `..` to somewhere else on the runner. The shape of the path is therefore
+    judged before any filesystem call, not after the bytes have been read.
+    """
+    if not name or '\0' in name or '\\' in name:
+        return False
+    return all(part and part not in ('.', '..') for part in name.split('/'))
+
+
+def read_repository_file(root: Path, name: str) -> tuple[str, int, bytes]:
+    """Read at most `MAXIMUM_FILE_BYTES + 1` bytes of `name` under `root`, following no symlink.
+
+    Returns ('absent', 0, b'') when no regular file is reachable at that path, ('oversized', n,
+    b'') when it is larger than the cap -- the one extra byte is what proves it, so nothing larger
+    is ever buffered -- and ('read', n, body) otherwise. A cap checked after the read is not a cap,
+    and `st_size` is only a hint: a growing file or a procfs entry does not honour it.
+
+    Every component is opened `O_NOFOLLOW` relative to the previous descriptor, so neither a
+    traversing entry nor a symlinked directory inside the tree can redirect the read outside it.
+    """
+    if not repository_relative(name):
+        raise CannotMeasure(f'refusing to open {name!r}: not a repository-relative path')
+    parts = name.split('/')
     try:
-        raw = path.read_bytes()
+        parent = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
     except OSError as exc:
-        raise CannotMeasure(f'cannot read {MANIFEST_PATH}: {exc}') from exc
-    if len(raw) > MAXIMUM_FILE_BYTES:
-        raise CannotMeasure(f'{MANIFEST_PATH} exceeds {MAXIMUM_FILE_BYTES} bytes')
+        raise CannotMeasure(f'cannot open the repository root: {exc}') from exc
+    descriptor = None
+    try:
+        for part in parts[:-1]:
+            child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=parent)
+            os.close(parent)
+            parent = child
+        descriptor = os.open(parts[-1], os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=parent)
+    except OSError:
+        return 'absent', 0, b''  # missing, a symlink, or a component that is not a directory
+    finally:
+        os.close(parent)
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            return 'absent', 0, b''
+        body = bytearray()
+        while len(body) <= MAXIMUM_FILE_BYTES:
+            chunk = os.read(descriptor, min(65536, MAXIMUM_FILE_BYTES - len(body) + 1))
+            if not chunk:
+                break
+            body.extend(chunk)
+        if len(body) > MAXIMUM_FILE_BYTES:
+            return 'oversized', len(body), b''
+        return 'read', len(body), bytes(body)
+    except OSError as exc:
+        raise CannotMeasure(f'cannot read {name}: {exc}') from exc
+    finally:
+        os.close(descriptor)
+
+
+def parse_manifest(root: Path) -> dict[str, str]:
+    status, _, raw = read_repository_file(root, MANIFEST_PATH)
+    if status == 'absent':
+        raise CannotMeasure(f'cannot read {MANIFEST_PATH}: no regular file at that path')
+    if status == 'oversized':
+        raise CannotMeasure(f'{MANIFEST_PATH} exceeds {MAXIMUM_FILE_BYTES} bytes; it was refused '
+                            f'at the cap rather than buffered')
     try:
         text = raw.decode('utf-8')
     except UnicodeError as exc:
@@ -73,6 +140,10 @@ def parse_manifest(root: Path) -> dict[str, str]:
         digest, separator, name = line.partition('  ')
         if not separator or not DIGEST.fullmatch(digest) or not name or '\0' in name:
             raise CannotMeasure(f'{MANIFEST_PATH}:{number} is not "<sha256>  <path>"')
+        if not repository_relative(name):
+            raise CannotMeasure(f'{MANIFEST_PATH}:{number} names {name!r}, which is not a '
+                                f'repository-relative path; a manifest that points outside the '
+                                f'tree is corrupt integrity metadata, not a measurable state')
         if name in entries:
             raise CannotMeasure(f'{MANIFEST_PATH}:{number} repeats path {name}')
         entries[name] = digest
@@ -106,21 +177,20 @@ def audit(root: Path, enforce_covered: bool = False, enforce_coverage: bool = Fa
     for name in sorted(entries):
         if name not in tracked_set:
             untracked.append(name)
-        target = root / name
-        if target.is_symlink() or not target.is_file():
-            absent.append(name)
-            continue
-        size = target.stat().st_size
-        if size > MAXIMUM_FILE_BYTES:
-            oversized.append(name)
-            continue
+        if not repository_relative(name):  # parse_manifest refuses these; never reach the disk
+            raise CannotMeasure(f'refusing to inspect {name!r}: not a repository-relative path')
+        status, size, body = read_repository_file(root, name)
+        # Bytes actually read are counted whatever the outcome, so the cumulative cost is bounded
+        # by the budget plus at most one capped file rather than by the number of entries.
         total += size
         if total > MAXIMUM_TOTAL_BYTES:
             raise CannotMeasure('manifest-covered bytes exceed the read budget')
-        try:
-            body = target.read_bytes()
-        except OSError as exc:
-            raise CannotMeasure(f'cannot read covered file {name}: {exc}') from exc
+        if status == 'absent':
+            absent.append(name)
+            continue
+        if status == 'oversized':
+            oversized.append(name)
+            continue
         if hashlib.sha256(body).hexdigest() != entries[name]:
             stale.append(name)
     # MANIFEST.sha256 never lists itself; that is the one intended omission, not drift.

@@ -97,17 +97,54 @@ finding names a file a human has to change.
 - exit 1 — evaluated, at least one gating finding
 - exit 2 — could not evaluate
 
-There is no fourth outcome. An absent, empty or malformed `MANIFEST.sha256`, an unreadable ledger,
-a record that is not an object, a missing git history, an exhausted report deadline or a workspace
-that changes mid-run is exit 2, never a quiet pass.
+There is no fourth outcome. An absent, empty or malformed `MANIFEST.sha256`, an unreadable or
+too-deeply-nested ledger, a record that is not an object, a missing git history, a recorded
+`sourceSHA` this repository does not hold, a failed Git call, an exhausted report deadline or a
+workspace that changes mid-run is exit 2, never a quiet pass. A recorded commit that is absent —
+a shallow clone, rewritten history, a SHA that was never pushed — is deliberately *not* folded
+into staleness: `merge-base --is-ancestor` fails identically for an absent object and for an
+honest non-ancestor, so the commit is confirmed to exist before its currency is judged or cached.
+An existing commit that simply is not an ancestor remains ordinary `STALE-SOURCE`.
 
 Gating findings are the ones that are wrong regardless of sequencing: `MISSING-BINDING` (a record
 with an empty `implementation` or `evidence` list), `INVALID-REFERENCES`, `WRONG-EVIDENCE-LEVEL`,
-`LEVEL-PROMOTION` and `CURRENT-BLOCKER`. `STALE-SOURCE` is reported rather than gating by default,
-because a source slice necessarily makes every record stale until its evidence slice lands and
-gating it would fail the PR doing the work; `--gate-stale` turns it into a failure for a
-main-push gate. `CLAIMED-WITHOUT-RECORD`, `NO-PASSING-RECORD`, `RECORD-WITHOUT-CHECKBOX` and
+`LEVEL-PROMOTION` and `CURRENT-BLOCKER`. Each is read from the row's passing **records**, not from
+its `verdict`. `verdict` names one cause per row by design, so a row holding a stale-but-valid
+record beside a current one citing a wrong digest summarises as `stale-source`; that lossiness is
+right for a summary and wrong for a gate. The same rule that stops the four dimension booleans
+combining to qualify a row stops the single verdict hiding a gating defect underneath a
+non-gating one — or underneath a `qualified` sibling record. A re-seal rewrites a record in place
+rather than appending, so every passing record in the ledger is live and a wrong digest on any of
+them gates. `CLAIMED-WITHOUT-RECORD`, `NO-PASSING-RECORD`, `RECORD-WITHOUT-CHECKBOX` and
 `WORKSPACE-DIRTY` are reported, since fixing them means editing acceptance claims a human owns.
 
+### `STALE-SOURCE` is reported on every event, including pushes to `main`
+
+Stated plainly, because it is the one finding whose severity is a choice: **CI passes
+`--gate-stale` on neither `pull_request` nor `push`.** A stale record on `main` is printed in the
+`repository-preflight` log and does not fail the build. Nothing exercises the flag except this
+repository's own tests.
+
+The reason is sequencing, not convenience. A source slice *necessarily* stales every record —
+the repository's own rule is that a record written in the same commit as its source cannot bind
+that commit — so gating staleness on pull requests would fail the very PR doing the work, and the
+cheapest route back to green would be deleting records. AGENTS.md forbids silently lowering
+acceptance criteria to obtain a green build, and a gate whose easiest fix is deleting evidence is
+that pressure by construction.
+
+Gating only the `push` event escapes that objection and is the obvious next step, but it buys the
+closure at a stated price: `main` goes red between a source merge and its re-seal slice, **every
+time**, on a required check. That is a maintainer's call about the branch, not a tool default,
+and it is recorded as open in
+[the slice evidence](validation/M6-EVIDENCE-CURRENCY-2026-09-19.md). Until it is made, the
+honest statement is the one above: staleness on `main` is visible, not enforced.
+
 `python3 scripts/manifest_audit.py` measures what `MANIFEST.sha256` actually covers. It writes
-nothing; the scope decision is recorded in [ADR 0004](adr/0004-manifest-integrity-scope.md).
+nothing; the scope decision is recorded in [ADR 0004](adr/0004-manifest-integrity-scope.md). A
+manifest is untrusted input on a fork's pull request, so an entry is a path *claim*, not a path to
+open: a name that is absolute, carries `..` or `.` components, or holds a backslash or NUL is
+refused while parsing, before any `is_file`, `stat` or read. Every component of an accepted name
+is then opened `O_NOFOLLOW` relative to the previous descriptor, so a symlinked directory inside
+the tree cannot redirect a read outside it either, and at most 2 MiB + 1 byte is read from any
+file — the extra byte is what proves the cap, which is enforced while reading rather than checked
+against `st_size` afterwards.

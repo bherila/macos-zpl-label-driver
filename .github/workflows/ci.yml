@@ -31,6 +31,15 @@ jobs:
           python3 -m unittest discover -s scripts/tests
       # Read-only. Neither diagnostic rewrites evidence, refreshes a digest or promotes a claim,
       # and each exits 2 rather than 0 when it cannot evaluate its input.
+      #
+      # `--gate-stale` is deliberately passed on NEITHER event, pull_request or push. A source
+      # slice necessarily stales every record until its re-seal slice lands, so gating staleness
+      # on pull requests would fail the PR doing the work and make deleting records the cheapest
+      # green. Gating only `push` would close the hole on main at the price of a red required
+      # check between every source merge and its re-seal. That is a maintainer decision about the
+      # branch and it is open: see the "STALE-SOURCE is reported on every event" section of
+      # docs/TRACEABILITY.md. Until it is taken, staleness on main is visible in this log and is
+      # not enforced. Every other finding this step reports still gates on both events.
       - name: Acceptance evidence currency
         run: python3 scripts/evidence_currency.py
       - name: Manifest coverage measurement

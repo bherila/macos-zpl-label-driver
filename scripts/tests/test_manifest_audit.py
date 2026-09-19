@@ -106,6 +106,100 @@ class ManifestAuditTests(unittest.TestCase):
         result = audit.audit(self.root)
         self.assertIn('alias.md', result['absentPaths'])
 
+    # -- untrusted manifest input ----------------------------------------
+    #
+    # A fork's pull request supplies these bytes, so an entry is a path claim to be checked, not
+    # a path to open. Nothing outside the worktree may be opened, stat-ed or read.
+
+    def cap(self, value):
+        """Lower MAXIMUM_FILE_BYTES for one test rather than writing megabytes to a temp disk."""
+        self.addCleanup(setattr, audit, 'MAXIMUM_FILE_BYTES', audit.MAXIMUM_FILE_BYTES)
+        audit.MAXIMUM_FILE_BYTES = value
+
+    def spy_on_reads(self):
+        """Record every path the audit actually tries to open."""
+        opened = []
+        original = audit.read_repository_file
+        self.addCleanup(setattr, audit, 'read_repository_file', original)
+        def recording(root, name):
+            opened.append(name)
+            return original(root, name)
+        audit.read_repository_file = recording
+        return opened
+
+    def test_repository_relative_rejects_every_escaping_shape(self):
+        for name in ['/etc/hostname', '../secret.txt', 'docs/../../secret.txt', '..', '.',
+                     'docs/./RECEIPT.md', 'docs//RECEIPT.md', 'docs/', '', 'C:\\secret.txt',
+                     'docs\\RECEIPT.md', 'docs/\x00RECEIPT.md']:
+            with self.subTest(name=name):
+                self.assertFalse(audit.repository_relative(name))
+        for name in ['README.md', 'docs/validation/RECEIPT.md', '.github/workflows/ci.yml']:
+            with self.subTest(name=name):
+                self.assertTrue(audit.repository_relative(name))
+
+    def test_an_entry_outside_the_repository_is_refused_before_any_filesystem_call(self):
+        with tempfile.TemporaryDirectory() as elsewhere:
+            secret = Path(elsewhere) / 'secret.txt'
+            secret.write_text('a host file this diagnostic must never open\n')
+            digest = hashlib.sha256(secret.read_bytes()).hexdigest()
+            opened = self.spy_on_reads()
+            for name in [str(secret), '../secret.txt', 'docs/../../secret.txt', '/etc/hostname']:
+                with self.subTest(name=name):
+                    opened.clear()
+                    self.write_manifest(self.covered)
+                    body = (self.root / 'MANIFEST.sha256').read_text()
+                    (self.root / 'MANIFEST.sha256').write_text(body + f'{digest}  {name}\n')
+                    with self.assertRaises(audit.CannotMeasure) as raised:
+                        audit.audit(self.root)
+                    self.assertIn('repository-relative', str(raised.exception))
+                    # The manifest itself is the only path opened: the entry is rejected while
+                    # parsing, so no is_file, stat or read ever reaches the host path.
+                    self.assertEqual([audit.MANIFEST_PATH], opened)
+
+    def test_a_symlinked_directory_component_is_never_traversed(self):
+        with tempfile.TemporaryDirectory() as elsewhere:
+            secret = Path(elsewhere) / 'secret.txt'
+            secret.write_text('a host file this diagnostic must never open\n')
+            (self.root / 'alias').symlink_to(elsewhere)
+            self.write_manifest(self.covered)
+            body = (self.root / 'MANIFEST.sha256').read_text()
+            digest = hashlib.sha256(secret.read_bytes()).hexdigest()
+            (self.root / 'MANIFEST.sha256').write_text(body + f'{digest}  alias/secret.txt\n')
+            self.commit()
+            result = audit.audit(self.root)
+            # Following the link would have hashed the host file and matched this digest.
+            # Refusing to follow it records an absent path and hashes nothing.
+            self.assertIn('alias/secret.txt', result['absentPaths'])
+            self.assertEqual([], result['staleDigests'])
+
+    def test_the_file_cap_bounds_the_read_rather_than_being_checked_after_it(self):
+        self.cap(1024)
+        oversized = self.root / 'README.md'
+        oversized.write_bytes(b'x' * 1025)
+        status, size, body = audit.read_repository_file(self.root, 'README.md')
+        # One byte over the cap is what proves it: nothing larger is ever buffered or returned.
+        self.assertEqual(('oversized', 1025, b''), (status, size, body))
+        oversized.write_bytes(b'x' * 1024)
+        self.assertEqual(('read', 1024, b'x' * 1024),
+                         audit.read_repository_file(self.root, 'README.md'))
+
+    def test_an_oversized_manifest_is_refused_at_the_cap(self):
+        self.cap(512)
+        (self.root / 'MANIFEST.sha256').write_text('a' * 4096)
+        with self.assertRaises(audit.CannotMeasure) as raised:
+            audit.audit(self.root)
+        self.assertIn('rather than buffered', str(raised.exception))
+
+    def test_an_oversized_covered_file_is_reported_without_being_hashed(self):
+        (self.root / 'README.md').write_text('x' * 4096)
+        self.write_manifest(self.covered)
+        self.commit()
+        self.cap(1024)
+        result = audit.audit(self.root)
+        self.assertEqual(['README.md'], result['oversizedEntries'])
+        self.assertEqual([], result['staleDigests'])
+        self.assertIn('OVERSIZED-ENTRY', self.codes(result))
+
     def test_malformed_manifests_cannot_be_measured(self):
         for body in ['', 'no digest here\n', 'x' * 63 + '  short.md\n',
                      'a' * 64 + ' onespace.md\n', 'a' * 64 + '  \n']:

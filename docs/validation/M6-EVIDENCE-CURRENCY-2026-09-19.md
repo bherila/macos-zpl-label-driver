@@ -301,6 +301,156 @@ maintainer call the issue reserves. The one manifest edit in this slice covers i
 ten touched files — a widening refresh, which `manifest_describes_tree` explicitly
 permits and which therefore invalidates no record.
 
+## Review round: six findings on the pull request
+
+An automated reviewer raised six findings against the slice above at
+`b3f7b5ae38a525d84ec3fb0489667cfb02b11fc5`. Each was checked against the source before anything
+was changed. Five were real and are fixed with a regression test apiece; one was right about the
+defect and wrong about the line, and one is a judgment call that is **not** implemented here and
+is escalated instead. No acceptance claim, checkbox, digest or ledger record is touched by any of
+them, and the two diagnostics remain read-only.
+
+| # | Finding | Verdict | Outcome |
+|---|---|---|---|
+| 1 | An unavailable source commit read as ordinary staleness | real | fixed, fails closed to exit 2 |
+| 2 | A gating defect hidden by the one-verdict row summary | real | fixed, gating read per record |
+| 3 | `--gate-stale` never exercised; gate it on `push` | judgment | **not implemented**, escalated below |
+| 4 | Ledger `RecursionError` escaped as exit 1 + traceback | real | fixed, exit 2 |
+| 5 | Manifest entries could name paths outside the tree | real | fixed, refused before any read |
+| 6 | The 2 MiB manifest cap was checked after the read | real | fixed, bounded read |
+
+**1 — fail closed on an unavailable commit.** Confirmed. `source_is_unchanged` returns one
+boolean, and `git merge-base --is-ancestor` exits non-zero both for an honest non-ancestor and for
+an object the repository does not hold, so a shallow clone or rewritten history was recorded — and
+cached — as `STALE-SOURCE`, which is report-only, and the run exited 0. The callback now confirms
+the commit with `git cat-file -e <sha>^{commit}` before judging or caching it, and an absent
+object or a failed Git call raises `CannotEvaluate` (exit 2). An exhausted deadline around the
+comparison is treated the same way. `test_a_source_commit_absent_from_the_repository_cannot_be_evaluated`
+covers the module and the CLI exit code;
+`test_a_real_commit_that_is_not_an_ancestor_is_still_ordinary_staleness` builds a real commit
+object with `git commit-tree` that is genuinely not an ancestor and asserts it is still reported,
+not gated — the distinction, not a blanket refusal.
+
+**2 — gate on the records, not on the summary.** Confirmed, and the irony the reviewer notes is
+exact: this slice argues that the four dimension booleans are lossy and must not be combined to
+qualify a row, then read gating severity off `verdict`, which is lossy in the same way. With a
+digest-valid stale record beside a current record citing a wrong digest, `verdict` names the stale
+one and the `elif` chain emitted only report-level `STALE-SOURCE`. `INVALID-REFERENCES`,
+`WRONG-EVIDENCE-LEVEL`, `LEVEL-PROMOTION` and `CURRENT-BLOCKER` are now each derived from the
+row's passing records directly; the four report-only codes still come from the verdict, which is
+what they describe. This widens `INVALID-REFERENCES` to any passing record with a wrong or empty
+citation, which is correct under the ledger's actual convention — `d6f03d7` and `872adb3` show a
+re-seal rewriting a record in place, so there is no superseded history to forgive. If that
+convention ever changes to append, this rule needs revisiting.
+`test_a_stale_summary_verdict_does_not_hide_an_invalid_current_record`,
+`test_a_qualified_row_does_not_hide_an_invalid_passing_record` and
+`test_a_current_blocker_does_not_hide_a_wrong_evidence_level` build the three masking traps. The
+verdict itself is unchanged and each test still asserts the old, lossy summary value.
+
+**4 — `RecursionError` from the ledger decoder.** Confirmed. `ledger_binding_findings` reads the
+ledger before the `build_report` wrapper and did not list `RecursionError`, which is a
+`RuntimeError` and not a `ValueError`. A 100 kB ledger of nested arrays — far inside the 2 MiB
+cap — therefore produced a traceback and exit 1, a fourth outcome the contract denies.
+`test_a_deeply_nested_ledger_cannot_be_evaluated` asserts exit 2 and no traceback on stderr.
+
+**5 — manifest entries are path claims, not paths.** Confirmed and the most serious of the six.
+`parse_manifest` accepted any non-empty name, and `root / name` resolves an absolute entry or one
+carrying `..` to somewhere else on the runner; the loop then called `is_file`, `stat` and
+`read_bytes` on it and only afterwards recorded it as untracked. A fork's pull request supplies
+those bytes, and AGENTS.md requires CI to be safe for untrusted contributions. Names are now
+validated while parsing — absolute, `..`, `.`, empty component, backslash or NUL are all refused
+as corrupt integrity metadata (exit 2) — before any filesystem call, with the same check repeated
+in the audit loop. Reading also goes component by component with `O_NOFOLLOW`, closing the related
+hole the finding did not mention: a tracked symlinked *directory* let an entry such as
+`alias/secret.txt` be read and hashed through it, since only the final component was checked with
+`is_symlink`. `test_an_entry_outside_the_repository_is_refused_before_any_filesystem_call` spies
+on the reader and asserts that the manifest itself is the only path ever opened;
+`test_a_symlinked_directory_component_is_never_traversed` and
+`test_repository_relative_rejects_every_escaping_shape` cover the rest.
+
+**6 — the size cap.** Real, with one correction. The line cited is `parse_manifest`, where
+`MANIFEST.sha256` was read whole with `read_bytes()` and its length checked afterwards; there the
+finding is exactly right. In the covered-file loop the order was the other way round — `st_size`
+was checked before the read — so the claim as written does not hold for that loop, but the check
+was still not a cap: `st_size` is a hint that a growing file or a procfs entry does not honour,
+and it is a time-of-check/time-of-use gap. Both now go through one reader that takes at most
+`MAXIMUM_FILE_BYTES + 1` bytes from a regular, no-follow descriptor and rejects on the extra byte,
+and bytes actually read are counted toward the 64 MiB total whatever the outcome, so the
+cumulative cost is bounded by the budget plus one capped file rather than by the entry count.
+`test_the_file_cap_bounds_the_read_rather_than_being_checked_after_it` asserts the boundary at the
+cap and one byte past it; `test_an_oversized_manifest_is_refused_at_the_cap` and
+`test_an_oversized_covered_file_is_reported_without_being_hashed` cover both call sites.
+
+### 3 — gating `--gate-stale` on `push`: recommendation, not implementation
+
+**Not implemented, and deliberately so.** The reviewer's split — report on `pull_request`, gate on
+`push` — is sound engineering and preserves the sequencing argument above intact. It is also
+exactly the change this document already reserved for the maintainer: "`--gate-stale` ... is what a
+main-push gate would enable **once the maintainer accepts a red `main`** between a source PR and
+its evidence PR", and, under Known gaps, "enabling it is a one-line workflow change once the
+maintainer accepts a red `main`". The condition is a human decision that has not been taken, so an
+agent turning it on here would be granting itself the acceptance it wrote down as someone else's.
+
+The trade-off, stated plainly:
+
+- **For.** As shipped, `--gate-stale` is exercised by nothing but this repository's own tests. A
+  source PR merges, every affected record becomes `stale-source`, and the required `main` check
+  stays green while the evidence silently stops vouching for the tree — which is the precise
+  failure this whole slice exists to make visible. Visible-in-the-log is weaker than enforced, and
+  logs are not read.
+- **Against.** `main` goes red between every source merge and its re-seal slice, on a required
+  check, by construction rather than by accident. The red is truthful, but a required check that
+  is expected to be red part of the time trains people to ignore it, and the cheapest route back
+  to green is still deleting the two records rather than re-sealing them. The window is as long as
+  the re-seal slice takes, which is currently measured in days. This very slice would open such a
+  window the moment it merges: `scripts/` is not an exempt path, so merging it stales M2-AC04 and
+  M2-AC13 and a `push` gate added in the same commit turns `main` red on arrival.
+
+**Recommendation.** Take the reviewer's split, but not in this commit and not without the
+maintainer. Concretely: merge this PR, land the re-seal slice for M2-AC04 and M2-AC13 that the
+Next action below already calls for, confirm `python3 scripts/evidence_currency.py --gate-stale`
+exits 0 on `main` at that point, and only then add `--gate-stale` to the `push` event — so the
+gate is switched on over a green tree rather than over a dip it would immediately fail. If the
+maintainer would rather never see a red `main` from sequencing, the honest alternative is a
+non-required scheduled or `workflow_dispatch` job that runs `--gate-stale` and reports, and the
+documentation should say the gate was declined rather than leaving the flag looking enabled.
+
+Until that decision, the behaviour is unchanged and is now stated where a reader will meet it:
+`docs/TRACEABILITY.md` gained a section headed "`STALE-SOURCE` is reported on every event,
+including pushes to `main`", and the CI step itself carries a comment saying the flag is passed on
+neither event, why, and where the open decision is recorded. Nothing in the workflow's behaviour
+changed.
+
+### Commands actually run for this review round
+
+All on Linux x86_64, CPython 3.11, on the fixed tree:
+
+```sh
+python3 scripts/check_repo.py                      # exit 0
+python3 -m unittest discover -s scripts/tests      # exit 0, 156 tests, OK (skipped=2)
+python3 scripts/traceability_report.py             # exit 0
+python3 scripts/evidence_currency.py               # exit 0
+python3 scripts/manifest_audit.py                  # exit 0
+swift test --package-path Packages/LabelCore       # exit 0, 313 tests, 0 failures
+git diff --check                                   # exit 0
+python3 -c "import yaml; yaml.safe_load(...)"      # exit 0, both workflows
+```
+
+The suite is **156 tests, OK (skipped=2)**, up from 144: six added to
+`test_evidence_currency.py` and six to `test_manifest_audit.py`. Every one of the twelve was run
+against the unfixed source first; the ten that assert a fix fail there, and the two that assert an
+unchanged behaviour — an existing commit that is not an ancestor is still staleness, an oversized
+covered file is still reported and not hashed — pass on both, which is what they are for. No
+existing test was weakened, skipped or deleted. `python3 scripts/evidence_currency.py` still reads
+13 / 2 / 0 / 2 with 11 checked-and-unrecorded and 0 qualified, and still exits 0: none of the new
+gating paths fires on this repository, because both live records are digest-valid, at their
+prescribed level and bound to commits this repository holds. `MANIFEST.sha256` is refreshed for
+every file this round changed and re-verified by re-hashing.
+
+Unchanged and worth stating: `scripts/traceability_report.py` still maps an unavailable commit to
+"not current" in its own JSON output. That is left alone on purpose — the report is a description,
+the exit code is the gate, and `evidence_currency.py` is where the exit-2 promise lives.
+
 ## Artifacts
 
 No binary artifact is retained. The new tests create synthetic git repositories under
@@ -339,10 +489,12 @@ Known gaps this slice does not close:
 - The eleven `claimed-without-record` boxes and the one I-level row among them are
   reported, not corrected. Correcting them edits milestone `ACCEPTANCE.md` files or the
   ledger, which this slice deliberately does not touch.
-- `--gate-stale` is not enabled, so a stale record on `main` is visible in the CI log but
-  does not fail the build. Enabling it is a one-line workflow change once the maintainer
-  accepts a red `main` between a source PR and its evidence PR — `c3bbc5c` is what such a
-  red `main` would have looked like.
+- `--gate-stale` is not enabled on either CI event, so a stale record on `main` is visible in
+  the CI log but does not fail the build. Enabling it on `push` is a one-line workflow change
+  once the maintainer accepts a red `main` between a source PR and its evidence PR — `c3bbc5c`
+  is what such a red `main` would have looked like. This was raised again in review; the
+  recommendation, the trade-off and the sequencing that would make it safe are under "Review
+  round" above, and the decision is the maintainer's.
 - The `c3bbc5c` figures were measured by the controller in a separate worktree, not in
   this one; this branch is based on `d6f03d7` and is not rebased. They are reproduced here
   as reported, and the same numbers are reproduced independently by this branch's own run

@@ -15,7 +15,10 @@ Exit codes:
   2  could not evaluate
 
 There is no fourth outcome. Missing, unreadable or unbounded input is exit 2, never a quiet pass:
-an unverifiable ledger is exactly the state in which a stale record would slip through.
+an unverifiable ledger is exactly the state in which a stale record would slip through. A recorded
+source commit this repository does not hold is one of those states, and is never reported as
+ordinary staleness. Gating findings are read from a row's records rather than from its single
+summary verdict, which names one cause per row and would otherwise hide one defect behind another.
 """
 from __future__ import annotations
 
@@ -47,6 +50,29 @@ def _git(root: Path, *arguments: str, timeout: float = 10) -> str:
         raise CannotEvaluate(f'git {" ".join(arguments)} failed: {type(exc).__name__}') from exc
 
 
+def require_available_commit(root: Path, sha: str) -> None:
+    """Raise CannotEvaluate unless `sha` names a commit this repository actually holds.
+
+    `source_is_unchanged` answers one boolean, so a `merge-base --is-ancestor` that fails because
+    the object is missing -- a shallow clone, a rewritten history, a ledger SHA that was never
+    pushed, a corrupt object store -- is indistinguishable there from an honest "not an ancestor".
+    Letting the first collapse into the second would file an operational failure as a report-only
+    STALE-SOURCE and exit 0, against the promise that anything unevaluable exits 2. Ask git
+    directly, before the answer is cached for every record bound to the same revision.
+    """
+    try:
+        probe = subprocess.run(['git', '-C', str(root), 'cat-file', '-e', f'{sha}^{{commit}}'],
+                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise CannotEvaluate(f'git cat-file for recorded source {sha[:12]} failed: '
+                             f'{type(exc).__name__}') from exc
+    if probe.returncode != 0:
+        raise CannotEvaluate(f'recorded source commit {sha[:12]} is not a commit this repository '
+                             f'holds; currency cannot be judged against absent history (a shallow '
+                             f'clone, rewritten history or a SHA that was never pushed). This is '
+                             f'not the same as a record that is merely stale')
+
+
 def ledger_binding_findings(root: Path) -> list[dict]:
     """Records that cite nothing cannot bind anything, whatever their state says."""
     try:
@@ -54,8 +80,11 @@ def ledger_binding_findings(root: Path) -> list[dict]:
         records = ledger['records']
         if not isinstance(records, list):
             raise ValueError('records is not a list')
-    except (OSError, ValueError, KeyError, TypeError, UnicodeError) as exc:
-        raise CannotEvaluate(f'unreadable acceptance ledger: {exc}') from exc
+    # RecursionError is listed because it is what a size-bounded but deeply nested ledger raises
+    # out of the JSON decoder. This read happens before the `build_report` wrapper below, so
+    # without it the CLI printed a traceback and exited 1 -- a fourth outcome the contract denies.
+    except (OSError, ValueError, KeyError, TypeError, RecursionError, UnicodeError) as exc:
+        raise CannotEvaluate(f'unreadable acceptance ledger: {type(exc).__name__}: {exc}') from exc
     findings = []
     for index, record in enumerate(records):
         if not isinstance(record, dict):
@@ -73,6 +102,16 @@ def ledger_binding_findings(root: Path) -> list[dict]:
 
 
 def row_findings(report: dict, gate_stale: bool) -> list[dict]:
+    """Every finding for every row.
+
+    Gating defects are read off the passing records themselves, never off `verdict`. `verdict`
+    deliberately names one cause per row -- the first unanswered question of the record that
+    answers the most of them -- so a row holding a stale-but-valid record beside a current one
+    with a wrong digest summarises as `stale-source` alone. That lossiness is right for a summary
+    and wrong for a gate: the same design note that forbids the four dimension booleans from
+    combining to qualify a row forbids the one-verdict summary from hiding a gating defect.
+    The row-shaped codes below, none of which gates by default, still come from the verdict.
+    """
     findings = []
     for row in report['acceptance']:
         status, identifier = row['evidenceStatus'], row['id']
@@ -84,18 +123,24 @@ def row_findings(report: dict, gate_stale: bool) -> list[dict]:
                              'detail': f'requires {required} evidence but carries a passing '
                                        f'{"/".join(offered)} record; an offline or hosted-CI run '
                                        f'never promotes an {required} row'})
-        if status['verdict'] == 'wrong-evidence-level':
+        if passing and not status['hasRequiredLevelRecord']:
             findings.append({'code': 'WRONG-EVIDENCE-LEVEL', 'severity': GATE, 'id': identifier,
                              'detail': f'requires {required}; no passing record is at that level'})
-        elif status['verdict'] == 'invalid-references':
+        invalid = [record for record in passing if not record['referencesValid']]
+        if invalid:
+            # Checked per record, so a second record that qualifies the row cannot bury it. The
+            # ledger keeps one live record per acceptance ID -- a re-seal rewrites the record in
+            # place rather than appending -- so a passing record whose cited bytes no longer match
+            # is a defect, not superseded history.
             findings.append({'code': 'INVALID-REFERENCES', 'severity': GATE, 'id': identifier,
-                             'detail': 'a passing record cites bytes that no longer hash to the '
-                                       'digest it recorded; the ledger, not the tree, is wrong'})
-        elif status['verdict'] == 'current-blocker':
+                             'detail': f'{len(invalid)} of {len(passing)} passing record(s) cite '
+                                       f'bytes that no longer hash to the digest recorded, or cite '
+                                       f'nothing at all; the ledger, not the tree, is wrong'})
+        if row['hasCurrentDeclaredBlocker']:
             findings.append({'code': 'CURRENT-BLOCKER', 'severity': GATE, 'id': identifier,
                              'detail': 'a current record records fail or blocked, which vetoes '
                                        'readiness for this row'})
-        elif status['verdict'] == 'stale-source':
+        if status['verdict'] == 'stale-source':
             findings.append({'code': 'STALE-SOURCE', 'severity': GATE if gate_stale else REPORT,
                              'id': identifier,
                              'detail': 'record is digest-valid and at the right level, but its '
@@ -134,7 +179,18 @@ def evaluate(root: Path, gate_stale: bool = False, budget: float | None = None) 
         if evaluated not in matches:
             if len(matches) >= 512:
                 raise ValueError('Source revision budget exceeded')
-            matches[evaluated] = source_is_unchanged(root, evaluated, head, shared)
+            # Fail closed before caching. `source_is_unchanged` maps every failure it meets to
+            # False, so the two cases it cannot tell apart are separated here instead.
+            require_available_commit(root, evaluated)
+            if shared.expired():
+                raise CannotEvaluate(f'the report deadline expired before source currency for '
+                                     f'{evaluated[:12]} could be judged')
+            unchanged = source_is_unchanged(root, evaluated, head, shared)
+            if not unchanged and shared.expired():
+                raise CannotEvaluate(f'the report deadline expired while judging source currency '
+                                     f'for {evaluated[:12]}; an unfinished comparison is not a '
+                                     f'stale record')
+            matches[evaluated] = unchanged
         return matches[evaluated]
 
     try:

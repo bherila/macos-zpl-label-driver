@@ -251,6 +251,96 @@ class EvidenceCurrencyTests(SyntheticEvidenceRepository):
                          {row['id'] for row in result['report']['acceptance']
                           if not row['evidenceStatus']['hasCurrentSourceRecord']})
 
+    def test_a_source_commit_absent_from_the_repository_cannot_be_evaluated(self):
+        # A syntactically valid SHA that no object backs. `merge-base --is-ancestor` fails for it
+        # exactly as it does for an honest non-ancestor, and filing that operational failure as a
+        # report-only STALE-SOURCE would exit 0 on a repository whose history cannot be read.
+        for record in self.records:
+            record['sourceSHA'] = 'a' * 40
+        self.commit('Ledger bound to a commit this repository does not hold')
+        with self.assertRaises(currency.CannotEvaluate) as raised:
+            self.evaluate()
+        self.assertIn('not a commit this repository holds', str(raised.exception))
+        probe = subprocess.run([sys.executable, str(SCRIPTS / 'evidence_currency.py'),
+                                '--root', str(self.root)], capture_output=True, text=True, timeout=120)
+        self.assertEqual(currency.EXIT_CANNOT_EVALUATE, probe.returncode, probe.stdout)
+        self.assertIn('CANNOT-EVALUATE', probe.stderr)
+
+    def test_a_real_commit_that_is_not_an_ancestor_is_still_ordinary_staleness(self):
+        # The other half of the distinction: this commit object exists, it simply does not
+        # describe HEAD. That is staleness, reported and not gating, and it must stay that way.
+        tree = subprocess.check_output(['git', '-C', str(self.root), 'rev-parse', 'HEAD^{tree}'],
+                                       text=True).strip()
+        sibling = subprocess.check_output(
+            ['git', '-C', str(self.root), '-c', 'user.name=Synthetic',
+             '-c', 'user.email=agent@example.test', 'commit-tree', tree, '-m', 'Sibling root'],
+            text=True).strip()
+        for record in self.records:
+            record['sourceSHA'] = sibling
+        self.commit('Ledger bound to a commit that is not an ancestor')
+        result = self.evaluate()
+        self.assertEqual({'M3-AC01': 'stale-source', 'M3-AC02': 'stale-source'}, self.verdicts(result))
+        self.assertEqual([], result['gating'])
+
+    def test_a_deeply_nested_ledger_cannot_be_evaluated(self):
+        # 100 kB, far inside the 2 MiB cap, but deeper than the JSON decoder's recursion limit.
+        # This read precedes the build_report wrapper, so an uncaught RecursionError printed a
+        # traceback and exited 1 -- a fourth outcome the documented contract denies.
+        (self.root / 'docs/ACCEPTANCE-EVIDENCE.json').write_text('[' * 50000 + ']' * 50000)
+        with self.assertRaises(currency.CannotEvaluate) as raised:
+            self.evaluate()
+        self.assertIn('RecursionError', str(raised.exception))
+        probe = subprocess.run([sys.executable, str(SCRIPTS / 'evidence_currency.py'),
+                                '--root', str(self.root)], capture_output=True, text=True, timeout=120)
+        self.assertEqual(currency.EXIT_CANNOT_EVALUATE, probe.returncode, probe.stdout)
+        self.assertIn('CANNOT-EVALUATE', probe.stderr)
+        self.assertNotIn('Traceback', probe.stderr)
+
+    # -- gating findings come from the records, not from the one-verdict summary ----
+
+    def test_a_stale_summary_verdict_does_not_hide_an_invalid_current_record(self):
+        # The trap the row summary is lossy about: one passing record that is digest-valid but
+        # stale, and a second that is current but cites a digest its bytes do not match. The
+        # summary names the stale one; the gating defect underneath it must still fail the build.
+        (self.root / 'unrelated.swift').write_text('changed build input\n')
+        head = self.commit('Source slice')
+        defective = self.record('M3-AC01', 'A')
+        defective['sourceSHA'] = head
+        defective['evidence'] = [{'path': 'docs/validation/evidence.md', 'sha256': 'b' * 64}]
+        self.records.append(defective)
+        self.commit('Add a current record citing bytes that do not match')
+        result = self.evaluate()
+        self.assertEqual('stale-source', self.verdicts(result)['M3-AC01'])
+        self.assertIn('INVALID-REFERENCES', self.codes(result, severity=currency.GATE))
+        self.assertNotEqual([], result['gating'])
+
+    def test_a_qualified_row_does_not_hide_an_invalid_passing_record(self):
+        # The ledger holds one live record per acceptance ID -- a re-seal rewrites it in place --
+        # so a second passing record whose cited bytes no longer match is a defect, not history,
+        # and a row that qualifies on its other record must not bury it.
+        head = self.evaluate()['sourceSHA']
+        defective = self.record('M3-AC01', 'A')
+        defective['sourceSHA'] = head
+        defective['evidence'] = [{'path': 'docs/validation/evidence.md', 'sha256': 'b' * 64}]
+        self.records.append(defective)
+        self.commit('Add a second passing record with a wrong digest')
+        result = self.evaluate()
+        self.assertEqual('qualified', self.verdicts(result)['M3-AC01'])
+        self.assertIn('INVALID-REFERENCES', self.codes(result, severity=currency.GATE))
+
+    def test_a_current_blocker_does_not_hide_a_wrong_evidence_level(self):
+        # `current-blocker` wins the single verdict, which used to suppress the level finding for
+        # the same row. Both are gating and both are reported.
+        self.records[1] = self.record('M3-AC02', 'A')
+        self.records.append(self.record('M3-AC02', 'H', state='blocked'))
+        self.rebind(self.evaluate()['sourceSHA'])
+        result = self.evaluate()
+        self.assertEqual('current-blocker', self.verdicts(result)['M3-AC02'])
+        gated = self.codes(result, severity=currency.GATE)
+        self.assertIn('CURRENT-BLOCKER', gated)
+        self.assertIn('WRONG-EVIDENCE-LEVEL', gated)
+        self.assertIn('LEVEL-PROMOTION', gated)
+
     # -- read-only -------------------------------------------------------
 
     def test_the_diagnostic_changes_no_byte_of_the_repository(self):
