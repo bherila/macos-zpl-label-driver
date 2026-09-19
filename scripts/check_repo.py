@@ -42,6 +42,9 @@ REQUIRED = (
     # CI runs both diagnostics below. One that has gone missing must fail here rather than
     # vanish from the build as a silently skipped step.
     "scripts/evidence_currency.py", "scripts/manifest_audit.py", "MANIFEST.sha256",
+    # The manifest is enforced, so the one command that refreshes it must not vanish:
+    # a contributor without it pays the coverage tax by hand, which is how drift returns.
+    "scripts/refresh_manifest.py",
     "docs/adr/0004-manifest-integrity-scope.md",
     "docs/SPRINT-BASELINE.md", "docs/reference-target.json", "docs/LOCAL-SIGNING.md",
     "docs/RELEASE-SCOPES.md", "docs/SCOPE-STATUS.json", "docs/hardware/GC420D.md",

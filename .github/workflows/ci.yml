@@ -58,8 +58,13 @@ jobs:
       # not enforced. Every other finding this step reports still gates on both events.
       - name: Acceptance evidence currency
         run: python3 scripts/evidence_currency.py
-      - name: Manifest coverage measurement
-        run: python3 scripts/manifest_audit.py
+      # ADR 0004 step 2. `--enforce-covered` gates only on entries the manifest
+      # ALREADY claims: a drifted digest, a path that no longer exists, an entry
+      # naming an untracked file. All three read zero, so this changes no build
+      # outcome today; it stops the manifest drifting silently again the way it
+      # did between 55a9ef5 and 56fdc7b. Coverage itself is gated separately.
+      - name: Manifest integrity over the covered scope
+        run: python3 scripts/manifest_audit.py --enforce-covered
       - name: Classify change scope
         id: scope
         env:
