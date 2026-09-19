@@ -1,3 +1,7 @@
+# Traceability report deadline — 2026-09-19
+
+The report now shares one monotonic 60-second deadline across manifest and source verification. Independent per-entry timeouts could multiply across up to 4096 manifest entries and multiple evidence revisions. Exhaustion fails closed. The focused regression and full Python/repository/LabelCore checks passed on macOS arm64 (108 Python, 313 LabelCore, 0 failures); see [M6 traceability deadline](validation/M6-TRACEABILITY-DEADLINE-2026-09-19.md). This is portable evidence only. Scheduler, administrator, GUI, installed, USB, physical-printer, and release gates remain NOT RUN.
+
 # Ordered-dither adversarial-width vectors — 2026-09-19
 
 Source at `main` `067672b`, on `claude/determined-sagan-frse18`.
