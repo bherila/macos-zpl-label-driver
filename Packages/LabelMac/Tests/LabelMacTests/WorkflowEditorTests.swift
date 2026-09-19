@@ -544,6 +544,65 @@ final class WorkflowEditorTests: XCTestCase {
         XCTAssertTrue(model.canApproveForUnattendedUse)
     }
 
+    // Pins Observation 4 of docs/validation/M5-OFFLINE-GUI-SECTION-A-2026-09-18.md.
+    // Keyboard focus entering or leaving a bounds field makes the view's
+    // TextField(value:format:) commit the value it already displays, so the model
+    // receives a set-to-the-current-value call. That call changes nothing in the
+    // draft, so it must not discard the reviewed exact preview, the recorded region
+    // review, or the edit generation the other displayed fields are bound to.
+    func testFocusOnlyBoundsCommitKeepsReviewedPreviewAndEditGeneration() throws {
+        let (model, _) = try makeModel()
+        try model.refreshPreview()
+        try confirmReview(model)
+        XCTAssertEqual(model.unreviewedRegionCount, 0)
+        let before = model.draft
+        let preview = try XCTUnwrap(model.preview)
+        let generation = model.editGeneration
+        let displayed = try displayedBoundsMillimeters(model)
+        try model.setSelectedRegionMillimeters(left: displayed.left, top: displayed.top,
+            width: displayed.width, height: displayed.height)
+        // The millimeter round trip is exact for this fixture, so an inequality here
+        // would mean the commit changed geometry rather than merely invalidating.
+        XCTAssertEqual(model.draft, before)
+        XCTAssertEqual(model.editGeneration, generation)
+        XCTAssertEqual(model.preview, preview)
+        XCTAssertEqual(model.unreviewedRegionCount, 0)
+    }
+
+    // Also Observation 4 of docs/validation/M5-OFFLINE-GUI-SECTION-A-2026-09-18.md.
+    // All four bounds fields of one render pass capture the same edit generation, so
+    // a focus-only commit that advances it strands the other three. The next real
+    // edit typed into any of them then fails with editSnapshotChanged, which is the
+    // state the operator reached by tabbing without changing a value.
+    func testFocusOnlyBoundsCommitDoesNotStrandSiblingFieldBindings() throws {
+        let (model, _) = try makeModel()
+        let region = try XCTUnwrap(model.regions.first)
+        let displayedBinding = WorkflowEditorEditBinding(regionID: region.id,
+            editGeneration: model.editGeneration)
+        let displayed = try displayedBoundsMillimeters(model)
+        try model.setSelectedRegionMillimeters(left: displayed.left, top: displayed.top,
+            width: displayed.width, height: displayed.height, expectedBinding: displayedBinding)
+        XCTAssertNoThrow(try model.setSelectedRegionMillimeters(left: displayed.left,
+            top: displayed.top, width: displayed.width / 2, height: displayed.height,
+            expectedBinding: displayedBinding))
+        let updated = try XCTUnwrap(model.regions.first)
+        XCTAssertEqual(updated.normalizedRect.width, region.normalizedRect.width / 2,
+                       accuracy: 1e-12)
+    }
+
+    // The four millimeter values WorkflowEditorView.regionControls displays for the
+    // selected region, derived exactly as that view derives them.
+    private func displayedBoundsMillimeters(_ model: WorkflowEditorModel) throws
+        -> (left: Double, top: Double, width: Double, height: Double) {
+        let region = try XCTUnwrap(model.regions.first(where: { $0.id == model.selectedRegionID }))
+        let rule = try XCTUnwrap(model.profile.pageRules.first(where: { $0.sourcePage == region.sourcePage }))
+        let size = rule.expectedInput.uprightPhysicalSize
+        return (left: region.normalizedRect.x * size.width.value,
+                top: region.normalizedRect.y * size.height.value,
+                width: region.normalizedRect.width * size.width.value,
+                height: region.normalizedRect.height * size.height.value)
+    }
+
     private func makeModel() throws -> (WorkflowEditorModel, WorkflowProfileStore) {
         let source = try PDFPageBox(originX: 0, originY: 0, width: 20, height: 10)
         let sourceSize = try source.effectivePhysicalSize()
