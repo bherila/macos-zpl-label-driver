@@ -1,3 +1,76 @@
+# Re-seal after the report-deadline change — 2026-09-19
+
+Records bind source `9527188af32226ab1f2117ed2d332980d4db8e0f`, the tip of `main`, on
+`claude/determined-sagan-frse18`. This slice touches only the paths `source_is_unchanged` exempts, so
+the binding survives squash merge.
+
+No new claim. `M2-AC04` and `M2-AC13` are re-bound after #109 changed
+`scripts/traceability_report.py`, which is not an exempt path. Measured on `main` at `9527188` before
+this slice:
+
+```
+criteria: []
+   M2-AC04 valid True current False
+   M2-AC13 valid True current False
+```
+
+`valid` stayed true because neither record cites a file #109 touched — only the currency rule tripped.
+Worth keeping that distinction: the records were never wrong, they simply stopped vouching for a tree
+they had not seen. **The report now reads 0 of 21 requirements and 2 criteria again**, with distinct
+pending acceptance IDs at 80 of 82 mapped.
+
+## Third time, so it is the rule now
+
+Evidence cannot land with the source it describes, and cannot survive source landing after it:
+
+- A record written in the same commit as its source cannot bind that commit, because a squash merge
+  does not descend from a branch commit.
+- A record bound to an earlier commit stops being **current** the moment any non-exempt path changes,
+  and stops being **valid** if the changed file is one it cites.
+
+So every source slice is followed by an evidence slice against the merged result, and the report dips
+in between. That dip is the ledger correctly declining to vouch for bytes it has not seen. The
+instances so far: #105 → #106, and now #109 → this. Each dip was predicted in the source PR's own
+description and then measured on `main` rather than assumed.
+
+**This is worth mechanising.** A check that fails when `main` carries a record whose `currentSource` is
+false would turn a silent dip into a visible one — the report already computes exactly that field, so
+the check is a few lines over its output. Not added here, because it would itself be a `scripts/`
+change needing its own re-seal; it belongs in its own pair.
+
+Changed requirements: none. `F06` still needs `M2-AC02`, `M2-AC03`, `M2-AC05`, `M2-AC11` and
+`M6-AC05`; `F20` still needs `M0-AC11`, `M3-AC13`, `M4-AC13` and `M6-AC13`.
+
+Tests actually run at the bound commit. Linux x86_64, Swift 6.1.2:
+`python3 scripts/run-accelerator-checks.py` passed end to end — 313 LabelCore tests, 0 failures; 132
+cross-language ZPL/PBM/analytic round-trips; 180 independent ASCII compression round-trips; 12
+encoding-benchmark CLI cases; 15 inert CUPS ABI, 14 inert filter ABI and 1 filter-to-discard pipeline
+case. `python3 -m unittest discover -s scripts/tests`, 108 tests, OK — three more than before #109,
+which are its own regressions, so this run exercises the changed reporting path as well as the
+records' evidence. `check_repo.py` passed. Both records report no unbound implementation owner under
+the mechanical audit.
+
+What this does not establish. Linux, evidence level A, two criteria out of ninety. Everything
+asserting what the product emits, accepts or refuses still has an enforcement site in LabelMac and
+cannot be closed from here. Core Graphics, LabelMac, macOS printing, the scheduler, signing, USB, the
+GUI and any GC420d behaviour remain NOT RUN.
+
+## State of the repository after this slice
+
+Every open thread that can be closed from Linux is closed. `main` carries the whole implementation:
+the `codex/*` branches are stale history, not work in progress — every `Packages/` file on each of
+them already exists on `main`, and diffing `main` → branch is overwhelmingly deletions.
+
+The next step is not another Linux slice. It is **#103**: one `macos-26` run of
+`bash scripts/host-preflight.sh` then `bash scripts/ci-swift.sh` unblocks eleven criteria at once,
+including all three `F04` needs, and is Phase A of
+`docs/validation/GC420D-TAHOE-FIRST-RUN.md` with no device attached. Phases B–D need explicit consent
+naming the GC420d and a finite label budget; the plan proposes three labels maximum for the first
+smoke test.
+
+Blockers: #103 is the gate for most of the ledger. #89, #80 and #90 remain the gates for GUI,
+installed and physical evidence. #101 and #93 gap 2 need human security review.
+
 # One shared deadline for the traceability report — 2026-09-19
 
 Source at `main` `872adb3`, on `claude/determined-sagan-frse18`. Closes #91, refs #87.

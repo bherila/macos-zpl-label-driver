@@ -5,7 +5,7 @@
       "acceptanceID": "M2-AC04",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "8ab3429d4bd96db326cdd0ddaed44229f30c8100",
+      "sourceSHA": "9527188af32226ab1f2117ed2d332980d4db8e0f",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/BitmapLayout.swift",
@@ -32,6 +32,10 @@
         {
           "path": "docs/validation/M2-DITHER-WIDTH-COVERAGE-2026-09-19.md",
           "sha256": "d4a4d440352af1d41681f929dccab411588a5f8a5327c11c8c837cb685f696a1"
+        },
+        {
+          "path": "docs/validation/M2-RESEAL-AFTER-REPORT-DEADLINE-2026-09-19.md",
+          "sha256": "43fccadfa2addddcd03dae5fd0df836899bafd4a8744868787896fcbc32f9d1f"
         }
       ]
     },
@@ -39,7 +43,7 @@
       "acceptanceID": "M2-AC13",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "8ab3429d4bd96db326cdd0ddaed44229f30c8100",
+      "sourceSHA": "9527188af32226ab1f2117ed2d332980d4db8e0f",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometry.swift",
@@ -118,6 +122,10 @@
         {
           "path": "docs/validation/M2-DITHER-WIDTH-COVERAGE-2026-09-19.md",
           "sha256": "d4a4d440352af1d41681f929dccab411588a5f8a5327c11c8c837cb685f696a1"
+        },
+        {
+          "path": "docs/validation/M2-RESEAL-AFTER-REPORT-DEADLINE-2026-09-19.md",
+          "sha256": "43fccadfa2addddcd03dae5fd0df836899bafd4a8744868787896fcbc32f9d1f"
         }
       ]
     }
