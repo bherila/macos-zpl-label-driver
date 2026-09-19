@@ -283,18 +283,42 @@ class EvidenceCurrencyTests(SyntheticEvidenceRepository):
         self.assertEqual([], result['gating'])
 
     def test_a_deeply_nested_ledger_cannot_be_evaluated(self):
-        # 100 kB, far inside the 2 MiB cap, but deeper than the JSON decoder's recursion limit.
-        # This read precedes the build_report wrapper, so an uncaught RecursionError printed a
-        # traceback and exited 1 -- a fourth outcome the documented contract denies.
+        # 100 kB, far inside the 2 MiB cap, but nested far deeper than a ledger ever is.
+        # This read precedes the build_report wrapper, so the decoder's failure used to print
+        # a traceback and exit 1 -- a fourth outcome the documented contract denies.
+        #
+        # Deliberately asserts the contract and not the exception name. Which exception the
+        # decoder raises here is a CPython detail that changed under us: 3.10 through 3.13
+        # raise RecursionError, while 3.14 parses the input and the ledger then fails as a
+        # TypeError because it decoded to a list rather than an object. Both must land on
+        # cannot-evaluate, and pinning the name made this pass on a 3.11 developer machine and
+        # fail on a 3.14 runner. test_a_recursion_error_while_decoding_cannot_be_evaluated
+        # pins RecursionError itself, deterministically, on every version.
         (self.root / 'docs/ACCEPTANCE-EVIDENCE.json').write_text('[' * 50000 + ']' * 50000)
-        with self.assertRaises(currency.CannotEvaluate) as raised:
+        with self.assertRaises(currency.CannotEvaluate):
             self.evaluate()
-        self.assertIn('RecursionError', str(raised.exception))
         probe = subprocess.run([sys.executable, str(SCRIPTS / 'evidence_currency.py'),
                                 '--root', str(self.root)], capture_output=True, text=True, timeout=120)
         self.assertEqual(currency.EXIT_CANNOT_EVALUATE, probe.returncode, probe.stdout)
         self.assertIn('CANNOT-EVALUATE', probe.stderr)
         self.assertNotIn('Traceback', probe.stderr)
+
+    def test_a_recursion_error_while_decoding_cannot_be_evaluated(self):
+        # The finding's own case, pinned without depending on how any CPython version decides
+        # to fail on deep input: force the decoder to raise RecursionError and require the
+        # documented cannot-evaluate outcome rather than a traceback.
+        original = currency.json.loads
+
+        def raising(*args, **kwargs):
+            raise RecursionError('maximum recursion depth exceeded while decoding')
+
+        currency.json.loads = raising
+        try:
+            with self.assertRaises(currency.CannotEvaluate) as raised:
+                self.evaluate()
+        finally:
+            currency.json.loads = original
+        self.assertIn('RecursionError', str(raised.exception))
 
     # -- gating findings come from the records, not from the one-verdict summary ----
 
