@@ -1,3 +1,67 @@
+# Ordered-dither adversarial-width vectors — 2026-09-19
+
+Source at `main` `067672b`, on `claude/determined-sagan-frse18`.
+
+#104. `M2-AC04` names widths 1, 7, 8, 9, 811, 812 and 813 for the one-bit layout, and
+`MonochromeConversion`'s `photographicOrderedDither4x4` branch packs rows itself rather than delegating
+to `MonochromeBitmap.threshold`, yet it was exercised only at widths 2 and 4. This slice adds the
+vectors. It does **not** re-check the criterion; see the currency note below for why that has to be a
+separate commit on a later base.
+
+Two tests, both in `MonochromeBitmapTests`:
+
+`testPhotographicDitherAdversarialWidths` covers each named width at height 5, so `y & 3` wraps past
+the four-row screen. Pure black is below every Bayer threshold (the lowest is 8) and pure white above
+every one (the highest is 248), which pins stride, MSB-first placement and the white tail without
+re-deriving the screen. A third vector blacks only the first and last column, so a packer shifting from
+the wrong end returns indices mirrored within their byte.
+
+`testPhotographicDitherScreenPhaseHoldsAcrossByteBoundaries` uses uniform mid gray at 813 dots. Row 0
+ranks columns by `x & 3` as 0, 8, 2, 10, so 128 is black exactly where the rank is at least 8 — the odd
+columns — across the whole row. That pins the screen phase against the column index rather than the
+byte offset.
+
+Both decode set bits MSB-first and compare against an independently computed column set, rather than
+asserting bytes the implementation could agree with by construction.
+
+**The coverage claim is proven by mutation, not asserted.** Replacing
+`packed[y * layout.bytesPerRow + x / 8]` with `packed[y * layout.bytesPerRow]` — always the row's first
+byte, identical for any width up to 8 — leaves all three pre-existing dither tests green and fails both
+new ones, 41 assertions in total. An LSB-first shift is also caught, though that one
+`MonochromeBitmap.init` already rejected through its tail-padding guard.
+
+## Currency note: a source change invalidates every record until it is re-sealed
+
+`source_is_unchanged` treats any diff outside evidence metadata, `docs/validation/*.md`,
+`docs/milestones/*/ACCEPTANCE.md` and `MANIFEST.sha256` as a source change. `M2-AC13` binds
+`78acd9b`, and this slice adds a LabelCore test file, so once it lands the diff from `78acd9b` to `main`
+touches a non-exempt path and that record stops being current. **The report will read 0 criteria on
+`main` after this merges, down from 1, because a test was added.**
+
+That is a property of the ledger design rather than a defect in this change, and it is worth stating
+because it constrains how every future slice is sequenced: records cannot be written in the same commit
+as the source they describe, since a squash merge does not descend from the branch commit, and they
+cannot survive a later source change on the same base. Evidence therefore always follows source, in its
+own PR against the merged result. The follow-up re-binds `M2-AC13` to this slice's merge commit and adds
+the `M2-AC04` record with `MonochromeConversion` bound.
+
+Changed requirements: none. `M2-AC04` stays unchecked and `F06` stays pending; this slice supplies the
+missing coverage, not the declaration.
+
+Tests actually run. Linux x86_64, Swift 6.1.2: `python3 scripts/run-accelerator-checks.py` passed end
+to end — 313 LabelCore tests, 0 failures; 132 cross-language ZPL/PBM/analytic round-trips; 180
+independent ASCII compression round-trips; 12 encoding-benchmark CLI cases; 15 inert CUPS ABI, 14 inert
+filter ABI and 1 filter-to-discard pipeline case. `MonochromeBitmapTests` alone is 19 tests, up from
+17.
+
+What this does not establish. Linux, evidence level A. The dither packer's behaviour on a real page
+still runs through `QuartzPDFToMonochrome` on macOS, which these tests do not reach, and nothing here
+touches the eleven criteria waiting on #103. Core Graphics, LabelMac, macOS printing, the scheduler,
+signing, USB, the GUI and any GC420d behaviour remain NOT RUN.
+
+Blockers: #103 remains the gate for most of the ledger. #89, #80 and #90 remain the gates for GUI,
+installed and physical evidence. #101 and #93 gap 2 need human security review.
+
 # Acceptance evidence bound to executed runs — 2026-09-18
 
 Records bind source `78acd9bde132211e0af9fdba01b9795f5d98d35b`, the tip of `main`. Work happens on
