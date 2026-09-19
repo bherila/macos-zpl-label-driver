@@ -1,3 +1,33 @@
+# Re-seal M2 after the editor and CI slices — 2026-09-19
+
+Records bind source `201ab1cd93b6e32f02f14e516268c86b6931c534`, the tip of `main`. This slice touches
+only the paths `source_is_unchanged` exempts, so the binding survives squash merge.
+
+No new claim. `M2-AC04` and `M2-AC13` are re-bound after five merges changed non-exempt paths:
+`#111` and `#114` and `#117` (`.github/`, `scripts/`), `#112`/`#113`/`#115` and `#118` (`Packages/`).
+The seventh and eighth instances of the sequencing rule. Measured on `main` at `201ab1c` before this
+slice, both read checked, digest-valid, **not** current, at the prescribed level — verdict
+`stale-source`. Neither was ever digest-invalid or below its level; only currency lapsed.
+
+This is a rebind, not a re-verification, and the distinction matters. All 27 cited implementation and
+evidence paths across the two records were re-hashed at `201ab1c` and **27 of 27 match**: none of the
+five merges touched a cited path. `#117` changed `scripts/check_repo.py` and
+`scripts/tests/test_preflight.py` while `M2-AC13` cites a disjoint set of `scripts/` files, and `#118`
+changed `Packages/LabelMac/` while both records cite `Packages/LabelCore/` only. `sourceSHA` is the
+only field that moved. A re-seal that quietly re-hashed a changed implementation file would be
+promoting a new claim under an old one, so the check is recorded rather than assumed. See
+[2026-09-19 re-seal after editor and CI slices](validation/M2-RESEAL-AFTER-EDITOR-AND-CI-2026-09-19.md).
+
+`evidence_currency.py --gate-stale` now exits 0 on this tree: **no stale record remains**. That was
+the condition recorded as the prerequisite for enabling the gate on `push`, and it is met. Enabling
+it is still a separate maintainer decision and this slice does not change the workflow — the
+open question in `docs/TRACEABILITY.md` stands, but it can now be taken without turning `main` red
+on arrival, which was the whole reason it was deferred.
+
+Unchanged by this slice: the eleven checked rows carrying no ledger record at all, including the
+level-I `M2-AC12`, are still reported and still uncorrected. GUI, installed scheduler, administrator,
+USB, printer and every release gate remain NOT RUN.
+
 # Four parallel workstreams, four merged PRs — 2026-09-19
 
 Four isolated worktrees branched from `c3bbc5c`, one branch and one PR each, no shared source file
