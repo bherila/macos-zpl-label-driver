@@ -2,11 +2,10 @@
 
 - Date/time and operator: 2026-09-18, automated Claude session, unattended
 - Exact repository commit SHA: `78acd9bde132211e0af9fdba01b9795f5d98d35b`
-- Related requirement and acceptance IDs: M2-AC13, M3-AC01 and M3-AC02 — that
-  is, every record currently in `docs/ACCEPTANCE-EVIDENCE.json`. The requirements
-  those IDs map to in `docs/requirements.json` are F03, F04 and F20. M2-AC01,
-  M2-AC04, M2-AC05, M2-AC06, M3-AC03 and M3-AC04 are **not** among them; see
-  Limitations. This run
+- Related requirement and acceptance IDs: M2-AC13 — the only record remaining in
+  `docs/ACCEPTANCE-EVIDENCE.json`. It maps to F20. M2-AC01, M2-AC04, M2-AC05,
+  M2-AC06, M3-AC01, M3-AC02, M3-AC03 and M3-AC04 were all withdrawn during review
+  of #102; see Limitations. This run
   contributes nothing to F07, which maps only to M2-AC07, M2-AC12 and M6-AC09.
 - Evidence level: A
 - Status: PASS
@@ -39,7 +38,7 @@ overflowing-corner admission changes landed, and M3-AC01 and M3-AC04 cited a
 2026-09-17 per-ID assessment taken before the documented-control encoder grew
 its darkness, thermal, tracking, dimension and offset paths. A digest proves
 which source is present, not that it passed. This document is therefore the
-current execution artifact for **all three** records, which is possible because
+current execution artifact for the remaining record, which is possible because
 the command below runs the whole package, not a selected subset.
 
 The following was executed with the Swift 6.1.2 toolchain on `PATH`:
@@ -212,6 +211,25 @@ vectors, which is a LabelCore source change and so a separate PR: #104.
 An earlier revision of this document claimed M2-AC04 had no second site. That
 audit was wrong — it checked `QuartzPDFToMonochrome`, which does delegate, and
 stopped there.
+
+**M3-AC01 and M3-AC02 were withdrawn last, and they are the closest calls.**
+`FinishingFramedOutput.prepare` invokes `qualification.validate` immediately
+before selecting and emitting `^MMD`, `^MMP` or `^MMR`, and
+`FinishingRasterPreparation.validateControls` re-resolves the explicit finishing
+choices against the retained profile and rejects a mismatch. Both are *callers*
+of LabelCore policy that this run does exercise, rather than independent
+reimplementations of it. The argument for keeping the records was that a caller
+is wiring rather than an implementation of the claim. It was rejected because
+both criteria are stated in terms of what the product does — controls "are not
+enabled silently", every explicit choice "is range/combination checked" — and
+both enforcement points sit in code nothing executed here reaches. Dropping
+either call leaves every LabelCore test in this run green.
+
+The practical consequence, which is the reason this document ends with one
+record rather than nine: on Linux, only criteria whose every owner is portable
+can be closed. Anything asserting what the product emits, accepts or refuses has
+an enforcement site in LabelMac. M2-AC13 survives because it is a statement about
+arithmetic rather than behaviour.
 
 This is Linux, Swift 6.1.2, evidence level A only. It qualifies the portable
 `LabelCore` engine and the Python oracles. It does not qualify Core Graphics
