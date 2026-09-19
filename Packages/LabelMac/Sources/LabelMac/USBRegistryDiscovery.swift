@@ -11,6 +11,12 @@ public struct USBPrinterObservation: Equatable, Sendable, Identifiable,
     public let productID: UInt16
     public let interfaceNumber: UInt8
     private let registryEntryID: UInt64
+    /// What the scan found where a serial number would be. Private, because a
+    /// serial number is the one field here that names a *unit*: it must not
+    /// reach a log, a diagnostic dump or a committed file. `LabelCore` keeps
+    /// the payload internal to itself, so even inside this module the string
+    /// cannot be read back out -- only handed to qualification.
+    private let serialNumber: USBSerialNumberReading
 
     /// Display text for the picker, built here so it is testable rather than
     /// inline in a view body.
@@ -31,12 +37,33 @@ public struct USBPrinterObservation: Equatable, Sendable, Identifiable,
                UInt32(vendorID), UInt32(productID), UInt32(interfaceNumber))
     }
 
-    init(registryEntryID: UInt64, vendorID: UInt16, productID: UInt16, interfaceNumber: UInt8) {
+    init(registryEntryID: UInt64, vendorID: UInt16, productID: UInt16, interfaceNumber: UInt8,
+         serialNumber: USBSerialNumberReading = .absent) {
         id = UUID()
         self.registryEntryID = registryEntryID
         self.vendorID = vendorID
         self.productID = productID
         self.interfaceNumber = interfaceNumber
+        self.serialNumber = serialNumber
+    }
+
+    /// Whether the scan read a serial-number string at all.
+    ///
+    /// This is a fact about the scan and nothing more. It is not an identity,
+    /// it is not a qualification, and `true` here does not mean the string is
+    /// usable -- `qualifiedIdentity(digest:)` decides that and says why not.
+    public var serialNumberWasRead: Bool { serialNumber.isReported }
+
+    /// Derives a stable identity from this observation, or throws the specific
+    /// reason it cannot.
+    ///
+    /// There is no path here that turns an absent serial number into an
+    /// identity. Vendor and product identifiers name a model, and a registry
+    /// entry ID lasts only as long as this session, so neither can stand in.
+    func qualifiedIdentity(digest: any StableIdentityDigest) throws -> QualifiedUSBDeviceIdentity {
+        try USBIdentityQualification.qualify(
+            vendorID: vendorID, productID: productID,
+            serialNumber: serialNumber, digest: digest)
     }
 
 }
@@ -100,6 +127,28 @@ public enum USBRegistryDiscovery {
         return .init(scannedInterfaces: scanned, unreadableInterfaceClasses: unreadable, printers: printers)
     }
 
+    /// The largest serial-number string this code will materialise a reading
+    /// from. A USB string descriptor carries at most 126 UTF-16 code units, so
+    /// anything beyond this cap is not a truncated serial number but a
+    /// registry property that is not what this code is looking for. Lengths
+    /// between the descriptor limit and this cap are passed through so that
+    /// qualification can report `serialNumberTooLong` specifically.
+    static let maximumSerialNumberCharacters = 4096
+
+    /// Classifies a serial-number registry property without touching IOKit, so
+    /// the classification is unit-testable on its own.
+    ///
+    /// Absent and unreadable stay distinct: no property at all is a different
+    /// fact from a property of the wrong type, and neither is an empty serial.
+    static func serialNumberReading(_ property: CFTypeRef?) -> USBSerialNumberReading {
+        guard let property else { return .absent }
+        guard CFGetTypeID(property) == CFStringGetTypeID(),
+              let text = property as? NSString else { return .unreadable }
+        let value = text as String
+        guard value.count <= maximumSerialNumberCharacters else { return .unreadable }
+        return .reported(value)
+    }
+
     static func unsignedNumber(_ property: CFTypeRef?, maximum: UInt64) -> UInt64? {
         guard let property, CFGetTypeID(property) == CFNumberGetTypeID(),
               let number = property as? NSNumber else { return nil }
@@ -151,8 +200,24 @@ private struct NativeUSBInterfaceRegistryAccess: USBInterfaceRegistryAccess {
             throw USBRegistryDiscovery.Error.unreadablePrinterMetadata
         }
         return .init(registryEntryID: registryID, vendorID: UInt16(vendor), productID: UInt16(product),
-                     interfaceNumber: interfaceNumber)
+                     interfaceNumber: interfaceNumber,
+                     serialNumber: USBRegistryDiscovery.serialNumberReading(
+                        IORegistryEntryCreateCFProperty(
+                            parent, Self.serialNumberPropertyKey as CFString,
+                            kCFAllocatorDefault, 0)?.takeRetainedValue()))
     }
+
+    /// `IOKit/usb/USBSpec.h` defines `kUSBSerialNumberString` as the literal
+    /// `"USB Serial Number"`. It is spelled out here rather than referenced
+    /// through the C constant because this file cannot be compiled on the
+    /// authoring host, and the constant's Swift exposure is not guaranteed to
+    /// be identical across SDK versions; the literal is fixed by the header.
+    ///
+    /// Reading it is a registry property read, exactly like the vendor and
+    /// product identifiers already read from this same entry. The kernel
+    /// populated the property during enumeration. Nothing here opens the
+    /// device, claims an interface, or issues a control transfer.
+    private static let serialNumberPropertyKey = "USB Serial Number"
 
     private func number(_ entry: io_object_t, _ key: String, maximum: UInt64) -> UInt64? {
         USBRegistryDiscovery.unsignedNumber(

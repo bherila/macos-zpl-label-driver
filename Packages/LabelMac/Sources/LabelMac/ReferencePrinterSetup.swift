@@ -39,11 +39,29 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         case unsupportedMotorSpeed(MotorSpeedKind, Int)
     }
 
+    /// What the last attempt to qualify a USB unit produced.
+    ///
+    /// "Not attempted" is kept apart from "attempted and refused". Folding
+    /// them together would make a device nobody has looked at yet
+    /// indistinguishable from one this Mac has looked at and cannot identify,
+    /// and only the second of those has anything to tell the person.
+    public enum IdentityQualification: Equatable, Sendable {
+        case notAttempted
+        case qualified
+        case refused(USBIdentityQualification.Failure)
+    }
+
     @Published public var offsetDraft: [OffsetField: String] = [:]
     @Published public var geometryDraft: [GeometryField: String] = [:]
     @Published public private(set) var selectedThermalMethod: ThermalMethod?
     @Published public private(set) var selectedTracking: MediaTracking?
-    public let profile: PrinterProfile
+    /// The profile this setup is editing against.
+    ///
+    /// It is a `let` no longer because qualifying a USB unit produces a new
+    /// immutable profile revision rather than mutating this one in place; the
+    /// published change is that replacement becoming current.
+    @Published public private(set) var profile: PrinterProfile
+    @Published public private(set) var identityQualification = IdentityQualification.notAttempted
     @Published public var stockLoadedConfirmed = false
     @Published public var tearOffConfirmed = false
     @Published public private(set) var selectedDarkness: Int?
@@ -63,6 +81,82 @@ public final class ReferencePrinterSetupModel: ObservableObject {
 
     public static func gc420dUSB() throws -> ReferencePrinterSetupModel {
         ReferencePrinterSetupModel(profile: try .gc420dUSBReference())
+    }
+
+    /// Qualifies a read-only USB observation and, when it qualifies, adopts the
+    /// derived identity as a new profile revision.
+    ///
+    /// This is the only route by which an observed identity reaches a profile.
+    /// It qualifies an identity and nothing else: it installs no queue, asks
+    /// for no authorization, opens no device and sends no command. What it
+    /// changes is that `canInstallQueue` is no longer blocked on identity --
+    /// the stock and tear-off confirmations and control validation still are.
+    @discardableResult
+    public func qualifyIdentity(from observation: USBPrinterObservation) -> IdentityQualification {
+        qualifyIdentity(from: observation, digest: CryptoKitStableIdentityDigest())
+    }
+
+    @discardableResult
+    func qualifyIdentity(from observation: USBPrinterObservation,
+                         digest: any StableIdentityDigest) -> IdentityQualification {
+        guard profile.connection.transport == .usb else {
+            // A USB observation cannot identify the endpoint of some other
+            // transport, and quietly accepting it would bind a profile to a
+            // device it does not reach.
+            identityQualification = .refused(.identityRejected)
+            return identityQualification
+        }
+        let qualified: QualifiedUSBDeviceIdentity
+        do { qualified = try observation.qualifiedIdentity(digest: digest) }
+        catch let failure as USBIdentityQualification.Failure {
+            identityQualification = .refused(failure)
+            return identityQualification
+        } catch {
+            identityQualification = .refused(.identityRejected)
+            return identityQualification
+        }
+        guard case .observed(let current, _) = profile.connection.stableIdentity,
+              current == qualified.identity else {
+            // A different unit, or the first one. The stock and tear-off
+            // confirmations were made about whatever printer was in front of
+            // the person at the time, so they do not carry over to another
+            // one; they are withdrawn rather than inherited.
+            guard let adopted = try? profile.adoptingStableIdentity(qualified.identity) else {
+                // Nothing was adopted, so nothing that was confirmed about the
+                // current device is withdrawn either.
+                identityQualification = .refused(.identityRejected)
+                return identityQualification
+            }
+            stockLoadedConfirmed = false
+            tearOffConfirmed = false
+            profile = adopted
+            identityQualification = .qualified
+            return identityQualification
+        }
+        // Re-qualifying the unit already adopted changes nothing, and must not
+        // spend a profile revision or withdraw a confirmation for saying so.
+        identityQualification = .qualified
+        return identityQualification
+    }
+
+    /// Withdraws a qualified identity, returning the profile to a revision that
+    /// identifies no unit. Installation readiness goes back to blocked.
+    public func withdrawQualifiedIdentity() throws {
+        identityQualification = .notAttempted
+        guard case .observed = profile.connection.stableIdentity else { return }
+        let (next, overflowed) = profile.revision.addingReportingOverflow(1)
+        guard !overflowed, next <= 9_007_199_254_740_991 else {
+            throw PrinterProfileError.unrepresentableProfileRevision
+        }
+        stockLoadedConfirmed = false
+        tearOffConfirmed = false
+        profile = try PrinterProfile(
+            schemaVersion: profile.schemaVersion, revision: next,
+            capabilities: profile.capabilities, installedHardware: profile.installedHardware,
+            media: profile.media,
+            connection: .init(transport: profile.connection.transport, stableIdentity: .unobserved),
+            configuredDefaults: profile.configuredDefaults, thermalMedia: profile.thermalMedia,
+            finishingConfiguration: profile.finishingConfiguration)
     }
 
     public var thermalMethodChoices: [ThermalMethod] {
@@ -299,6 +393,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
     public var installationReadinessMessage: String {
         if let validationMessage { return validationMessage }
         guard case .observed = profile.connection.stableIdentity else {
+            if case .refused(let failure) = identityQualification { return failure.setupMessage }
             return "Queue installation remains unavailable until this Mac positively identifies the USB device"
         }
         guard stockLoadedConfirmed && tearOffConfirmed else {
@@ -439,10 +534,37 @@ public final class ReferencePrinterSetupModel: ObservableObject {
         }
     }
 
+    /// Transport and identity are reported as two facts because they are two
+    /// facts. A read-only scan that identifies a unit says nothing about
+    /// whether bytes can be delivered to it, and must not be allowed to read
+    /// as though it did.
+    private var transportFact: PrinterSetupFact {
+        guard case .observed = profile.connection.stableIdentity else {
+            return .init(id: "transport", label: "Transport",
+                         value: "USB — device not discovered", status: .unknown)
+        }
+        return .init(id: "transport", label: "Transport",
+                     value: "USB — unit identified by a read-only registry scan; delivery unverified",
+                     status: .configured)
+    }
+
+    private var identityFact: PrinterSetupFact {
+        if case .observed = profile.connection.stableIdentity {
+            return .init(id: "identity", label: "Device identity",
+                         value: "Qualified from this Mac's read-only USB registry scan", status: .configured)
+        }
+        if case .refused(let failure) = identityQualification {
+            return .init(id: "identity", label: "Device identity",
+                         value: failure.setupMessage, status: .unknown)
+        }
+        return .init(id: "identity", label: "Device identity",
+                     value: "No USB unit identified", status: .unknown)
+    }
+
     public var facts: [PrinterSetupFact] {
         [
             .init(id: "model", label: "Model", value: profile.capabilities.model, status: .configured),
-            .init(id: "transport", label: "Transport", value: "USB — device not discovered", status: .unknown),
+            transportFact,
             .init(id: "stock", label: "Stock", value: profile.schemaVersion == 7 ? "Physical stock verification required" : "4 × 6 in pre-cut direct thermal",
                   status: profile.schemaVersion == 7 ? .unknown : .configured),
             .init(id: "finishing", label: "Finishing", value: "Tear-off", status: .configured),
@@ -452,6 +574,7 @@ public final class ReferencePrinterSetupModel: ObservableObject {
             motorFact(id: "backfeedSpeed", label: "Backfeed speed", capability: profile.capabilities.backfeedSpeeds),
             darknessFact,
             trackingFact,
+            identityFact,
         ] + geometryFacts + offsetFacts
     }
 }
