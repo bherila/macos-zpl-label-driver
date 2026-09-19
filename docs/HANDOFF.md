@@ -1,3 +1,69 @@
+# Manifest scope decided, and the first re-seal under enforcement — 2026-09-19
+
+`MANIFEST.sha256` is now whole-tree and enforced. ADR 0004's recommended option 1 was taken in the
+staging it prescribes: `--enforce-covered` first, which changed no build outcome because all three of
+its failure counts already read zero, then the 164-entry backfill and `--enforce-coverage`. Coverage
+went from 356 of 521 tracked files to 521 of 522, the one uncovered path being `MANIFEST.sha256`
+itself. Issue #87 is answered: [2026-09-19 whole-tree manifest](validation/M6-MANIFEST-WHOLE-TREE-2026-09-19.md).
+
+Option 1 rather than the alternatives because the ADR's own measurements rule them out, not because
+whole-tree sounds tidier. The archive-scoped reading is contradicted by the file's history — coverage
+began at exact parity, 280 entries over 281 tracked files, and held within one entry for twenty
+commits until `56fdc7b` added 116 tracked files with zero entries and nothing resumed it. Retiring it
+is incoherent while `source_is_unchanged` reads the manifest directly and the ledger binds 31 files
+rather than 521.
+
+## The cost is real, and the helper is why it is payable
+
+Option 1 makes every PR touching a covered file refresh the manifest, which at whole-tree coverage is
+nearly every PR. That cost demonstrated itself immediately: enabling the gate edited `ci.yml`, which
+is covered, and the gate failed *that very commit* on its own stale digest.
+
+`scripts/refresh_manifest.py` pays it in one command, and shipping it with the gate rather than after
+it was the point. It imports every path rule, size cap and `O_NOFOLLOW` defence from `manifest_audit`
+instead of restating them, so the reading and writing halves cannot drift apart — the same failure
+mode #122 fixed in the ZPL literals, applied before it could happen. It never removes an entry,
+because widening is permitted and shrinking is corrupted integrity metadata, and it leaves an absent
+or unreadable file at its recorded digest rather than rewriting it to a placeholder, which would turn
+an integrity failure into a clean build.
+
+The first evidence slice written under the new regime — the re-seal below — is the test of that. It
+adds one validation document and edits four covered files; under the old regime that meant
+hand-hashing five paths and hoping. Here it was `git add -A && refresh_manifest.py --backfill`, which
+reported exactly what it changed, and both gates passed first time.
+
+One sharp edge, now in `CONTRIBUTING.md`: `--backfill` reads the git index, not the working tree, so
+a new file must be staged before the refresh can see it. An unstaged validation document is silently
+uncovered and the *coverage gate* fails the build rather than the refresh — the right order, but only
+obvious once.
+
+## What whole-tree coverage does not buy
+
+Carried forward from the ADR because it bears on how much to value this: coverage is an **integrity**
+control, not a **currency** control. `source_is_unchanged` decides currency from the diff, so a change
+to a previously uncovered Swift source already invalidated every record exactly as a covered one did.
+What this adds is that one command now answers "has any tracked byte changed without being recorded".
+It does not tighten acceptance enforcement, and claiming otherwise would overstate it.
+
+## Re-seal
+
+`M2-AC04` and `M2-AC13` re-bound to `87cbd247161f30b51a05c59047a4bd4fbd4690b4`. Eleventh and twelfth
+instances of the sequencing rule. 31 of 31 cited paths re-hashed and matching; #125 touched none of
+them, so `sourceSHA` is the only field that moved. The manifest backfill itself invalidated nothing —
+it is an exempt path and a widening refresh, which `manifest_describes_tree` explicitly permits.
+
+## Owed next
+
+PR #123, USB identity qualification for issue #89, remains **open and deliberately held** for
+maintainer review. It is green with a clean Codex security review at `cb732c1`, and moving queue
+installation from structurally impossible to possible is a risk-posture decision rather than a
+code-correctness one. Merging it owes a thirteenth re-seal, which costs nothing.
+
+The question that decides whether #123 unblocks anything in practice is still unanswered and still
+cheap: **whether a GC420d publishes a USB serial number at all is unobserved.** If it publishes none,
+the correct output is `serialNumberAbsent` and installation stays blocked — the design working, with
+23 criteria shut behind a different wall.
+
 # Three parallel tranches, two merged, one held — 2026-09-19
 
 Three isolated worktrees branched from `eb70ca7`, one branch and one PR each, no shared source file
