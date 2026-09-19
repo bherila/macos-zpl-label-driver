@@ -78,8 +78,12 @@ macOS 27.0, CPython 3. Exit status taken from each command itself, never from a 
 | `manifest_audit.py --enforce-covered --enforce-coverage` | exit 0 |
 | `git diff --check` | clean |
 
-Currency was verified **after committing**, since a dirty worktree reports `WORKSPACE-DIRTY` and can never
-be current.
+Currency was verified **after committing**, and **in a clean throwaway clone** of the committed branch, not
+in the working checkout. The checker decides dirtiness with `git status --porcelain`, which counts
+*untracked* files, and the maintainer's checkout holds untracked personal files, so in that checkout both
+rows read `stale-source` under `WORKSPACE-DIRTY` however correct the commit is. That is a defensible
+fail-closed choice rather than a defect — SwiftPM would compile an untracked `.swift` file — but it means
+the two currency rows above are reproducible only from a clean checkout, as CI's is.
 
 **NOT RUN:** the Swift suites locally. No Swift file is touched by this slice; hosted `macos-26` ran both
 suites green on #127 and #137 at the commits merged; #138 is documentation only and the scope classifier
