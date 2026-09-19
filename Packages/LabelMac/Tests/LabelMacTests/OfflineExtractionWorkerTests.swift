@@ -163,6 +163,12 @@ final class OfflineExtractionWorkerTests: XCTestCase {
                 // Fail-closed either way: the decoder may refuse the overflowing
                 // literal, or admit an infinity the geometry type then refuses.
                 // What must never happen is a ticket carrying a non-finite edge.
+                //
+                // Observed on macOS 27.0: both literals give .malformedJSON, the
+                // decoder refusing first. The set is deliberately NOT narrowed to
+                // that: which typed error fires is a Foundation detail, CI runs a
+                // different macOS than the machine that observed it, and the
+                // contract under test is the typed rejection, not its route.
                 let decoded = (error as? OfflineConversionTicket.TicketError) == .malformedJSON
                 let geometry = (error as? PagePlacementError) == .invalidMargins
                 XCTAssertTrue(decoded || geometry, "untyped rejection: \(error)")
