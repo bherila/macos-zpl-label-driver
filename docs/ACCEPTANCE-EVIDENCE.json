@@ -2,10 +2,44 @@
   "schemaVersion": 1,
   "records": [
     {
+      "acceptanceID": "M2-AC04",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "8ab3429d4bd96db326cdd0ddaed44229f30c8100",
+      "implementation": [
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/BitmapLayout.swift",
+          "sha256": "65404d1f8463a87794c28acf92d377220a7d12b0f7a4f68a6b36b49209fb63e9"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/MonochromeBitmap.swift",
+          "sha256": "c6bd617eda5558a0b9657e9b3e9580b261ffbe41aa97983896acfd9b80de4703"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/MonochromeConversion.swift",
+          "sha256": "bbdb0ec88d69db95cf4c354fb3d632dd5877464a569c28e1efea9e5dab3b0e61"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/BitmapLayoutTests.swift",
+          "sha256": "e31f77f5f13a9ce50c656ede70436f36abce25152a2e3f481fb9d4237a9da446"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/MonochromeBitmapTests.swift",
+          "sha256": "d13b3ee190fd1d21d4b8dfe1a8abd4d35fa5d2f149659da2e2891a30dcc3a6f1"
+        },
+        {
+          "path": "docs/validation/M2-DITHER-WIDTH-COVERAGE-2026-09-19.md",
+          "sha256": "d4a4d440352af1d41681f929dccab411588a5f8a5327c11c8c837cb685f696a1"
+        }
+      ]
+    },
+    {
       "acceptanceID": "M2-AC13",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "78acd9bde132211e0af9fdba01b9795f5d98d35b",
+      "sourceSHA": "8ab3429d4bd96db326cdd0ddaed44229f30c8100",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometry.swift",
@@ -30,6 +64,10 @@
         {
           "path": "scripts/check_reference_target.py",
           "sha256": "3d6e32c23f67e02bffe698d467c426a02c5abf8e6461f04d349c6abde8f8bcb5"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/MonochromeConversion.swift",
+          "sha256": "bbdb0ec88d69db95cf4c354fb3d632dd5877464a569c28e1efea9e5dab3b0e61"
         }
       ],
       "evidence": [
@@ -75,7 +113,11 @@
         },
         {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/MonochromeBitmapTests.swift",
-          "sha256": "3a50af86364dbadc14013f939d5772c28f26afb53a011671fbf1edafc33b8a67"
+          "sha256": "d13b3ee190fd1d21d4b8dfe1a8abd4d35fa5d2f149659da2e2891a30dcc3a6f1"
+        },
+        {
+          "path": "docs/validation/M2-DITHER-WIDTH-COVERAGE-2026-09-19.md",
+          "sha256": "d4a4d440352af1d41681f929dccab411588a5f8a5327c11c8c837cb685f696a1"
         }
       ]
     }

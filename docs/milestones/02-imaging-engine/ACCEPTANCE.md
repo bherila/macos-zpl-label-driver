@@ -12,7 +12,7 @@ Evidence levels: **A** automated; **C** repository/CI/configuration inspection; 
 | [ ] | M2-AC01 | Geometry | A | All box/origin/rotation/unit/rounding vectors pass; physical transform quantization is at most one dot under the documented policy. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
 | [x] | M2-AC02 | Original-source rendering | A | Output rendering uses the original PDF or qualified input raster, never a detection/UI thumbnail. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
 | [ ] | M2-AC03 | PDF semantics | I | Transparency, mixed page sizes, embedded images and documented annotation/form behavior match the supported visual contract. |
-| [ ] | M2-AC04 | One-bit layout | A | MSB-first top-down 1=black layout, stride and white tail bits pass adversarial widths including 1,7,8,9,811,812,813 dots. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
+| [x] | M2-AC04 | One-bit layout | A | MSB-first top-down 1=black layout, stride and white tail bits pass adversarial widths including 1,7,8,9,811,812,813 dots. Evidence: [2026-09-19 dither width coverage](../../validation/M2-DITHER-WIDTH-COVERAGE-2026-09-19.md). |
 | [ ] | M2-AC05 | Exact preview | A | Preview reconstruction matches the complete encoder input byte-for-byte after unpack/repack. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
 | [ ] | M2-AC06 | Graphics limits | A | Fields stay within documented/profile limits; reconstructed multi-band image has no missing/duplicated rows or seams. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
 | [ ] | M2-AC07 | Compression | A | Every enabled encoding round-trips bit-exactly and rejects malformed/overflow/checksum vectors as applicable. |
@@ -21,7 +21,7 @@ Evidence levels: **A** automated; **C** repository/CI/configuration inspection; 
 | [ ] | M2-AC10 | CLI/filter contracts | I | CLI error codes and filter stdout/stderr behavior are tested; invalid jobs emit no printer payload in the default prepared mode. |
 | [ ] | M2-AC11 | Physical image quality | H | Reference labels have correct size/orientation and readable text/barcodes on the declared hardware/media configuration. |
 | [x] | M2-AC12 | Performance baseline | I | Release-mode latency, peak memory, output bytes and throughput are recorded on a named reference Mac with reproducible fixtures. Evidence: [2026-09-15 offline baseline](../../validation/M2-PERFORMANCE-BASELINE-2026-09-15.md). |
-| [x] | M2-AC13 | GC420d dot-pitch oracle | A | Reference physical arithmetic produces 813×1219/102-row-bytes/124338 bytes with correct padding and band reconstruction; nominal integer DPI, head width, liner and gap are not conflated. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
+| [x] | M2-AC13 | GC420d dot-pitch oracle | A | Reference physical arithmetic produces 813×1219/102-row-bytes/124338 bytes with correct padding and band reconstruction; nominal integer DPI, head width, liner and gap are not conflated. Evidence: [2026-09-19 dither width coverage](../../validation/M2-DITHER-WIDTH-COVERAGE-2026-09-19.md). |
 
 ## Completion rules
 

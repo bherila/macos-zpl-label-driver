@@ -1,3 +1,63 @@
+# M2-AC04 recorded and M2-AC13 re-sealed — 2026-09-19
+
+Records bind source `8ab3429d4bd96db326cdd0ddaed44229f30c8100`, the tip of `main`, on
+`claude/determined-sagan-frse18`. This slice touches only the paths `source_is_unchanged` exempts, so
+the binding survives squash merge.
+
+This is the evidence half of #104, and it exists as its own slice for a structural reason worth keeping.
+#105 added the ordered-dither vectors at `M2-AC04`'s named widths, which is a LabelCore source change,
+and that same change invalidated `M2-AC13`: the record cites `MonochromeBitmapTests.swift`, so both its
+digest and its currency broke. Measured on `main` immediately after #105 merged, the report read **0
+criteria**, with `M2-AC13` at `referencesValid: false, currentSource: false` — exactly what #105
+predicted in its own description.
+
+**The report now reads 0 of 21 requirements and 2 criteria** — `M2-AC04` and `M2-AC13` — with distinct
+pending acceptance IDs at 80 of 82 mapped. `M2-AC04` is newly declared complete; `M2-AC13` is the same
+claim re-bound to the new base.
+
+`M2-AC04` binds all three layout owners: `BitmapLayout` for stride, `MonochromeBitmap` for the
+tail-padding guard and the threshold packer, `MonochromeConversion` for the dither packer. Its coverage
+was proven by mutation before the record was written — replacing
+`packed[y * layout.bytesPerRow + x / 8]` with `packed[y * layout.bytesPerRow]`, identical for any width
+up to 8, leaves all three pre-existing dither tests green and fails both new ones across 41 assertions.
+
+`MonochromeConversion` is now bound to `M2-AC13` as well. The previous slice deliberately left it
+unbound, because binding the dither branch would have imported an untested path into a record that did
+not depend on it. #105 closed that gap — 813 dots is covered directly — so the exemption no longer
+applies and the residue in the mechanical audit is gone. Both records now report no unbound owner.
+
+## The sequencing rule this pair establishes
+
+Evidence cannot land with the source it describes, and cannot survive source landing after it:
+
+- A record written in the same commit as its source cannot be bound to that commit, because a squash
+  merge does not descend from a branch commit — the ancestry check fails on `main`.
+- A record bound to an earlier commit stops being current the moment any non-exempt path changes, and
+  stops being valid if the changed file is one it cites.
+
+So **every source change is followed by an evidence slice against the merged result**, and the report
+dips in between. That dip is not a regression to be hidden; it is the ledger correctly declining to
+vouch for bytes it has not seen. Worth considering as a CI check of its own: a re-seal reminder when
+`main` carries records whose `currentSource` is false.
+
+Changed requirements: none. `F06` still needs `M2-AC02`, `M2-AC03`, `M2-AC05`, `M2-AC11` and `M6-AC05`;
+`F20` still needs `M0-AC11`, `M3-AC13`, `M4-AC13` and `M6-AC13`.
+
+Tests actually run. Linux x86_64, Swift 6.1.2, at the bound commit:
+`python3 scripts/run-accelerator-checks.py` passed end to end — 313 LabelCore tests, 0 failures,
+`MonochromeBitmapTests` at 19; 132 cross-language ZPL/PBM/analytic round-trips; 180 independent ASCII
+compression round-trips; 12 encoding-benchmark CLI cases; 15 inert CUPS ABI, 14 inert filter ABI and 1
+filter-to-discard pipeline case. `check_repo.py` and the 105 Python tests pass.
+
+What this does not establish. Linux, evidence level A. `QuartzPDFToMonochrome` is how the dither packer
+is reached for a real page on macOS, and it is not covered here. Nothing in this slice touches the
+eleven criteria waiting on #103. Core Graphics, LabelMac, macOS printing, the scheduler, signing, USB,
+the GUI and any GC420d behaviour remain NOT RUN.
+
+Blockers: #103 remains the gate for most of the ledger — one `macos-26` run unblocks eleven criteria
+including all three `F04` needs. #89, #80 and #90 remain the gates for GUI, installed and physical
+evidence. #101 and #93 gap 2 need human security review.
+
 # Ordered-dither adversarial-width vectors — 2026-09-19
 
 Source at `main` `067672b`, on `claude/determined-sagan-frse18`.
