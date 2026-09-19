@@ -9,9 +9,25 @@ on:
 permissions:
   contents: read
 
+# Superseded PULL REQUEST runs are cancelled; runs on `main` are not.
+#
+# Cancelling is keyed on the concurrency group, and for a push the group is the
+# ref, so `cancel-in-progress: true` cancelled `main` pushes exactly as it
+# cancelled pull requests. Merging faster than one macOS build then left the
+# merged tree with no native compilation at all: five merges landed inside ten
+# minutes, each push cancelling the last, and the only run that would have
+# compiled the combined tree died that way. The surviving run classified its own
+# diff as documentation-only and skipped the macOS job legitimately, so
+# `ci-required` still reported green -- every assertion it makes was true, and
+# the combination had simply never been built.
+#
+# A `main` push is the merged result and the last chance to compile it, so it
+# now queues behind its predecessor instead of replacing it. `workflow_dispatch`
+# shares the ref group and is likewise never cancelled, so a manual verification
+# run cannot be killed by an unrelated merge landing mid-build.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   repository:
