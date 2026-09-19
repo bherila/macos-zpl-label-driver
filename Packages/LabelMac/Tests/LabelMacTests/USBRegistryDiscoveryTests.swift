@@ -188,11 +188,21 @@ final class USBRegistryDiscoveryModelTests: XCTestCase {
         let observation = USBPrinterObservation(
             registryEntryID: 123, vendorID: 0x0A5F, productID: 0x00D1, interfaceNumber: 0)
         XCTAssertEqual(observation.interfaceLabel, "USB VID 0x0A5F, PID 0x00D1, interface 0")
-        XCTAssertFalse(observation.interfaceLabel.contains(","), "no grouping separator in an identifier")
-
-        let wide = USBPrinterObservation(
+        let wideLabelSubject = USBPrinterObservation(
             registryEntryID: 1, vendorID: 65535, productID: 4096, interfaceNumber: 255)
-        XCTAssertEqual(wide.interfaceLabel, "USB VID 0xFFFF, PID 0x1000, interface 255")
+        // The label separates its three fields with commas, so a bare "contains a
+        // comma" check is wrong. The grouping separator this guards against is a
+        // comma *between digits*, which is what "2,655" was.
+        for label in [observation.interfaceLabel, wideLabelSubject.interfaceLabel] {
+            XCTAssertNotNil(label.range(
+                of: "^USB VID 0x[0-9A-F]{4}, PID 0x[0-9A-F]{4}, interface [0-9]{1,3}$",
+                options: .regularExpression),
+                "every identifier field must be bare digits: \(label)")
+            XCTAssertNil(label.range(of: "[0-9],[0-9]", options: .regularExpression),
+                         "no grouping separator inside an identifier: \(label)")
+        }
+
+        XCTAssertEqual(wideLabelSubject.interfaceLabel, "USB VID 0xFFFF, PID 0x1000, interface 255")
 
         // The redacted diagnostic description must stay redacted.
         XCTAssertEqual(String(describing: observation), "USBPrinterObservation(redacted)")
