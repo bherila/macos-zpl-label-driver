@@ -1,6 +1,6 @@
 # Contributing
 
-Read AGENTS.md and the active milestone documents. Submit focused PRs with requirement/acceptance IDs, tests and evidence. Describe skipped or unavailable validation explicitly.
+Read AGENTS.md and the active milestone documents. [docs/BUILDING.md](docs/BUILDING.md) has the build, test and pre-commit commands for Linux and macOS. Submit focused PRs with requirement/acceptance IDs, tests and evidence. Describe skipped or unavailable validation explicitly.
 
 Bug reports should identify application and version, macOS version, printer model and resolution, connection, media, workflow, observed versus expected behavior, and a synthetic reproduction. Avoid serial numbers, customer information and complete print payloads. A private label is not automatically safe merely because its PDF metadata was removed.
 

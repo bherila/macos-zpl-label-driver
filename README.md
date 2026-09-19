@@ -67,6 +67,8 @@ bash scripts/ci-swift.sh          # the CI-equivalent build, test and local-sign
 ```
 
 None of these needs `sudo`, and none enumerates, installs, configures or prints to a device.
+**[docs/BUILDING.md](docs/BUILDING.md) is the full guide**: requirements per platform, the Linux CUPS
+header dependency, running a single test, building and identifying the setup app, and the pre-commit steps.
 `Packages/LabelMac` cannot build on Linux; hosted `macos-26` is its compile gate for work written there.
 
 ### Offline PDF conversion (development only)

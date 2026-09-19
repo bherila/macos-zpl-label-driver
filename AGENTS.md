@@ -52,7 +52,7 @@ Do not call `lpr` recursively from a queue's filter/backend. Reusing a working r
 
 ## Tests and quality
 
-Before a PR: `python3 scripts/check_repo.py`, `python3 -m unittest discover -s scripts/tests`, `swift test --package-path Packages/LabelCore`, and, on macOS, `swift test --package-path Packages/LabelMac`. Run `bash scripts/ci-swift.sh` on a Mac for the CI-equivalent build/test sequence. Add application/installer build steps when those products are introduced; do not leave new products outside CI.
+docs/BUILDING.md is the build and test guide; keep it true when a command, requirement or script changes. Before a PR: `python3 scripts/check_repo.py`, `python3 -m unittest discover -s scripts/tests`, `swift test --package-path Packages/LabelCore`, and, on macOS, `swift test --package-path Packages/LabelMac`. Run `bash scripts/ci-swift.sh` on a Mac for the CI-equivalent build/test sequence. Add application/installer build steps when those products are introduced; do not leave new products outside CI.
 
 When a command cannot run in the current environment, record NOT RUN and why. A Linux result does not validate Core Graphics, macOS printing, signing, USB, or the GUI. Hosted macOS test results do not validate a physical label printer or a clean retail Mac installation.
 
