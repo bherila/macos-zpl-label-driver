@@ -182,4 +182,19 @@ final class USBRegistryDiscoveryModelTests: XCTestCase {
         XCTAssertNil(model.snapshot)
         XCTAssertEqual(model.status, "USB discovery cancelled.")
     }
+    func testInterfaceLabelPresentsIdentifiersWithoutLocaleNumberFormatting() {
+        // 0x0A5F is Zebra; rendered through SwiftUI's integer interpolation this
+        // appeared as "2,655" -- a thousands separator inside an identifier.
+        let observation = USBPrinterObservation(
+            registryEntryID: 123, vendorID: 0x0A5F, productID: 0x00D1, interfaceNumber: 0)
+        XCTAssertEqual(observation.interfaceLabel, "USB VID 0x0A5F, PID 0x00D1, interface 0")
+        XCTAssertFalse(observation.interfaceLabel.contains(","), "no grouping separator in an identifier")
+
+        let wide = USBPrinterObservation(
+            registryEntryID: 1, vendorID: 65535, productID: 4096, interfaceNumber: 255)
+        XCTAssertEqual(wide.interfaceLabel, "USB VID 0xFFFF, PID 0x1000, interface 255")
+
+        // The redacted diagnostic description must stay redacted.
+        XCTAssertEqual(String(describing: observation), "USBPrinterObservation(redacted)")
+    }
 }
