@@ -2,170 +2,80 @@
   "schemaVersion": 1,
   "records": [
     {
-      "acceptanceID": "M3-AC01",
+      "acceptanceID": "M2-AC13",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "9ab1c2f27fbc41081600d9976e0acf69b66d56f4",
+      "sourceSHA": "78acd9bde132211e0af9fdba01b9795f5d98d35b",
       "implementation": [
         {
-          "path": "Packages/LabelCore/Sources/LabelCore/PrinterProfile.swift",
-          "sha256": "9dae83691c47950fec1db1e00d5dc66525b7e2a2b6faad487d2760f8eb3c96ca"
+          "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometry.swift",
+          "sha256": "abbc389da0c262efa525f3a1a8c29f05d6cc06d147206c65c6bfb1ab557d845a"
         },
         {
-          "path": "Packages/LabelCore/Sources/LabelCore/FinishingControlQualification.swift",
-          "sha256": "dfe6af24932d35864d2184b6cb40af86df9649d310ce54ab4cf5db949592f036"
+          "path": "docs/reference-target.json",
+          "sha256": "3de0e4ec05d9915d6c98b2ba40e386d5997158b0502720bb318ec974d819456e"
         },
         {
-          "path": "Packages/LabelCore/Sources/LabelCore/FinishingJobPlan.swift",
-          "sha256": "c9182de39d3fd268f9f13ceff22d0c4cb0e19834d55c283746b6b2b26c8fc084"
-        }
-      ],
-      "evidence": [
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/PrinterProfileTests.swift",
-          "sha256": "0a488f9692306b204d470f2860dd6508c86f854de3ac31df532404bd3d3ccacc"
+          "path": "Packages/LabelCore/Sources/LabelCore/BitmapLayout.swift",
+          "sha256": "65404d1f8463a87794c28acf92d377220a7d12b0f7a4f68a6b36b49209fb63e9"
         },
         {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingControlQualificationTests.swift",
-          "sha256": "68ef9434513470ef7fd1d67435b0f20cdfb1e8f81bbcb5ae0540009fbad9f968"
-        },
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingJobPlanTests.swift",
-          "sha256": "9de69cd7303b1ba49c35db3b23929ed67b3c5cc0fe826ad350831488d4053d73"
-        },
-        {
-          "path": "docs/validation/M3-PER-ID-AUTOMATED-ASSESSMENTS-2026-09-17.md",
-          "sha256": "25991cbba66cf5cb077c1f56dfdef7a4e6ca06dc1fbd6af8cecd24c75287c0c4"
-        }
-      ]
-    },
-    {
-      "acceptanceID": "M3-AC04",
-      "level": "A",
-      "state": "pass",
-      "sourceSHA": "9ab1c2f27fbc41081600d9976e0acf69b66d56f4",
-      "implementation": [
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/ZPLControlEncoder.swift",
-          "sha256": "909cc3e14465b24aa36655ec45ba2793eac7c5df877be000a2409b9bcdce1b82"
-        },
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/ZPLDocumentedControlEncoder.swift",
-          "sha256": "e8e84e66eba34ab0c11d9575c17e704b8298c943517eeaeff289dad462c1e56a"
-        },
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/ZPLPreparedLabelEncoder.swift",
-          "sha256": "da2b9c0706e16997154d8dc6eeeaf1980f4832d039116f8815d6124e1ae6f238"
+          "path": "Packages/LabelCore/Sources/LabelCore/MonochromeBitmap.swift",
+          "sha256": "c6bd617eda5558a0b9657e9b3e9580b261ffbe41aa97983896acfd9b80de4703"
         },
         {
           "path": "Packages/LabelCore/Sources/LabelCore/ZPLGraphicEncoder.swift",
           "sha256": "a15fdd3327d19234b6d35f6ccbd679c64f3b5f44366fcf14c94e89a1e44b5a3b"
+        },
+        {
+          "path": "scripts/check_reference_target.py",
+          "sha256": "3d6e32c23f67e02bffe698d467c426a02c5abf8e6461f04d349c6abde8f8bcb5"
         }
       ],
       "evidence": [
         {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLControlEncoderTests.swift",
-          "sha256": "b1a7745ca3c0442fcce30c27ff9c7cd655fec1e5a1f51a326a82f08042e294c1"
+          "path": "Packages/LabelCore/Sources/LabelCoreLab/main.swift",
+          "sha256": "18a641b1fae348d00885f73b7a9f6a0051329d100e2abda9a3c25accd6efbc3c"
         },
         {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingControlQualificationTests.swift",
-          "sha256": "68ef9434513470ef7fd1d67435b0f20cdfb1e8f81bbcb5ae0540009fbad9f968"
+          "path": "scripts/tests/test_reference_target.py",
+          "sha256": "e4c459ae182823c1f66393d3d4faae6ae6f73f9d3f6cbd1ce72cceee9fb605ca"
         },
         {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLPreparedLabelEncoderTests.swift",
-          "sha256": "a1ba78b72e08df130dfb190df579c2a70c7eda0e0fc5c067a8d6910067f7d640"
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLGraphicEncoderTests.swift",
+          "sha256": "273fdc5fb6788b1e24ee8f069f480e14fe5521783d882258c936e881aea34d3b"
         },
         {
-          "path": "docs/validation/M3-PER-ID-AUTOMATED-ASSESSMENTS-2026-09-17.md",
-          "sha256": "25991cbba66cf5cb077c1f56dfdef7a4e6ca06dc1fbd6af8cecd24c75287c0c4"
-        }
-      ]
-    },
-    {
-      "acceptanceID": "M3-AC01",
-      "level": "A",
-      "state": "pass",
-      "sourceSHA": "b4eb3bc8ef7bae8a63bd14f021c4502be0b097df",
-      "implementation": [
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/PrinterProfile.swift",
-          "sha256": "9dae83691c47950fec1db1e00d5dc66525b7e2a2b6faad487d2760f8eb3c96ca"
+          "path": "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md",
+          "sha256": "73a04cfa8bb643cbd739ebef4133799abf93e7a7a55ffcbe93d8a9c2e5d7d0c2"
         },
         {
-          "path": "Packages/LabelCore/Sources/LabelCore/FinishingControlQualification.swift",
-          "sha256": "dfe6af24932d35864d2184b6cb40af86df9649d310ce54ab4cf5db949592f036"
+          "path": "scripts/zpl_oracle.py",
+          "sha256": "1353600f5d1a0a47d90d020cc7603432d71dde38c4285885f82d9eb0c19982c7"
         },
         {
-          "path": "Packages/LabelCore/Sources/LabelCore/FinishingJobPlan.swift",
-          "sha256": "c9182de39d3fd268f9f13ceff22d0c4cb0e19834d55c283746b6b2b26c8fc084"
-        }
-      ],
-      "evidence": [
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/PrinterProfileTests.swift",
-          "sha256": "0a488f9692306b204d470f2860dd6508c86f854de3ac31df532404bd3d3ccacc"
+          "path": "scripts/tests/test_zpl_oracle.py",
+          "sha256": "57df8288716bd623a0f1b81d12c1ac0e7d83f93d7d63511f58ce17555ef51c17"
         },
         {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingControlQualificationTests.swift",
-          "sha256": "68ef9434513470ef7fd1d67435b0f20cdfb1e8f81bbcb5ae0540009fbad9f968"
+          "path": "scripts/run-accelerator-checks.py",
+          "sha256": "ee6f179502d98254f1736e269043d99aca565c616c5fc27ddc27b9d4b1ad644b"
         },
         {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingJobPlanTests.swift",
-          "sha256": "9de69cd7303b1ba49c35db3b23929ed67b3c5cc0fe826ad350831488d4053d73"
+          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
+          "sha256": "39bdc4656f115440d88142b92e410b943207d9bffeb447c08137f9c98c2b6ccf"
         },
         {
-          "path": "docs/validation/M3-PER-ID-AUTOMATED-ASSESSMENTS-2026-09-17.md",
-          "sha256": "25991cbba66cf5cb077c1f56dfdef7a4e6ca06dc1fbd6af8cecd24c75287c0c4"
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/PhysicalGeometryTests.swift",
+          "sha256": "11060d2f7e6159f0eca00621b7905c6cacd0bd3fb3971b9a425545e07040bb22"
         },
         {
-          "path": "docs/validation/M6-TRACEABILITY-CI-HISTORY-2026-09-17.md",
-          "sha256": "f3cb6018a13b95810c4dca871bce6ff69a206083efd42dd74ff1bb68442f0f52"
-        }
-      ]
-    },
-    {
-      "acceptanceID": "M3-AC04",
-      "level": "A",
-      "state": "pass",
-      "sourceSHA": "b4eb3bc8ef7bae8a63bd14f021c4502be0b097df",
-      "implementation": [
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/ZPLControlEncoder.swift",
-          "sha256": "909cc3e14465b24aa36655ec45ba2793eac7c5df877be000a2409b9bcdce1b82"
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/BitmapLayoutTests.swift",
+          "sha256": "e31f77f5f13a9ce50c656ede70436f36abce25152a2e3f481fb9d4237a9da446"
         },
         {
-          "path": "Packages/LabelCore/Sources/LabelCore/ZPLDocumentedControlEncoder.swift",
-          "sha256": "e8e84e66eba34ab0c11d9575c17e704b8298c943517eeaeff289dad462c1e56a"
-        },
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/ZPLPreparedLabelEncoder.swift",
-          "sha256": "da2b9c0706e16997154d8dc6eeeaf1980f4832d039116f8815d6124e1ae6f238"
-        },
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/ZPLGraphicEncoder.swift",
-          "sha256": "a15fdd3327d19234b6d35f6ccbd679c64f3b5f44366fcf14c94e89a1e44b5a3b"
-        }
-      ],
-      "evidence": [
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLControlEncoderTests.swift",
-          "sha256": "b1a7745ca3c0442fcce30c27ff9c7cd655fec1e5a1f51a326a82f08042e294c1"
-        },
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingControlQualificationTests.swift",
-          "sha256": "68ef9434513470ef7fd1d67435b0f20cdfb1e8f81bbcb5ae0540009fbad9f968"
-        },
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLPreparedLabelEncoderTests.swift",
-          "sha256": "a1ba78b72e08df130dfb190df579c2a70c7eda0e0fc5c067a8d6910067f7d640"
-        },
-        {
-          "path": "docs/validation/M3-PER-ID-AUTOMATED-ASSESSMENTS-2026-09-17.md",
-          "sha256": "25991cbba66cf5cb077c1f56dfdef7a4e6ca06dc1fbd6af8cecd24c75287c0c4"
-        },
-        {
-          "path": "docs/validation/M6-TRACEABILITY-CI-HISTORY-2026-09-17.md",
-          "sha256": "f3cb6018a13b95810c4dca871bce6ff69a206083efd42dd74ff1bb68442f0f52"
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/MonochromeBitmapTests.swift",
+          "sha256": "3a50af86364dbadc14013f939d5772c28f26afb53a011671fbf1edafc33b8a67"
         }
       ]
     }

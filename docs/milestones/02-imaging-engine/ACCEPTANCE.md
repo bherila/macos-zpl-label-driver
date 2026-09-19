@@ -9,12 +9,12 @@ Evidence levels: **A** automated; **C** repository/CI/configuration inspection; 
 
 | Done | ID | Area | Minimum evidence | Acceptance criterion |
 |---|---|---|---|---|
-| [x] | M2-AC01 | Geometry | A | All box/origin/rotation/unit/rounding vectors pass; physical transform quantization is at most one dot under the documented policy. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
+| [ ] | M2-AC01 | Geometry | A | All box/origin/rotation/unit/rounding vectors pass; physical transform quantization is at most one dot under the documented policy. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
 | [x] | M2-AC02 | Original-source rendering | A | Output rendering uses the original PDF or qualified input raster, never a detection/UI thumbnail. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
 | [ ] | M2-AC03 | PDF semantics | I | Transparency, mixed page sizes, embedded images and documented annotation/form behavior match the supported visual contract. |
-| [x] | M2-AC04 | One-bit layout | A | MSB-first top-down 1=black layout, stride and white tail bits pass adversarial widths including 1,7,8,9,811,812,813 dots. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
-| [x] | M2-AC05 | Exact preview | A | Preview reconstruction matches the complete encoder input byte-for-byte after unpack/repack. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
-| [x] | M2-AC06 | Graphics limits | A | Fields stay within documented/profile limits; reconstructed multi-band image has no missing/duplicated rows or seams. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
+| [ ] | M2-AC04 | One-bit layout | A | MSB-first top-down 1=black layout, stride and white tail bits pass adversarial widths including 1,7,8,9,811,812,813 dots. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
+| [ ] | M2-AC05 | Exact preview | A | Preview reconstruction matches the complete encoder input byte-for-byte after unpack/repack. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
+| [ ] | M2-AC06 | Graphics limits | A | Fields stay within documented/profile limits; reconstructed multi-band image has no missing/duplicated rows or seams. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
 | [ ] | M2-AC07 | Compression | A | Every enabled encoding round-trips bit-exactly and rejects malformed/overflow/checksum vectors as applicable. |
 | [ ] | M2-AC08 | Copies and output order | A | Job plans follow M1 ownership and shared examples; output format/quantity expansion occurs exactly once. |
 | [x] | M2-AC09 | Resource safety | A | Size/page/pixel/output limits, malformed/encrypted inputs, deadlines and cancellations fail without unbounded allocation or partial default delivery. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |

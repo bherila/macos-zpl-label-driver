@@ -1,3 +1,149 @@
+# Acceptance evidence bound to executed runs — 2026-09-18
+
+Records bind source `78acd9bde132211e0af9fdba01b9795f5d98d35b`, the tip of `main`. Work happens on
+`claude/determined-sagan-frse18`, whose commits change only evidence metadata, validation documents,
+milestone checkboxes and the derived manifest — the paths `source_is_unchanged` exempts — so no branch
+commit needs to be cited and the binding survives squash merge.
+
+The checkbox view and the evidence ledger disagreed (#86). Twenty criteria were checked in
+`docs/milestones/*/ACCEPTANCE.md`, while `docs/ACCEPTANCE-EVIDENCE.json` held four records covering two
+IDs, both at stale source SHAs. `traceability_report.py` counts a criterion only when the box is
+checked **and** a digest-bound record is current, so the report read 0 of 21 requirements and 0
+criteria satisfied. The ledger agreed with nothing.
+
+One record now satisfies its criterion: `M2-AC13`. The report reads **0 of 21 requirements and 1
+criterion**, with distinct pending acceptance IDs at 81 of 82 mapped.
+
+Nine declarations that were checked before this slice are now unchecked, because the evidence does not
+support them: `M3-AC13`, `M3-AC03`, `M3-AC04`, `M2-AC05`, `M2-AC01`, `M2-AC04`, `M2-AC06`, `M3-AC01`
+and `M3-AC02`.
+
+**The ledger got much smaller, and that is the finding, not a failure of the slice.** A ledger that
+overstates is worse than an empty one, because the overstatement is invisible until something depends
+on it. Ten review rounds took this from a claimed satisfied requirement and ten records down to one
+record — every step of the way by checking a specific claim against the specific source that
+implements it.
+
+## The rule, and what it turned out to mean
+
+Ten rounds converged on one sentence:
+
+> **A criterion is only as bound as its least-covered implementation site.**
+
+Applied honestly on Linux, that rule has a consequence worth stating plainly, because it shapes every
+future batch: **only criteria whose every owner is portable can be closed here.** Anything asserting
+what the product does — what it emits, what it accepts, what it refuses — has an enforcement site in
+LabelMac, which cannot compile on Linux. `M2-AC13` survives precisely because it is a statement about
+arithmetic rather than behaviour.
+
+Consequences of the same rule, each learned from a specific finding: a digest proves which source is
+present, not that it passed. A whole-package run does not make an unbound file evidence for a
+criterion; the binding has to be explicit. A suite that exercises a policy object directly does not
+cover the wiring that calls it. And a test that imports a helper does not bind the helper.
+
+## What `M2-AC13` rests on
+
+`python3 scripts/run-accelerator-checks.py` passed end to end on Linux x86_64, Swift 6.1.2, before any
+record was written: 311 LabelCore tests with 0 failures; 132 cross-language ZPL/PBM/analytic
+round-trips; 180 independent ASCII compression round-trips; 12 encoding-benchmark CLI cases; 15 inert
+CUPS ABI, 14 inert filter ABI and 1 filter-to-discard pipeline case. Plus the Python oracle modules and
+`check_repo.py`. Recorded in `docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md`.
+
+The record binds every owner of the arithmetic it claims: `PhysicalGeometry` for the inch-to-dot
+conversion, `BitmapLayout` for the 102-byte stride and 124338-byte total, `MonochromeBitmap` for tail
+padding, `ZPLGraphicEncoder` for the 321/321/321/256 band plan, `docs/reference-target.json` for the
+planning data, and `scripts/check_reference_target.py`, which derives the dimensions and enforces the
+distinct 832-dot head extent, the unknown gap and liner values and the nominal-DPI separation — most of
+the oracle lives there rather than in the JSON. `PhysicalGeometryTests.testGC420dPhysicalPitchOracle`
+is the only test driving the implementation from 4×6 inches at 8 dots/mm.
+
+`MonochromeConversion` is deliberately not bound, although the mechanical audit below lists it: the
+record's padding claim is enforced by `MonochromeBitmap.init` for both packers, and binding the dither
+branch would import #104's coverage gap into a record that does not depend on it.
+
+## Checking the rule mechanically
+
+The rule is only useful if it can be checked rather than asserted, so records are audited by parsing
+every top-level type declared in `Packages/LabelCore/Sources/LabelCore`, mapping each to its declaring
+file, and listing files a record's cited tests reference but its `implementation` list does not bind.
+That found real owners before review did. It over-reports — fixture and context types a test
+constructs are not owners of the claim — so its residue is recorded rather than silently dropped.
+
+What it cannot find is the LabelMac half, which is what actually decided this slice. That needs
+reading the product path for each criterion and asking where the claim is enforced.
+
+## Why nine were withdrawn
+
+`M3-AC13` requires the reference profile to constrain pitch, and `gc420dUSBReference` carries no
+`DotResolution`, no `dotsPerMillimeter` and no native-pitch field, so a caller can pair it with an
+arbitrary raster pitch. That is a pre-existing declaration the evidence never supported.
+
+`M2-AC04`'s second site is portable: `MonochromeConversion`'s `photographicOrderedDither4x4` branch
+packs rows itself rather than delegating to `MonochromeBitmap.threshold`, and is exercised only at
+widths 2 and 4 while the criterion names 1, 7, 8, 9, 811, 812 and 813. `MonochromeBitmap.init`
+validates tail padding for both packers, so that much is safe, but MSB-first placement at those widths
+is not established for the dither path. Closing it needs new test vectors, which is a LabelCore source
+change and therefore a separate PR — this one must touch only the exempt paths. Tracked in #104.
+
+The other seven have a production site in LabelMac. All are tracked in #103; one hosted macOS run
+closes them.
+
+| ID | LabelMac site | What it does that no bound test covers |
+|---|---|---|
+| `M2-AC01` | `QuartzPDFRenderer.geometry(of:)` | intersects crop and media boxes and reads `/UserUnit` and `rotationAngle` before constructing `PDFPageBox`; the portable tests construct `PDFPageBox` directly |
+| `M2-AC05` | `WorkerBitmapBinding` | re-encodes the accepted bitmap and requires `diagnosticFormat(bitmap) == output.zpl` before either render parent takes worker output |
+| `M2-AC06` | `FinishingRasterPreparation` / `FinishingFramedOutput` | makes the profile-bound `validateRaster` call, then writes the bitmap with a generic `ZPLGraphicEncoder`, bypassing `ZPLPreparedLabelEncoder` |
+| `M3-AC01` | `FinishingFramedOutput.prepare` | invokes the capability gate — `qualification.validate` — immediately before selecting and emitting `^MMD`, `^MMP` or `^MMR`; drop the call and an unverified accessory command is emitted with every LabelCore policy test still green |
+| `M3-AC02` | `FinishingRasterPreparation.validateControls` | re-resolves the explicit finishing choices against the retained profile and rejects a mismatch; drop it and a queue-level choice can be substituted undetected |
+| `M3-AC03` | `FinishingFramedOutput` | emits the production `^MMD`, `^MMP,N` and `~JK` sequences; `FinishingControlQualification` is bounded offline inspection and states it emits no `~JK` |
+| `M3-AC04` | `FinishingFramedOutput` | constructs ordinary output for cut, peel and rewind jobs |
+
+`M3-AC01` and `M3-AC02` are the closest calls, and the reasoning is recorded because it could
+reasonably have gone the other way. Those two LabelMac sites are *callers* of bound LabelCore policy,
+not independent reimplementations of it, unlike `WorkerBitmapBinding` or `FinishingFramedOutput`'s
+mode literals. The argument for keeping them was that a caller is wiring, not an implementation of the
+claim. It was rejected because both criteria are stated in terms of what the product does — controls
+"are not enabled silently", every explicit choice "is range/combination checked" — and both
+enforcement points are in code no executed test here reaches.
+
+## Three ordering traps, all hit
+
+`source_is_unchanged` tolerates only evidence metadata, `docs/validation/*.md`,
+`docs/milestones/*/ACCEPTANCE.md` and `MANIFEST.sha256`, so records must land in commits touching
+nothing else or they invalidate themselves immediately.
+
+1. **Bind an ancestor of wherever the record will be evaluated.** `M3-AC03` was first bound to a branch
+   commit, which a squash merge does not descend from, so `merge-base --is-ancestor` would have failed
+   and the record would not have counted on `main` at all. Binding the base commit survives any squash.
+2. **Regenerate `MANIFEST.sha256` last.** Touching it makes `source_is_unchanged` consult
+   `manifest_describes_tree`, which rejects untruthful digests, so refreshing it before a later
+   documentation edit invalidates every record it was meant to support.
+3. **The ledger's own digests seal last too.** A one-word correction to a validation document after its
+   digest was recorded invalidated all five records citing it, and the report silently dropped from
+   nine satisfied criteria to four with `referencesValid: false`. The general rule: make every content
+   edit, then reseal `docs/ACCEPTANCE-EVIDENCE.json`, then `MANIFEST.sha256`, then re-run the report on
+   a clean tree — a dirty workspace reports nothing as current.
+
+Changed requirements: none is satisfied. An earlier revision of this slice claimed F04, which needs
+`M3-AC01`, `M3-AC02` and `M3-AC03`; all three are now withdrawn.
+
+Tests actually run. Linux x86_64, Swift 6.1.2, as listed above, at the working tree of this branch,
+which differs from the bound `78acd9b` only in documentation — so no Swift or Python source differs.
+
+What this does not establish. Recording evidence is a maintainer declaration with checked references,
+which is what the report itself says — not independent semantic verification, and not hardware. A
+hosted macOS run is now the single largest gate on this ledger, covering eleven criteria: the seven
+above plus `M2-AC02`, `M4-AC02`, `M4-AC04` and `M4-AC07`. `M2-AC12` is level I and needs a named
+reference Mac; `M4-AC03`, `M4-AC05`, `M4-AC08`, `M4-AC13` and `M5-AC12` need their mapping derived from
+documents naming types since renamed. `M2-AC04` needs new LabelCore test vectors (#104). Hardware and
+release criteria remain unrecorded and NOT RUN.
+
+Next step is not another Linux batch. It is #103: one `macos-26` run recorded as a validation document
+unblocks eleven criteria at once, including all three F04 needs.
+
+Blockers: #103 is the gate for most of this ledger. #89, #80 and #90 remain the gates for GUI,
+installed and physical evidence. #101 and #93 gap 2 need human security review.
+
 # Editable output stock and margins — 2026-09-18
 
 Source `809192f98e4ec478d1d6acbdd7e445b316acc127` on `claude/determined-sagan-frse18`, over `main` `10fd18c`. The slice opened at
