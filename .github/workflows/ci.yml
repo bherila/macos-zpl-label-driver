@@ -58,8 +58,21 @@ jobs:
       # not enforced. Every other finding this step reports still gates on both events.
       - name: Acceptance evidence currency
         run: python3 scripts/evidence_currency.py
-      - name: Manifest coverage measurement
-        run: python3 scripts/manifest_audit.py
+      # ADR 0004 step 2. `--enforce-covered` gates only on entries the manifest
+      # ALREADY claims: a drifted digest, a path that no longer exists, an entry
+      # naming an untracked file. All three read zero, so this changes no build
+      # outcome today; it stops the manifest drifting silently again the way it
+      # did between 55a9ef5 and 56fdc7b. Coverage itself is gated separately.
+      # ADR 0004 steps 2 and 3, both now on. `--enforce-covered` gates on an entry
+      # the manifest already claims having drifted, gone missing, or naming an
+      # untracked file; `--enforce-coverage` gates on a tracked file carrying no
+      # digest at all. The backfill took coverage to whole-tree, restoring the
+      # convention this repository held for twenty commits before 56fdc7b broke
+      # it, so one command now answers "has any tracked byte changed without
+      # being recorded". The cost is a refresh on every PR touching a covered
+      # file: `python3 scripts/refresh_manifest.py` pays it.
+      - name: Manifest integrity and whole-tree coverage
+        run: python3 scripts/manifest_audit.py --enforce-covered --enforce-coverage
       - name: Classify change scope
         id: scope
         env:
