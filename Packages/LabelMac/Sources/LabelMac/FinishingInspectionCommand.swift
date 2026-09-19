@@ -26,36 +26,43 @@ public struct FinishingInspectionCommand: Sendable {
         catch { throw Error.usage }
         root = URL(fileURLWithPath: path, isDirectory: true); self.json = json
     }
+    /// The verified inspection result. Its context is reusable by the remaining
+    /// steps of the same command and is not delivery or replay authority.
+    public struct Inspection: Sendable {
+        public let json: Data
+        public let context: ValidatedAcceptedFinishingContext
+        public let recovery: AcceptedFinishingRecovery
+    }
     public func report(workerExecutable: URL, cancellation: OfflineRenderWorkerCancellation = .init()) throws -> Data {
-        let start = DispatchTime.now().uptimeNanoseconds
+        try observe(workerExecutable: workerExecutable, deadline: FinishingDeadline(cancellation: cancellation)).json
+    }
+    /// One caller-supplied budget governs every step, so a command that also
+    /// prepares and exports does not run a second independent sixty-second clock.
+    public func observe(workerExecutable: URL, deadline: FinishingDeadline) throws -> Inspection {
         let before = try catalogIdentity()
-        let queues = try FinishingQueueStore(root: root), workflows = try WorkflowProfileStore(root: root)
-        let printers = try PrinterProfileStore(root: root), accepted = try AcceptedFinishingJobStore(root: root)
-        func remaining() throws -> Double {
-            guard !cancellation.isCancelled else { throw AcceptedFinishingJob.Error.cancelled }
-            let value = 60 - Double(DispatchTime.now().uptimeNanoseconds-start) / 1_000_000_000
-            guard value > 0 else { throw AcceptedFinishingJob.Error.timedOut }; return value
-        }
-        let job = try accepted.load(reference: reference, queueStore: queues, workflowStore: workflows,
-            printerStore: printers, workerExecutable: workerExecutable, deadlineSeconds: remaining(), cancellation: cancellation)
-        let recovery = try AcceptedFinishingRecovery.inspect(reference: reference, against: job,
-            attemptStore: AcceptedFinishingAttemptStore(root: root), cancellationStore: AcceptedFinishingCancellationStore(root: root),
-            queueStore: queues, workflowStore: workflows, printerStore: printers, workerExecutable: workerExecutable,
-            deadlineSeconds: remaining(), cancellation: cancellation)
+        let accepted = try AcceptedFinishingJobStore(root: root)
+        let context = try accepted.validatedContext(reference: reference, queueStore: FinishingQueueStore(root: root),
+            workflowStore: WorkflowProfileStore(root: root), printerStore: PrinterProfileStore(root: root),
+            workerExecutable: workerExecutable, deadline: deadline)
+        let recovery = try AcceptedFinishingRecovery.inspect(validated: context,
+            attemptStore: AcceptedFinishingAttemptStore(root: root),
+            cancellationStore: AcceptedFinishingCancellationStore(root: root), deadline: deadline)
         let requested: Bool, intent: String
         switch recovery.observation {
         case let .noRecordedIntent(value): requested = value; intent = "no-recorded-intent"
         case let .uncertainAfterRecordedIntent(value): requested = value; intent = "uncertain-after-recorded-intent"
         }
-        _ = try remaining()
+        try deadline.check()
         guard try catalogIdentity() == before else { throw Error.catalogChanged }
+        let job = context.job
         let result: [String:Any] = ["status":"observed", "schemaVersion":1,
             "acceptedRecordSHA256":reference.sha256, "sourceSHA256":job.sourceSHA256,
             "sourceByteCount":job.originalPDF.count, "outputLabelCount":job.extraction.outputLabels.count,
             "canvasWidthDots":job.canvas.width, "canvasHeightDots":job.canvas.height,
             "localIntent":intent, "cancellationRequested":requested,
             "hardwareCompletion":"unknown", "automaticReplayAuthorized":false]
-        return try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        let json = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
+        return Inspection(json: json, context: context, recovery: recovery)
     }
     private struct Identity: Equatable { let device: dev_t, inode: ino_t }
     private func catalogIdentity() throws -> Identity {

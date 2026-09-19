@@ -205,6 +205,107 @@ class TraceabilityReportTests(unittest.TestCase):
         changed_commit = commit()
         self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, changed_commit))
 
+    def status(self, identifier, report=None):
+        report = self.report() if report is None else report
+        return next(row['evidenceStatus'] for row in report['acceptance'] if row['id'] == identifier)
+
+    def test_evidence_status_separates_the_four_questions_a_row_conflates(self):
+        # (a) checkbox, (b) digest-valid record, (c) current source, (d) prescribed level. A row that
+        # answers only (a) and (b) must be visibly distinguishable from a qualified one.
+        qualified = self.status('M3-AC01')
+        self.assertEqual({'checkboxComplete': True, 'hasDigestValidRecord': True,
+                          'hasCurrentSourceRecord': True, 'hasRequiredLevelRecord': True,
+                          'promotesBelowRequiredLevel': False, 'qualified': True,
+                          'verdict': 'qualified'}, qualified)
+
+        # (c) alone fails: the record is still digest-valid and still at the right level.
+        self.records[0]['sourceSHA'] = 'b' * 40
+        stale = self.status('M3-AC01')
+        self.assertEqual('stale-source', stale['verdict'])
+        self.assertTrue(stale['checkboxComplete'] and stale['hasDigestValidRecord']
+                        and stale['hasRequiredLevelRecord'])
+        self.assertFalse(stale['hasCurrentSourceRecord'] or stale['qualified'])
+        self.records[0]['sourceSHA'] = self.sha
+
+        # (b) alone fails: current and correctly levelled, but the cited bytes moved.
+        (self.root / 'evidence.md').write_text('changed synthetic assessment\n')
+        invalid = self.status('M3-AC01')
+        self.assertEqual('invalid-references', invalid['verdict'])
+        self.assertTrue(invalid['hasCurrentSourceRecord'] and invalid['hasRequiredLevelRecord'])
+        self.assertFalse(invalid['hasDigestValidRecord'] or invalid['qualified'])
+        (self.root / 'evidence.md').write_text('synthetic declared assessment\n')
+        self.records[0] = self.record('M3-AC01', 'A')
+
+        # (d) alone fails, and an A record offered against an H row is flagged as a promotion.
+        self.records[1] = self.record('M3-AC02', 'A')
+        promoted = self.status('M3-AC02')
+        self.assertEqual('wrong-evidence-level', promoted['verdict'])
+        self.assertTrue(promoted['hasDigestValidRecord'] and promoted['hasCurrentSourceRecord'])
+        self.assertTrue(promoted['promotesBelowRequiredLevel'])
+        self.assertFalse(promoted['hasRequiredLevelRecord'] or promoted['qualified'])
+        self.records[1] = self.record('M3-AC02', 'H')
+
+        # (a) alone fails: a fully bound record whose checkbox is unchecked is not silently qualified.
+        table = self.root / 'docs/milestones/synthetic/ACCEPTANCE.md'
+        table.write_text(table.read_text().replace('[x] | M3-AC02', '[ ] | M3-AC02'))
+        unchecked = self.status('M3-AC02')
+        self.assertEqual('record-without-checkbox', unchecked['verdict'])
+        self.assertFalse(unchecked['checkboxComplete'] or unchecked['qualified'])
+        table.write_text(table.read_text().replace('[ ] | M3-AC02', '[x] | M3-AC02'))
+
+    def test_a_checked_row_with_no_record_is_distinct_from_an_unclaimed_one(self):
+        self.records = []
+        self.assertEqual('claimed-without-record', self.status('M3-AC01')['verdict'])
+        table = self.root / 'docs/milestones/synthetic/ACCEPTANCE.md'
+        table.write_text(table.read_text().replace('[x] | M3-AC01', '[ ] | M3-AC01'))
+        self.assertEqual('no-record', self.status('M3-AC01')['verdict'])
+
+    def test_a_row_whose_only_records_are_not_pass_is_its_own_verdict(self):
+        self.records[0]['state'] = 'not-run'
+        self.assertEqual('no-passing-record', self.status('M3-AC01')['verdict'])
+        self.records[0]['state'] = 'blocked'
+        self.assertEqual('current-blocker', self.status('M3-AC01')['verdict'])
+
+    def test_the_four_dimension_counts_are_reported_as_four_separate_figures(self):
+        # Measured on main at c3bbc5c after #111 merged: 13 checked, 2 digest-valid, 0 current,
+        # 0 qualified, and 11 of the 13 with no record at all. One number cannot say that.
+        self.records = []
+        counts = self.report()['evidenceCounts']
+        self.assertEqual({'checkboxComplete': 2, 'hasDigestValidRecord': 0,
+                          'hasCurrentSourceRecord': 0, 'hasRequiredLevelRecord': 0,
+                          'checkedWithNoRecord': 2, 'qualified': 0}, counts)
+
+        # A stale record moves (b) and (d) without moving (c) or `qualified`, and stops counting
+        # towards `checkedWithNoRecord`, which is a distinct category from a stale record.
+        self.records = [self.record('M3-AC01', 'A'), self.record('M3-AC02', 'H')]
+        self.records[0]['sourceSHA'] = 'b' * 40
+        counts = self.report()['evidenceCounts']
+        self.assertEqual(2, counts['hasDigestValidRecord'])
+        self.assertEqual(1, counts['hasCurrentSourceRecord'])
+        self.assertEqual(2, counts['hasRequiredLevelRecord'])
+        self.assertEqual(0, counts['checkedWithNoRecord'])
+        self.assertEqual(1, counts['qualified'])
+
+    def test_the_summary_counts_every_row_exactly_once(self):
+        report = self.report()
+        self.assertEqual(len(report['acceptance']), sum(report['evidenceSummary'].values()))
+        self.assertEqual(2, report['evidenceSummary']['qualified'])
+        self.assertEqual(set(reporter.VERDICTS), set(report['evidenceSummary']))
+
+    def test_dimension_booleans_never_qualify_a_row_by_themselves(self):
+        # Three separate records could each answer one question. `qualified` still requires one
+        # single record to answer all four, which is the conflation this guards against.
+        stale = self.record('M3-AC01', 'A')
+        stale['sourceSHA'] = 'b' * 40
+        wrong_level = self.record('M3-AC01', 'C')
+        self.records = [stale, wrong_level, self.record('M3-AC02', 'H')]
+        status = self.status('M3-AC01')
+        self.assertTrue(status['hasDigestValidRecord'])
+        self.assertTrue(status['hasCurrentSourceRecord'])   # answered by the C record
+        self.assertTrue(status['hasRequiredLevelRecord'])   # answered by the stale A record
+        self.assertFalse(status['qualified'])
+        self.assertEqual('stale-source', status['verdict'])
+
     def test_current_failure_blocks_other_pass_levels(self):
         failure = self.record('M3-AC02', 'A')
         failure['state'] = 'fail'

@@ -1,20 +1,26 @@
-# Four parallel workstreams, four open PRs — 2026-09-19
+# Four parallel workstreams, four merged PRs — 2026-09-19
 
 Four isolated worktrees branched from `c3bbc5c`, one branch and one PR each, no shared source file
 between any two. Every branch was merged forward onto `c3bbc5c` and re-gated at the merged head.
-`git merge-tree` confirms all four are mergeable with `main` and pairwise mergeable with each other:
-the file-ownership split held, so none of them has to wait on another.
+`git merge-tree` predicted all four mergeable with `main` and pairwise mergeable with each other, and
+the squash merges confirmed it: the file-ownership split held, and the only conflict in the batch was
+the expected `MANIFEST.sha256` collision between #114 and this reconciliation, resolved by re-hashing
+the merged files rather than choosing a side.
+
+All four were merged on the maintainer's explicit authorization, relayed through a supervised local
+session and scoped to #112–#116. No branch protection was bypassed, nothing was published, and
+repository visibility is unchanged.
 
 **No acceptance ID advances in any of the four, and no evidence level is claimed.** None of them
 touches `docs/ACCEPTANCE-EVIDENCE.json` or a milestone `ACCEPTANCE.md`. GUI, installed scheduler,
 administrator, USB, printer and release remain NOT RUN throughout.
 
-| PR | Slice | Branch | Head | Hosted CI |
-|---|---|---|---|---|
-| #112 | finishing preview budget (closes #97) | `codex/m3-finishing-preview-budget` | `ae48672` | passed |
-| #113 | typed finishing admission | `codex/m3-finishing-admission` | `2555182` | passed |
-| #114 | evidence currency diagnostics | `codex/m6-evidence-currency` | `b3f7b5a` | passed |
-| #115 | inert delivery provider | `codex/m3-accepted-finishing-provider` | `5e71410` | passed |
+| PR | Slice | Branch | Reviewed head | Hosted CI | Squashed to |
+|---|---|---|---|---|---|
+| #112 | finishing preview budget (closes #97) | `codex/m3-finishing-preview-budget` | `cfea939` | passed | `3324241` |
+| #113 | typed finishing admission | `codex/m3-finishing-admission` | `7d2ed1c` | passed | `f5f5a8f` |
+| #114 | evidence currency diagnostics | `codex/m6-evidence-currency` | `28b55ad` | passed | `e180f13` |
+| #115 | inert delivery provider | `codex/m3-accepted-finishing-provider` | `7426eca` | passed | `c940d1e` |
 
 ## What each slice does
 
@@ -92,10 +98,12 @@ carries, not a widening of scope: the 143 omitted paths stay omitted, because wh
 
 ## Next
 
-`#111` staled `M2-AC04` and `M2-AC13` (`.github/` is not an exempt path), and `#114` will stale them
-again (`scripts/` is not either). A re-seal slice against the merged result is owed after whichever of
-these lands last — the fifth and sixth instances of the sequencing rule recorded above. `--gate-stale`
-stays off until that settles.
+`#111` staled `M2-AC04` and `M2-AC13` (`.github/` is not an exempt path), and `#114` has now staled
+them again (`scripts/` is not either) — the fifth and sixth instances of the sequencing rule recorded
+above. Both are now stale against merged `main`, so the re-seal slice is owed immediately rather than
+conditionally. `--gate-stale` stays off until that re-seal lands and `evidence_currency.py --gate-stale`
+is observed exiting 0 on `main`; enabling it before then would make the gate red on arrival, which is
+the outcome the flag was scoped to avoid.
 
 Still unobserved and unchanged by this batch: real scheduler fidelity, installed queue management,
 privileged authorization, GUI and accessibility, USB transport, physical output, and every release

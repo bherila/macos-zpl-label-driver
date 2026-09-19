@@ -34,4 +34,17 @@ public extension AcceptedFinishingJobStore {
         _ = try remaining()
         return PreparedAcceptedFinishingJob(reference: reference, acceptance: accepted, preparation: preparation)
     }
+
+    /// Preparation from a context this catalog already verified. The accepted
+    /// record is not reopened, so one command analyzes its original PDF once and
+    /// renders from exactly the bytes that verification accepted.
+    func prepare(validated context: ValidatedAcceptedFinishingContext, workerExecutable: URL,
+                 deadline: FinishingDeadline) throws -> PreparedAcceptedFinishingJob {
+        guard context.bound(to: root) else { throw AcceptedFinishingJobStore.Error.contextMismatch }
+        let preparation = try context.job.prepare(workerExecutable: workerExecutable,
+            deadlineSeconds: deadline.remaining(), cancellation: deadline.cancellation)
+        try deadline.check()
+        return PreparedAcceptedFinishingJob(reference: context.reference, acceptance: context.job,
+                                            preparation: preparation)
+    }
 }

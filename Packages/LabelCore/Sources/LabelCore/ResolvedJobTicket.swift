@@ -477,14 +477,14 @@ public enum ResolvedJobTicketJSON {
         catch { throw ResolvedJobTicketError.malformedJSON }
     }
 
-    private static func reference(_ value: ImmutableProfileReference) -> [String: Any] {
+    static func reference(_ value: ImmutableProfileReference) -> [String: Any] {
         [
             "id": value.id, "schemaVersion": value.schemaVersion,
             "revision": value.revision, "sha256": value.sha256,
         ]
     }
 
-    private static func decodeReference(_ raw: Any) throws -> ImmutableProfileReference {
+    static func decodeReference(_ raw: Any) throws -> ImmutableProfileReference {
         let value = try object(raw, keys: ["id", "schemaVersion", "revision", "sha256"])
         return try ImmutableProfileReference(
             id: string(value, "id"), schemaVersion: integer(value, "schemaVersion"),
@@ -499,7 +499,7 @@ public enum ResolvedJobTicketJSON {
         return value
     }
 
-    private static func encodeCopies(_ value: JobCopyOwnership) -> [String: Any] {
+    static func encodeCopies(_ value: JobCopyOwnership) -> [String: Any] {
         switch value {
         case let .engine(copies, collated):
             return ["owner": "engine", "copies": copies, "collated": collated]
@@ -508,7 +508,7 @@ public enum ResolvedJobTicketJSON {
         }
     }
 
-    private static func decodeCopies(_ raw: Any) throws -> JobCopyOwnership {
+    static func decodeCopies(_ raw: Any) throws -> JobCopyOwnership {
         let value = try object(raw, keys: ["owner", "copies", "collated"])
         switch try string(value, "owner") {
         case "engine":
@@ -526,7 +526,7 @@ public enum ResolvedJobTicketJSON {
         }
     }
 
-    private static func encodePageRanges(_ value: JobPageRangeOwnership) -> [String: Any] {
+    static func encodePageRanges(_ value: JobPageRangeOwnership) -> [String: Any] {
         switch value {
         case let .engine(selectedSourcePages):
             ["owner": "engine", "selectedSourcePages": selectedSourcePages]
@@ -535,7 +535,7 @@ public enum ResolvedJobTicketJSON {
         }
     }
 
-    private static func decodePageRanges(_ raw: Any) throws -> JobPageRangeOwnership {
+    static func decodePageRanges(_ raw: Any) throws -> JobPageRangeOwnership {
         let value = try object(raw, keys: ["owner", "selectedSourcePages"])
         switch try string(value, "owner") {
         case "engine":
@@ -553,7 +553,7 @@ public enum ResolvedJobTicketJSON {
         }
     }
 
-    private static func decodeTransformOwnership(_ raw: Any) throws -> JobTransformOwnership {
+    static func decodeTransformOwnership(_ raw: Any) throws -> JobTransformOwnership {
         let value = try object(raw, keys: ["extraction", "orientation", "scaling"])
         guard try string(value, "extraction") == JobTransformOwnership.workflowProfile.rawValue,
               try string(value, "orientation") == JobTransformOwnership.workflowProfile.rawValue,
@@ -563,7 +563,7 @@ public enum ResolvedJobTicketJSON {
         return .workflowProfile
     }
 
-    private static func encodeConversion(_ value: MonochromeConversion) -> [String: Any] {
+    static func encodeConversion(_ value: MonochromeConversion) -> [String: Any] {
         switch value {
         case let .textAndBarcodeThreshold(cutoff):
             ["mode": "textAndBarcodeThreshold", "cutoff": Int(cutoff)]
@@ -572,7 +572,7 @@ public enum ResolvedJobTicketJSON {
         }
     }
 
-    private static func decodeConversion(_ raw: Any) throws -> MonochromeConversion {
+    static func decodeConversion(_ raw: Any) throws -> MonochromeConversion {
         let value = try object(raw, keys: ["mode", "cutoff"])
         switch try string(value, "mode") {
         case "textAndBarcodeThreshold":
@@ -591,7 +591,7 @@ public enum ResolvedJobTicketJSON {
         }
     }
 
-    private static func encodeControls(_ value: ResolvedPrinterControls, version: Int) -> [String: Any] {
+    static func encodeControls(_ value: ResolvedPrinterControls, version: Int) -> [String: Any] {
         var result: [String: Any] = [
             "profileSchemaVersion": value.profileSchemaVersion,
             "profileRevision": value.profileRevision,
@@ -628,7 +628,7 @@ public enum ResolvedJobTicketJSON {
         }
     }
 
-    private static func decodeControls(_ raw: Any, version: Int) throws -> ResolvedPrinterControls {
+    static func decodeControls(_ raw: Any, version: Int) throws -> ResolvedPrinterControls {
         var keys: Set<String> = ["profileSchemaVersion", "profileRevision", "thermalMethod", "finishing",
                                  "printSpeedIps", "darkness", "tracking", "mediaGeometry"]
         if version >= 3 { keys.formUnion(["feedSpeedIps", "backfeedSpeedIps"]) }
@@ -649,7 +649,7 @@ public enum ResolvedJobTicketJSON {
         )
     }
 
-    private static func controlRequest(_ controls: ResolvedPrinterControls) -> PrinterControlRequest {
+    static func controlRequest(_ controls: ResolvedPrinterControls) -> PrinterControlRequest {
         PrinterControlRequest(
             thermalMethod: value(controls.thermalMethod),
             finishing: value(controls.finishing),
@@ -855,7 +855,7 @@ public enum ResolvedJobTicketJSON {
     }
 }
 
-private func validatePlan(
+func validatePlan(
     _ plan: ExtractionPlan,
     workflowProfile: WorkflowProfile,
     copyOwnership: JobCopyOwnership,
@@ -896,7 +896,7 @@ private func validateTicketPlan(
     )
 }
 
-private func validatePlanMapping(
+func validatePlanMapping(
     sourcePageCount: Int,
     outputLabels: [ResolvedOutputLabel],
     skippedPages: [ResolvedSkippedPage],
@@ -911,7 +911,21 @@ private func validatePlanMapping(
     var expectedSkipped: [ResolvedSkippedPage] = []
     let selectedPages: Set<Int>
     switch pageRangeOwnership {
-    case let .engine(selectedSourcePages): selectedPages = Set(selectedSourcePages)
+    case let .engine(selectedSourcePages):
+        // An engine selection names exact source pages, so it is admitted as written
+        // rather than normalized. Set() alone silently collapses duplicates and drops
+        // pages outside the document: [1, 2, 999] against a two-page source matches no
+        // rule for 999, so the reconstruction below is byte-identical to [1, 2] and the
+        // plan validates with a page quietly discarded. AGENTS.md requires that
+        // unexpected pages in an extraction workflow are not silently discarded, and
+        // that invalid values fail validation rather than being clamped without
+        // disclosure. Require a strictly ascending, in-range selection.
+        guard !selectedSourcePages.isEmpty,
+              selectedSourcePages.allSatisfy({ (1...sourcePageCount).contains($0) }),
+              zip(selectedSourcePages, selectedSourcePages.dropFirst()).allSatisfy({ $0 < $1 }) else {
+            throw ResolvedJobTicketError.invalidPlan
+        }
+        selectedPages = Set(selectedSourcePages)
     case .upstreamAlreadyApplied: selectedPages = Set(1...sourcePageCount)
     }
     for rule in workflowProfile.pageRules where selectedPages.contains(rule.sourcePage) {

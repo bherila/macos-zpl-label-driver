@@ -19,7 +19,10 @@ public struct FinishingDeliveryTracker: Sendable {
     public private(set) var nextStepIndex = 0
     public private(set) var bytesAccepted = 0
     public private(set) var attemptedAnyFile = false
-    private var currentFileAccepted = 0
+    /// Cumulative accepted count for the file currently being offered. A short
+    /// final value is a partial transmission, which is uncertain, not a failure
+    /// before accepted bytes.
+    public private(set) var acceptedBytesInCurrentFile = 0
 
     public init(output: FinishingFramedOutput) { self.output = output }
 
@@ -37,7 +40,7 @@ public struct FinishingDeliveryTracker: Sendable {
         guard let expected = fileBytes(nextStep) else { throw Error.invalidTransition }
         guard expected == bytes else { throw Error.payloadMismatch }
         attemptedAnyFile = true
-        currentFileAccepted = 0
+        acceptedBytesInCurrentFile = 0
         state = .sending
     }
 
@@ -47,17 +50,17 @@ public struct FinishingDeliveryTracker: Sendable {
         guard state == .sending, let expected = fileBytes(nextStep) else {
             throw Error.invalidTransition
         }
-        guard byteCount >= currentFileAccepted, byteCount <= expected.count else {
+        guard byteCount >= acceptedBytesInCurrentFile, byteCount <= expected.count else {
             state = .uncertain
             throw Error.invalidByteCount
         }
-        bytesAccepted += byteCount - currentFileAccepted
-        currentFileAccepted = byteCount
+        bytesAccepted += byteCount - acceptedBytesInCurrentFile
+        acceptedBytesInCurrentFile = byteCount
     }
 
     public mutating func fileFinished() throws {
         guard state == .sending, let expected = fileBytes(nextStep),
-              currentFileAccepted == expected.count else { throw Error.invalidTransition }
+              acceptedBytesInCurrentFile == expected.count else { throw Error.invalidTransition }
         advance()
     }
 
@@ -84,7 +87,7 @@ public struct FinishingDeliveryTracker: Sendable {
 
     private mutating func advance() {
         nextStepIndex += 1
-        currentFileAccepted = 0
+        acceptedBytesInCurrentFile = 0
         guard let step = nextStep else { state = .confirmed; return }
         state = fileBytes(step) == nil ? .awaitingStatus : .ready
     }
