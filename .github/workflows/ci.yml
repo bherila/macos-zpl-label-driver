@@ -29,6 +29,12 @@ jobs:
         run: |
           python3 scripts/check_repo.py
           python3 -m unittest discover -s scripts/tests
+      # Read-only. Neither diagnostic rewrites evidence, refreshes a digest or promotes a claim,
+      # and each exits 2 rather than 0 when it cannot evaluate its input.
+      - name: Acceptance evidence currency
+        run: python3 scripts/evidence_currency.py
+      - name: Manifest coverage measurement
+        run: python3 scripts/manifest_audit.py
       - name: Classify change scope
         id: scope
         env:

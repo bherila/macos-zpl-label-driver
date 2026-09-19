@@ -21,6 +21,10 @@ REQUIRED = (
     "docs/VALIDATION-PLAN.md", "docs/REFERENCES.md", "docs/PROGRESS.json",
     "docs/requirements.json", "docs/milestones.json",
     "docs/ACCEPTANCE-EVIDENCE.json", "scripts/traceability_report.py",
+    # CI runs both diagnostics below. One that has gone missing must fail here rather than
+    # vanish from the build as a silently skipped step.
+    "scripts/evidence_currency.py", "scripts/manifest_audit.py", "MANIFEST.sha256",
+    "docs/adr/0004-manifest-integrity-scope.md",
     "docs/SPRINT-BASELINE.md", "docs/reference-target.json", "docs/LOCAL-SIGNING.md",
     "docs/RELEASE-SCOPES.md", "docs/SCOPE-STATUS.json", "docs/hardware/GC420D.md",
     "scripts/host-preflight.sh", "scripts/sign-local-diagnostic.sh",

@@ -54,3 +54,60 @@ assessments and valid references. It is not independent verification of their se
 a hardware receipt, a release qualification, or permission to merge/publish. Actual
 runtime, installation, printer and release evidence and human disclosure/correctness
 review remain required. No physical row is qualified by this tooling.
+
+## Four separate questions about one row
+
+A row that reads "complete" has historically conflated four independent things. The report answers
+each separately in `evidenceStatus`, because a row can answer some and not others:
+
+| Field | Question | Source of truth |
+|---|---|---|
+| `checkboxComplete` | Is the box checked? | the milestone `ACCEPTANCE.md` |
+| `hasDigestValidRecord` | Does a passing record's cited bytes still hash to what it recorded? | `ACCEPTANCE-EVIDENCE.json` against the working tree |
+| `hasCurrentSourceRecord` | Does a passing record's evaluated source still describe HEAD? | `source_is_unchanged` |
+| `hasRequiredLevelRecord` | Is a passing record at the level [VALIDATION-PLAN.md](VALIDATION-PLAN.md) prescribes? | `milestones.json` |
+
+These four booleans diagnose; they do not qualify. Each may be answered by a different record, so
+`qualified` additionally requires one single record to answer all four at once — that is exactly
+`meetsRequiredDeclaredEvidence` on that record, plus a checked box and no current blocker.
+`promotesBelowRequiredLevel` is set when a row prescribing I, H or R carries a passing A or C
+record; no offline suite, hosted compile or inert check ever promotes such a row.
+
+`evidenceCounts` reports the four as four separate figures over every row, plus
+`checkedWithNoRecord` — a checked box the ledger says nothing at all about, which is a different
+state from a stale record and is counted on its own. Measured on `main` at `c3bbc5c` immediately
+after #111 merged: **13** checked, **2** digest-valid, **0** current, **2** at the prescribed
+level, **11** checked with no record at all, **0** qualified. A reader who trusts the checkboxes
+sees 13; the honest number is 0. Collapsing those into one figure is the failure this table exists
+to prevent.
+
+`verdict` names the first unanswered question of the record that answers the most of them, drawn
+from a fixed vocabulary: `qualified`, `stale-source`, `invalid-references`, `wrong-evidence-level`,
+`claimed-without-record`, `record-without-checkbox`, `no-passing-record`, `current-blocker`,
+`no-record`. `evidenceSummary` counts every row exactly once by verdict. A row that is checked and
+digest-valid but stale reads `stale-source`, never `qualified`.
+
+## Read-only currency diagnostic
+
+`python3 scripts/evidence_currency.py` turns the above into an exit code for CI. It is read-only:
+it never refreshes a digest, re-seals a record, edits a checkbox or promotes a claim, and every
+finding names a file a human has to change.
+
+- exit 0 — evaluated, no gating finding
+- exit 1 — evaluated, at least one gating finding
+- exit 2 — could not evaluate
+
+There is no fourth outcome. An absent, empty or malformed `MANIFEST.sha256`, an unreadable ledger,
+a record that is not an object, a missing git history, an exhausted report deadline or a workspace
+that changes mid-run is exit 2, never a quiet pass.
+
+Gating findings are the ones that are wrong regardless of sequencing: `MISSING-BINDING` (a record
+with an empty `implementation` or `evidence` list), `INVALID-REFERENCES`, `WRONG-EVIDENCE-LEVEL`,
+`LEVEL-PROMOTION` and `CURRENT-BLOCKER`. `STALE-SOURCE` is reported rather than gating by default,
+because a source slice necessarily makes every record stale until its evidence slice lands and
+gating it would fail the PR doing the work; `--gate-stale` turns it into a failure for a
+main-push gate. `CLAIMED-WITHOUT-RECORD`, `NO-PASSING-RECORD`, `RECORD-WITHOUT-CHECKBOX` and
+`WORKSPACE-DIRTY` are reported, since fixing them means editing acceptance claims a human owns.
+
+`python3 scripts/manifest_audit.py` measures what `MANIFEST.sha256` actually covers. It writes
+nothing; the scope decision is recorded in [ADR 0004](adr/0004-manifest-integrity-scope.md).
