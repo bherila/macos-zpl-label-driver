@@ -1,6 +1,117 @@
+# Four parallel workstreams, four merged PRs — 2026-09-19
+
+Four isolated worktrees branched from `c3bbc5c`, one branch and one PR each, no shared source file
+between any two. Every branch was merged forward onto `c3bbc5c` and re-gated at the merged head.
+`git merge-tree` predicted all four mergeable with `main` and pairwise mergeable with each other, and
+the squash merges confirmed it: the file-ownership split held, and the only conflict in the batch was
+the expected `MANIFEST.sha256` collision between #114 and this reconciliation, resolved by re-hashing
+the merged files rather than choosing a side.
+
+All four were merged on the maintainer's explicit authorization, relayed through a supervised local
+session and scoped to #112–#116. No branch protection was bypassed, nothing was published, and
+repository visibility is unchanged.
+
+**No acceptance ID advances in any of the four, and no evidence level is claimed.** None of them
+touches `docs/ACCEPTANCE-EVIDENCE.json` or a milestone `ACCEPTANCE.md`. GUI, installed scheduler,
+administrator, USB, printer and release remain NOT RUN throughout.
+
+| PR | Slice | Branch | Reviewed head | Hosted CI | Squashed to |
+|---|---|---|---|---|---|
+| #112 | finishing preview budget (closes #97) | `codex/m3-finishing-preview-budget` | `cfea939` | passed | `3324241` |
+| #113 | typed finishing admission | `codex/m3-finishing-admission` | `7d2ed1c` | passed | `f5f5a8f` |
+| #114 | evidence currency diagnostics | `codex/m6-evidence-currency` | `28b55ad` | passed | `e180f13` |
+| #115 | inert delivery provider | `codex/m3-accepted-finishing-provider` | `7426eca` | passed | `c940d1e` |
+
+## What each slice does
+
+**#112** removes three of the four accepted-job loads `finishing-preview` performed, and replaces two
+uncoordinated sixty-second clocks with one `FinishingDeadline` governing inspection, preparation and
+export. A verified `ValidatedAcceptedFinishingContext` is threaded from inspection into preparation,
+so the accepted record is loaded once and worker analyses drop from five to two. The catalog-identity
+check before and after inspection is preserved; cancellation, timeout, uncertain publication and the
+replay veto are unchanged. One disclosed behaviour change: a mid-preview mutation is no longer caught
+by a later reopen. That is net favourable — four independent reads could each observe different bytes,
+so the export was not necessarily built from the bytes that were inspected.
+
+**#113** adds `ResolvedFinishingJobTicket`, where one validation path serves both construction and
+record loading, so a stored record cannot enter through weaker checks than an accepted job. Ordinary
+admission is deliberately not widened: profile 8 still fails `VirtualQueueDefinition` with
+`invalidDefaults` and `ResolvedJobTicket` with `invalidReference`. Unevidenced pitch fails rather than
+defaulting, and a GC420d profile requires the model-documented 8 dots/mm, so nominal `203/25.4` is
+rejected rather than substituted. Coverage was proven by mutation: three guards were each removed and
+byte-restored, producing one focused failure apiece.
+
+**#114** separates four things the report previously conflated — checked checkbox, digest-valid record,
+current source, and prescribed evidence level — and adds two read-only CI diagnostics. Measured on
+`main` at `c3bbc5c`: **13 checked boxes, 2 digest-valid records, 0 current, 0 qualified**, and eleven
+of the thirteen carry no ledger record at all, including `M2-AC12`, which is a level-I row. Those
+eleven are reported, not corrected; fixing them is a maintainer call. `STALE-SOURCE` reports but does
+not gate, because a source slice necessarily stales every record and gating it would make deleting
+records the cheapest path to green.
+
+**#115** adds a bounded inert delivery provider that holds both the artifact and physical-device
+leases across every wait, revalidating ownership after each file and each status read, with distinct
+terminal states for success, cancellation, timeout, partial transmission and ambiguous publication.
+`establishesPhysicalCompletion` is a hard `false` for every case and `authorizesBoundedRetry` is true
+only for a proven pre-attempt refusal. Durable records survive restart-like cold reopen; absence of a
+record is observation only, never retry authorization.
+
+## The Linux boundary, restated because it shaped the work
+
+`LabelMac` declares `platforms: [.macOS("26.0")]` and imports CryptoKit, Darwin and CoreGraphics, so
+it cannot be compiled on the Linux host these slices were written on: `swift build` exits 1 with
+`no such module 'CryptoKit'`. #112 and #115 were therefore written blind and their hosted `macos-26`
+run was their first compilation. #113 and #114 are portable and were actually executed locally.
+
+Hosted `macos-26` arm64 results, debug and release, at each PR head: #112 `ae48672` LabelCore 313 /
+LabelMac 403, #115 `5e71410` LabelCore 313 / LabelMac 400, both 0 failures. #113 `2555182` and #114
+`b3f7b5a` also passed the same job. Locally on Linux: LabelCore 325 tests at #113 (313 before, 12
+added), 144 Python tests at #114 (108 before, 36 added).
+
+That boundary produced exactly one real failure, on #115, and it is worth recording because the
+diagnostic was misleading. Two call sites passed a step observer as an unlabeled trailing closure:
+
+```swift
+ObservingProvider(inner) { index, ownership in ... }
+```
+
+Under SE-0286 an unlabeled trailing closure matches by scanning forward from the first unfilled
+parameter, so it bound to `beforePrepare` (one argument) rather than `beforeStep` (two). With that
+closure failing to type-check, `index` was inferred as `FinishingDeviceOwnership`, which is why the
+same job also reported `==` requiring `FinishingDeviceOwnership: BinaryInteger`, and why `.uncertain`,
+`.cancelledAfterAttempt` and `.ownershipLost` each read as `type 'Equatable' has no member`. All of
+those members exist. They resolved against a broken contextual type, not a missing one. The fix is two
+explicit `beforeStep:` labels; no source file changed and no assertion was relaxed, skipped or removed.
+
+The general lesson for the next agent: a wall of LabelMac type errors from hosted CI is usually one
+mismatch and a cascade. Find the first error in source order and fix that before believing any of the
+others.
+
+## Manifest scope, and the drift this batch found
+
+Merging #111 changed `ci.yml`, `HANDOFF.md` and `PROGRESS.json` — all three already covered by
+`MANIFEST.sha256` — without refreshing their digests. #114's new `manifest_audit.py` caught them as
+`STALE-DIGEST` on the merged result, and they are refreshed there, so the audit reports 0 stale,
+0 absent, 0 untracked over 356 covered files. That is a refresh of entries the manifest already
+carries, not a widening of scope: the 143 omitted paths stay omitted, because what the manifest is
+*for* is the maintainer decision recorded in `docs/adr/0004-manifest-integrity-scope.md`. Refs #87.
+
+## Next
+
+`#111` staled `M2-AC04` and `M2-AC13` (`.github/` is not an exempt path), and `#114` has now staled
+them again (`scripts/` is not either) — the fifth and sixth instances of the sequencing rule recorded
+above. Both are now stale against merged `main`, so the re-seal slice is owed immediately rather than
+conditionally. `--gate-stale` stays off until that re-seal lands and `evidence_currency.py --gate-stale`
+is observed exiting 0 on `main`; enabling it before then would make the gate red on arrival, which is
+the outcome the flag was scoped to avoid.
+
+Still unobserved and unchanged by this batch: real scheduler fidelity, installed queue management,
+privileged authorization, GUI and accessibility, USB transport, physical output, and every release
+gate. Issue #80 Part B still needs a human at a Mac.
+
 # CI-tested macOS artifact — 2026-09-19
 
-The macOS job now packages the exact local-ad-hoc setup app produced and verified by `scripts/build-local-app.sh` on successful pushes to `main`. Pull requests still test without publishing a bundle. The artifact carries a SHA-256 checksum and source/signature/scope metadata, retains for three days, and does not claim installation, scheduler, GUI, Gatekeeper or printer validation. See [CI artifact evidence](validation/M0-CI-MACOS-ARTIFACT-2026-09-19.md). Hosted upload evidence awaits the next successful `main` push.
+The macOS job now packages the exact local-ad-hoc setup app produced and verified by `scripts/build-local-app.sh` on successful pushes to `main`. Pull requests still test without publishing a bundle. The artifact carries a SHA-256 checksum and source/signature/scope metadata, retains for three days, and does not claim installation, scheduler, GUI, Gatekeeper or printer validation. See [CI artifact evidence](validation/M0-CI-MACOS-ARTIFACT-2026-09-19.md). That upload is now confirmed: the `main`-push run `35418621252` at `c3bbc5c` uploaded `label-printer-driver-setup-c3bbc5c...` at 3469450 bytes, expiring after the specified three days, and the preceding pull-request run published nothing. Confirming the upload path closes that qualifier and nothing else -- the bundle establishes no installation, Gatekeeper, scheduler, GUI, USB or printer qualification, all of which remain NOT RUN.
 
 # Re-seal after the report-deadline change — 2026-09-19
 
