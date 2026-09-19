@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from check_repo import markdown_links
+from check_repo import markdown_links, push_cancellation_errors
 from ci_scope import classify, needs_swift
 
 
@@ -34,6 +34,30 @@ class PreflightTests(unittest.TestCase):
         trigger = workflow.split("  pull_request:", 1)[1].split("  push:", 1)[0]
         self.assertIsNone(re.search(r"branches(?:-ignore)?:", trigger))
         self.assertIn("branches: [main]", workflow.split("  push:", 1)[1])
+
+    def test_a_workflow_may_not_cancel_superseded_pushes(self):
+        # A push carries the merged tree, so cancelling it can leave that tree
+        # never compiled while the required check still reports success.
+        cancelling = "on:\n  push:\n    branches: [main]\nconcurrency:\n  cancel-in-progress: true\n"
+        self.assertEqual(len(push_cancellation_errors("ci.yml", cancelling)), 1)
+        self.assertIn("cancel-in-progress", push_cancellation_errors("ci.yml", cancelling)[0])
+
+    def test_cancellation_scoped_to_pull_requests_is_accepted(self):
+        scoped = ("on:\n  pull_request:\n  push:\n    branches: [main]\nconcurrency:\n"
+                  "  cancel-in-progress: ${{ github.event_name == 'pull_request' }}\n")
+        self.assertEqual(push_cancellation_errors("ci.yml", scoped), [])
+
+    def test_a_workflow_without_a_push_trigger_may_still_cancel(self):
+        # compatibility.yml is workflow_dispatch only; superseding a manual run
+        # there discards nothing a merge depended on.
+        dispatch_only = "on:\n  workflow_dispatch:\nconcurrency:\n  cancel-in-progress: true\n"
+        self.assertEqual(push_cancellation_errors("compatibility.yml", dispatch_only), [])
+
+    def test_ci_does_not_cancel_its_own_main_pushes(self):
+        workflow = (Path(__file__).resolve().parents[2] / ".github/workflows/ci.yml").read_text()
+        # Assert the trigger too, so removing `push:` cannot make this pass vacuously.
+        self.assertIsNotNone(re.search(r"(?m)^\s{2}push:\s*$", workflow))
+        self.assertEqual(push_cancellation_errors("ci.yml", workflow), [])
 
     def test_unknown_and_empty_run_compilation(self):
         self.assertTrue(needs_swift([]))

@@ -11,6 +11,24 @@ from urllib.parse import unquote, urlsplit
 from check_reference_target import validate_target
 from traceability_report import build_report
 
+
+def push_cancellation_errors(name: str, text: str) -> list[str]:
+    """Reject a workflow that cancels superseded pushes.
+
+    Cancellation is keyed on the concurrency group, and a push's group is its
+    ref, so an unconditional `cancel-in-progress` cancels `main` exactly as it
+    cancels a pull request. A push to `main` carries the merged tree and is the
+    last opportunity to compile it, so merging faster than one native build
+    otherwise leaves the merged result never built while the required check
+    still reports success.
+    """
+    if not re.search(r"(?m)^\s{2}push:\s*$", text):
+        return []
+    if re.search(r"(?m)^\s*cancel-in-progress:\s*true\s*$", text):
+        return [f"Workflow cancels superseded pushes in {name}: scope cancel-in-progress to "
+                "pull requests so a merged tree is always compiled"]
+    return []
+
 ROOT = Path(__file__).resolve().parents[1]
 IGNORED = {".git", ".build", ".venv-fixtures", ".swiftpm", "__pycache__", "local-private", "build-logs", "artifacts", "dist"}
 REQUIRED = (
@@ -96,6 +114,7 @@ def check(root: Path) -> list[str]:
             for forbidden in ("pull_request_target:", "self-hosted", "-xlarge", "-large"):
                 if forbidden in text:
                     errors.append(f"Review forbidden workflow configuration in {name}: {forbidden}")
+            errors.extend(push_cancellation_errors(name, text))
     try:
         errors.extend(validate_target(json.loads((root / "docs/reference-target.json").read_text())))
         for package in ("LabelCore", "LabelMac"):
