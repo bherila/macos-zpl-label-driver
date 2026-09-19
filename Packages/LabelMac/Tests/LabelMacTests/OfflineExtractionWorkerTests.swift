@@ -97,4 +97,76 @@ final class OfflineExtractionWorkerTests: XCTestCase {
             XCTAssertEqual(admitted.physicalSize, stock)
         }
     }
+
+    /// The emitted v3 ticket is the process boundary, so its margin object is
+    /// attacker-influenced input. Each malformed shape must be refused with a
+    /// typed error rather than clamped, defaulted or silently zeroed.
+    func testEmittedTicketMarginsAreRejectedFailClosedWithTypedErrors() throws {
+        let stock = try self.stock
+        let margins = try OutputMargins(left: 1, top: 2, right: 3, bottom: 0.5)
+        let emitted = try OfflineExtractionWorker.ticketJSON(
+            label: try plannedLabel(outputMargins: margins, outputStock: stock),
+            canvas: try canvas(stock), conversion: .textAndBarcodeThreshold(cutoff: 128))
+        func mutated(_ change: (inout [String: Any]) -> Void) throws -> Data {
+            var root = try XCTUnwrap(JSONSerialization.jsonObject(with: emitted) as? [String: Any])
+            change(&root)
+            return try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
+        }
+
+        // A negative edge is refused by the geometry type, not normalized to 0.
+        let negative = try mutated { $0["outputMargins"] = ["left": -1, "top": 2, "right": 3, "bottom": 0.5] }
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: negative)) {
+            XCTAssertEqual($0 as? PagePlacementError, .invalidMargins)
+        }
+
+        // Margins wider than the stock leave no printable area at all.
+        let exhausting = try mutated {
+            $0["outputMargins"] = ["left": stock.width.value, "top": 0,
+                                   "right": stock.width.value, "bottom": 0]
+        }
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: exhausting)) {
+            XCTAssertEqual($0 as? OfflineConversionTicket.TicketError, .malformedJSON)
+        }
+
+        // A v2 ticket has no margin field, so margins carried at v2 are refused
+        // instead of being accepted and quietly applied.
+        let versionTwo = try mutated { $0["schemaVersion"] = 2 }
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: versionTwo)) {
+            XCTAssertEqual($0 as? OfflineConversionTicket.TicketError, .malformedJSON)
+        }
+
+        // A v3 ticket that drops the margin object entirely is refused rather
+        // than defaulted to zero, so a stripped field cannot lose the margins.
+        let stripped = try mutated { $0.removeValue(forKey: "outputMargins") }
+        XCTAssertThrowsError(try OfflineConversionTicket(jsonData: stripped)) {
+            XCTAssertEqual($0 as? OfflineConversionTicket.TicketError, .malformedJSON)
+        }
+    }
+
+    /// A non-finite edge cannot be produced by `JSONSerialization`, so it is
+    /// spliced in as a raw literal the way a hostile writer would send it.
+    func testEmittedTicketRejectsNonFiniteMarginArrivingAsARawLiteral() throws {
+        let stock = try self.stock
+        let margins = try OutputMargins(left: 1, top: 2, right: 3, bottom: 0.5)
+        let emitted = try OfflineExtractionWorker.ticketJSON(
+            label: try plannedLabel(outputMargins: margins, outputStock: stock),
+            canvas: try canvas(stock), conversion: .textAndBarcodeThreshold(cutoff: 128))
+        var root = try XCTUnwrap(JSONSerialization.jsonObject(with: emitted) as? [String: Any])
+        root.removeValue(forKey: "outputMargins")
+        let base = String(decoding: try JSONSerialization.data(withJSONObject: root,
+            options: [.sortedKeys]), as: UTF8.self)
+        XCTAssertTrue(base.hasPrefix("{"))
+        for literal in ["1e400", "-1e400"] {
+            let spliced = Data(("{\"outputMargins\":{\"left\":\(literal),\"top\":0,"
+                + "\"right\":0,\"bottom\":0}," + base.dropFirst()).utf8)
+            XCTAssertThrowsError(try OfflineConversionTicket(jsonData: spliced)) { error in
+                // Fail-closed either way: the decoder may refuse the overflowing
+                // literal, or admit an infinity the geometry type then refuses.
+                // What must never happen is a ticket carrying a non-finite edge.
+                let decoded = (error as? OfflineConversionTicket.TicketError) == .malformedJSON
+                let geometry = (error as? PagePlacementError) == .invalidMargins
+                XCTAssertTrue(decoded || geometry, "untyped rejection: \(error)")
+            }
+        }
+    }
 }
