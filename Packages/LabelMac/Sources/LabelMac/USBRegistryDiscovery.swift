@@ -12,6 +12,25 @@ public struct USBPrinterObservation: Equatable, Sendable, Identifiable,
     public let interfaceNumber: UInt8
     private let registryEntryID: UInt64
 
+    /// Display text for the picker, built here so it is testable rather than
+    /// inline in a view body.
+    ///
+    /// A vendor or product ID is an identifier, not a quantity. Interpolating
+    /// the integers straight into a SwiftUI `Text` runs them through the
+    /// viewer's locale number format, which rendered VID 0x0A5F as "2,655" --
+    /// a thousands separator inside an identifier, and a value that matches
+    /// nothing a USB tool prints. Interpolating an already-formatted `String`
+    /// keeps the locale out of it, and hex is what `system_profiler` and the
+    /// USB-IF registry use, so the value can be cross-checked as written.
+    ///
+    /// Deliberately not `description`: `RedactedDiagnosticValue` redacts that
+    /// so these values never reach a log, and this text is for the screen the
+    /// viewer is already looking at.
+    public var interfaceLabel: String {
+        String(format: "USB VID 0x%04X, PID 0x%04X, interface %u",
+               UInt32(vendorID), UInt32(productID), UInt32(interfaceNumber))
+    }
+
     init(registryEntryID: UInt64, vendorID: UInt16, productID: UInt16, interfaceNumber: UInt8) {
         id = UUID()
         self.registryEntryID = registryEntryID

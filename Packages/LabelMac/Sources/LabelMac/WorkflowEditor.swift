@@ -89,6 +89,23 @@ public final class WorkflowEditorModel: ObservableObject {
             ? regions.filter { !reviewedRegionIDs.contains($0.id) }.count : regions.count
     }
 
+    /// Rendered here rather than inline in a view so the plural form is testable.
+    ///
+    /// The view interpolated the count into a fixed plural sentence, so a single
+    /// outstanding region read "1 regions require review".
+    public var unreviewedRegionSummary: String {
+        unreviewedRegionCount == 1
+            ? String(localized: "1 region requires review before unattended approval.")
+            : String(localized: "\(unreviewedRegionCount) regions require review before unattended approval.")
+    }
+
+    /// Per-page region count for the page list, in the model for the same reason.
+    public static func labelRegionSummary(page: Int, regions: Int) -> String {
+        regions == 1
+            ? String(localized: "Page \(page): 1 label region")
+            : String(localized: "Page \(page): \(regions) label regions")
+    }
+
     public var canConfirmSelectedBoundsAndPreview: Bool {
         guard !isPreparingPreview, let selectedRegionID,
               let region = regions.first(where: { $0.id == selectedRegionID }), let preview else { return false }
@@ -196,6 +213,27 @@ public final class WorkflowEditorModel: ObservableObject {
               let region = regions.first(where: { $0.id == expectedRegionID }) else {
             throw WorkflowProfileDraft.Error.regionNotFound(expectedRegionID)
         }
+        // Storing the identical rectangle is not a mutation, so it must not
+        // invalidate review or cancel the reviewed preview. Moving focus through
+        // a bounds field committed the value already displayed, which destroyed
+        // a reviewed exact preview with nothing changed.
+        //
+        // This does not weaken `replaceDraft`'s contract that a successful
+        // mutation invalidates review even when values are later undone. That
+        // defends a sequence of real edits, and each call in such a sequence
+        // still changes the draft and still invalidates.
+        //
+        // The comparison has to happen here, before `editableDraft()`. On a
+        // saved revision that returns `store.correctionDraft(for:)` at revision
+        // latest + 1, so a value-identical commit legitimately yields a
+        // different draft and comparing drafts afterwards can never detect the
+        // no-op -- it would instead fork a revision and clear `isSaved`.
+        // `NormalizedRect` stores its Doubles verbatim and `updateRegion` writes
+        // the rectangle through unchanged, so `==` here is exact: no rounding or
+        // normalization can make an equal input store differently. Rotation is
+        // not part of this decision; it is passed through unchanged below and is
+        // edited by `setSelectedRotation`.
+        guard rect != region.normalizedRect else { return }
         var next = try editableDraft()
         try next.updateRegion(id: expectedRegionID, normalizedRect: rect, rotation: region.rotation)
         try replaceDraft(next)
@@ -559,20 +597,40 @@ public struct WorkflowEditorView: View {
             .frame(minWidth: 180)
             .accessibilityLabel("Label regions in output order")
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    mediaSummary
-                    pageHandling
-                    if model.isReopenedWorkflow {
-                        Text("Saved workflow reopened for correction as a new revision. Review this PDF and the exact label previews before saving. Earlier revisions and their qualifications are unchanged.")
-                            .accessibilityLabel("Reopened workflow requires review of its new revision")
-                    } else if model.isManualDraft {
-                        Text("Manual extraction: no label crop was chosen automatically. Each starting region covers its full source page. Set the label bounds and review the exact preview; this draft has no unattended qualification.")
-                            .accessibilityLabel("Manual extraction requires region and preview review")
+            // The approval cluster is pinned below the scrolling content instead
+            // of being the last thing inside it.
+            //
+            // This pane is hard-capped at 720 points (see the frame below) and
+            // sits inside the setup window's own ScrollView, so widening or
+            // zooming the window grants it no extra height. `previewView` had no
+            // maximum height around a scaledToFit 4x6 bitmap, so a wider pane made
+            // the preview taller; once the source reference was showing too, the
+            // content above these controls exceeded the viewport and pushed
+            // Confirm, Save Revision and Approve out of reach. A reviewed draft
+            // then could not be confirmed, saved or approved at all.
+            //
+            // Controls that commit a revision must not depend on scroll position.
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        mediaSummary
+                        pageHandling
+                        if model.isReopenedWorkflow {
+                            Text("Saved workflow reopened for correction as a new revision. Review this PDF and the exact label previews before saving. Earlier revisions and their qualifications are unchanged.")
+                                .accessibilityLabel("Reopened workflow requires review of its new revision")
+                        } else if model.isManualDraft {
+                            Text("Manual extraction: no label crop was chosen automatically. Each starting region covers its full source page. Set the label bounds and review the exact preview; this draft has no unattended qualification.")
+                                .accessibilityLabel("Manual extraction requires region and preview review")
+                        }
+                        if let region = selectedRegion { regionControls(region) }
+                        sourceReferenceView
+                        previewView
                     }
-                    if let region = selectedRegion { regionControls(region) }
-                    sourceReferenceView
-                    previewView
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Divider()
+                VStack(alignment: .leading, spacing: 8) {
                     previewReviewControls
                     if let error = model.lastError {
                         Text(error).foregroundStyle(.red).accessibilityLabel("Editor error: \(error)")
@@ -636,7 +694,7 @@ public struct WorkflowEditorView: View {
                     expectedProfile: displayedProfile, expectedPreview: displayedPreview,
                     expectedEditGeneration: displayedGeneration) }
             }.disabled(!model.canConfirmSelectedBoundsAndPreview)
-            Text("\(model.unreviewedRegionCount) regions require review before unattended approval.")
+            Text(model.unreviewedRegionSummary)
                 .font(.caption)
         }
     }
@@ -706,7 +764,8 @@ public struct WorkflowEditorView: View {
                     HStack {
                         switch rule.disposition {
                         case let .extract(regions):
-                            Text("Page \(rule.sourcePage): \(regions.count) label regions")
+                            Text(WorkflowEditorModel.labelRegionSummary(
+                                page: rule.sourcePage, regions: regions.count))
                             Button("Mark Page \(rule.sourcePage) Non-Label…") {
                                 pendingSkip = PendingSkip(page: rule.sourcePage, reason: skipReason,
                                                           profile: model.profile)
@@ -782,7 +841,10 @@ public struct WorkflowEditorView: View {
             } else {
                 ContentUnavailableView("Preview not generated", systemImage: "doc.viewfinder")
             }
-        }.frame(maxWidth: .infinity, minHeight: 240)
+        // Capped like the source reference below. Without a maximum, a
+        // scaledToFit 4x6 bitmap grows with the pane width and can exceed the
+        // pane's whole 720-point allocation on a wide display.
+        }.frame(maxWidth: .infinity, minHeight: 240, maxHeight: 300)
     }
 
     private var sourceReferenceView: some View {
@@ -807,11 +869,19 @@ public struct WorkflowEditorView: View {
                     }
                     .frame(maxHeight: 300)
             }
-            Button("Show Source Page") {
-                if let workerExecutable {
+            // The label was a fixed literal and the action only ever re-rendered,
+            // so it never read as showing and there was no way to dismiss the
+            // reference: once shown it stayed until a different region was
+            // selected or the document was reopened. Hiding is inert -- it clears
+            // a rendered image and performs no device or worker work.
+            Button(model.sourcePreview == nil ? "Show Source Page" : "Hide Source Page") {
+                if model.sourcePreview != nil {
+                    model.cancelSourcePreview()
+                } else if let workerExecutable {
                     Task { await model.refreshSourcePageInWorker(workerExecutable: workerExecutable) }
                 }
-            }.disabled(workerExecutable == nil || model.isPreparingSourcePreview)
+            }.disabled((workerExecutable == nil && model.sourcePreview == nil)
+                       || model.isPreparingSourcePreview)
             if model.isPreparingSourcePreview {
                 ProgressView("Preparing source reference…")
                 Button("Cancel Source Reference") { model.cancelSourcePreview() }
@@ -823,14 +893,8 @@ public struct WorkflowEditorView: View {
     private func measurementField(
         _ title: String, value: Double, update: @escaping (Double) throws -> Void
     ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption)
-            TextField(title, value: Binding(
-                get: { value },
-                set: { newValue in perform { try update(newValue) } }
-            ), format: .number.precision(.fractionLength(0...2)))
-            .textFieldStyle(.roundedBorder)
-            .accessibilityLabel(title)
+        MeasurementField(title: title, value: value) { newValue in
+            perform { try update(newValue) }
         }
     }
 
@@ -867,6 +931,68 @@ public struct WorkflowEditorView: View {
 }
 
 /// Display coordinates only. Final rendering continues to consume the original PDF.
+/// A millimetre field that commits on submit or focus loss, never per keystroke.
+///
+/// `TextField(value:format:)` over a `Binding` whose `set` committed on every
+/// successful parse made each keystroke a committed edit. Typing "101.6"
+/// committed 101 at "101"; at "101." the parse still yielded 101, the `get` then
+/// re-rendered the field from the model as "101", and the pending fraction was
+/// discarded, so the value had to be typed twice. The same mechanism is why
+/// every keystroke invalidated review and why the documented workaround was to
+/// shrink width and height before setting them.
+///
+/// Parsing and formatting both go through one locale-aware style, so a viewer
+/// whose locale uses a decimal comma reads and writes the same text as before.
+private struct MeasurementField: View {
+    let title: String
+    let value: Double
+    let commit: (Double) -> Void
+
+    @State private var text: String = ""
+    @FocusState private var isFocused: Bool
+
+    private static let style = FloatingPointFormatStyle<Double>()
+        .precision(.fractionLength(0...2))
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.caption)
+            TextField(title, text: $text)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel(title)
+                .focused($isFocused)
+                .onSubmit { commitText() }
+                .onChange(of: isFocused) { _, focused in
+                    if !focused { commitText() }
+                }
+                // Never clobber in-progress typing; resync only while idle.
+                .onChange(of: value) { _, updated in
+                    if !isFocused { text = updated.formatted(Self.style) }
+                }
+                .onAppear { text = value.formatted(Self.style) }
+        }
+    }
+
+    private func commitText() {
+        // An untouched field commits nothing. The model-level guard in
+        // `updateSelectedRegion` compares rectangles exactly, and the millimetre
+        // round trip does not preserve that: the field displays a value rounded
+        // to two fraction digits, so re-committing the displayed text can yield a
+        // rectangle differing from the stored one in its last bits. Comparing the
+        // text against what the model currently formats to answers the question
+        // that actually matters -- was this field edited at all -- and keeps a
+        // focus change from invalidating a reviewed preview.
+        guard text != value.formatted(Self.style) else { return }
+        guard let parsed = try? Double(text, format: Self.style) else {
+            // Unparseable input is not a value. Restore what the model holds
+            // rather than committing a guess.
+            text = value.formatted(Self.style)
+            return
+        }
+        commit(parsed)
+    }
+}
+
 private struct SourceSelectionOverlay: View {
     let binding: WorkflowEditorEditBinding
     let rect: NormalizedRect

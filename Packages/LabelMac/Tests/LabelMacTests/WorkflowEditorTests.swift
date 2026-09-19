@@ -26,6 +26,15 @@ final class WorkflowEditorTests: XCTestCase {
              String(localized: "The draft changed. Review the current values before editing again.")),
             (WorkflowProfileStore.Error.commitUncertain(identity),
              String(localized: "Save completion is uncertain. Preserve the current draft and review saved revisions before retrying.")),
+            // The geometry branch had no coverage anywhere in the suite, and it
+            // is the branch that produced a raw `invalidNormalizedRegion` in the
+            // UI before the mapping landed.
+            (PageGeometryError.invalidNormalizedRegion,
+             String(localized: "Enter finite, positive dimensions and keep the region within its source page.")),
+            (PageGeometryError.nonFiniteValue,
+             String(localized: "Enter finite, positive dimensions and keep the region within its source page.")),
+            (PhysicalGeometryError.nonPositiveLength,
+             String(localized: "Enter finite, positive dimensions and keep the region within its source page.")),
         ]
         for (error, expected) in cases {
             model.report(error)
@@ -130,6 +139,105 @@ final class WorkflowEditorTests: XCTestCase {
         XCTAssertEqual(current.bitmap.layout.width, 10)
         XCTAssertFalse(model.isPreparingPreview)
         XCTAssertNil(model.lastError)
+    }
+
+    // MARK: - Editor UI defect regressions
+
+    func testCommittingTheIdenticalRegionKeepsReviewAndTheExactPreview() async throws {
+        let (model, _) = try makeModel()
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        try confirmReview(model)
+        let reviewedProfile = model.profile
+        let reviewedPreview = try XCTUnwrap(model.preview)
+        let reviewedGeneration = model.editGeneration
+        XCTAssertEqual(model.unreviewedRegionCount, 0)
+
+        let region = try XCTUnwrap(model.regions.first { $0.id == model.selectedRegionID })
+        // Exactly what a focus change through a bounds field commits: the value
+        // already stored, unchanged.
+        try model.updateSelectedRegion(region.normalizedRect, expectedRegionID: region.id)
+
+        XCTAssertEqual(model.editGeneration, reviewedGeneration, "a no-op must not bump the edit generation")
+        XCTAssertEqual(model.profile, reviewedProfile)
+        XCTAssertEqual(model.preview, reviewedPreview, "a no-op must not cancel the reviewed preview")
+        XCTAssertEqual(model.unreviewedRegionCount, 0, "a no-op must not invalidate review")
+    }
+
+    func testANoOpCommitDoesNotForkARevisionOrClearSavedState() throws {
+        let (model, _) = try makeModel()
+        try model.save()
+        XCTAssertTrue(model.isSaved)
+        let savedProfile = model.profile
+        let savedGeneration = model.editGeneration
+
+        let region = try XCTUnwrap(model.regions.first { $0.id == model.selectedRegionID })
+        try model.updateSelectedRegion(region.normalizedRect, expectedRegionID: region.id)
+
+        // editableDraft() would return correctionDraft(for:) at revision + 1 here,
+        // so without the guard this silently forks a revision.
+        XCTAssertTrue(model.isSaved, "a no-op must not clear saved state")
+        XCTAssertEqual(model.profile, savedProfile)
+        XCTAssertEqual(model.editGeneration, savedGeneration)
+    }
+
+    func testARealEditStillInvalidatesReviewAfterTheNoOpGuard() async throws {
+        let (model, _) = try makeModel()
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        try confirmReview(model)
+        let generation = model.editGeneration
+        XCTAssertEqual(model.unreviewedRegionCount, 0)
+
+        let region = try XCTUnwrap(model.regions.first { $0.id == model.selectedRegionID })
+        let moved = try NormalizedRect(
+            x: region.normalizedRect.x, y: region.normalizedRect.y,
+            width: region.normalizedRect.width / 2, height: region.normalizedRect.height)
+        try model.updateSelectedRegion(moved, expectedRegionID: region.id)
+
+        XCTAssertEqual(model.editGeneration, generation + 1)
+        XCTAssertNil(model.preview)
+        XCTAssertEqual(model.unreviewedRegionCount, 1)
+    }
+
+    func testANoOpCommitStillRejectsAStaleEditBinding() throws {
+        let (model, _) = try makeModel()
+        let region = try XCTUnwrap(model.regions.first { $0.id == model.selectedRegionID })
+        let stale = WorkflowEditorEditBinding(regionID: region.id, editGeneration: model.editGeneration)
+        let moved = try NormalizedRect(
+            x: region.normalizedRect.x, y: region.normalizedRect.y,
+            width: region.normalizedRect.width / 2, height: region.normalizedRect.height)
+        try model.updateSelectedRegion(moved, expectedRegionID: region.id)
+        // The guard must not short-circuit the snapshot check that precedes it.
+        XCTAssertThrowsError(try model.updateSelectedRegion(
+            region.normalizedRect, expectedRegionID: region.id, expectedBinding: stale)) {
+            XCTAssertEqual($0 as? WorkflowEditorModel.Error, .editSnapshotChanged)
+        }
+    }
+
+    func testRegionCountSummariesAgreeWithTheirCount() throws {
+        let (model, _) = try makeModel()
+        XCTAssertEqual(WorkflowEditorModel.labelRegionSummary(page: 1, regions: 1),
+                       String(localized: "Page 1: 1 label region"))
+        XCTAssertEqual(WorkflowEditorModel.labelRegionSummary(page: 2, regions: 3),
+                       String(localized: "Page 2: 3 label regions"))
+        XCTAssertEqual(WorkflowEditorModel.labelRegionSummary(page: 1, regions: 0),
+                       String(localized: "Page 1: 0 label regions"))
+        // Never the ungrammatical "1 regions" the view produced.
+        XCTAssertFalse(WorkflowEditorModel.labelRegionSummary(page: 1, regions: 1).contains("1 label regions"))
+        XCTAssertFalse(model.unreviewedRegionSummary.isEmpty)
+    }
+
+    func testUnreviewedSummaryUsesTheSingularForOneRegion() async throws {
+        let (model, _) = try makeModel()
+        await model.refreshPreviewInWorker(workerExecutable: try worker())
+        try confirmReview(model)
+        XCTAssertEqual(model.unreviewedRegionCount, 0)
+        XCTAssertEqual(model.unreviewedRegionSummary,
+                       String(localized: "0 regions require review before unattended approval."))
+        try model.setSelectedRotation(.degrees90)
+        XCTAssertEqual(model.unreviewedRegionCount, 1)
+        XCTAssertEqual(model.unreviewedRegionSummary,
+                       String(localized: "1 region requires review before unattended approval."))
+        XCTAssertFalse(model.unreviewedRegionSummary.contains("1 regions"))
     }
 
     private func confirmReview(_ model: WorkflowEditorModel) throws {

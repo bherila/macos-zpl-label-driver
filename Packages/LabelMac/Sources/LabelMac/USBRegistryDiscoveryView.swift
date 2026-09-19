@@ -63,7 +63,7 @@ public struct USBRegistryDiscoveryView: View {
                     Picker("Session-only USB interface observation", selection: $model.selectedObservationID) {
                         Text("No observation selected").tag(UUID?.none)
                         ForEach(snapshot.printers) { observation in
-                            Text("USB VID \(observation.vendorID), PID \(observation.productID), interface \(observation.interfaceNumber)")
+                            Text(observation.interfaceLabel)
                                 .tag(UUID?.some(observation.id))
                         }
                     }

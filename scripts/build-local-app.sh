@@ -37,6 +37,22 @@ work_dir="$(mktemp -d "$PWD/artifacts/setup-app.XXXXXX")"
 app="$work_dir/Label Printer Driver Setup.app"
 mkdir -p "$app/Contents/MacOS"
 cp resources/LabelPrinterSetup-Info.plist "$app/Contents/Info.plist"
+
+# Stamp the source commit into the bundle, before codesign seals Info.plist.
+#
+# Every build lands in a fresh artifacts/setup-app.XXXXXX directory and nothing
+# prunes or marks the newest, while Info.plist carried a hard-coded 0.1.0/1 with
+# no provenance of any kind. A GUI observation therefore could not be tied to a
+# commit: a defect already fixed in-tree could be re-reported from a stale
+# bundle, and neither the tester nor a later reviewer had any way to tell. This
+# records which source a bundle was actually built from.
+build_revision="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+if [[ "$build_revision" != unknown ]] \
+   && [[ -n "$(git status --porcelain --untracked-files=no 2>/dev/null)" ]]; then
+  build_revision="$build_revision-modified"
+fi
+/usr/bin/plutil -replace CFBundleVersion -string "$build_revision" "$app/Contents/Info.plist"
+/usr/bin/plutil -insert LabelBuildRevision -string "$build_revision" "$app/Contents/Info.plist"
 cp "$source_binary" "$app/Contents/MacOS/label-printer-setup"
 chmod 0755 "$app/Contents/MacOS/label-printer-setup"
 cp "$worker_binary" "$app/Contents/MacOS/label-render-worker"
@@ -63,4 +79,5 @@ fi
 [[ "$(/usr/bin/lipo -archs "$app/Contents/MacOS/label-printer-setup")" == "arm64" ]]
 python3 scripts/check-packaged-worker.py "$app/Contents/MacOS/label-render-worker" "$worker_binary"
 printf 'Built and verified local-ad-hoc app: %s\n' "$app"
+printf 'Built from source revision: %s\n' "$build_revision"
 printf 'This does not establish Gatekeeper, installation, scheduler, or printer acceptance.\n'
