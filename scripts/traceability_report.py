@@ -12,6 +12,14 @@ import time
 
 LEVELS = {'A', 'C', 'I', 'H', 'R'}
 STATES = {'not-run', 'pass', 'fail', 'blocked', 'not-applicable'}
+# Levels an offline suite, a hosted compile or an inert check can actually reach. A criterion that
+# prescribes I, H or R is never satisfied by one of these, however green the run was.
+OFFLINE_LEVELS = {'A', 'C'}
+# One row, four independent questions. They are reported separately because a row can answer some
+# and not others, and a row that answers only the first two is not qualified.
+VERDICTS = ('qualified', 'stale-source', 'invalid-references', 'wrong-evidence-level',
+            'claimed-without-record', 'record-without-checkbox', 'no-passing-record',
+            'current-blocker', 'no-record')
 SHA = re.compile(r'[0-9a-f]{40}\Z')
 DIGEST = re.compile(r'[0-9a-f]{64}\Z')
 MAXIMUM_FILE_BYTES = 2 * 1024 * 1024
@@ -252,6 +260,52 @@ def manifest_describes_tree(root, sha, baseline_sha, deadline=None):
     return True
 
 
+def evidence_status(row):
+    """Report the four things a "complete" row conflates, and which one it actually fails.
+
+    (a) a checked checkbox in a milestone ACCEPTANCE.md, (b) a ledger record whose cited bytes still
+    hash to what it recorded, (c) a record whose evaluated source still describes HEAD, and (d) a
+    record at the level docs/VALIDATION-PLAN.md prescribes. Each is answered independently, because a
+    row can satisfy (a) and (b) while failing (c) or (d) and must not read as qualified. The
+    per-dimension booleans may be answered by different records, so they diagnose rather than
+    qualify; `qualified` still requires one single record to answer all four at once.
+    """
+    passing = [record for record in row['records'] if record['state'] == 'pass']
+    qualified = bool(row['declaredComplete'] and row['hasCurrentDeclaredPass']
+                     and not row['hasCurrentDeclaredBlocker'])
+    status = {'checkboxComplete': bool(row['declaredComplete']),
+              'hasDigestValidRecord': any(record['referencesValid'] for record in passing),
+              'hasCurrentSourceRecord': any(record['currentSource'] for record in passing),
+              'hasRequiredLevelRecord': any(record['levelMatchesRequired'] for record in passing),
+              'promotesBelowRequiredLevel': bool(row['requiredEvidence'] not in OFFLINE_LEVELS
+                                                 and any(record['level'] in OFFLINE_LEVELS for record in passing)),
+              'qualified': qualified}
+    if row['hasCurrentDeclaredBlocker']:
+        verdict = 'current-blocker'
+    elif qualified:
+        verdict = 'qualified'
+    elif not passing:
+        if row['records']:
+            verdict = 'no-passing-record'
+        else:
+            verdict = 'claimed-without-record' if row['declaredComplete'] else 'no-record'
+    else:
+        # Name the first unanswered question of the record that answers the most of them, so the
+        # output points at one cause instead of restating every dimension.
+        best = max(passing, key=lambda record: (record['levelMatchesRequired'],
+                                                record['referencesValid'], record['currentSource']))
+        if not best['levelMatchesRequired']:
+            verdict = 'wrong-evidence-level'
+        elif not best['referencesValid']:
+            verdict = 'invalid-references'
+        elif not best['currentSource']:
+            verdict = 'stale-source'
+        else:
+            verdict = 'record-without-checkbox'
+    status['verdict'] = verdict
+    return status
+
+
 def build_report(root, source_sha, workspace_dirty=False, source_matches=None, deadline=None):
     # `source_matches` receives this deadline, so time spent verifying a manifest inside it is spent
     # from the same budget these checks enforce rather than from an independent one.
@@ -317,14 +371,18 @@ def build_report(root, source_sha, workspace_dirty=False, source_matches=None, d
                  and all(validate_reference(root, ref, cache, total) for ref in implementations + evidence))
         current = (record['sourceSHA'] == source_sha or
                    (source_matches is not None and source_matches(record['sourceSHA'], deadline))) and not workspace_dirty
-        eligible = (record['state'] == 'pass' and valid and current
-                    and record['level'] == rows[identifier]['requiredEvidence'])
+        level_matches = record['level'] == rows[identifier]['requiredEvidence']
+        eligible = record['state'] == 'pass' and valid and current and level_matches
         check_budget()
         rows[identifier]['hasCurrentDeclaredPass'] |= eligible
         rows[identifier]['hasCurrentDeclaredBlocker'] |= current and record['state'] in {'fail', 'blocked'}
         rows[identifier]['records'].append({'level': record['level'], 'state': record['state'],
-                                            'referencesValid': bool(valid), 'currentSource': current,
+                                            'referencesValid': bool(valid), 'currentSource': bool(current),
+                                            'levelMatchesRequired': bool(level_matches),
                                             'meetsRequiredDeclaredEvidence': bool(eligible)})
+    for row in rows.values():
+        check_budget()
+        row['evidenceStatus'] = evidence_status(row)
     report_requirements, requirement_ids = [], set()
     for requirement in requirements:
         identifier, mapped = requirement['id'], requirement['acceptanceIDs']
@@ -338,9 +396,25 @@ def build_report(root, source_sha, workspace_dirty=False, source_matches=None, d
                                     'acceptanceIDs': mapped, 'pendingAcceptanceIDs': pending})
     mandatory = [r for r in report_requirements if r['mandatory']]
     check_budget()
+    summary = {name: 0 for name in VERDICTS}
+    # Four separate counts, never one. A reader who trusts the checkboxes sees the first figure;
+    # the honest one is the last. Measured on main at c3bbc5c they read 13 / 2 / 0 / 0 / 0, and the
+    # eleven checked rows with no record at all are counted separately from the stale ones.
+    counts = {'checkboxComplete': 0, 'hasDigestValidRecord': 0, 'hasCurrentSourceRecord': 0,
+              'hasRequiredLevelRecord': 0, 'checkedWithNoRecord': 0, 'qualified': 0}
+    for row in rows.values():
+        summary[row['evidenceStatus']['verdict']] += 1
+        for name in counts:
+            counts[name] += bool(row['evidenceStatus'].get(name))
+        counts['checkedWithNoRecord'] += bool(row['declaredComplete'] and not row['records'])
     return {'schemaVersion': 1, 'sourceSHA': source_sha, 'workspaceDirty': workspace_dirty,
             'evidenceMeaning': 'Maintainer declarations with checked references; not independent semantic or hardware verification.',
+            'evidenceStatusMeaning': ('checkboxComplete is a milestone checkbox, hasDigestValidRecord is a ledger '
+                                      'record whose cited bytes still match, hasCurrentSourceRecord is a record whose '
+                                      'evaluated source still describes HEAD, hasRequiredLevelRecord is a record at the '
+                                      'prescribed A/C/I/H/R level. Only qualified means one single record answers all four.'),
             'readyForMaintainerReview': bool(mandatory) and all(not r['pendingAcceptanceIDs'] for r in mandatory),
+            'evidenceSummary': summary, 'evidenceCounts': counts,
             'requirements': report_requirements, 'acceptance': list(rows.values())}
 
 
