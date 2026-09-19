@@ -5,7 +5,7 @@
       "acceptanceID": "M2-AC04",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "ab41094e66344917665975dd04520aa2de7bcd63",
+      "sourceSHA": "87cbd247161f30b51a05c59047a4bd4fbd4690b4",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/BitmapLayout.swift",
@@ -44,6 +44,10 @@
         {
           "path": "docs/validation/M2-RESEAL-AFTER-TICKET-AND-LITERAL-SLICES-2026-09-19.md",
           "sha256": "9b172c0795fcf235c79d9a34ca57e030337ccb4bfc0c61958974ce7d193ea71a"
+        },
+        {
+          "path": "docs/validation/M2-RESEAL-AFTER-MANIFEST-SCOPE-2026-09-19.md",
+          "sha256": "9080993c360c49275628ce64114194f00a69276816216f57316bf362de22c559"
         }
       ]
     },
@@ -51,7 +55,7 @@
       "acceptanceID": "M2-AC13",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "ab41094e66344917665975dd04520aa2de7bcd63",
+      "sourceSHA": "87cbd247161f30b51a05c59047a4bd4fbd4690b4",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometry.swift",
@@ -142,6 +146,10 @@
         {
           "path": "docs/validation/M2-RESEAL-AFTER-TICKET-AND-LITERAL-SLICES-2026-09-19.md",
           "sha256": "9b172c0795fcf235c79d9a34ca57e030337ccb4bfc0c61958974ce7d193ea71a"
+        },
+        {
+          "path": "docs/validation/M2-RESEAL-AFTER-MANIFEST-SCOPE-2026-09-19.md",
+          "sha256": "9080993c360c49275628ce64114194f00a69276816216f57316bf362de22c559"
         }
       ]
     }
