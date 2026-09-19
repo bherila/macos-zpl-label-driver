@@ -7,6 +7,12 @@ public enum PackedFinishingPreviewExport {
     public enum Error: Swift.Error, Equatable, Sendable {
         case invalidLimit, byteLimit, invalidDestination, cannotWrite, destinationExists, commitUncertain
     }
+    /// Export under the command's shared budget rather than a second clock.
+    public static func write(_ prepared: PreparedAcceptedFinishingJob, toNewDirectory destination: URL,
+                             maximumBytes: Int = 512 * 1024 * 1024, deadline: FinishingDeadline) throws {
+        try write(prepared, toNewDirectory: destination, maximumBytes: maximumBytes,
+                  deadlineSeconds: deadline.remaining(), cancellation: deadline.cancellation)
+    }
     public static func write(_ prepared: PreparedAcceptedFinishingJob, toNewDirectory destination: URL,
                              maximumBytes: Int = 512 * 1024 * 1024,
                              deadlineSeconds: Double = 60,

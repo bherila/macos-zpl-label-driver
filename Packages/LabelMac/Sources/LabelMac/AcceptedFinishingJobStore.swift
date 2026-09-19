@@ -12,6 +12,24 @@ public struct AcceptedFinishingReference: Equatable, Sendable, RedactedDiagnosti
     }
 }
 
+/// One verified reopen of an accepted record, reusable by the remaining steps of
+/// the same command so its original PDF is analyzed once instead of four times.
+/// Construction is available only through the store's own verified load path; it
+/// is not device delivery, replay, cancellation or completion authority.
+public struct ValidatedAcceptedFinishingContext: Equatable, Sendable {
+    public let catalogRoot: URL
+    public let reference: AcceptedFinishingReference
+    public let job: AcceptedFinishingJob
+    fileprivate init(catalogRoot: URL, reference: AcceptedFinishingReference, job: AcceptedFinishingJob) {
+        self.catalogRoot = catalogRoot; self.reference = reference; self.job = job
+    }
+    /// In-process binding only. It records which catalog root produced this
+    /// context and is not a fresh filesystem identity or ancestry attestation.
+    func bound(to root: URL) -> Bool {
+        catalogRoot.standardizedFileURL.path == root.standardizedFileURL.path
+    }
+}
+
 /// One immutable bounded binary transaction contains manifest and original PDF.
 /// Reopen reconstructs through original-source acceptance and verifies the complete
 /// recorded context. It does not authorize device delivery or clear attempt intent.
@@ -83,6 +101,20 @@ public struct AcceptedFinishingJobStore: @unchecked Sendable {
         guard !cancellation.isCancelled else { throw AcceptedFinishingJob.Error.cancelled }
         guard Double(DispatchTime.now().uptimeNanoseconds - start) / 1_000_000_000 < deadlineSeconds else { throw AcceptedFinishingJob.Error.timedOut }
         return job
+    }
+
+    /// Reopen once under the command's shared budget and keep the verified
+    /// context, so later steps observe recovery state and render without
+    /// re-deriving the extraction plan from the same original PDF.
+    public func validatedContext(reference: AcceptedFinishingReference, queueStore: FinishingQueueStore,
+                                 workflowStore: WorkflowProfileStore, printerStore: PrinterProfileStore,
+                                 workerExecutable: URL,
+                                 deadline: FinishingDeadline) throws -> ValidatedAcceptedFinishingContext {
+        let job = try load(reference: reference, queueStore: queueStore, workflowStore: workflowStore,
+            printerStore: printerStore, workerExecutable: workerExecutable,
+            deadlineSeconds: deadline.remaining(), cancellation: deadline.cancellation)
+        try deadline.check()
+        return ValidatedAcceptedFinishingContext(catalogRoot: root, reference: reference, job: job)
     }
 
     private static func parseRecord(_ bytes: Data) throws -> (Manifest, Int) {

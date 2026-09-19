@@ -45,4 +45,23 @@ public struct AcceptedFinishingRecovery: Equatable, Sendable {
         }
         return Self(reference: reference, observation: observation)
     }
+    /// Cold observation from a context this same catalog already verified, under
+    /// the command's shared budget. Intent is read before the cancellation poll
+    /// so a request recorded between the two is still reported, and neither case
+    /// grants delivery or replay permission.
+    public static func inspect(validated context: ValidatedAcceptedFinishingContext,
+                               attemptStore: AcceptedFinishingAttemptStore,
+                               cancellationStore: AcceptedFinishingCancellationStore,
+                               deadline: FinishingDeadline) throws -> Self {
+        let monitor = try cancellationStore.monitor(validated: context, deadline: deadline)
+        let intent = try attemptStore.recoveryObservation(validated: context, deadline: deadline)
+        let requested = try monitor.poll() == .requested
+        try deadline.check()
+        let observation: Observation
+        switch intent {
+        case .noRecordedIntent: observation = .noRecordedIntent(cancellationRequested: requested)
+        case .uncertainAfterRecordedIntent: observation = .uncertainAfterRecordedIntent(cancellationRequested: requested)
+        }
+        return Self(reference: context.reference, observation: observation)
+    }
 }

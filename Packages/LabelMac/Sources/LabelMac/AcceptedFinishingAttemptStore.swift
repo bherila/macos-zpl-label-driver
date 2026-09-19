@@ -57,6 +57,20 @@ public struct AcceptedFinishingAttemptStore: @unchecked Sendable {
         try Self.check(start: start, deadline: deadlineSeconds, cancellation: cancellation)
         return .uncertainAfterRecordedIntent
     }
+    /// Observation from a context this same catalog already verified. Absence
+    /// remains observation only and never becomes retry or replay authority.
+    public func recoveryObservation(validated context: ValidatedAcceptedFinishingContext,
+                                    deadline: FinishingDeadline) throws -> RecoveryObservation {
+        guard context.bound(to: accepted.root) else { throw Error.contextMismatch }
+        try deadline.check()
+        let bytes: Data
+        do { bytes = try storage.read(directory: "accepted-finishing-attempts", fileName: Self.fileName(context.reference), maximumBytes: 1024, createDirectoryIfMissing: false) }
+        catch PrivateImmutableDirectory.Error.notFound { try deadline.check(); return .noRecordedIntent }
+        catch { throw Self.map(error) }
+        guard bytes == Self.record(context.reference) else { throw Error.invalidRecord }
+        try deadline.check()
+        return .uncertainAfterRecordedIntent
+    }
     private func validate(reference: AcceptedFinishingReference, job: AcceptedFinishingJob,
         queueStore: FinishingQueueStore, workflowStore: WorkflowProfileStore, printerStore: PrinterProfileStore,
         workerExecutable: URL, deadlineSeconds: Double, cancellation: OfflineRenderWorkerCancellation) throws {

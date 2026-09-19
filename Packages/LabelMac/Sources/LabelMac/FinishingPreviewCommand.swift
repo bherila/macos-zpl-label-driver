@@ -19,22 +19,17 @@ public struct FinishingPreviewCommand: Sendable {
         destination = URL(fileURLWithPath: output, isDirectory: true)
     }
     public func run(workerExecutable: URL, cancellation: OfflineRenderWorkerCancellation = .init()) throws -> Data {
-        let start = DispatchTime.now().uptimeNanoseconds
-        func remaining() throws -> Double {
-            guard !cancellation.isCancelled else { throw AcceptedFinishingJob.Error.cancelled }
-            let value = 60 - Double(DispatchTime.now().uptimeNanoseconds-start)/1_000_000_000
-            guard value > 0 else { throw AcceptedFinishingJob.Error.timedOut }; return value
-        }
-        // Inspection enforces existing private catalog identity and exposes no
-        // permission to deliver. Preparation then uses only its exact reference.
-        _ = try inspection.report(workerExecutable: workerExecutable, cancellation: cancellation)
-        let root = inspection.root
-        let prepared = try AcceptedFinishingJobStore(root: root).prepare(reference: inspection.reference,
-            queueStore: FinishingQueueStore(root: root), workflowStore: WorkflowProfileStore(root: root),
-            printerStore: PrinterProfileStore(root: root), workerExecutable: workerExecutable,
-            deadlineSeconds: remaining(), cancellation: cancellation)
-        try PackedFinishingPreviewExport.write(prepared,toNewDirectory: destination,
-            deadlineSeconds: remaining(), cancellation: cancellation)
+        try run(workerExecutable: workerExecutable, deadline: FinishingDeadline(cancellation: cancellation))
+    }
+    /// One budget governs inspection, preparation and export. Inspection enforces
+    /// existing private catalog identity and exposes no permission to deliver;
+    /// preparation then reuses only its exact verified reference and bytes, so
+    /// the accepted original PDF is analyzed once rather than four times.
+    public func run(workerExecutable: URL, deadline: FinishingDeadline) throws -> Data {
+        let inspected = try inspection.observe(workerExecutable: workerExecutable, deadline: deadline)
+        let prepared = try AcceptedFinishingJobStore(root: inspection.root).prepare(validated: inspected.context,
+            workerExecutable: workerExecutable, deadline: deadline)
+        try PackedFinishingPreviewExport.write(prepared, toNewDirectory: destination, deadline: deadline)
         return try JSONSerialization.data(withJSONObject:["status":"exported", "kind":"packed-preview",
             "acceptedRecordSHA256":prepared.reference.sha256,"outputLabelCount":prepared.preparation.rasters.count,
             "hardwareCompletion":"unknown","automaticReplayAuthorized":false],options:[.sortedKeys])
