@@ -48,14 +48,9 @@ public struct FinishingFramedOutput: Equatable, Sendable {
               preparation.normalization.plan == job.plan else { throw Error.contextMismatch }
         let policy = try qualification.validate(preparation.normalization)
         try preparation.binding.validate(job: job, orderedRasters: preparation.rasters, cancellation: cancellation)
-        let mode: Data
-        switch policy {
-        case .tearOff: mode = Data("^MMT\n".utf8)
-        case .rewind: mode = Data("^MMR\n".utf8)
-        case .peelExplicitNoPrepeel: mode = Data("^MMP,N\n".utf8)
-        case .peelPrepeelNotApplicable: mode = Data("^MMP\n".utf8)
-        case .delayedCutSeparateFiles: mode = Data("^MMD\n".utf8)
-        }
+        // The capability gate above decided the policy; the bytes for it come
+        // from the one authoritative LabelCore mapping, never restated here.
+        let mode = ZPLFinishingControlLiteral.framedMode(of: policy).line
         // Exactly one already-expanded label per format. RFID is independently
         // excluded; no guessed void-label cutter semantics are applied.
         let tail = Data("^PQ1\n^XZ\n".utf8)
@@ -80,7 +75,7 @@ public struct FinishingFramedOutput: Equatable, Sendable {
             steps.append(.formatFile(outputLabel: ordinal, bytes: format))
             steps.append(.awaitLabelPrinted(outputLabel: ordinal))
             if cuts.contains(ordinal) {
-                let trigger = Data("~JK\n".utf8)
+                let trigger = ZPLFinishingControlLiteral.delayedCutTrigger.line
                 let (next, overflow) = total.addingReportingOverflow(trigger.count)
                 guard !overflow, next <= maximumBytes else { throw Error.outputLimit }
                 total = next
