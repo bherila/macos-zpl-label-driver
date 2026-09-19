@@ -607,6 +607,53 @@ final class FinishingJobTicketTests: XCTestCase {
 
     // MARK: - Canonical record bytes
 
+    // Codex review finding, confirmed by mutation rather than by reading. Because
+    // validatePlanMapping turned the engine selection into a Set, a page outside the
+    // document matched no rule and a duplicate collapsed, so the expected output and
+    // skipped lists it reconstructs came out byte-identical to the well-formed
+    // selection and the plan validated with a page quietly discarded. Removing the
+    // guard fails this test on 7 assertions -- [1,2,999], [1,1,2], [2,1] and [1,2,1]
+    // on accept, and [1,2,999], [1,1,2], [2,1] on decode -- while [0,1], [-1,1] and []
+    // were already rejected because they change what the reconstruction rebuilds. That
+    // split is the point: three shapes failed closed by accident of the mechanism and
+    // four did not, which is why the invariant is now stated directly.
+    // AGENTS.md: unexpected pages in an extraction workflow are not silently discarded.
+    func testEnginePageSelectionIsRejectedWhenMalformed() throws {
+        let context = try makeContext()
+        XCTAssertNoThrow(try accept(context, pageRangeOwnership: .engine(selectedSourcePages: [1, 2])))
+        for malformed in [[1, 2, 999],   // past the end of a two-page source
+                          [0, 1],        // before the first page
+                          [-1, 1],       // negative
+                          [1, 1, 2],     // duplicate a Set would collapse
+                          [2, 1],        // descending
+                          [1, 2, 1],     // repeat out of order
+                          []] {          // no selection at all
+            XCTAssertThrowsError(try accept(context,
+                pageRangeOwnership: .engine(selectedSourcePages: malformed)),
+                "selection \(malformed) must not be normalized into a valid plan") {
+                XCTAssertEqual($0 as? FinishingJobTicketError, .invalidPlan)
+            }
+        }
+        // The stored-record path must refuse the same shapes, since decode is where a
+        // selection can disagree with output labels that were written by a valid ticket.
+        let ticket = try accept(context, pageRangeOwnership: .engine(selectedSourcePages: [1, 2]))
+        let bytes = try FinishingJobTicketJSON.encode(ticket)
+        let object = try XCTUnwrap(try JSONSerialization.jsonObject(with: bytes) as? [String: Any])
+        for malformed in [[1, 2, 999], [1, 1, 2], [2, 1]] {
+            var patched = object
+            var ownership = try XCTUnwrap(patched["pageRangeOwnership"] as? [String: Any])
+            ownership["selectedSourcePages"] = malformed
+            patched["pageRangeOwnership"] = ownership
+            let raw = try JSONSerialization.data(withJSONObject: patched, options: [.sortedKeys])
+            XCTAssertThrowsError(try FinishingJobTicketJSON.decode(raw,
+                queueReference: context.queueReference, queue: context.queue,
+                device: context.device, workflow: context.workflow, printer: context.printer),
+                "stored selection \(malformed) must not load") {
+                XCTAssertEqual($0 as? FinishingJobTicketError, .invalidPlan)
+            }
+        }
+    }
+
     func testCanonicalRecordRejectsDuplicateKeysAndAlternateEncodings() throws {
         let context = try makeContext()
         let ticket = try accept(context)

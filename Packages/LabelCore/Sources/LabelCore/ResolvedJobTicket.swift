@@ -911,7 +911,21 @@ func validatePlanMapping(
     var expectedSkipped: [ResolvedSkippedPage] = []
     let selectedPages: Set<Int>
     switch pageRangeOwnership {
-    case let .engine(selectedSourcePages): selectedPages = Set(selectedSourcePages)
+    case let .engine(selectedSourcePages):
+        // An engine selection names exact source pages, so it is admitted as written
+        // rather than normalized. Set() alone silently collapses duplicates and drops
+        // pages outside the document: [1, 2, 999] against a two-page source matches no
+        // rule for 999, so the reconstruction below is byte-identical to [1, 2] and the
+        // plan validates with a page quietly discarded. AGENTS.md requires that
+        // unexpected pages in an extraction workflow are not silently discarded, and
+        // that invalid values fail validation rather than being clamped without
+        // disclosure. Require a strictly ascending, in-range selection.
+        guard !selectedSourcePages.isEmpty,
+              selectedSourcePages.allSatisfy({ (1...sourcePageCount).contains($0) }),
+              zip(selectedSourcePages, selectedSourcePages.dropFirst()).allSatisfy({ $0 < $1 }) else {
+            throw ResolvedJobTicketError.invalidPlan
+        }
+        selectedPages = Set(selectedSourcePages)
     case .upstreamAlreadyApplied: selectedPages = Set(1...sourcePageCount)
     }
     for rule in workflowProfile.pageRules where selectedPages.contains(rule.sourcePage) {
