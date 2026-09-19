@@ -80,6 +80,15 @@ public struct AcceptedFinishingCancellationStore: @unchecked Sendable {
         try Self.check(start, deadline: deadlineSeconds, cancellation: cancellation)
         return Monitor(storage: storage, reference: reference)
     }
+    /// Monitor from a context this same catalog already verified. Durable binding
+    /// comes from that verification rather than a second reopen of the record;
+    /// polling, cancellation and uncertainty semantics are unchanged.
+    public func monitor(validated context: ValidatedAcceptedFinishingContext,
+                        deadline: FinishingDeadline) throws -> Monitor {
+        guard context.bound(to: accepted.root) else { throw Error.contextMismatch }
+        try deadline.check()
+        return Monitor(storage: storage, reference: context.reference)
+    }
     private static func read(storage: PrivateImmutableDirectory, reference: AcceptedFinishingReference) throws -> Observation {
         let bytes: Data
         do { bytes = try storage.read(directory: "accepted-finishing-cancellations", fileName: Self.fileName(reference), maximumBytes: 1024, createDirectoryIfMissing: false) }
