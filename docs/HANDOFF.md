@@ -1,3 +1,7 @@
+# CI-tested macOS artifact — 2026-09-19
+
+The macOS job now packages the exact local-ad-hoc setup app produced and verified by `scripts/build-local-app.sh` on successful pushes to `main`. Pull requests still test without publishing a bundle. The artifact carries a SHA-256 checksum and source/signature/scope metadata, retains for three days, and does not claim installation, scheduler, GUI, Gatekeeper or printer validation. See [CI artifact evidence](validation/M0-CI-MACOS-ARTIFACT-2026-09-19.md). Hosted upload evidence awaits the next successful `main` push.
+
 # Re-seal after the report-deadline change — 2026-09-19
 
 Records bind source `9527188af32226ab1f2117ed2d332980d4db8e0f`, the tip of `main`, on
