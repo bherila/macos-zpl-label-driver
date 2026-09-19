@@ -47,10 +47,46 @@ reachable from read-only registry metadata.
 
 - **Stability across reattachment is NOT YET OBSERVED.** The serial should survive an unplug and replug;
   that has not been checked. `--fingerprint` exists for exactly that local comparison.
-- It does not show that #123's Swift code reads the value correctly on this machine. That code has run only
-  in hosted CI against an injected registry seam. The key names match; the code path is unexercised here.
+- Whether #123's Swift reads the value on a real Mac was open when this document was first written. It was
+  then exercised; see the next section.
 - It qualifies no transport, status channel, backend or print path, and installs nothing.
 - One unit was observed. Nothing here generalizes to other GC420d units or firmware.
+
+## PR #123's real code path, exercised against the attached unit
+
+The registry publishing a serial shows the *input* exists. It does not show that #123's Swift reads it,
+since that code had only ever run in hosted CI against an injected registry seam. With the unit still
+enumerated, #123's branch was checked out at `cb732c1` and an **uncommitted, throwaway** XCTest drove the
+real path headlessly: `USBRegistryDiscovery.snapshot()` through IOKit, then
+`ReferencePrinterSetupModel.qualifyIdentity(from:)` with the production CryptoKit digest. No GUI, no device
+open, no command sent; the test file was deleted afterwards and is in no commit. Sanitized output:
+
+```
+scanned=1 unreadable=0 printers=1            zebraPrinterInterfaces=1
+label=USB VID 0x0A5F, PID 0x00D1, interface 0
+description=USBPrinterObservation(redacted)
+before:  canInstallQueue=false  "Queue installation remains unavailable until this Mac positively identifies the USB device"
+outcome=qualified            stableIdentity=observed
+connection=... .observed(StableConnectionIdentity(redacted), evidence: reportedInstallation)
+after:   canInstallQueue=false  "Confirm the actual stock and tear-off configuration before queue installation"
+second pass: qualified, revision unchanged
+```
+
+What that establishes, on this machine, for this unit:
+
+- Real IOKit discovery finds the one printer-class interface, and real CryptoKit qualification succeeds.
+- The adopted identity stays redacted in `description`, including once it is inside the profile.
+- **Identity alone does not unlock installation.** `canInstallQueue` stayed `false` and the readiness message
+  moved on to the stock and tear-off confirmations, so the other two gates hold exactly as #123 claims.
+- Re-qualifying the same unit is idempotent and spends no profile revision.
+
+It was run once, within one attachment, so it says nothing about reattachment. It is a developer check at no
+evidence level, because a throwaway test that is not committed cannot be cited by a record.
+
+One provenance gap is visible in that output and is #123's own documented compromise rather than a defect:
+the identity is stored with evidence `reportedInstallation`, the same class as a fact the maintainer merely
+states. `CapabilityEvidence` has no case for "read by this host from the registry", and adding one changes
+the stored profile schema. Tracked separately.
 
 ## Two corrections made while observing
 
