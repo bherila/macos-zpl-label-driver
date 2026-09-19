@@ -48,11 +48,37 @@ from 4×6 inches at 8 dots/mm — the Python reference test checks planning JSON
 and `label-core-lab` starts from the already-derived constants, so neither would catch a Swift
 unit-conversion or rounding regression.
 
-`M3-AC01` and `M3-AC02` bind every capability domain and both resolver paths: the in-memory policy
-objects, `PrinterControlResolution` for `resolveControls` and `resolveFinishingControls`,
-`FinishingOutputQualification` for the finishing gate, and `PrinterProfileJSON` because runtime
-profiles enter through its schema-specific decoding, which separately reconstructs geometry, offset,
-thermal and finishing facts and could drop or substitute unknown/unsupported state on its own.
+`M3-AC01` and `M3-AC02` bind every capability domain, both resolver paths and every delegate those
+resolvers call: the in-memory policy objects, `PrinterControlResolution` for `resolveControls` and
+`resolveFinishingControls`, `PhysicalGeometryQualification` and `OffsetControlQualification` for the
+range and combination checks they delegate, `FinishingProfileConfiguration` for model and installation
+consistency, `CutSchedulePlanner` for schedule capability, `FinishingOutputQualification` for the
+finishing gate, `PrinterProfileJSON` because runtime profiles enter through its schema-specific
+decoding, and the three encoders, which are where an unevidenced capability would become an emitted
+command and where an unsupported choice must fail rather than clamp.
+
+`M2-AC13` also binds `scripts/check_reference_target.py`, not just the test that imports it: that
+module derives the dimensions, stride, byte total and band partition and enforces the distinct 832-dot
+head extent, the unknown gap and liner values and the nominal-DPI separation, so most of the claimed
+oracle lives there rather than in the planning JSON.
+
+### Checking the rule mechanically
+
+The rule is only useful if it can be checked rather than asserted, so the records were audited by
+parsing every top-level type declared in `Packages/LabelCore/Sources/LabelCore`, mapping each to its
+declaring file, and listing the files a record's cited tests reference but its `implementation` list
+does not bind. That found the round-9 owners before and alongside review: the encoders are where an
+unevidenced capability would become an emitted command and where an out-of-range choice must fail
+rather than clamp, so they own part of both `M3-AC01` and `M3-AC02`.
+
+The check over-reports, and the residue is recorded here rather than silently ignored. After binding,
+it still lists `MonochromeBitmap`, `PhysicalGeometry`, `ResolvedJobTicket`, `VirtualQueueDefinition`
+and `DeliveryState` against the M3 records: those are fixture and context types the tests construct,
+not owners of capability truthfulness or settings validation, whose owners are the qualification
+types, the resolvers, the codec and the encoders. It also lists `MonochromeConversion` against
+`M2-AC13`, which is deliberately not bound: `M2-AC13`'s padding claim is enforced by
+`MonochromeBitmap.init` for both packers, and binding the dither branch would import the #104 coverage
+gap into a record that does not depend on it.
 
 All three were audited for a LabelMac second site before being kept. LabelMac constructs no
 `CapabilityFact` or `CapabilityState` anywhere, `FinishingDeviceGeometry` performs no independent dot

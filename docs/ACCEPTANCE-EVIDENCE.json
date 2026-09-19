@@ -26,6 +26,10 @@
         {
           "path": "Packages/LabelCore/Sources/LabelCore/ZPLGraphicEncoder.swift",
           "sha256": "a15fdd3327d19234b6d35f6ccbd679c64f3b5f44366fcf14c94e89a1e44b5a3b"
+        },
+        {
+          "path": "scripts/check_reference_target.py",
+          "sha256": "3d6e32c23f67e02bffe698d467c426a02c5abf8e6461f04d349c6abde8f8bcb5"
         }
       ],
       "evidence": [
@@ -116,6 +120,26 @@
         {
           "path": "Packages/LabelCore/Sources/LabelCore/PrinterProfileJSON.swift",
           "sha256": "efedc788cb4fff807dff2c8ceb2e87de9104360b892dee05332ab9dab30b63c1"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/FinishingProfileConfiguration.swift",
+          "sha256": "e79a2f518880d87c6e1076a80f51a7397553c6e3c80eeeae76cf5882b665f632"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/CutSchedulePlanner.swift",
+          "sha256": "d4323f5357edd4f3c10cd0514dfc23e649fc6fc195167cb90126df8b06eb5d66"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLControlEncoder.swift",
+          "sha256": "5a11110def21581dc46eddd277f64f153e289fe855bc9a2e75b9fb2bc74f6575"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLDocumentedControlEncoder.swift",
+          "sha256": "0160e5c33772c6a516e2d729d98e5ee9dddae475b86e418e72c40abb270a3674"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLPreparedLabelEncoder.swift",
+          "sha256": "da2b9c0706e16997154d8dc6eeeaf1980f4832d039116f8815d6124e1ae6f238"
         }
       ],
       "evidence": [
@@ -206,6 +230,38 @@
         {
           "path": "Packages/LabelCore/Sources/LabelCore/PrinterControlResolution.swift",
           "sha256": "655da604915d195b56de495042a9402306ba358345680c999027e9b0a52ec0ac"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometryQualification.swift",
+          "sha256": "b29333ea2a299d67ffbf0c4eb8b9f7e3a2b0b75341e4c835e46b4463cc013271"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/OffsetControlQualification.swift",
+          "sha256": "4dd16334d42f59cbc4e1fa0ad249c60e387add05545957450bfae36484b9142a"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/PrinterProfileJSON.swift",
+          "sha256": "efedc788cb4fff807dff2c8ceb2e87de9104360b892dee05332ab9dab30b63c1"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/FinishingProfileConfiguration.swift",
+          "sha256": "e79a2f518880d87c6e1076a80f51a7397553c6e3c80eeeae76cf5882b665f632"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLDocumentedControlEncoder.swift",
+          "sha256": "0160e5c33772c6a516e2d729d98e5ee9dddae475b86e418e72c40abb270a3674"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLPreparedLabelEncoder.swift",
+          "sha256": "da2b9c0706e16997154d8dc6eeeaf1980f4832d039116f8815d6124e1ae6f238"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/CutSchedulePlanner.swift",
+          "sha256": "d4323f5357edd4f3c10cd0514dfc23e649fc6fc195167cb90126df8b06eb5d66"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/FinishingOutputQualification.swift",
+          "sha256": "60c7bc016c11d4f699b0cf61536260939a064c1e8a4b0504858d41c7f5bb1c17"
         }
       ],
       "evidence": [
