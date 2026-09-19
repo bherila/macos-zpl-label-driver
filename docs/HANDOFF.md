@@ -1,3 +1,66 @@
+# One shared deadline for the traceability report — 2026-09-19
+
+Source at `main` `872adb3`, on `claude/determined-sagan-frse18`. Closes #91, refs #87.
+
+**This change is not originally mine.** It was written in another session as #107 on
+`claude/funny-gauss-9euxrr`, which was closed unmerged because it forked at `78acd9b` and went
+`mergeable_state: dirty` against `HANDOFF.md`, `PROGRESS.json` and `MANIFEST.sha256` after #102 and
+#105 rewrote them. The two script files it changes are byte-identical between `78acd9b` and `main`, so
+they port cleanly; only the bookkeeping conflicted, and that is rewritten here rather than merged.
+
+`manifest_describes_tree` hashed every manifest entry in its own `git cat-file blob` subprocess with an
+independent 30-second timeout. A valid manifest may hold `MAXIMUM_MANIFEST_ENTRIES` (4096) entries, and
+`source_is_unchanged` runs once per evidence record bound to a distinct ancestor, each walking a full
+manifest — so the walk was bounded at 4096 × 30s ≈ 34 hours per revision, inside a `build_report`
+budget of 60 seconds whose `check_budget()` was consulted only *between* its own calls, never during
+the loop that could outlast it by three orders of magnitude. The practical failure is a manifest-only
+change timing out CI instead of producing the bounded rejection the exemption exists to fail closed
+with.
+
+A `Deadline` now carries one wall-clock budget for a whole report. `timeout(ceiling)` returns the
+smaller of the call's own ceiling and what is actually left, or `None` once spent, so no subprocess can
+outlive the report that started it. It threads through `build_report` → `source_matches` →
+`source_is_unchanged` → `manifest_describes_tree` → `manifest_entries`, and is drawn once per hashed
+entry inside the loop. Exhausting it returns `False`, never `True`: a manifest too large to verify in
+the remaining budget **denies** the exemption rather than inheriting it.
+
+**Verified rather than taken on trust.** The port was validated in a throwaway worktree at `main`
+before being committed here: 108 Python tests pass (105 before, three added), `check_repo.py` passes,
+and the report keeps its shape at 21 requirements and 90 acceptance rows. The original slice claimed
+its regression catches the defect; that was checked independently by restoring the per-entry
+`timeout=30` in the hash loop, which fails
+`test_manifest_verification_is_bounded_by_the_shared_report_budget` with `AssertionError: 5 != 3` —
+the advertised failure, on the specific loop the change bounds.
+
+One observation from the original slice is now out of date and should not be carried forward: it
+reported 31 of 347 `MANIFEST.sha256` entries with digests not matching their content at `78acd9b`.
+Measured on `main` at `872adb3`, all **347 entries match**. The re-sealing in #102, #105 and #106 fixed
+that drift.
+
+## This stales both records, and that is expected
+
+`scripts/` is not among the paths `source_is_unchanged` exempts, so landing this invalidates `M2-AC04`
+and `M2-AC13` — the report will read 0 criteria on `main` until they are re-bound. Third instance of
+the sequencing rule already recorded here: evidence follows source, in its own slice against the merged
+result. The re-seal is the next commit after this one, not part of it.
+
+Changed requirements: none. No acceptance or requirement ID advances — this is a robustness bound on a
+read-only reporting script, not evidence for any criterion.
+
+Tests actually run. Linux x86_64, Python 3: `python3 -m unittest discover -s scripts/tests`, 108 pass,
+0 failures; `python3 scripts/check_repo.py` passed; `python3 scripts/traceability_report.py` exit 0
+with unchanged shape. Swift suites are unaffected — neither changed file is Swift, and neither is in
+`MANIFEST.sha256`.
+
+What this does not establish. Read-only reporting only. `traceability_report.py` inspects git objects
+and repository files; it writes nothing, takes no privilege and performs no device or network I/O.
+Nothing here approaches macOS integration, GUI, installation, scheduler, hardware or release, all of
+which remain NOT RUN.
+
+Blockers: #103 remains the gate for eleven criteria including all three `F04` needs. #89, #80 and #90
+remain the gates for GUI, installed and physical evidence. #101 and #93 gap 2 need human security
+review.
+
 # M2-AC04 recorded and M2-AC13 re-sealed — 2026-09-19
 
 Records bind source `8ab3429d4bd96db326cdd0ddaed44229f30c8100`, the tip of `main`, on
