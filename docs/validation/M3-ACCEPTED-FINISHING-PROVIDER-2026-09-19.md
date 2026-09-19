@@ -33,9 +33,12 @@ binary records in `finishing-deliveries`, reusing the existing private immutable
 directory's exclusive publication lock, namespace validation, permissions and
 durability checks. Both record kinds independently revalidate the archived complete
 framed context through `FinishingArtifactStore`. There is no clear, reset or
-overwrite API. An uncertain disposition cannot be recorded unless the durable
-send-attempt record already exists. The closed textual token set is decoded by exact
-canonical re-encoding, not by a synthesized `Codable` layout.
+overwrite API, so `recordOutcome` validates the disposition against that complete
+context before anything is written: the step index must address a framed step of the
+kind that state can stop at, and a partial transmission must report a byte count the
+framed file can produce. An uncertain disposition cannot be recorded unless the
+durable send-attempt record already exists. The closed textual token set is decoded
+by exact canonical re-encoding, not by a synthesized `Codable` layout.
 
 `BoundedFinishingDelivery` acquires the artifact (job) lease and the physical-device
 lease, both nonblocking, before any provider call, refuses to run when any durable
@@ -44,7 +47,16 @@ file and before all byte accounting, revalidates ownership after every complete 
 and every status wait, records the terminal state while both leases are still held,
 and releases both on scope exit including thrown errors. Cancellation and the finite
 deadline are enforced by the executor so a cancelled or expired run can still record
-its terminal state.
+its terminal state, and both are rechecked after a status wait completes, before the
+returned reading is consumed. The finite deadline reads a monotonic source that is
+injectable inside the module; production callers always read the real clock.
+
+The returned `Outcome` publishes the disposition plus an `Accounting` value holding
+the byte and step facts. It deliberately does not republish the in-memory tracker:
+that tracker maps a pre-attempt timeout and a pre-attempt ownership loss onto its
+`failedBeforeAttempt` state, whose `mayRetryAutomatically` would contradict the
+disposition recorded for the same run. `authorizesBoundedRetry`, identical to what
+the durable record reports on a later cold observation, is the only retry signal.
 
 `InertFinishingDeliveryProvider` is discard-only: it opens no socket, performs no
 transport, never invokes `lpr` and keeps no output sink. Its status readings are
@@ -65,6 +77,59 @@ the replacement provider never reached, rejection of a record written without pr
 intent, and rejection of alternate spellings, a negative step, an unknown token and a
 foreign reference in the record codec.
 
+## Review findings addressed
+
+Four P2 findings were raised against this branch by an automated reviewer and each
+was checked against the source before any change was made.
+
+1. Real. `BoundedFinishingDelivery` rechecked only ownership after `awaitStatus`
+   returned. Every framed file step is immediately followed by a status step, so the
+   last step is always a status wait: a `satisfied` reading that arrived after the
+   run was cancelled or after the deadline expired advanced the tracker to
+   `confirmed`, left the loop and durably published `allStepsSatisfied`. Cancellation
+   and expiry are now decided before the reading is consumed, yielding
+   `cancelledAfterAttempt` or `timedOutAfterAttempt` at the interrupted step. The
+   same recheck also corrects the step named when a wait is interrupted mid-run: the
+   step whose wait was crossed, rather than the following step the old code had
+   already advanced to.
+2. Real, and wider than reported. `halt(false)` for a pre-attempt timeout left the
+   tracker in `failedBeforeAttempt`, so the published `tracker.mayRetryAutomatically`
+   was true while `authorizesBoundedRetry` was correctly false; a pre-attempt
+   ownership loss had the same contradiction. The fix removes the second signal
+   rather than renaming one instance of it: the tracker is no longer part of the
+   public returned state and the new `Accounting` value carries no retry
+   authorization. Adding distinct tracker states instead would have grown a public
+   enum shared with another executor while still leaving two signals that can drift.
+3. Real. `recordOutcome` serialized any public enum value, so `ownershipLost(-1)` or
+   a `partialTransmission` whose accepted count equals its expected count was
+   published durably and then rejected by this store's own parser on every later
+   observation, with no reset API to recover. Admission is now fail-closed with a
+   typed `invalidDisposition` error, checked before the intent requirement so the
+   error is precise.
+4. Real. The timeout regressions gave the whole delivery one real second and assumed
+   a one-second scripted status wait would be what crossed it, while archive
+   validation, lease work, intent publication and the first transmission spent the
+   same budget. The deadline now reads an injected monotonic source that the test
+   advances at a chosen step, so no wall-clock boundary is involved. The provider's
+   own simulated-wait cap is still asserted directly.
+
+Added and extended regressions in
+`Packages/LabelMac/Tests/LabelMacTests/BoundedFinishingDeliveryTests.swift`:
+`testLateCancellationOrExpiryAcrossAStatusWaitNeverCompletesTheRun` drives a
+cancellation and, separately, a deadline expiry across the final status wait and
+asserts the run is uncertain, names the final step, is not `allStepsSatisfied`,
+establishes no physical completion, authorizes no retry, and records that state
+durably, while the provider event log shows the wait really was performed.
+`testUnreachableDispositionsAreRefusedBeforePublication` asserts that ten
+unreachable dispositions are refused with `invalidDisposition` and leave the record
+absent, and that all fifteen reachable ones are admitted and read back exactly
+through a freshly constructed store. The existing terminal-state case now asserts
+that the outcome's retry authorization equals the durable record's, and that the
+pre-attempt timeout keeps the contradictory tracker flag internal.
+
+No acceptance criterion was relaxed, no assertion was removed or weakened, and no
+existing test was disabled.
+
 ## Environment
 
 Linux x86_64 (kernel 6.18.44), Swift 6.1.3, Python 3.11, `libcups2-dev` installed.
@@ -84,9 +149,17 @@ transport and no privileged action. No local macOS candidate was built or frozen
   compression round trips, 12 finite encoding benchmark CLI cases, 15 inert CUPS ABI
   cases, 14 inert CUPS filter ABI cases, 1 inert filter-to-discard pipeline case.
 - `git diff --check` — exit 0, no output.
-- `swiftc -parse` on each new and changed Swift file — exit 0, no diagnostics. This
-  is syntactic parsing only. It is not type checking, concurrency checking,
-  availability checking or a build.
+- `swiftc -frontend -parse` on each new and changed Swift file — exit 0, no
+  diagnostics. This is syntactic parsing only. It is not type checking, concurrency
+  checking, availability checking or a build.
+- `swiftc -swift-version 6 -typecheck` on a scratch file reproducing the review-fix
+  constructs against local stubs — exit 0. It covers the two `run` overloads and the
+  defaulted call between them, the local `exhausted()` closing over the non-escaping
+  monotonic parameter, the multi-pattern `case let` bindings in the new validation
+  switch, the optional `ManualClock` test parameter and a non-`Sendable` clock
+  captured by an `@escaping` closure formed in a `@MainActor` context. The stubs are
+  not the real types, so this is a language-level check of the new constructs only
+  and is not a build of `LabelMac`.
 
 ## Not run, and why
 
@@ -134,6 +207,16 @@ and it is not evidence about cross-process ownership on an installed scheduler.
 Discarded byte counts are simulator accounting, not physical label counts. Nothing in
 this change proves that a device received, printed, cut or released anything.
 
-Implementation source `c04276a8b4706f4bd7dd425b1954de946062e19c`; committed locally
-on `codex/m3-accepted-finishing-provider`. Not pushed. Hosted coverage pending. No
+The injected monotonic source is a module-internal parameter on `run`. It removes a
+wall-clock race from the regressions; it is not evidence about the real deadline's
+behaviour under load, which only the hosted run and later real transmission work can
+provide.
+
+The executor's own dispositions were already within the bounds the store now
+enforces, so the admission check changes no delivery outcome. It constrains what any
+other caller of the public store can publish.
+
+Implementation source `c04276a8b4706f4bd7dd425b1954de946062e19c`, with the review
+fixes in `30a295a1201bc570e74a471e3866be971d8d5ef2`; committed locally on
+`codex/m3-accepted-finishing-provider`. Not pushed. Hosted coverage pending. No
 printer, administrator, merge, release or binary publication action was taken.
