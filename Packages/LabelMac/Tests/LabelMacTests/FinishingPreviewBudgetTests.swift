@@ -235,6 +235,39 @@ final class FinishingPreviewBudgetTests: XCTestCase {
         XCTAssertFalse(hasStore(catalog, "accepted-finishing-cancellations"))
     }
 
+    // The export's inner budget is a relative DispatchTime span drawn once from the
+    // shared deadline. DispatchTime stops while the machine sleeps and ContinuousClock
+    // does not, so the inner span can still have time left after the shared deadline
+    // expired. A stepped clock reproduces that divergence without sleeping: the inner
+    // write runs and publishes under a live relative span, and only the shared deadline
+    // is past. The export must report that as uncertainty rather than a clean success,
+    // and must not unpublish what it already committed.
+    func testExportRechecksTheSharedDeadlineAfterPublishing() throws {
+        let fixture = try previewFixture(), catalog = fixture.workflows.root
+        let store = try AcceptedFinishingJobStore(root: catalog)
+        let prepared = try store.prepare(validated: try store.validatedContext(reference: fixture.reference,
+            queueStore: fixture.queues, workflowStore: fixture.workflows, printerStore: fixture.printers,
+            workerExecutable: fixture.worker, deadline: FinishingDeadline()),
+            workerExecutable: fixture.worker, deadline: FinishingDeadline())
+        // Reads: 0 sets the origin and expiry, 1 draws the inner span (30s left, so the
+        // write runs normally), 2 is the post-publication re-check and lands exactly on
+        // expiry. Nothing sleeps.
+        let clock = SteppedClock(step: .seconds(30))
+        let deadline = try FinishingDeadline(seconds: 60, cancellation: .init(), now: { clock.next() })
+        let output = catalog.appendingPathComponent("synthetic-overrun-export")
+        XCTAssertThrowsError(try PackedFinishingPreviewExport.write(prepared, toNewDirectory: output,
+                                                                    deadline: deadline)) {
+            XCTAssertEqual($0 as? PackedFinishingPreviewExport.Error, .commitUncertain)
+        }
+        // Publication happened before the budget was re-checked, so the directory stays.
+        // Uncertainty is about the budget, never a reason to roll back a committed export.
+        XCTAssertTrue(FileManager.default.fileExists(atPath: output.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: output.appendingPathComponent("preview.json").path))
+        // Still no intent, cancellation or delivery authority anywhere on this path.
+        XCTAssertFalse(hasStore(catalog, "accepted-finishing-attempts"))
+        XCTAssertFalse(hasStore(catalog, "accepted-finishing-cancellations"))
+    }
+
     func testValidatedFinishingContextIsNotReusableAcrossCatalogs() throws {
         let fixture = try previewFixture(), catalog = fixture.workflows.root
         let deadline = try FinishingDeadline()

@@ -8,10 +8,20 @@ public enum PackedFinishingPreviewExport {
         case invalidLimit, byteLimit, invalidDestination, cannotWrite, destinationExists, commitUncertain
     }
     /// Export under the command's shared budget rather than a second clock.
+    ///
+    /// The inner budget is a relative `DispatchTime` span drawn once from this
+    /// deadline, and the two clocks do not agree across a sleep: `DispatchTime`
+    /// stops while the machine is asleep, `ContinuousClock` keeps counting. So
+    /// the inner span can still have time left after the shared deadline has
+    /// expired, and the inner post-commit check would not notice. Re-check the
+    /// original deadline here. Publication has already happened by this point,
+    /// so an expiry is uncertainty about the whole command's budget, never a
+    /// plain timeout and never a reason to unpublish.
     public static func write(_ prepared: PreparedAcceptedFinishingJob, toNewDirectory destination: URL,
                              maximumBytes: Int = 512 * 1024 * 1024, deadline: FinishingDeadline) throws {
         try write(prepared, toNewDirectory: destination, maximumBytes: maximumBytes,
                   deadlineSeconds: deadline.remaining(), cancellation: deadline.cancellation)
+        do { try deadline.check() } catch { throw Error.commitUncertain }
     }
     public static func write(_ prepared: PreparedAcceptedFinishingJob, toNewDirectory destination: URL,
                              maximumBytes: Int = 512 * 1024 * 1024,
