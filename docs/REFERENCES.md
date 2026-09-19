@@ -411,6 +411,7 @@ relative ^MD is added to ~SD. Model-specific accepted ranges, installed defaults
 and physical behavior remain separately qualified. No device command sent.
 
 
+<a id="r46"></a>
 ## R46 — Public Zebra continuous mode and label-length scope
 
 [Zebra ^MN command](https://docs.zebra.com/us/en/printers/software/zpl-pg/zpl-commands/%5Emn.html),
