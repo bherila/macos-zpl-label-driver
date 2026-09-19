@@ -1,3 +1,74 @@
+# Three parallel tranches, two merged, one held — 2026-09-19
+
+Three isolated worktrees branched from `eb70ca7`, one branch and one PR each, no shared source file
+between any two. `MANIFEST.sha256` was the only file all three touched and it merged without conflict.
+
+| PR | Slice | Squashed to | Hosted macos-26 |
+|---|---|---|---|
+| #121 | schema-v3 worker ticket rejection paths | `dbf66ff` | LabelCore 327 / LabelMac 417 |
+| #122 | one authoritative ZPL finishing literal table | `ab41094` | LabelCore 328 / LabelMac 415 |
+| #123 | USB identity qualification (#89) | **held, open** | LabelCore 338 / LabelMac 428 |
+
+All debug and release, 0 failures. #123 is deliberately held for maintainer review: it is green with a
+clean Codex security review, but it moves queue installation from structurally impossible to possible,
+which is a risk-posture decision rather than a code-correctness one.
+
+## Two issues were closed by measurement rather than by work
+
+**#104 was already satisfied** and is closed. The dither test iterates the exact widths it named,
+`MonochromeConversion.swift` is bound to the M2-AC04 record, and the box is checked. Nothing was built.
+
+**#93 gap 1 was three-quarters stale.** It says four things are untested; three of them were covered by
+`29b3fb3` (#95), which merged at 16:23 UTC on 2026-09-18, after the issue was filed at 09:45 UTC, and
+nobody updated the issue. Only the negative cases were genuinely missing, and #121 built only those.
+The lesson generalises: an issue describing a gap is a claim about a past tree, and the tree moves.
+
+## #103's drift turned out to be benign, and saying so was the finding
+
+The issue suspects the two finishing-mapping sites had diverged. They had not. Site by site, every
+literal either route emits was already in the coverage rows, and both differences are deliberate:
+`^MMC` alone schedules no cutting policy so the offline route emits no trigger, and the offline route
+has no prepeel fact so it cannot select `^MMP,N`. **No emitted byte changed** in #122 — verified case
+by case against the previous hardcoded switch.
+
+What #103 actually names is an *evidence*-coverage drift: the production literals live in LabelMac,
+which does not build on Linux, so nothing executed could catch a regression in them. The fix is the
+test that closes it — `testNoEmittingSourceRestatesAFinishingLiteral` reads the five emitting sources
+*including the LabelMac one* and fails naming file, line and literal on a restatement. That is a
+Linux-executable test pinning a LabelMac source invariant, which is the shape this repository needs
+more of. It was proven to bite by restoring a hardcoded `^MMD` and observing the named failure.
+
+The unification deliberately did **not** merge the two routes: `offlineInspection` can never return
+the delayed-cut literals and `framedMode` can never return `^MMC`. Merging them would have been a real
+bug wearing the shape of a cleanup.
+
+## `--gate-stale`: recommend keeping it off the required check
+
+The prerequisite is met again — `--gate-stale` exits 0 on this tree. The recommendation is still not to
+enable it on `push`, on principle rather than preference.
+
+A required per-PR check should answer *"is this change safe to merge?"*. Staleness is not a property of
+the change; it is a property of the repository's bookkeeping at that instant, created by the sequencing
+rule itself. A source slice cannot avoid staling records, because the rule forbids re-sealing in the
+same commit. Gating would fail PRs for a condition their authors are forbidden from fixing, and would
+make a red `main` routine: ten merges today each opened that window, some for hours. A check that is
+red as a matter of course teaches reviewers to ignore it.
+
+What the gate is good for is a re-seal that is *forgotten* — a periodic question, not a per-commit one,
+answerable by a scheduled non-required run without blocking anyone. Instances one through ten were each
+predicted in the source PR and then closed, so nothing has been forgotten yet.
+
+## Owed next
+
+Merging #123 will stale `M2-AC04` and `M2-AC13` again and owe an eleventh re-seal. #87's manifest
+backfill (160 of 516 tracked files uncovered) remains the open maintainer decision in
+`docs/adr/0004-manifest-integrity-scope.md`; ADR 0004 recommends option 1, staged.
+
+The open question that decides whether #89 is actually unblocked: **whether a GC420d publishes a USB
+serial number at all is unobserved.** If it publishes none, #123's correct output is
+`serialNumberAbsent` and installation stays blocked — the design working, and the 23 criteria shut
+behind a different wall. One command on a Mac with the printer attached settles it.
+
 # Re-seal M2 after the editor and CI slices — 2026-09-19
 
 Records bind source `201ab1cd93b6e32f02f14e516268c86b6931c534`, the tip of `main`. This slice touches
