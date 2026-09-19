@@ -2,11 +2,11 @@
 
 - Date/time and operator: 2026-09-18, automated Claude session, unattended
 - Exact repository commit SHA: `78acd9bde132211e0af9fdba01b9795f5d98d35b`
-- Related requirement and acceptance IDs: M2-AC01, M2-AC04, M2-AC06, M2-AC13,
-  M3-AC01 and M3-AC02 — that is, every record currently in
-  `docs/ACCEPTANCE-EVIDENCE.json`. The requirements those IDs map to in
-  `docs/requirements.json` are F03, F04, F06, F09 and F20; M2-AC06 maps to none.
-  M3-AC03, M3-AC04 and M2-AC05 are **not** among them; see Limitations. This run
+- Related requirement and acceptance IDs: M2-AC13, M3-AC01 and M3-AC02 — that
+  is, every record currently in `docs/ACCEPTANCE-EVIDENCE.json`. The requirements
+  those IDs map to in `docs/requirements.json` are F03, F04 and F20. M2-AC01,
+  M2-AC04, M2-AC05, M2-AC06, M3-AC03 and M3-AC04 are **not** among them; see
+  Limitations. This run
   contributes nothing to F07, which maps only to M2-AC07, M2-AC12 and M6-AC09.
 - Evidence level: A
 - Status: PASS
@@ -39,7 +39,7 @@ overflowing-corner admission changes landed, and M3-AC01 and M3-AC04 cited a
 2026-09-17 per-ID assessment taken before the documented-control encoder grew
 its darkness, thermal, tracking, dimension and offset paths. A digest proves
 which source is present, not that it passed. This document is therefore the
-current execution artifact for **all six** records, which is possible because
+current execution artifact for **all three** records, which is possible because
 the command below runs the whole package, not a selected subset.
 
 The following was executed with the Swift 6.1.2 toolchain on `PATH`:
@@ -189,6 +189,29 @@ reconstructs its own output exactly; it does not prove the *application* accepts
 only that exact encoder input, and `WorkerBitmapBindingTests` did not run here.
 The oracle evidence stays in this document because it remains correct and
 necessary for that record — it is simply not sufficient on its own.
+
+**M2-AC01 and M2-AC06 were withdrawn on the same principle**, in the round that
+also disposed of a claim made earlier in this document. `QuartzPDFRenderer`
+holds the Core Graphics extraction that intersects crop and media boxes and
+reads `/UserUnit` and `rotationAngle` before a `PDFPageBox` exists; the portable
+tests construct `PDFPageBox` directly, so M2-AC01's box/origin/rotation/unit
+vectors are not established for real PDF input. For schema-8 finishing jobs the
+profile-bound `validateRaster` call is in `FinishingRasterPreparation` and the
+bitmap is then written with a generic `ZPLGraphicEncoder`, bypassing
+`ZPLPreparedLabelEncoder` entirely, so M2-AC06's profile-limit half has a path
+nothing here reaches. Both are in #103.
+
+**M2-AC04 was withdrawn for a portable reason.** `MonochromeConversion`'s
+`photographicOrderedDither4x4` branch packs rows itself instead of delegating to
+`MonochromeBitmap.threshold`, and is exercised only at widths 2 and 4 while the
+criterion names 1, 7, 8, 9, 811, 812 and 813. `MonochromeBitmap.init` validates
+tail padding for both packers, so that much is safe, but MSB-first placement at
+those widths is not established for the dither path. Closing it needs new test
+vectors, which is a LabelCore source change and so a separate PR: #104.
+
+An earlier revision of this document claimed M2-AC04 had no second site. That
+audit was wrong — it checked `QuartzPDFToMonochrome`, which does delegate, and
+stopped there.
 
 This is Linux, Swift 6.1.2, evidence level A only. It qualifies the portable
 `LabelCore` engine and the Python oracles. It does not qualify Core Graphics

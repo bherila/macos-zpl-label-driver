@@ -2,148 +2,6 @@
   "schemaVersion": 1,
   "records": [
     {
-      "acceptanceID": "M2-AC01",
-      "level": "A",
-      "state": "pass",
-      "sourceSHA": "78acd9bde132211e0af9fdba01b9795f5d98d35b",
-      "implementation": [
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/PDFPageGeometry.swift",
-          "sha256": "ddc670078c653f174e9d53fec29d81a230882756a8bd8c99fe9d6a455784cf64"
-        },
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometry.swift",
-          "sha256": "abbc389da0c262efa525f3a1a8c29f05d6cc06d147206c65c6bfb1ab557d845a"
-        }
-      ],
-      "evidence": [
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/PDFPageGeometryTests.swift",
-          "sha256": "ad3e4ba6780b1a9f24293141401f5af486d9edbc5dc1d4ec5ceb8d2a6429a835"
-        },
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/PhysicalGeometryTests.swift",
-          "sha256": "11060d2f7e6159f0eca00621b7905c6cacd0bd3fb3971b9a425545e07040bb22"
-        },
-        {
-          "path": "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md",
-          "sha256": "73a04cfa8bb643cbd739ebef4133799abf93e7a7a55ffcbe93d8a9c2e5d7d0c2"
-        },
-        {
-          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "79aec5d6f8f4d1a8ddbeb9ce4c0955d1e205dbaf7e3f4370e0f7ae4b3422332a"
-        }
-      ]
-    },
-    {
-      "acceptanceID": "M2-AC04",
-      "level": "A",
-      "state": "pass",
-      "sourceSHA": "78acd9bde132211e0af9fdba01b9795f5d98d35b",
-      "implementation": [
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/BitmapLayout.swift",
-          "sha256": "65404d1f8463a87794c28acf92d377220a7d12b0f7a4f68a6b36b49209fb63e9"
-        },
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/MonochromeBitmap.swift",
-          "sha256": "c6bd617eda5558a0b9657e9b3e9580b261ffbe41aa97983896acfd9b80de4703"
-        }
-      ],
-      "evidence": [
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/BitmapLayoutTests.swift",
-          "sha256": "e31f77f5f13a9ce50c656ede70436f36abce25152a2e3f481fb9d4237a9da446"
-        },
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/MonochromeBitmapTests.swift",
-          "sha256": "3a50af86364dbadc14013f939d5772c28f26afb53a011671fbf1edafc33b8a67"
-        },
-        {
-          "path": "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md",
-          "sha256": "73a04cfa8bb643cbd739ebef4133799abf93e7a7a55ffcbe93d8a9c2e5d7d0c2"
-        },
-        {
-          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "79aec5d6f8f4d1a8ddbeb9ce4c0955d1e205dbaf7e3f4370e0f7ae4b3422332a"
-        }
-      ]
-    },
-    {
-      "acceptanceID": "M2-AC06",
-      "level": "A",
-      "state": "pass",
-      "sourceSHA": "78acd9bde132211e0af9fdba01b9795f5d98d35b",
-      "implementation": [
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/ZPLGraphicEncoder.swift",
-          "sha256": "a15fdd3327d19234b6d35f6ccbd679c64f3b5f44366fcf14c94e89a1e44b5a3b"
-        },
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/ZPLASCIICompression.swift",
-          "sha256": "1576651c7ac06883cb1eadf229e568f75cfa67c5b9c7e981b0894ac83d64a2dd"
-        },
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometryQualification.swift",
-          "sha256": "b29333ea2a299d67ffbf0c4eb8b9f7e3a2b0b75341e4c835e46b4463cc013271"
-        },
-        {
-          "path": "Packages/LabelCore/Sources/LabelCore/ZPLPreparedLabelEncoder.swift",
-          "sha256": "da2b9c0706e16997154d8dc6eeeaf1980f4832d039116f8815d6124e1ae6f238"
-        }
-      ],
-      "evidence": [
-        {
-          "path": "Packages/LabelCore/Sources/LabelCoreLab/main.swift",
-          "sha256": "18a641b1fae348d00885f73b7a9f6a0051329d100e2abda9a3c25accd6efbc3c"
-        },
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLGraphicEncoderTests.swift",
-          "sha256": "273fdc5fb6788b1e24ee8f069f480e14fe5521783d882258c936e881aea34d3b"
-        },
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLASCIICompressionTests.swift",
-          "sha256": "c12015da7e7e4db3f54d2a10886227e424b70659778be0a9a29444772d83f2cb"
-        },
-        {
-          "path": "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md",
-          "sha256": "73a04cfa8bb643cbd739ebef4133799abf93e7a7a55ffcbe93d8a9c2e5d7d0c2"
-        },
-        {
-          "path": "scripts/zpl_oracle.py",
-          "sha256": "1353600f5d1a0a47d90d020cc7603432d71dde38c4285885f82d9eb0c19982c7"
-        },
-        {
-          "path": "scripts/tests/test_zpl_oracle.py",
-          "sha256": "57df8288716bd623a0f1b81d12c1ac0e7d83f93d7d63511f58ce17555ef51c17"
-        },
-        {
-          "path": "scripts/run-accelerator-checks.py",
-          "sha256": "ee6f179502d98254f1736e269043d99aca565c616c5fc27ddc27b9d4b1ad644b"
-        },
-        {
-          "path": "scripts/zpl_compression_oracle.py",
-          "sha256": "f877caa5f31176a092149e73ce64a9b36dc1ceada9f5865cc1640bd4306482d6"
-        },
-        {
-          "path": "scripts/tests/test_zpl_compression_oracle.py",
-          "sha256": "1e449a156ec5bf57dd928c37f636404cd70dd618fc06fe7bbaf88841c5baa263"
-        },
-        {
-          "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "79aec5d6f8f4d1a8ddbeb9ce4c0955d1e205dbaf7e3f4370e0f7ae4b3422332a"
-        },
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/PhysicalGeometryQualificationTests.swift",
-          "sha256": "637a60a2f93de4f25621bca25e72311e43fa4a83d18ca3463b0b20362dd0f795"
-        },
-        {
-          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLPreparedLabelEncoderTests.swift",
-          "sha256": "a1ba78b72e08df130dfb190df579c2a70c7eda0e0fc5c067a8d6910067f7d640"
-        }
-      ]
-    },
-    {
       "acceptanceID": "M2-AC13",
       "level": "A",
       "state": "pass",
@@ -156,6 +14,18 @@
         {
           "path": "docs/reference-target.json",
           "sha256": "3de0e4ec05d9915d6c98b2ba40e386d5997158b0502720bb318ec974d819456e"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/BitmapLayout.swift",
+          "sha256": "65404d1f8463a87794c28acf92d377220a7d12b0f7a4f68a6b36b49209fb63e9"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/MonochromeBitmap.swift",
+          "sha256": "c6bd617eda5558a0b9657e9b3e9580b261ffbe41aa97983896acfd9b80de4703"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLGraphicEncoder.swift",
+          "sha256": "a15fdd3327d19234b6d35f6ccbd679c64f3b5f44366fcf14c94e89a1e44b5a3b"
         }
       ],
       "evidence": [
@@ -189,11 +59,19 @@
         },
         {
           "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "79aec5d6f8f4d1a8ddbeb9ce4c0955d1e205dbaf7e3f4370e0f7ae4b3422332a"
+          "sha256": "8043b90155a4a0ca7e0be65768c22ffb3c236e647e7260144e7b816a43fe6764"
         },
         {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/PhysicalGeometryTests.swift",
           "sha256": "11060d2f7e6159f0eca00621b7905c6cacd0bd3fb3971b9a425545e07040bb22"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/BitmapLayoutTests.swift",
+          "sha256": "e31f77f5f13a9ce50c656ede70436f36abce25152a2e3f481fb9d4237a9da446"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/MonochromeBitmapTests.swift",
+          "sha256": "3a50af86364dbadc14013f939d5772c28f26afb53a011671fbf1edafc33b8a67"
         }
       ]
     },
@@ -230,6 +108,14 @@
         {
           "path": "Packages/LabelCore/Sources/LabelCore/ThermalControlQualification.swift",
           "sha256": "4022bd8bc89e43cc4e5397e3d1c848ed564db26397cb929f86b8068b38607b0f"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/FinishingOutputQualification.swift",
+          "sha256": "60c7bc016c11d4f699b0cf61536260939a064c1e8a4b0504858d41c7f5bb1c17"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/PrinterProfileJSON.swift",
+          "sha256": "efedc788cb4fff807dff2c8ceb2e87de9104360b892dee05332ab9dab30b63c1"
         }
       ],
       "evidence": [
@@ -251,7 +137,7 @@
         },
         {
           "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "79aec5d6f8f4d1a8ddbeb9ce4c0955d1e205dbaf7e3f4370e0f7ae4b3422332a"
+          "sha256": "8043b90155a4a0ca7e0be65768c22ffb3c236e647e7260144e7b816a43fe6764"
         },
         {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/MotorSpeedIntegrationTests.swift",
@@ -272,6 +158,22 @@
         {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/DarknessIntegrationTests.swift",
           "sha256": "b13a06b5dcea2578788d7eb3650c704bbb5cb11dac395ecb32291979b84b53cc"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingProfilePersistenceTests.swift",
+          "sha256": "a7d276d1a49e407bf3f2c6147605d8931bee8d5a551ead17fba8777f8d9387c3"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ThermalProfilePersistenceTests.swift",
+          "sha256": "7264275e47d0323b18faef44fd8d8b4b60a25353f3107a1aaffc4db1cca3ddad"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/GeometryControlIntegrationTests.swift",
+          "sha256": "7f342cd61978a2e4af4badb3ca3783d2cd46cd020869982f74d3a88688558238"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/OffsetControlIntegrationTests.swift",
+          "sha256": "4d68c9cbf0dbc2ec5b876e42ebdbf2e0c01d35ef3aceedd164acb8d7f04dbc8a"
         }
       ]
     },
@@ -345,7 +247,7 @@
         },
         {
           "path": "docs/validation/M2-M3-CITED-SUITE-EXECUTION-2026-09-18.md",
-          "sha256": "79aec5d6f8f4d1a8ddbeb9ce4c0955d1e205dbaf7e3f4370e0f7ae4b3422332a"
+          "sha256": "8043b90155a4a0ca7e0be65768c22ffb3c236e647e7260144e7b816a43fe6764"
         },
         {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingControlQualificationTests.swift",
@@ -362,6 +264,10 @@
         {
           "path": "Packages/LabelCore/Tests/LabelCoreTests/OffsetControlIntegrationTests.swift",
           "sha256": "4d68c9cbf0dbc2ec5b876e42ebdbf2e0c01d35ef3aceedd164acb8d7f04dbc8a"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/FinishingProfilePersistenceTests.swift",
+          "sha256": "a7d276d1a49e407bf3f2c6147605d8931bee8d5a551ead17fba8777f8d9387c3"
         }
       ]
     }
