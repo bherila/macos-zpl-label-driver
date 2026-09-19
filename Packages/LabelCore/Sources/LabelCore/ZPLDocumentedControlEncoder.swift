@@ -178,7 +178,8 @@ public struct ZPLDocumentedControlEncoder: Sendable {
                     throw Error.invalidValue(control.kind)
                 }
                 command = "^PW\(value)\n"
-            case .tearOff: command = "^MMT\n"
+            case .tearOff:
+                command = ZPLFinishingControlLiteral.tearOff.rawValue + "\n"
             }
             let bytes = Data(command.utf8)
             guard bytes.count <= maximumOutputBytes - output.count else { throw Error.outputLimit }
