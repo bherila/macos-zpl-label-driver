@@ -18,6 +18,32 @@ MAXIMUM_FILE_BYTES = 2 * 1024 * 1024
 MANIFEST_PATH = 'MANIFEST.sha256'
 MAXIMUM_MANIFEST_ENTRIES = 4096
 MAXIMUM_MANIFEST_BYTES = 64 * 1024 * 1024
+REPORT_BUDGET_SECONDS = 60
+
+
+class Deadline:
+    """One wall-clock budget shared by every step of a single report.
+
+    Manifest verification is bounded by this rather than by independent per-subprocess timeouts. A
+    valid manifest may carry MAXIMUM_MANIFEST_ENTRIES entries, and several evidence records bound to
+    distinct ancestor revisions each walk their own manifest, so per-entry timeouts bound the work
+    only at entries x revisions x timeout -- far past the budget they run inside. Exhausting the
+    budget fails closed: an unverified manifest never keeps an evidence record current.
+    """
+
+    def __init__(self, seconds=REPORT_BUDGET_SECONDS):
+        self.expires = time.monotonic() + max(0.0, float(seconds))
+
+    def remaining(self):
+        return self.expires - time.monotonic()
+
+    def expired(self):
+        return self.remaining() <= 0
+
+    def timeout(self, ceiling):
+        """The remaining budget capped by this call's own ceiling, or None once it is spent."""
+        left = self.remaining()
+        return min(ceiling, left) if left > 0 else None
 
 
 def repository_file(root, relative, cache=None, total=None):
@@ -94,15 +120,23 @@ def validate_reference(root, reference, cache=None, total=None):
     return actual == digest
 
 
-def source_is_unchanged(root, evaluated_sha, current_sha):
+def source_is_unchanged(root, evaluated_sha, current_sha, deadline=None):
+    if deadline is None:
+        deadline = Deadline()
     if not SHA.fullmatch(evaluated_sha) or not SHA.fullmatch(current_sha):
         return False
+    budget = deadline.timeout(10)
+    if budget is None:
+        return False
     ancestor = subprocess.run(['git', '-C', str(root), 'merge-base', '--is-ancestor', evaluated_sha, current_sha],
-                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=budget)
     if ancestor.returncode != 0:
         return False
+    budget = deadline.timeout(10)
+    if budget is None:
+        return False
     changed = subprocess.check_output(['git', '-C', str(root), 'diff', '--no-ext-diff', '--no-textconv', '--name-only', '--no-renames', '-z',
-                                       evaluated_sha, current_sha, '--'], timeout=10).decode().split('\0')
+                                       evaluated_sha, current_sha, '--'], timeout=budget).decode().split('\0')
     evidence_metadata = {'docs/ACCEPTANCE-EVIDENCE.json', 'docs/PROGRESS.json', 'docs/SCOPE-STATUS.json',
                          'docs/HANDOFF.md', 'docs/HANDOFF-HISTORY-2026-09-17.md'}
     for name in filter(None, changed):
@@ -116,18 +150,23 @@ def source_is_unchanged(root, evaluated_sha, current_sha):
             # refresh is truthful and does not shrink coverage: a dropped entry, a wrong digest or a
             # path that no longer exists is corrupted integrity metadata, not bookkeeping, and must
             # not silently keep older evidence current.
-            if manifest_describes_tree(root, current_sha, evaluated_sha):
+            if manifest_describes_tree(root, current_sha, evaluated_sha, deadline):
                 continue
             return False
         return False
     return True
 
 
-def manifest_entries(root, sha):
-    """Parsed `MANIFEST.sha256` entries at `sha`, or None when absent or malformed."""
+def manifest_entries(root, sha, deadline=None):
+    """Parsed `MANIFEST.sha256` entries at `sha`, or None when absent, malformed or out of budget."""
+    if deadline is None:
+        deadline = Deadline()
+    budget = deadline.timeout(10)
+    if budget is None:
+        return None
     try:
         listing = subprocess.check_output(['git', '-C', str(root), 'show', f'{sha}:{MANIFEST_PATH}'],
-                                          stderr=subprocess.DEVNULL, timeout=10)
+                                          stderr=subprocess.DEVNULL, timeout=budget)
     except subprocess.SubprocessError:
         return None
     if len(listing) > MAXIMUM_FILE_BYTES:
@@ -151,22 +190,30 @@ def manifest_entries(root, sha):
     return entries
 
 
-def manifest_describes_tree(root, sha, baseline_sha):
+def manifest_describes_tree(root, sha, baseline_sha, deadline=None):
     """True when the manifest at `sha` covers everything it did at `baseline_sha` and every entry
-    matches that path's content at `sha`. A refresh may widen coverage, never shrink it."""
-    entries = manifest_entries(root, sha)
+    matches that path's content at `sha`. A refresh may widen coverage, never shrink it.
+
+    Every step draws on one shared `deadline`; exhausting it returns False rather than continuing,
+    so a manifest too large to verify in the remaining budget cannot keep older evidence current."""
+    if deadline is None:
+        deadline = Deadline()
+    entries = manifest_entries(root, sha, deadline)
     if not entries:
         return False
-    baseline = manifest_entries(root, baseline_sha) or []
+    baseline = manifest_entries(root, baseline_sha, deadline) or []
     if not {path for _, path in baseline} <= {path for _, path in entries}:
         return False
     # Resolve identities and sizes first so no oversized or absent blob is ever buffered.
     request = ''.join(f'{sha}:{path}\n' for _, path in entries).encode()
     if len(request) > MAXIMUM_FILE_BYTES:
         return False
+    budget = deadline.timeout(60)
+    if budget is None:
+        return False
     try:
         check = subprocess.run(['git', '-C', str(root), 'cat-file', '--batch-check'], input=request,
-                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=60)
+                               stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=budget)
     except subprocess.SubprocessError:
         return False
     if check.returncode != 0:
@@ -191,9 +238,13 @@ def manifest_describes_tree(root, sha, baseline_sha):
             return False
         identifiers.append(fields[0])
     for (digest, _), identifier in zip(entries, identifiers):
+        # Bounded by what is left of the whole report, not by an independent per-entry timeout.
+        budget = deadline.timeout(30)
+        if budget is None:
+            return False
         try:
             blob = subprocess.check_output(['git', '-C', str(root), 'cat-file', 'blob', identifier],
-                                           stderr=subprocess.DEVNULL, timeout=30)
+                                           stderr=subprocess.DEVNULL, timeout=budget)
         except subprocess.SubprocessError:
             return False
         if len(blob) > MAXIMUM_FILE_BYTES or hashlib.sha256(blob).hexdigest() != digest:
@@ -201,10 +252,13 @@ def manifest_describes_tree(root, sha, baseline_sha):
     return True
 
 
-def build_report(root, source_sha, workspace_dirty=False, source_matches=None):
-    started = time.monotonic()
+def build_report(root, source_sha, workspace_dirty=False, source_matches=None, deadline=None):
+    # `source_matches` receives this deadline, so time spent verifying a manifest inside it is spent
+    # from the same budget these checks enforce rather than from an independent one.
+    if deadline is None:
+        deadline = Deadline()
     def check_budget():
-        if time.monotonic() - started >= 60:
+        if deadline.expired():
             raise ValueError('Report deadline exceeded')
     root = Path(root).resolve()
     if not SHA.fullmatch(source_sha):
@@ -262,7 +316,7 @@ def build_report(root, source_sha, workspace_dirty=False, source_matches=None):
         valid = (bool(implementations) and bool(evidence)
                  and all(validate_reference(root, ref, cache, total) for ref in implementations + evidence))
         current = (record['sourceSHA'] == source_sha or
-                   (source_matches is not None and source_matches(record['sourceSHA']))) and not workspace_dirty
+                   (source_matches is not None and source_matches(record['sourceSHA'], deadline))) and not workspace_dirty
         eligible = (record['state'] == 'pass' and valid and current
                     and record['level'] == rows[identifier]['requiredEvidence'])
         check_budget()
@@ -298,11 +352,11 @@ def main():
         source = subprocess.check_output(['git', '-C', str(args.root), 'rev-parse', 'HEAD'], text=True, timeout=10).strip()
         dirty = bool(subprocess.check_output(['git', '-C', str(args.root), 'status', '--porcelain'], text=True, timeout=10))
         matches = {}
-        def source_matches(evaluated):
+        def source_matches(evaluated, deadline):
             if evaluated not in matches:
                 if len(matches) >= 512:
                     raise ValueError('Source revision budget exceeded')
-                matches[evaluated] = source_is_unchanged(args.root, evaluated, source)
+                matches[evaluated] = source_is_unchanged(args.root, evaluated, source, deadline)
             return matches[evaluated]
         report = build_report(args.root, source, dirty, source_matches)
         final_source = subprocess.check_output(['git', '-C', str(args.root), 'rev-parse', 'HEAD'], text=True, timeout=10).strip()

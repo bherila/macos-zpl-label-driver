@@ -5,6 +5,7 @@ import os
 import subprocess
 from pathlib import Path
 import tempfile
+import time
 import unittest
 
 spec = importlib.util.spec_from_file_location('traceability_report', Path(__file__).resolve().parents[1] / 'traceability_report.py')
@@ -115,7 +116,7 @@ class TraceabilityReportTests(unittest.TestCase):
         evidence_commit = commit()
         self.assertTrue(reporter.source_is_unchanged(self.root, evaluated, evidence_commit))
         report = reporter.build_report(self.root, evidence_commit,
-            source_matches=lambda sha: reporter.source_is_unchanged(self.root, sha, evidence_commit))
+            source_matches=lambda sha, deadline: reporter.source_is_unchanged(self.root, sha, evidence_commit, deadline))
         self.assertTrue(report['readyForMaintainerReview'])
         (self.root / 'implementation.swift').write_text('changed build input\n')
         changed_commit = commit()
@@ -150,7 +151,7 @@ class TraceabilityReportTests(unittest.TestCase):
         refreshed = commit()
         self.assertTrue(reporter.source_is_unchanged(self.root, evaluated, refreshed))
         report = reporter.build_report(self.root, refreshed,
-            source_matches=lambda sha: reporter.source_is_unchanged(self.root, sha, refreshed))
+            source_matches=lambda sha, deadline: reporter.source_is_unchanged(self.root, sha, refreshed, deadline))
         self.assertTrue(report['readyForMaintainerReview'])
 
         # A wrong digest is corrupted integrity metadata, not bookkeeping, even though it is the
@@ -162,7 +163,7 @@ class TraceabilityReportTests(unittest.TestCase):
         corrupted = commit()
         self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, corrupted))
         self.assertFalse(reporter.build_report(self.root, corrupted,
-            source_matches=lambda sha: reporter.source_is_unchanged(self.root, sha, corrupted)
+            source_matches=lambda sha, deadline: reporter.source_is_unchanged(self.root, sha, corrupted, deadline)
         )['readyForMaintainerReview'])
 
         # Dropping an entry shrinks integrity coverage. The remaining entries still verify, so this
@@ -274,12 +275,98 @@ class TraceabilityReportTests(unittest.TestCase):
             shallow = clone('missing-ancestor', 1)
             self.assertFalse(reporter.source_is_unchanged(shallow, evaluated, current))
             incomplete = reporter.build_report(shallow, current,
-                source_matches=lambda sha: reporter.source_is_unchanged(shallow, sha, current))
+                source_matches=lambda sha, deadline: reporter.source_is_unchanged(shallow, sha, current, deadline))
             self.assertFalse(incomplete['readyForMaintainerReview'])
             for index, (workflow, depth) in enumerate(settings):
                 with self.subTest(workflow=workflow, checkout=index):
                     checkout = clone('configured-' + str(index), depth)
                     self.assertTrue(reporter.source_is_unchanged(checkout, evaluated, current))
                     report = reporter.build_report(checkout, current,
-                        source_matches=lambda sha: reporter.source_is_unchanged(checkout, sha, current))
+                        source_matches=lambda sha, deadline: reporter.source_is_unchanged(checkout, sha, current, deadline))
                     self.assertTrue(report['readyForMaintainerReview'])
+
+    def test_manifest_verification_is_bounded_by_the_shared_report_budget(self):
+        # A valid manifest may hold MAXIMUM_MANIFEST_ENTRIES entries, and each evidence record bound
+        # to a distinct ancestor walks its own. Independent per-entry timeouts bounded that only at
+        # entries x revisions x 30s, so a manifest-only change could time out CI instead of
+        # producing the bounded rejection the exemption is supposed to fail closed with.
+        subprocess.run(['git', '-C', str(self.root), 'init', '-q'], check=True)
+        def commit():
+            subprocess.run(['git', '-C', str(self.root), 'add', '-A'], check=True)
+            subprocess.run(['git', '-C', str(self.root), '-c', 'user.name=Synthetic',
+                            '-c', 'user.email=agent@example.test', '-c', 'commit.gpgsign=false',
+                            '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false',
+                            'commit', '-qm', 'Synthetic test checkpoint'], check=True)
+            return subprocess.check_output(['git', '-C', str(self.root), 'rev-parse', 'HEAD'], text=True).strip()
+        def write_manifest(*names):
+            lines = [f'{hashlib.sha256((self.root / name).read_bytes()).hexdigest()}  {name}' for name in names]
+            (self.root / 'MANIFEST.sha256').write_text('\n'.join(lines) + '\n')
+        write_manifest('implementation.swift')
+        evaluated = commit()
+        self.records[0]['sourceSHA'] = evaluated
+        self.records[1]['sourceSHA'] = evaluated
+        self.ledger()
+        write_manifest('implementation.swift', 'docs/ACCEPTANCE-EVIDENCE.json')
+        refreshed = commit()
+
+        # The same tree and manifest that verify under a live budget...
+        self.assertTrue(reporter.manifest_describes_tree(self.root, refreshed, evaluated, reporter.Deadline()))
+        self.assertTrue(reporter.source_is_unchanged(self.root, evaluated, refreshed, reporter.Deadline()))
+
+        # ...fail closed once the shared budget is spent, rather than hashing on past it.
+        spent = reporter.Deadline(seconds=0)
+        self.assertTrue(spent.expired())
+        started = time.monotonic()
+        self.assertFalse(reporter.manifest_describes_tree(self.root, refreshed, evaluated, spent))
+        self.assertFalse(reporter.source_is_unchanged(self.root, evaluated, refreshed, spent))
+        self.assertLess(time.monotonic() - started, 10)
+        self.assertIsNone(reporter.manifest_entries(self.root, refreshed, spent))
+
+        # The per-entry hash loop is the specific thing this bounds, so prove it there rather than
+        # only at the cheaper checks that precede it. This manifest needs five budget draws: one
+        # per manifest_entries call, one for the batch-check, then one per hashed entry.
+        class BudgetSpentAfter(reporter.Deadline):
+            """Grants a real budget for the first `draws` requests, then reports it spent."""
+            def __init__(self, draws):
+                super().__init__()
+                self.draws, self.taken = draws, 0
+            def timeout(self, ceiling):
+                if self.taken >= self.draws:
+                    return None
+                self.taken += 1
+                return super().timeout(ceiling)
+            def expired(self):
+                return self.taken >= self.draws
+
+        enough = BudgetSpentAfter(5)
+        self.assertTrue(reporter.manifest_describes_tree(self.root, refreshed, evaluated, enough))
+        self.assertEqual(5, enough.taken)
+        # One draw short is one entry left unhashed, which must deny the exemption, not assume it.
+        self.assertFalse(reporter.manifest_describes_tree(self.root, refreshed, evaluated, BudgetSpentAfter(4)))
+
+    def test_per_entry_timeouts_never_exceed_what_is_left_of_the_report(self):
+        # The ceiling is the per-call cap; the budget is what is actually left. The smaller wins, so
+        # no single subprocess can outlive the report that started it.
+        self.assertLessEqual(reporter.Deadline(seconds=2).timeout(30), 2)
+        self.assertLessEqual(reporter.Deadline(seconds=90).timeout(30), 30)
+        self.assertIsNone(reporter.Deadline(seconds=0).timeout(30))
+        self.assertIsNone(reporter.Deadline(seconds=-5).timeout(30))
+
+    def test_report_budget_covers_time_spent_inside_source_matches(self):
+        # check_budget() previously measured only the gaps between its own calls. A source_matches
+        # that consumed the whole budget internally was not itself the thing that tripped it.
+        observed = []
+        def source_matches(evaluated, deadline):
+            observed.append(deadline)
+            return True
+        shared = reporter.Deadline(seconds=60)
+        self.records[0]['sourceSHA'] = 'b' * 40
+        self.ledger()
+        reporter.build_report(self.root, self.sha, source_matches=source_matches, deadline=shared)
+        self.assertTrue(observed, 'source_matches was never consulted')
+        for supplied in observed:
+            self.assertIs(shared, supplied)
+
+        spent = reporter.Deadline(seconds=0)
+        with self.assertRaises(ValueError):
+            reporter.build_report(self.root, self.sha, source_matches=source_matches, deadline=spent)
