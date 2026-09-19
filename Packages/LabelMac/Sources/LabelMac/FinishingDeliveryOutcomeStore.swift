@@ -34,6 +34,9 @@ public struct FinishingDeliveryOutcomeStore: @unchecked Sendable {
     public enum Error: Swift.Error, Equatable, Sendable {
         case unsafeDirectory, cannotRead, cannotWrite, conflict, invalidRecord
         case capacityReached, publicationBusy, commitUncertain, missingIntent
+        /// The supplied terminal state is not one this lifecycle can reach in the
+        /// supplied complete context, so nothing is published.
+        case invalidDisposition
     }
     public static let maximumRecordBytes = 1024
     public static let maximumRecords = 2 * FinishingArtifactStore.maximumRecords
@@ -60,14 +63,19 @@ public struct FinishingDeliveryOutcomeStore: @unchecked Sendable {
         guard !cancellation.isCancelled else { throw Error.commitUncertain }
     }
 
-    /// One immutable terminal record. An uncertain disposition requires the
-    /// durable intent to exist already, so uncertainty can never be recorded as
-    /// though no attempt had been made.
+    /// One immutable terminal record. The disposition is validated against the
+    /// complete context before anything is written, because the record has no
+    /// clear, reset or overwrite API: an unreachable state would otherwise be
+    /// published durably and then rejected by this store's own parser on the next
+    /// cold observation. An uncertain disposition requires the durable intent to
+    /// exist already, so uncertainty can never be recorded as though no attempt
+    /// had been made.
     public func recordOutcome(reference: FinishingArtifactReference, against output: FinishingFramedOutput,
                               disposition: FinishingDeliveryDisposition,
                               cancellation: OfflineRenderWorkerCancellation = .init()) throws {
         _ = try archives.load(reference: reference, against: output, cancellation: cancellation)
         guard !cancellation.isCancelled else { throw FinishingFramedArtifact.Error.cancelled }
+        try Self.validate(disposition, against: output)
         if disposition.isUncertain, try Self.intent(storage: storage, reference: reference) == nil {
             throw Error.missingIntent
         }
@@ -85,6 +93,36 @@ public struct FinishingDeliveryOutcomeStore: @unchecked Sendable {
         guard !cancellation.isCancelled else { throw FinishingFramedArtifact.Error.cancelled }
         if let recorded { return .recorded(recorded) }
         return intent == nil ? .noRecordedDelivery : .uncertainAfterRecordedIntent
+    }
+
+    /// Fail-closed admission for a durable terminal record. Step indices must
+    /// address a framed step of the kind that state can actually stop at, and a
+    /// partial transmission must report a byte count the framed file can produce.
+    /// Every admitted value re-encodes and re-parses exactly.
+    private static func validate(_ disposition: FinishingDeliveryDisposition,
+                                 against output: FinishingFramedOutput) throws {
+        func fileBytes(_ index: Int) throws -> Data? {
+            guard output.steps.indices.contains(index) else { throw Error.invalidDisposition }
+            switch output.steps[index] {
+            case let .formatFile(_, bytes), let .delayedCutFile(_, bytes): return bytes
+            default: return nil
+            }
+        }
+        switch disposition {
+        case .allStepsSatisfied, .failedBeforeAttempt, .cancelledBeforeAttempt, .timedOutBeforeAttempt:
+            break
+        // A run can stop at either step kind, so only the bound is constrained.
+        case let .cancelledAfterAttempt(step), let .timedOutAfterAttempt(step),
+             let .ownershipLost(step), let .providerFailedAfterAttempt(step):
+            _ = try fileBytes(step)
+        case let .ambiguousPublication(step):
+            guard try fileBytes(step) != nil else { throw Error.invalidDisposition }
+        case let .statusUnknown(step), let .statusNotSatisfied(step):
+            guard try fileBytes(step) == nil else { throw Error.invalidDisposition }
+        case let .partialTransmission(step, accepted, expected):
+            guard let bytes = try fileBytes(step), expected == bytes.count,
+                  accepted >= 0, accepted < expected else { throw Error.invalidDisposition }
+        }
     }
 
     private func publish(_ bytes: Data, fileName: String) throws {

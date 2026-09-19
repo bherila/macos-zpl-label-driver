@@ -13,17 +13,43 @@ public enum BoundedFinishingDelivery {
         case invalidLimit, artifactBusy, deviceBusy, leaseUnavailable
         case recordedDeliveryRequiresReview, providerContract
     }
+    /// Byte and step accounting for one bounded run. Every value is in-process
+    /// bookkeeping rather than a device receipt, and none of it authorizes a
+    /// retry: the in-memory tracker maps a pre-attempt timeout and a pre-attempt
+    /// ownership loss onto its `.failedBeforeAttempt` state, whose
+    /// `mayRetryAutomatically` would contradict the disposition published for the
+    /// same run, so that second signal is deliberately not republished here.
+    public struct Accounting: Equatable, Sendable {
+        /// Framed steps fully satisfied before this run stopped.
+        public let completedStepCount: Int
+        public let bytesAccepted: Int
+        public let acceptedBytesInCurrentFile: Int
+        public let attemptedAnyFile: Bool
+        fileprivate init(_ tracker: FinishingDeliveryTracker) {
+            completedStepCount = tracker.nextStepIndex
+            bytesAccepted = tracker.bytesAccepted
+            acceptedBytesInCurrentFile = tracker.acceptedBytesInCurrentFile
+            attemptedAnyFile = tracker.attemptedAnyFile
+        }
+    }
     public struct Outcome: Sendable {
         public let reference: FinishingArtifactReference
         public let disposition: FinishingDeliveryDisposition
-        public let tracker: FinishingDeliveryTracker
+        public let accounting: Accounting
+        /// In-process accounting, kept internal for the reason recorded on
+        /// `Accounting`. The durable disposition is the only authority over the
+        /// terminal state and over retry.
+        let tracker: FinishingDeliveryTracker
         public var isUncertain: Bool { disposition.isUncertain }
+        /// The single retry authorization of this result. It is exactly what the
+        /// durable record reports on a later cold observation.
         public var authorizesBoundedRetry: Bool { disposition.authorizesBoundedRetry }
         /// Never true. Synthetic step satisfaction is not a physical label.
         public var establishesPhysicalCompletion: Bool { disposition.establishesPhysicalCompletion }
         fileprivate init(reference: FinishingArtifactReference, disposition: FinishingDeliveryDisposition,
                          tracker: FinishingDeliveryTracker) {
             self.reference = reference; self.disposition = disposition; self.tracker = tracker
+            accounting = Accounting(tracker)
         }
     }
 
@@ -36,16 +62,33 @@ public enum BoundedFinishingDelivery {
         return try .init(coordinationID: .init(sha256: digest))
     }
 
+    /// Monotonic nanosecond source for the bounded deadline. Production runs
+    /// always read the real clock; the module-internal entry point below takes it
+    /// as a parameter so a test can expire the deadline at an exact step instead
+    /// of racing a wall-clock boundary.
+    static func monotonicNanoseconds() -> UInt64 { DispatchTime.now().uptimeNanoseconds }
+
     public static func run(output: FinishingFramedOutput, reference: FinishingArtifactReference,
                            store: FinishingDeliveryOutcomeStore, provider: FinishingDeliveryProvider,
                            coordinationID: PhysicalDeviceCoordinationID, leaseDirectory: URL,
                            deadlineSeconds: Double = OfflineRenderWorkerProcess.defaultDeadlineSeconds,
                            cancellation: OfflineRenderWorkerCancellation = .init()) throws -> Outcome {
+        try run(output: output, reference: reference, store: store, provider: provider,
+                coordinationID: coordinationID, leaseDirectory: leaseDirectory,
+                deadlineSeconds: deadlineSeconds, cancellation: cancellation,
+                now: monotonicNanoseconds)
+    }
+
+    static func run(output: FinishingFramedOutput, reference: FinishingArtifactReference,
+                    store: FinishingDeliveryOutcomeStore, provider: FinishingDeliveryProvider,
+                    coordinationID: PhysicalDeviceCoordinationID, leaseDirectory: URL,
+                    deadlineSeconds: Double, cancellation: OfflineRenderWorkerCancellation,
+                    now: () -> UInt64) throws -> Outcome {
         guard deadlineSeconds.isFinite, deadlineSeconds > 0,
               deadlineSeconds <= OfflineRenderWorkerProcess.defaultDeadlineSeconds else { throw Error.invalidLimit }
-        let started = DispatchTime.now().uptimeNanoseconds
+        let started = now()
         func exhausted() -> Bool {
-            Double(DispatchTime.now().uptimeNanoseconds - started) / 1_000_000_000 >= deadlineSeconds
+            Double(now() - started) / 1_000_000_000 >= deadlineSeconds
         }
         // Both leases are nonblocking and scoped: a busy artifact or device is a
         // refusal, never a wait that could outlive the bounded deadline.
@@ -129,9 +172,19 @@ public enum BoundedFinishingDelivery {
                     var reading: FinishingStatusReading?
                     do { reading = try provider.awaitStatus(stepIndex: index, requirement: step, ownership: ownership) }
                     catch { reading = nil }
-                    // Ownership must still cover the completed wait, not only the
-                    // moment the wait began.
-                    if !ownership.isHeld { disposition = .ownershipLost(step: index) }
+                    // Cancellation, the deadline and ownership must each still
+                    // cover the completed wait, not only the moment it began. A
+                    // reading observed after any of them lapsed is not consumed,
+                    // so a late `.satisfied` can never advance the tracker to
+                    // `.confirmed` and durably publish `.allStepsSatisfied` for a
+                    // run that was cancelled or had already expired.
+                    if cancellation.isCancelled {
+                        disposition = tracker.attemptedAnyFile
+                            ? .cancelledAfterAttempt(step: index) : .cancelledBeforeAttempt
+                    } else if exhausted() {
+                        disposition = tracker.attemptedAnyFile
+                            ? .timedOutAfterAttempt(step: index) : .timedOutBeforeAttempt
+                    } else if !ownership.isHeld { disposition = .ownershipLost(step: index) }
                     else if reading == nil { disposition = .providerFailedAfterAttempt(step: index) }
                     else if reading == .unknown {
                         _ = try tracker.observeStatus(stepIndex: index, step: step, observation: .unknown)

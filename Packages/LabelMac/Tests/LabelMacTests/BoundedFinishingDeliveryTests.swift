@@ -45,6 +45,16 @@ final class BoundedFinishingDeliveryTests: XCTestCase {
         }
     }
 
+    /// Monotonic nanosecond source the test advances explicitly, so a bounded
+    /// deadline expires at a chosen step instead of racing archive validation,
+    /// lease work, intent publication and the first transmission for the same
+    /// real second on a loaded runner.
+    private final class ManualClock {
+        private var nanoseconds: UInt64 = 0
+        func now() -> UInt64 { nanoseconds }
+        func advance(seconds: Double) { nanoseconds += UInt64((seconds * 1_000_000_000).rounded()) }
+    }
+
     private struct Harness {
         let root: URL
         let leases: URL
@@ -67,11 +77,19 @@ final class BoundedFinishingDeliveryTests: XCTestCase {
 
     private func deliver(_ harness: Harness, framed: FinishingFramedOutput,
                          provider: FinishingDeliveryProvider, deadlineSeconds: Double = 60,
-                         cancellation: OfflineRenderWorkerCancellation = .init())
+                         cancellation: OfflineRenderWorkerCancellation = .init(),
+                         clock: ManualClock? = nil)
         throws -> BoundedFinishingDelivery.Outcome {
-        try BoundedFinishingDelivery.run(output: framed, reference: harness.reference, store: harness.store,
-            provider: provider, coordinationID: harness.domain, leaseDirectory: harness.leases,
-            deadlineSeconds: deadlineSeconds, cancellation: cancellation)
+        guard let clock else {
+            return try BoundedFinishingDelivery.run(output: framed, reference: harness.reference,
+                store: harness.store, provider: provider, coordinationID: harness.domain,
+                leaseDirectory: harness.leases, deadlineSeconds: deadlineSeconds,
+                cancellation: cancellation)
+        }
+        return try BoundedFinishingDelivery.run(output: framed, reference: harness.reference,
+            store: harness.store, provider: provider, coordinationID: harness.domain,
+            leaseDirectory: harness.leases, deadlineSeconds: deadlineSeconds,
+            cancellation: cancellation, now: clock.now)
     }
 
     private func fileBytes(_ step: FinishingOutputStep) -> Data? {
@@ -176,6 +194,9 @@ final class BoundedFinishingDeliveryTests: XCTestCase {
         XCTAssertFalse(confirmed.authorizesBoundedRetry)
         XCTAssertEqual(confirmed.tracker.state, .confirmed)
         XCTAssertEqual(confirmed.tracker.bytesAccepted, framed.totalEncodedBytes)
+        XCTAssertEqual(confirmed.accounting.bytesAccepted, framed.totalEncodedBytes)
+        XCTAssertEqual(confirmed.accounting.completedStepCount, framed.steps.count)
+        XCTAssertTrue(confirmed.accounting.attemptedAnyFile)
         XCTAssertEqual(satisfied.discardedBytes, framed.totalEncodedBytes)
         XCTAssertEqual(try success.store.observation(reference: success.reference, against: framed),
                        .recorded(.allStepsSatisfied))
@@ -190,6 +211,14 @@ final class BoundedFinishingDeliveryTests: XCTestCase {
         XCTAssertEqual(refusing.discardedBytes, 0)
         XCTAssertEqual(notSent.tracker.bytesAccepted, 0)
         XCTAssertFalse(notSent.tracker.attemptedAnyFile)
+        XCTAssertEqual(notSent.accounting.bytesAccepted, 0)
+        XCTAssertFalse(notSent.accounting.attemptedAnyFile)
+        XCTAssertEqual(notSent.accounting.completedStepCount, 0)
+        // The returned retry authorization is the durable record's, not a second
+        // signal derived from the in-memory tracker.
+        XCTAssertEqual(notSent.authorizesBoundedRetry,
+            try refused.store.observation(reference: refused.reference,
+                                          against: framed).authorizesBoundedRetry)
         XCTAssertEqual(try refused.store.observation(reference: refused.reference, against: framed),
                        .recorded(.failedBeforeAttempt))
 
@@ -214,32 +243,66 @@ final class BoundedFinishingDeliveryTests: XCTestCase {
             if index == waits[0] { token.cancel() }
         })
         let lateCancel = try deliver(late, framed: framed, provider: cancelling, cancellation: token)
-        XCTAssertEqual(lateCancel.disposition, .cancelledAfterAttempt(step: files[1]))
+        // The wait the cancellation crossed is named, and its reading is not
+        // consumed, so the tracker never advances past it.
+        XCTAssertEqual(lateCancel.disposition, .cancelledAfterAttempt(step: waits[0]))
         XCTAssertTrue(lateCancel.isUncertain)
         XCTAssertFalse(lateCancel.authorizesBoundedRetry)
         XCTAssertEqual(lateCancel.tracker.state, .uncertain)
+        XCTAssertEqual(lateCancel.accounting.completedStepCount, waits[0])
         XCTAssertEqual(try late.store.observation(reference: late.reference, against: framed),
-                       .recorded(.cancelledAfterAttempt(step: files[1])))
+                       .recorded(.cancelledAfterAttempt(step: waits[0])))
 
-        // Timeout before any attempt is distinct from a proven refusal.
+        // Timeout before any attempt is distinct from a proven refusal. The
+        // injected clock expires the deadline at an exact point rather than
+        // letting archive validation, lease work, intent publication and the
+        // first transmission race one real second.
         let earlyDeadline = try harness("timed-out-early", framed: framed, in: directory)
+        let earlyClock = ManualClock()
         let slowInner = try InertFinishingDeliveryProvider()
         let slowPrepare = ObservingProvider(slowInner,
-                                            beforePrepare: { _ in Thread.sleep(forTimeInterval: 1.05) })
-        let earlyTimeout = try deliver(earlyDeadline, framed: framed, provider: slowPrepare, deadlineSeconds: 1)
+                                            beforePrepare: { _ in earlyClock.advance(seconds: 2) })
+        let earlyTimeout = try deliver(earlyDeadline, framed: framed, provider: slowPrepare,
+                                       deadlineSeconds: 1, clock: earlyClock)
         XCTAssertEqual(earlyTimeout.disposition, .timedOutBeforeAttempt)
         XCTAssertFalse(earlyTimeout.isUncertain)
         XCTAssertFalse(earlyTimeout.authorizesBoundedRetry)
+        XCTAssertFalse(earlyTimeout.accounting.attemptedAnyFile)
+        XCTAssertEqual(earlyTimeout.accounting.bytesAccepted, 0)
+        // The in-memory tracker still maps a pre-attempt timeout onto its
+        // pre-attempt failure state, whose retry flag contradicts this outcome.
+        // That flag is exactly what the returned state no longer republishes.
         XCTAssertEqual(earlyTimeout.tracker.state, .failedBeforeAttempt)
+        XCTAssertTrue(earlyTimeout.tracker.mayRetryAutomatically)
+        XCTAssertEqual(earlyTimeout.authorizesBoundedRetry,
+            try earlyDeadline.store.observation(reference: earlyDeadline.reference,
+                                                against: framed).authorizesBoundedRetry)
+        XCTAssertEqual(try earlyDeadline.store.observation(reference: earlyDeadline.reference,
+                                                          against: framed),
+                       .recorded(.timedOutBeforeAttempt))
 
-        // Timeout during a status wait after an attempted file stays uncertain.
+        // Timeout observed across a status wait after an attempted file stays
+        // uncertain and names the wait the deadline crossed.
         let lateDeadline = try harness("timed-out-late", framed: framed, in: directory)
-        let slowStatus = try InertFinishingDeliveryProvider(script: .init(statusWaitSeconds: 1))
-        let lateTimeout = try deliver(lateDeadline, framed: framed, provider: slowStatus, deadlineSeconds: 1)
-        XCTAssertEqual(lateTimeout.disposition, .timedOutAfterAttempt(step: files[1]))
+        let lateClock = ManualClock()
+        let slowInnerStatus = try InertFinishingDeliveryProvider()
+        let slowStatus = ObservingProvider(slowInnerStatus, beforeStep: { index, _ in
+            if index == waits[0] { lateClock.advance(seconds: 2) }
+        })
+        let lateTimeout = try deliver(lateDeadline, framed: framed, provider: slowStatus,
+                                      deadlineSeconds: 1, clock: lateClock)
+        XCTAssertEqual(lateTimeout.disposition, .timedOutAfterAttempt(step: waits[0]))
         XCTAssertTrue(lateTimeout.isUncertain)
         XCTAssertFalse(lateTimeout.authorizesBoundedRetry)
         XCTAssertEqual(lateTimeout.tracker.state, .uncertain)
+        XCTAssertEqual(lateTimeout.accounting.completedStepCount, waits[0])
+        XCTAssertEqual(try lateDeadline.store.observation(reference: lateDeadline.reference, against: framed),
+                       .recorded(.timedOutAfterAttempt(step: waits[0])))
+        // A scripted simulated wait stays finite and bounded by its own cap.
+        XCTAssertThrowsError(try InertFinishingDeliveryProvider(script: .init(
+            statusWaitSeconds: InertFinishingDeliveryProvider.maximumStatusWaitSeconds + 1))) {
+                XCTAssertEqual($0 as? InertFinishingDeliveryProvider.Error, .invalidScript)
+        }
 
         // Partial transmission retains the exact step and accepted/expected counts.
         let partial = try harness("partial", framed: framed, in: directory)
@@ -274,6 +337,7 @@ final class BoundedFinishingDeliveryTests: XCTestCase {
         XCTAssertEqual(unresolvedStatus.disposition, .statusUnknown(step: waits[0]))
         XCTAssertTrue(unresolvedStatus.isUncertain)
         XCTAssertEqual(unresolvedStatus.tracker.nextStepIndex, waits[0])
+        XCTAssertEqual(unresolvedStatus.accounting.completedStepCount, waits[0])
         let negative = try harness("unsatisfied-status", framed: framed, in: directory)
         let refusedStatus = try InertFinishingDeliveryProvider(script: .init(notSatisfiedStatusAtStep: waits[0]))
         let unsatisfied = try deliver(negative, framed: framed, provider: refusedStatus)
@@ -411,5 +475,125 @@ final class BoundedFinishingDeliveryTests: XCTestCase {
         try FileManager.default.removeItem(at: file)
         XCTAssertEqual(try forged.store.observation(reference: forged.reference, against: framed),
                        .noRecordedDelivery)
+    }
+
+    /// A cancellation or an expired deadline observed across a status wait must
+    /// be decided before the reading is consumed. Regression: on the final wait
+    /// only ownership was rechecked, so a late `.satisfied` advanced the tracker
+    /// to `.confirmed` and durably published `.allStepsSatisfied` for a run that
+    /// had already been cancelled or had already run out of time.
+    @MainActor
+    func testLateCancellationOrExpiryAcrossAStatusWaitNeverCompletesTheRun() throws {
+        let (framed, directory) = try makeFramed()
+        let last = framed.steps.count - 1
+        XCTAssertGreaterThan(last, 0)
+        XCTAssertNil(fileBytes(framed.steps[last])) // The final framed step is a status wait.
+
+        let cancelled = try harness("cancelled-final-wait", framed: framed, in: directory)
+        let token = OfflineRenderWorkerCancellation()
+        let cancellingInner = try InertFinishingDeliveryProvider()
+        let cancelling = ObservingProvider(cancellingInner, beforeStep: { index, _ in
+            if index == last { token.cancel() }
+        })
+        let stopped = try deliver(cancelled, framed: framed, provider: cancelling, cancellation: token)
+        XCTAssertEqual(stopped.disposition, .cancelledAfterAttempt(step: last))
+        XCTAssertNotEqual(stopped.disposition, .allStepsSatisfied)
+        XCTAssertTrue(stopped.isUncertain)
+        XCTAssertFalse(stopped.establishesPhysicalCompletion)
+        XCTAssertFalse(stopped.authorizesBoundedRetry)
+        XCTAssertEqual(stopped.tracker.state, .uncertain)
+        XCTAssertEqual(stopped.accounting.completedStepCount, last)
+        // The wait really was performed and its reading refused, rather than the
+        // step never being reached.
+        XCTAssertTrue(cancellingInner.events.contains(.waited(step: last)))
+        XCTAssertEqual(try cancelled.store.observation(reference: cancelled.reference, against: framed),
+                       .recorded(.cancelledAfterAttempt(step: last)))
+        XCTAssertTrue(try cancelled.store.observation(reference: cancelled.reference,
+                                                      against: framed).isUncertain)
+        XCTAssertFalse(try cancelled.store.observation(reference: cancelled.reference,
+                                                       against: framed).authorizesBoundedRetry)
+
+        let expired = try harness("expired-final-wait", framed: framed, in: directory)
+        let clock = ManualClock()
+        let expiringInner = try InertFinishingDeliveryProvider()
+        let expiring = ObservingProvider(expiringInner, beforeStep: { index, _ in
+            if index == last { clock.advance(seconds: 2) }
+        })
+        let timedOut = try deliver(expired, framed: framed, provider: expiring,
+                                   deadlineSeconds: 1, clock: clock)
+        XCTAssertEqual(timedOut.disposition, .timedOutAfterAttempt(step: last))
+        XCTAssertNotEqual(timedOut.disposition, .allStepsSatisfied)
+        XCTAssertTrue(timedOut.isUncertain)
+        XCTAssertFalse(timedOut.establishesPhysicalCompletion)
+        XCTAssertFalse(timedOut.authorizesBoundedRetry)
+        XCTAssertEqual(timedOut.tracker.state, .uncertain)
+        XCTAssertEqual(timedOut.accounting.completedStepCount, last)
+        XCTAssertTrue(expiringInner.events.contains(.waited(step: last)))
+        XCTAssertEqual(try expired.store.observation(reference: expired.reference, against: framed),
+                       .recorded(.timedOutAfterAttempt(step: last)))
+        XCTAssertFalse(try expired.store.observation(reference: expired.reference,
+                                                     against: framed).authorizesBoundedRetry)
+    }
+
+    /// A terminal record is immutable and has no reset API, so a state this
+    /// lifecycle cannot reach must be refused before publication instead of
+    /// becoming a durable record this store's own parser rejects for ever after.
+    @MainActor
+    func testUnreachableDispositionsAreRefusedBeforePublication() throws {
+        let (framed, directory) = try makeFramed()
+        let files = framed.steps.indices.filter { fileBytes(framed.steps[$0]) != nil }
+        let waits = framed.steps.indices.filter { fileBytes(framed.steps[$0]) == nil }
+        XCTAssertGreaterThanOrEqual(files.count, 2)
+        XCTAssertGreaterThanOrEqual(waits.count, 2)
+        let refused = try harness("unreachable", framed: framed, in: directory)
+        let bytes = try XCTUnwrap(fileBytes(framed.steps[files[0]]))
+        let rejected: [FinishingDeliveryDisposition] = [
+            // Steps outside the framed output, including the negative index the
+            // parser has always rejected on the way back in.
+            .ownershipLost(step: -1), .cancelledAfterAttempt(step: framed.steps.count),
+            .timedOutAfterAttempt(step: Int.max), .providerFailedAfterAttempt(step: -1),
+            // A complete count is not a partial transmission, and neither is a
+            // count the framed file cannot produce.
+            .partialTransmission(step: files[0], accepted: bytes.count, expected: bytes.count),
+            .partialTransmission(step: files[0], accepted: 0, expected: bytes.count + 1),
+            .partialTransmission(step: waits[0], accepted: 0, expected: 1),
+            // File-only and status-only states must address the matching kind.
+            .ambiguousPublication(step: waits[0]), .statusUnknown(step: files[0]),
+            .statusNotSatisfied(step: files[0])]
+        for disposition in rejected {
+            XCTAssertThrowsError(try refused.store.recordOutcome(reference: refused.reference,
+                                                                 against: framed,
+                                                                 disposition: disposition)) {
+                XCTAssertEqual($0 as? FinishingDeliveryOutcomeStore.Error, .invalidDisposition)
+            }
+            // Nothing was published, so absence stays absence and the immutable
+            // record is still available for the real terminal state.
+            XCTAssertEqual(try refused.store.observation(reference: refused.reference, against: framed),
+                           .noRecordedDelivery)
+        }
+
+        // Every state this executor can publish is admitted and reads back
+        // exactly through the store's own parser after a cold reopen.
+        let admitted: [FinishingDeliveryDisposition] = [
+            .allStepsSatisfied, .failedBeforeAttempt, .cancelledBeforeAttempt, .timedOutBeforeAttempt,
+            .cancelledAfterAttempt(step: waits[0]), .cancelledAfterAttempt(step: files[1]),
+            .timedOutAfterAttempt(step: waits[0]), .ownershipLost(step: files[0]),
+            .ownershipLost(step: waits[0]), .providerFailedAfterAttempt(step: files[0]),
+            .providerFailedAfterAttempt(step: waits[0]),
+            .partialTransmission(step: files[0], accepted: 0, expected: bytes.count),
+            .ambiguousPublication(step: files[0]), .statusUnknown(step: waits[0]),
+            .statusNotSatisfied(step: waits[0])]
+        for (index, disposition) in admitted.enumerated() {
+            let accepting = try harness("admitted-\(index)", framed: framed, in: directory)
+            if disposition.isUncertain {
+                try accepting.store.recordAttemptIntent(reference: accepting.reference, against: framed)
+            }
+            try accepting.store.recordOutcome(reference: accepting.reference, against: framed,
+                                              disposition: disposition)
+            let reopened = try FinishingDeliveryOutcomeStore(root: accepting.root)
+            XCTAssertEqual(try reopened.observation(reference: accepting.reference, against: framed),
+                           .recorded(disposition))
+            XCTAssertFalse(disposition.establishesPhysicalCompletion)
+        }
     }
 }
