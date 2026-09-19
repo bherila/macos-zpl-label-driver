@@ -103,7 +103,7 @@ gate. Issue #80 Part B still needs a human at a Mac.
 
 # CI-tested macOS artifact — 2026-09-19
 
-The macOS job now packages the exact local-ad-hoc setup app produced and verified by `scripts/build-local-app.sh` on successful pushes to `main`. Pull requests still test without publishing a bundle. The artifact carries a SHA-256 checksum and source/signature/scope metadata, retains for three days, and does not claim installation, scheduler, GUI, Gatekeeper or printer validation. See [CI artifact evidence](validation/M0-CI-MACOS-ARTIFACT-2026-09-19.md). Hosted upload evidence awaits the next successful `main` push.
+The macOS job now packages the exact local-ad-hoc setup app produced and verified by `scripts/build-local-app.sh` on successful pushes to `main`. Pull requests still test without publishing a bundle. The artifact carries a SHA-256 checksum and source/signature/scope metadata, retains for three days, and does not claim installation, scheduler, GUI, Gatekeeper or printer validation. See [CI artifact evidence](validation/M0-CI-MACOS-ARTIFACT-2026-09-19.md). That upload is now confirmed: the `main`-push run `35418621252` at `c3bbc5c` uploaded `label-printer-driver-setup-c3bbc5c...` at 3469450 bytes, expiring after the specified three days, and the preceding pull-request run published nothing. Confirming the upload path closes that qualifier and nothing else -- the bundle establishes no installation, Gatekeeper, scheduler, GUI, USB or printer qualification, all of which remain NOT RUN.
 
 # Re-seal after the report-deadline change — 2026-09-19
 
