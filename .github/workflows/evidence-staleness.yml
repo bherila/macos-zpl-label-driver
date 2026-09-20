@@ -1,0 +1,58 @@
+name: Evidence staleness
+
+# A re-seal that is simply forgotten is the one ledger failure nothing else
+# notices. `--gate-stale` is deliberately off the required check -- the
+# reasoning is in AGENTS.md and in the long comment above the "Acceptance
+# evidence currency" step in ci.yml -- because a source slice necessarily
+# stales every record until its re-seal lands, so gating it per pull request
+# would fail the PR doing the work and make deleting records the cheapest
+# route back to green.
+#
+# That leaves the hole this workflow covers, and it covers it out of band:
+# scheduled, never required, blocking nobody. Twelve of twelve re-seals have
+# been predicted and closed by hand so far, which is diligence rather than a
+# control.
+#
+# The schedule interval IS the grace window. `--budget` is a wall-clock timeout
+# for the evaluation itself, not a staleness age, and no grace period exists in
+# the script; running daily means this only goes red on staleness that survived
+# to the next day, which is longer than a normal source-to-re-seal turnaround.
+# Do not add a grace flag to the script to change that -- scripts/ is a source
+# path and the change would stale the ledger it is meant to watch.
+on:
+  schedule:
+    # 06:23 UTC, deliberately off the hour: GitHub delays scheduled runs at
+    # popular times, and nothing here is time-critical.
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Never cancelled. There is only ever one of these in flight and a superseded
+# run would leave the question unanswered rather than answered later.
+concurrency:
+  group: evidence-staleness-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  staleness:
+    name: evidence-staleness
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The currency check walks history to decide whether a recorded
+          # sourceSHA is an ancestor of HEAD. On a shallow clone it cannot, and
+          # it exits 2 -- "could not evaluate", which is a failure and not a
+          # skip.
+          fetch-depth: 0
+      # Read-only. It never refreshes a digest, re-seals a record, edits a
+      # checkbox or promotes a claim; every finding names a file a human has to
+      # change. Exit 0 clean / 1 gating finding / 2 could not evaluate, and all
+      # three are reported faithfully: no `|| true`, no `continue-on-error`, and
+      # exit 2 is never folded into a pass.
+      - name: Acceptance evidence currency, gating stale records
+        run: python3 scripts/evidence_currency.py --gate-stale
