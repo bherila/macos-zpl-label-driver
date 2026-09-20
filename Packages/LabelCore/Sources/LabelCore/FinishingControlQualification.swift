@@ -57,14 +57,8 @@ public struct FinishingControlQualification: Equatable, Sendable {
     public func encodeMode(_ mode: FinishingMode, maximumOutputBytes: Int = 1024) throws -> Data {
         guard (1...64 * 1024).contains(maximumOutputBytes) else { throw Error.invalidOutputLimit }
         try validate(mode)
-        let command: String
-        switch mode {
-        case .tearOff: command = "^MMT\n"
-        case .cut: command = "^MMC\n"
-        case .peel: command = "^MMP\n"
-        case .rewind: command = "^MMR\n"
-        }
-        let result = Data(command.utf8)
+        // One authoritative mapping; the literal is never restated here.
+        let result = ZPLFinishingControlLiteral.offlineInspection(of: mode).line
         guard result.count <= maximumOutputBytes else { throw Error.outputLimit }
         return result
     }

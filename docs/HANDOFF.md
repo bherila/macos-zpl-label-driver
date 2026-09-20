@@ -1,3 +1,216 @@
+# First work on the maintainer's Mac, and the re-seal that followed — 2026-09-19
+
+The session moved from a Linux container to the maintainer's Mac (Apple Silicon, macOS 27.0) with the
+GC420d attached by USB. That made three things possible that had not been, and corrected one thing that
+had been said too strongly. Nothing was printed, installed or authorized, and **no byte was sent to the
+printer**.
+
+| PR | Slice | Squashed to |
+|---|---|---|
+| #127 | USB identity observed read-only; probe; README; `AGENTS.md`; the stranded GUI record | `286b212` |
+| #137 | two regression tests salvaged from the GUI session's worktree | `9fe4d48` |
+| #138 | `docs/BUILDING.md` | `9aa0a21` |
+
+## What is now known
+
+**The GC420d publishes a USB serial number** — 12 characters, digits and upper-case, not a placeholder —
+under the key names #123 reads. Had it not, #123 would have been correct and unblocked nothing. The serial
+and every digest of it are recorded nowhere; `scripts/usb_identity_probe.py` never prints one.
+
+**#123's real code path works on real hardware.** An uncommitted throwaway test on #123's branch drove the
+real IOKit discovery and the real CryptoKit qualification headlessly: outcome `qualified`, identity
+redacted, re-qualification idempotent, and `canInstallQueue` still `false` on identity alone. Before this
+that code had only run against an injected registry seam.
+
+**`(EPL)` in the USB product string is a plug-and-play identity string, not a language statement.** The
+GC420 lists EPL2 and ZPL II together (R26), and the maintainer reports `lpr -l` prints ZPL correctly. The
+real hazard is EPL Line Mode, recorded in `docs/hardware/GC420D.md` and tracked as #136. R47 states which
+pages were actually read and which could not be.
+
+## The correction
+
+**There is no install action behind `canInstallQueue`.** Its only consumer is a status icon; `Sources/`
+contains no `lpadmin`, `SMAppService`, authorization call or `installQueue`. Earlier notes here and on #89
+said identity qualification would make 23 criteria testable. It makes them not structurally impossible;
+the installation path itself is unbuilt. Corrected on #89 and #123 and tracked as #129.
+
+## Two things that were nearly lost
+
+Both surfaced only because each target was inspected before being deleted during local cleanup.
+
+The 2026-09-18 GUI session's validation record had sat untracked in a detached worktree for a day. It is
+committed verbatim with a dated addendum that says which of its two contradictory statements about the
+printer stands and gives the disposition of every observation.
+
+That worktree also held two tests the GUI session wrote with no toolchain and never compiled. One pins
+something `main` lacked: an edit binding captured before a focus-only commit must still be valid for a real
+edit afterwards. Both pass on `main` and both fail with the no-op guard removed. A third worktree's
+detached HEAD was the only reference to 159 commits; `archive/swift-cache-35bb92f` preserves them.
+
+## Re-seal
+
+`M2-AC04` and `M2-AC13` re-bound to the tip of `main` after #127, #137 and #138. 33 of 33 cited paths
+re-hashed and matching, so `sourceSHA` is the only field that moved. #138 was landed before this re-seal
+deliberately: a build guide under `docs/` is a source path and would have staled it within minutes. See
+[2026-09-19 re-seal](validation/M2-RESEAL-AFTER-USB-BINDING-AND-BUILD-GUIDE-2026-09-19.md).
+
+**The re-seal procedure changed, because it had to.** The ledger bounds each record's reference lists at 16
+entries, and every re-seal so far appended its own receipt to both records. `M2-AC13` holds 12 entries of
+real evidence, so its fifth receipt was its 17th entry and preflight refused it. A record now cites **only
+the latest receipt**, which names the chain of earlier ones. The cap was not raised: it is a deliberate
+bound, raising it only postpones the same failure, and it would be a `scripts/` change that stales the
+ledger. No evidence of either criterion was removed — a receipt records that a rebind was safe, not that a
+criterion holds — and the four earlier receipts stay in the repository, manifest-covered and named. The
+next agent should replace the cited receipt, never append one; `AGENTS.md` should say so at its next edit.
+
+Not held for #123. That PR waits on a reattachment check needing a person at the printer (#128), and a
+stale `main` should not wait indefinitely on a held pull request. Merging it owes one further re-seal;
+#134 stays open for that.
+
+## Open, by what blocks it
+
+- **Hands on the printer:** #128 (reattachment stability, gates #123), #136 (Line Mode), #90.
+- **A supervised GUI session:** #133 (the #118 fixes have never been seen on screen), #119, #80.
+- **A maintainer decision:** #130 (eleven checked boxes with no record), #101 and #93 (security review).
+- **Nothing — buildable now:** #129 (design the install path), #131, #132, #135, and #103's evidence slice.
+
+# Manifest scope decided, and the first re-seal under enforcement — 2026-09-19
+
+`MANIFEST.sha256` is now whole-tree and enforced. ADR 0004's recommended option 1 was taken in the
+staging it prescribes: `--enforce-covered` first, which changed no build outcome because all three of
+its failure counts already read zero, then the 164-entry backfill and `--enforce-coverage`. Coverage
+went from 356 of 521 tracked files to 521 of 522, the one uncovered path being `MANIFEST.sha256`
+itself. Issue #87 is answered: [2026-09-19 whole-tree manifest](validation/M6-MANIFEST-WHOLE-TREE-2026-09-19.md).
+
+Option 1 rather than the alternatives because the ADR's own measurements rule them out, not because
+whole-tree sounds tidier. The archive-scoped reading is contradicted by the file's history — coverage
+began at exact parity, 280 entries over 281 tracked files, and held within one entry for twenty
+commits until `56fdc7b` added 116 tracked files with zero entries and nothing resumed it. Retiring it
+is incoherent while `source_is_unchanged` reads the manifest directly and the ledger binds 31 files
+rather than 521.
+
+## The cost is real, and the helper is why it is payable
+
+Option 1 makes every PR touching a covered file refresh the manifest, which at whole-tree coverage is
+nearly every PR. That cost demonstrated itself immediately: enabling the gate edited `ci.yml`, which
+is covered, and the gate failed *that very commit* on its own stale digest.
+
+`scripts/refresh_manifest.py` pays it in one command, and shipping it with the gate rather than after
+it was the point. It imports every path rule, size cap and `O_NOFOLLOW` defence from `manifest_audit`
+instead of restating them, so the reading and writing halves cannot drift apart — the same failure
+mode #122 fixed in the ZPL literals, applied before it could happen. It never removes an entry,
+because widening is permitted and shrinking is corrupted integrity metadata, and it leaves an absent
+or unreadable file at its recorded digest rather than rewriting it to a placeholder, which would turn
+an integrity failure into a clean build.
+
+The first evidence slice written under the new regime — the re-seal below — is the test of that. It
+adds one validation document and edits four covered files; under the old regime that meant
+hand-hashing five paths and hoping. Here it was `git add -A && refresh_manifest.py --backfill`, which
+reported exactly what it changed, and both gates passed first time.
+
+One sharp edge, now in `CONTRIBUTING.md`: `--backfill` reads the git index, not the working tree, so
+a new file must be staged before the refresh can see it. An unstaged validation document is silently
+uncovered and the *coverage gate* fails the build rather than the refresh — the right order, but only
+obvious once.
+
+## What whole-tree coverage does not buy
+
+Carried forward from the ADR because it bears on how much to value this: coverage is an **integrity**
+control, not a **currency** control. `source_is_unchanged` decides currency from the diff, so a change
+to a previously uncovered Swift source already invalidated every record exactly as a covered one did.
+What this adds is that one command now answers "has any tracked byte changed without being recorded".
+It does not tighten acceptance enforcement, and claiming otherwise would overstate it.
+
+## Re-seal
+
+`M2-AC04` and `M2-AC13` re-bound to `87cbd247161f30b51a05c59047a4bd4fbd4690b4`. Eleventh and twelfth
+instances of the sequencing rule. 31 of 31 cited paths re-hashed and matching; #125 touched none of
+them, so `sourceSHA` is the only field that moved. The manifest backfill itself invalidated nothing —
+it is an exempt path and a widening refresh, which `manifest_describes_tree` explicitly permits.
+
+## Owed next
+
+PR #123, USB identity qualification for issue #89, remains **open and deliberately held** for
+maintainer review. It is green with a clean Codex security review at `cb732c1`, and moving queue
+installation from structurally impossible to possible is a risk-posture decision rather than a
+code-correctness one. Merging it owes a thirteenth re-seal, which costs nothing.
+
+The question that decides whether #123 unblocks anything in practice is still unanswered and still
+cheap: **whether a GC420d publishes a USB serial number at all is unobserved.** If it publishes none,
+the correct output is `serialNumberAbsent` and installation stays blocked — the design working, with
+23 criteria shut behind a different wall.
+
+# Three parallel tranches, two merged, one held — 2026-09-19
+
+Three isolated worktrees branched from `eb70ca7`, one branch and one PR each, no shared source file
+between any two. `MANIFEST.sha256` was the only file all three touched and it merged without conflict.
+
+| PR | Slice | Squashed to | Hosted macos-26 |
+|---|---|---|---|
+| #121 | schema-v3 worker ticket rejection paths | `dbf66ff` | LabelCore 327 / LabelMac 417 |
+| #122 | one authoritative ZPL finishing literal table | `ab41094` | LabelCore 328 / LabelMac 415 |
+| #123 | USB identity qualification (#89) | **held, open** | LabelCore 338 / LabelMac 428 |
+
+All debug and release, 0 failures. #123 is deliberately held for maintainer review: it is green with a
+clean Codex security review, but it moves queue installation from structurally impossible to possible,
+which is a risk-posture decision rather than a code-correctness one.
+
+## Two issues were closed by measurement rather than by work
+
+**#104 was already satisfied** and is closed. The dither test iterates the exact widths it named,
+`MonochromeConversion.swift` is bound to the M2-AC04 record, and the box is checked. Nothing was built.
+
+**#93 gap 1 was three-quarters stale.** It says four things are untested; three of them were covered by
+`29b3fb3` (#95), which merged at 16:23 UTC on 2026-09-18, after the issue was filed at 09:45 UTC, and
+nobody updated the issue. Only the negative cases were genuinely missing, and #121 built only those.
+The lesson generalises: an issue describing a gap is a claim about a past tree, and the tree moves.
+
+## #103's drift turned out to be benign, and saying so was the finding
+
+The issue suspects the two finishing-mapping sites had diverged. They had not. Site by site, every
+literal either route emits was already in the coverage rows, and both differences are deliberate:
+`^MMC` alone schedules no cutting policy so the offline route emits no trigger, and the offline route
+has no prepeel fact so it cannot select `^MMP,N`. **No emitted byte changed** in #122 — verified case
+by case against the previous hardcoded switch.
+
+What #103 actually names is an *evidence*-coverage drift: the production literals live in LabelMac,
+which does not build on Linux, so nothing executed could catch a regression in them. The fix is the
+test that closes it — `testNoEmittingSourceRestatesAFinishingLiteral` reads the five emitting sources
+*including the LabelMac one* and fails naming file, line and literal on a restatement. That is a
+Linux-executable test pinning a LabelMac source invariant, which is the shape this repository needs
+more of. It was proven to bite by restoring a hardcoded `^MMD` and observing the named failure.
+
+The unification deliberately did **not** merge the two routes: `offlineInspection` can never return
+the delayed-cut literals and `framedMode` can never return `^MMC`. Merging them would have been a real
+bug wearing the shape of a cleanup.
+
+## `--gate-stale`: recommend keeping it off the required check
+
+The prerequisite is met again — `--gate-stale` exits 0 on this tree. The recommendation is still not to
+enable it on `push`, on principle rather than preference.
+
+A required per-PR check should answer *"is this change safe to merge?"*. Staleness is not a property of
+the change; it is a property of the repository's bookkeeping at that instant, created by the sequencing
+rule itself. A source slice cannot avoid staling records, because the rule forbids re-sealing in the
+same commit. Gating would fail PRs for a condition their authors are forbidden from fixing, and would
+make a red `main` routine: ten merges today each opened that window, some for hours. A check that is
+red as a matter of course teaches reviewers to ignore it.
+
+What the gate is good for is a re-seal that is *forgotten* — a periodic question, not a per-commit one,
+answerable by a scheduled non-required run without blocking anyone. Instances one through ten were each
+predicted in the source PR and then closed, so nothing has been forgotten yet.
+
+## Owed next
+
+Merging #123 will stale `M2-AC04` and `M2-AC13` again and owe an eleventh re-seal. #87's manifest
+backfill (160 of 516 tracked files uncovered) remains the open maintainer decision in
+`docs/adr/0004-manifest-integrity-scope.md`; ADR 0004 recommends option 1, staged.
+
+The open question that decides whether #89 is actually unblocked: **whether a GC420d publishes a USB
+serial number at all is unobserved.** If it publishes none, #123's correct output is
+`serialNumberAbsent` and installation stays blocked — the design working, and the 23 criteria shut
+behind a different wall. One command on a Mac with the printer attached settles it.
+
 # Re-seal M2 after the editor and CI slices — 2026-09-19
 
 Records bind source `201ab1cd93b6e32f02f14e516268c86b6931c534`, the tip of `main`. This slice touches

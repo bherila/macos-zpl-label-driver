@@ -411,6 +411,7 @@ relative ^MD is added to ~SD. Model-specific accepted ranges, installed defaults
 and physical behavior remain separately qualified. No device command sent.
 
 
+<a id="r46"></a>
 ## R46 — Public Zebra continuous mode and label-length scope
 
 [Zebra ^MN command](https://docs.zebra.com/us/en/printers/software/zpl-pg/zpl-commands/%5Emn.html),
@@ -430,3 +431,21 @@ single length argument after ^MNN, avoiding ambiguous second-argument syntax.
 This does not normalize the flag or establish later gap/mark length behavior.
 ^LL must precede first ^FS; retained until replaced/power-off, with no ^JUS emitted.
 Unit qualification and physical behavior remain unobserved.
+
+<a id="r47"></a>
+## R47 — Zebra G-series language co-residence, Line Mode and the plug-and-play string
+
+[GK Series thermal printers](https://docs.zebra.com/us/en/printers/desktop/gk420d-desktop-printer-user-guide/c-gk420d-ug-introduction/c-gk420d-ug-gk-series-thermal-printers.html),
+[EPL Line Mode](https://docs.zebra.com/us/en/printers/desktop/gk420t-desktop-thermal-printer-user-guide/t-gk420d-ug-print-operations/c-gk420d-ug-epl-line-mode.html)
+and [device.pnp_option](https://docs.zebra.com/us/en/printers/software/zpl-pg/c-sgd-printer-commands/r-sgd-device-pnp-option.html).
+
+Checked 2026-09-19. Official public documentation only; nothing bundled, and no vendor driver package
+inspected. The first two pages were read directly. They are **GK420-series** pages, a sibling of the
+GC420d: they state automatic detection and switching between ZPL and EPL, that Page Mode is the default,
+and that while Line Mode is active ZPL and EPL2 page-mode programming is processed as Line Mode data. The
+GC420d user guide itself exceeded the fetch size limit and was not read, so the same wording is not
+confirmed for the GC420d; R26 independently lists EPL2 and ZPL II together for the GC420. The
+`device.pnp_option` page rendered only its navigation, so its description here — that it selects the
+plug-and-play response, `epl` or `zpl`, separately from the accepted command languages — rests on indexed
+summaries of that page rather than on its directly inspected text. Whether this unit supports SGD at all
+is unobserved. No device command was sent.

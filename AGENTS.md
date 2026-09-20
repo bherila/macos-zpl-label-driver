@@ -52,7 +52,7 @@ Do not call `lpr` recursively from a queue's filter/backend. Reusing a working r
 
 ## Tests and quality
 
-Before a PR: `python3 scripts/check_repo.py`, `python3 -m unittest discover -s scripts/tests`, `swift test --package-path Packages/LabelCore`, and, on macOS, `swift test --package-path Packages/LabelMac`. Run `bash scripts/ci-swift.sh` on a Mac for the CI-equivalent build/test sequence. Add application/installer build steps when those products are introduced; do not leave new products outside CI.
+docs/BUILDING.md is the build and test guide; keep it true when a command, requirement or script changes. Before a PR: `python3 scripts/check_repo.py`, `python3 -m unittest discover -s scripts/tests`, `swift test --package-path Packages/LabelCore`, and, on macOS, `swift test --package-path Packages/LabelMac`. Run `bash scripts/ci-swift.sh` on a Mac for the CI-equivalent build/test sequence. Add application/installer build steps when those products are introduced; do not leave new products outside CI.
 
 When a command cannot run in the current environment, record NOT RUN and why. A Linux result does not validate Core Graphics, macOS printing, signing, USB, or the GUI. Hosted macOS test results do not validate a physical label printer or a clean retail Mac installation.
 
@@ -66,7 +66,7 @@ The supplied workflows test a scaffold; extend them as features land. A missing 
 
 ## Confirmed sprint baseline (revision 2)
 
-Read docs/SPRINT-BASELINE.md, docs/hardware/GC420D.md, docs/LOCAL-SIGNING.md and docs/RELEASE-SCOPES.md. MIT is confirmed. The minimum macOS is 26.0; use macos-26 ARM CI, not older-runtime compatibility work. Primary hardware is GC420d USB with 4×6 pre-cut stock, tear-off and no cutter. Native pitch is model-documented 8 dots/mm; do not treat nominal integer 203 DPI as the geometric truth. Unit settings/sensing/USB identifiers remain unobserved.
+Read docs/SPRINT-BASELINE.md, docs/hardware/GC420D.md, docs/LOCAL-SIGNING.md and docs/RELEASE-SCOPES.md. MIT is confirmed. The minimum macOS is 26.0; use macos-26 ARM CI, not older-runtime compatibility work. Primary hardware is GC420d USB with 4×6 pre-cut stock, tear-off and no cutter. Native pitch is model-documented 8 dots/mm; do not treat nominal integer 203 DPI as the geometric truth. The unit's USB enumeration was observed read-only on 2026-09-19 (docs/hardware/GC420D.md); its settings, sensing, firmware and every print path remain unobserved.
 
 Use local ad-hoc signing by default, without Apple accounts, Team IDs, provisioning or notarization requirements. Extend secret-free CI to verify local signatures as products appear. Prove no-account installation/helper feasibility during M1. Never weaken privileged authentication to compensate for lack of Developer ID. Publishing local artifacts still requires authorization; signatures alone do not establish publisher trust.
 
@@ -75,3 +75,35 @@ Keep S1 baseline and S2 accessory/model evidence separate. Do not ask for a cutt
 ## Revision 3 implementation candidates
 
 Review and extend the supplied core, strict oracle and concrete fixtures instead of regenerating placeholders. Run `python3 scripts/run-accelerator-checks.py` before/after affected work. No imaging Python dependency is required for ordinary CI. The `labelprobe` executable is an inert discard sink; never connect it to the GC420d or promote its success to physical output. The diagnostic ZPL envelope intentionally lacks production state normalization. Test source manifests are not automatically stable public profile schemas. Preserve the independent oracle rather than modifying it merely to agree with a changed encoder.
+
+## Evidence ledger and sequencing (revision 4)
+
+Read docs/TRACEABILITY.md. The ledger asks four independent questions of a criterion: is its box checked, do the record's cited bytes still hash as recorded, does the record still describe the current source, and is it at the prescribed A/C/I/H/R level. A criterion is `qualified` only when **one single record** answers all four; the four answers may not be assembled from different records.
+
+Evidence follows source, in its own slice against the merged result. A record written in the same commit as its source cannot bind that commit, because a squash merge does not descend from a branch commit. `source_is_unchanged` treats any changed path as a source change unless it is `docs/ACCEPTANCE-EVIDENCE.json`, `docs/PROGRESS.json`, `docs/SCOPE-STATUS.json`, `docs/HANDOFF.md`, `docs/validation/*.md`, a milestone `ACCEPTANCE.md`, or a truthful non-shrinking `MANIFEST.sha256`. Test files, `scripts/`, `.github/`, `README.md` and `docs/hardware/` are all source. So every source slice, including a test-only one, stales existing records, and a re-seal slice touching only exempt paths follows it. Say so in the source PR; batch several source merges under one re-seal where you can.
+
+A re-seal is a rebind, not a re-verification. Re-hash every cited path and record the count: if all match, `sourceSHA` is the only field that moves. **Replace the re-seal receipt a record cites; never append another one.** A reference list is capped at 16 entries, so appending a receipt per re-seal expires the record: M2-AC13 has 12 real evidence entries and its fifth receipt made 17, which preflight refused. The new receipt names its predecessors by path, so the chain stays auditable while the record cites only the latest. Raising the cap is not the fix: it is a deliberate bound and would only move the failure. Dropping a superseded receipt is not weakening the record, because a receipt attests that a rebind was safe and says nothing about whether the criterion holds — never drop a test, an oracle or an original validation document this way. If a cited file changed, that is a new claim and needs its evidence re-run, not a quiet re-hash. Verify currency **after committing**: a dirty worktree reports `WORKSPACE-DIRTY` and can never be current. Confirm on merged `main` that the record survived its own squash merge.
+
+`evidence_currency.py --gate-stale` stays off the required check. A required per-PR check answers whether the change is safe to merge; staleness is bookkeeping a source slice is forbidden from fixing in its own commit. Never delete or weaken a record to obtain green. Checked boxes with no record are reported, not silently corrected.
+
+Prove a coverage claim by mutation: remove the guard, watch the named test fail, byte-restore. An issue describes a past tree; verify the gap still exists before building against it.
+
+## Manifest
+
+`MANIFEST.sha256` covers every tracked file except itself, and CI enforces both drift and coverage (docs/adr/0004-manifest-integrity-scope.md). After staging, run `python3 scripts/refresh_manifest.py --backfill`; it reads the git index, so a new file must be staged first. The refresh never removes an entry and leaves an unreadable file at its recorded digest, so removing a path is a manual, reviewed edit. Stage explicit paths rather than `git add -A` when the worktree holds untracked personal files.
+
+## CI behaviour worth knowing
+
+Superseded pull-request runs are cancelled; pushes to `main` and manual dispatches are not, because a `main` push is the last chance to compile the merged tree. `scripts/ci_scope.py` decides whether the macOS job runs and fails open to testing; `ci-required` asserts a skip is legitimate rather than trusting it.
+
+`Packages/LabelMac` cannot build on Linux. There, `swiftc -frontend -parse` proves syntax only, hosted `macos-26` is the first real compile, and the PR must say so. A wall of type errors from that job is usually one mismatch and a cascade: fix the first error in source order before believing the rest. CI's Python differs from a local one; assert the documented contract, never an interpreter-specific exception name.
+
+## Device identifiers and host observation
+
+Reading the host I/O Registry is host observation, not printer I/O: it opens no device and sends nothing. Use `scripts/usb_identity_probe.py`, whose default output is safe to publish. A serial number, and any digest of one, never enters the repository, an issue, a pull request or a log; compare fingerprints locally and report only same or different. Count `IOUSBHostDevice` nodes, not key matches: macOS copies vendor, product and serial onto interface children.
+
+A maintainer's informal report, such as an existing raw queue printing ZPL, can retire a risk but is not level-H evidence. A model's documentation does not qualify the installed unit, and a sibling model's documentation does not describe this model; record which page was actually read.
+
+## Parallel workstreams
+
+When work fans out, give each workstream its own branch and PR over disjoint source files. Only the controller edits `docs/HANDOFF.md`, `docs/PROGRESS.json`, `docs/ACCEPTANCE-EVIDENCE.json` and milestone `ACCEPTANCE.md`, after the results are known. Verify a subagent's claims against the tree before relaying them, and hold any change that alters risk posture, such as making installation possible, for the maintainer even when it is green.

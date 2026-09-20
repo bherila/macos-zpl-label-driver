@@ -52,7 +52,7 @@ public struct ZPLControlProtocol: Equatable, Sendable {
               lifetime: .applicationUntilReissuedOrPowerOff,
               notes: "Only model-documented 2, 3, or 4 ips values are admitted.",
               implementedRange: "2/3/4 ips", modelLimits: "GC420d documented print-speed choices only"),
-        .init(option: "finishing", command: "^MMT", sourceID: "R22",
+        .init(option: "finishing", command: ZPLFinishingControlLiteral.tearOff.rawValue, sourceID: "R22",
               lifetime: .modelSpecificOrUnverified,
               notes: "Tear-off is the only selected installed baseline mode.",
               implementedRange: "T", modelLimits: "GC420d selected tear-off; cutter absent and peel disabled"),
@@ -200,7 +200,9 @@ public struct ZPLControlEncoder: Sendable {
             output.append(try ZPLDocumentedControlEncoder().encode([control],
                 qualification: [control.kind: .supported]))
         }
-        if !excludeFinishing && controls.finishing == .value(.tearOff) { output.append(contentsOf: "^MMT\n".utf8) }
+        if !excludeFinishing && controls.finishing == .value(.tearOff) {
+            output.append(ZPLFinishingControlLiteral.tearOff.line)
+        }
         if let motorBytes { output.append(motorBytes) }
         else if case let .value(speed) = controls.printSpeedIps {
             output.append(contentsOf: "^PR\(speed)\n".utf8)

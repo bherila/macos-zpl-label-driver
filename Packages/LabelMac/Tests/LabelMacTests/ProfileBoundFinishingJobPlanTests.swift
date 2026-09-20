@@ -196,6 +196,17 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
             case .peel: modeText = "^MMP,N\n"
             case .cut: modeText = "^MMD\n"
             }
+            // Issue #103: the literals above are restated here on purpose, as an
+            // independent oracle. This binds the production framing to the one
+            // authoritative table, so re-hardcoding either side fails.
+            let policy: FinishingOutputQualification.ModePolicy
+            switch mode {
+            case .tearOff: policy = .tearOff
+            case .rewind: policy = .rewind
+            case .peel: policy = .peelExplicitNoPrepeel
+            case .cut: policy = .delayedCutSeparateFiles
+            }
+            XCTAssertEqual(ZPLFinishingControlLiteral.framedMode(of: policy).line, Data(modeText.utf8))
             for (index, bitmap) in preparation.rasters.enumerated() {
                 let ordinal = index + 1
                 let diagnostic = String(decoding: try ZPLGraphicEncoder().diagnosticFormat(bitmap), as: UTF8.self)
@@ -205,10 +216,18 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
                     + modeText + graphic + "^PQ1\n^XZ\n").utf8)
                 XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("~JK"))
                 XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("^MMC"))
+                // Exactly one finishing literal reaches a format file, and it is
+                // the one the qualified policy selected from the table.
+                let text = String(decoding: bytes, as: UTF8.self)
+                for other in ZPLFinishingControlLiteral.allCases
+                where other != ZPLFinishingControlLiteral.framedMode(of: policy) {
+                    XCTAssertFalse(text.contains(other.rawValue + "\n"), "unexpected \(other.rawValue)")
+                }
                 expected.append(.formatFile(outputLabel: ordinal, bytes: bytes))
                 expected.append(.awaitLabelPrinted(outputLabel: ordinal)); total += bytes.count
                 if mode == .cut && [3, 6, 7].contains(ordinal) {
                     expected.append(.awaitDelayedCutReady(afterOutputLabel: ordinal))
+                    XCTAssertEqual(ZPLFinishingControlLiteral.delayedCutTrigger.line, Data("~JK\n".utf8))
                     expected.append(.delayedCutFile(afterOutputLabel: ordinal, bytes: Data("~JK\n".utf8)))
                     expected.append(.awaitCutCompleted(afterOutputLabel: ordinal)); total += 4
                 }

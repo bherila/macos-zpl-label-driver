@@ -193,4 +193,50 @@ final class ExtractionPlanTests: XCTestCase {
             }
         }
     }
+
+    /// The v3 worker ticket carries margins only because the profile admitted
+    /// them first. These are the emission-side gates: a non-zero margin on a
+    /// v2 profile, and margins that leave no printable area, must fail closed
+    /// with their own typed error rather than being clamped or defaulted.
+    func testProfileRejectsMarginsOnVersionTwoAndMarginsLeavingNoPrintableArea() throws {
+        func profile(schemaVersion: Int, margins: OutputMargins) throws -> WorkflowProfile {
+            try WorkflowProfile(
+                schemaVersion: schemaVersion, id: "margin-admission", revision: 1,
+                outputStockID: "stock", outputStock: stock, outputMargins: margins,
+                pageRules: [try rule(page: 1, disposition: .extract([try region("label", 0)]))]
+            )
+        }
+        // A v2 profile has no margin field on the wire, so a non-zero margin
+        // there would print an unrepresentable geometry.
+        XCTAssertThrowsError(try profile(schemaVersion: 2,
+            margins: OutputMargins(left: 1, top: 0, right: 0, bottom: 0))) {
+            XCTAssertEqual($0 as? ExtractionPlanError, .invalidProfile)
+        }
+        // Margins that consume the whole stock leave nothing to image.
+        let noWidth = try OutputMargins(left: stock.width.value / 2, top: 0,
+            right: stock.width.value / 2, bottom: 0)
+        let noHeight = try OutputMargins(left: 0, top: stock.height.value / 2,
+            right: 0, bottom: stock.height.value / 2)
+        for exhausting in [noWidth, noHeight] {
+            XCTAssertThrowsError(try profile(schemaVersion: 3, margins: exhausting)) {
+                XCTAssertEqual($0 as? ExtractionPlanError, .invalidProfile)
+            }
+        }
+        // Non-finite and negative edges are refused before a profile sees them.
+        for value in [Double.nan, .infinity, -.infinity, -1] {
+            for index in 0..<4 {
+                var edges = [0.0, 0, 0, 0]; edges[index] = value
+                XCTAssertThrowsError(try OutputMargins(left: edges[0], top: edges[1],
+                    right: edges[2], bottom: edges[3])) {
+                    XCTAssertEqual($0 as? PagePlacementError, .invalidMargins)
+                }
+            }
+        }
+        // The admitted margin reaches the planned label, which is what the
+        // worker ticket serializes; an accepted margin must not vanish.
+        let admitted = try OutputMargins(left: 1, top: 2, right: 3, bottom: 0.5)
+        let plan = try ExtractionPlanner.plan(sourcePages: [try page()],
+            profile: try profile(schemaVersion: 3, margins: admitted))
+        XCTAssertEqual(plan.outputLabels[0].outputMargins, admitted)
+    }
 }
