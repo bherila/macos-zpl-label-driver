@@ -234,6 +234,33 @@ final class ProfileBoundFinishingJobPlanTests: XCTestCase {
                 if mode == .peel { expected.append(.awaitLabelTaken(outputLabel: ordinal)) }
             }
             XCTAssertEqual(framed.steps, expected)
+            // M3-AC04: ordinary output carries no reset, calibrate, save, erase or
+            // firmware command. Asserted over every byte FinishingFramedOutput
+            // assembled for this mode, not over the encoders it composes from.
+            let normalizationText = String(decoding: preparation.normalization.bytes, as: UTF8.self)
+            let allowedPrefixes = Set<String>(["^XA", "^XZ", "^PQ", "^FO", "^GF", "^FS", "^MM", "~JK"])
+                .union(normalizationText.matches(of: /[\^~][A-Za-z]{2}/).map { String($0.output) })
+            let emitted: [Data] = framed.steps.compactMap { step in
+                switch step {
+                case .formatFile(_, let bytes), .delayedCutFile(_, let bytes): return bytes
+                default: return nil
+                }
+            }
+            XCTAssertEqual(emitted.count, expected.filter {
+                if case .formatFile = $0 { return true }
+                if case .delayedCutFile = $0 { return true }
+                return false
+            }.count)
+            for bytes in emitted {
+                let text = String(decoding: bytes, as: UTF8.self)
+                for forbidden in ["~JR", "^JU", "~JC", "~JA", "^ID", "~DY", "~DU", "~DG", "^DF", "~WC"] {
+                    XCTAssertFalse(text.contains(forbidden), "\(mode): unexpected \(forbidden)")
+                }
+                // Denylists only catch what someone thought to list, so also pin
+                // the complete set of command prefixes the framing can emit.
+                let prefixes = Set(text.matches(of: /[\^~][A-Za-z]{2}/).map { String($0.output) })
+                XCTAssertTrue(prefixes.isSubset(of: allowedPrefixes), "\(mode): unexpected commands \(prefixes)")
+            }
             let artifact = try FinishingFramedArtifact.encode(framed)
             XCTAssertEqual(artifact, try FinishingFramedArtifact.encode(framed))
             XCTAssertEqual(artifact.sha256.count, 64)
