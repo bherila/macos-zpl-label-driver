@@ -114,9 +114,14 @@ final class OfflineExtractionWorkerTests: XCTestCase {
         }
 
         // A negative edge is refused by the geometry type, not normalized to 0.
+        // Since #132 the geometry type's own cause is carried across the process
+        // boundary inside TicketError rather than propagated raw, so the cause is
+        // still exactly `invalidMargins` and the thrown type is now the one the
+        // initializer documents.
         let negative = try mutated { $0["outputMargins"] = ["left": -1, "top": 2, "right": 3, "bottom": 0.5] }
         XCTAssertThrowsError(try OfflineConversionTicket(jsonData: negative)) {
-            XCTAssertEqual($0 as? PagePlacementError, .invalidMargins)
+            XCTAssertEqual($0 as? OfflineConversionTicket.TicketError,
+                           .invalidPagePlacement(.invalidMargins))
         }
 
         // Margins wider than the stock leave no printable area at all.
@@ -169,8 +174,14 @@ final class OfflineExtractionWorkerTests: XCTestCase {
                 // that: which typed error fires is a Foundation detail, CI runs a
                 // different macOS than the machine that observed it, and the
                 // contract under test is the typed rejection, not its route.
-                let decoded = (error as? OfflineConversionTicket.TicketError) == .malformedJSON
-                let geometry = (error as? PagePlacementError) == .invalidMargins
+                //
+                // Since #132 both routes are TicketError, so the two admitted
+                // values no longer span two error domains. That is the whole
+                // point of the boundary mapping, and the set is still written as
+                // two values because two routes still exist.
+                let thrown = error as? OfflineConversionTicket.TicketError
+                let decoded = thrown == .malformedJSON
+                let geometry = thrown == .invalidPagePlacement(.invalidMargins)
                 XCTAssertTrue(decoded || geometry, "untyped rejection: \(error)")
             }
         }
