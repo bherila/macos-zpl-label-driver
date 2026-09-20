@@ -82,11 +82,40 @@ Interfaces* — was **NOT RUN**.
 
 - The GUI half of #128 step 3: no setup app was built or launched, and no qualification was exercised against
   the live registry.
-- #128 step 4, the configuration label from the Feed button. It consumes a label and is the maintainer's call;
-  it was not requested and no label was consumed. The EPL Line Mode question it would answer is therefore
-  still open.
+- #128 step 4, the configuration label from the Feed button: **declined by the maintainer on 2026-09-20**,
+  after the trade-off below was put to them. No label was consumed. The EPL Line Mode question it would
+  answer stays open and stays tracked in #136.
 - Any transmission to the printer, queue installation, CUPS interaction, privileged operation, calibration,
   firmware access, signing verification or release step.
+
+## Why step 4 was declined
+
+The decision is recorded with its reasoning, because "not run" and "considered and declined" are different
+facts and a later reader should not have to guess which this was.
+
+Step 4 unblocks nothing. #128's own results table gives steps 1 to 3 concrete consequences — they gated
+PR #123, which has since merged — and gives step 4 only "a setup condition to report to the user". It does
+not unblock #136 either: that issue is blocked on an authorized physical session (#90) and then on a verified
+bounded query path, and lists step 4 as an interim mitigation rather than a precondition.
+
+The hazard it would check is already retired for this unit on behavioural grounds. Line Mode's signature is
+ZPL printing as literal text, and the maintainer's report that `lpr -l` prints ZPL correctly is evidence that
+this unit is in Page Mode now. `docs/hardware/GC420D.md` records that and correctly calls it an informal
+developer-baseline observation rather than level-H evidence. A configuration label would raise confidence a
+step without reaching level H either, since reading a printed label is human transcription.
+
+Against that stands a privacy hazard with no automated guard. A GC420d configuration label prints the unit's
+serial number. The rule that a serial, and any digest of one, never enters this repository, an issue, a pull
+request or a log is absolute, and no preflight check can catch a serial that reaches a photograph or a paste.
+Handling a physical label carrying one is manual discipline alone.
+
+The asymmetry decided it: what step 4 would check is already believed true for good reasons, and what it
+risks is the one rule here that nothing automated enforces.
+
+**What this does not make safe.** Nothing in the product detects Line Mode. A unit switched into it — this
+one or a user's — prints a ZPL job as literal text and looks like a driver bug. A configuration label would
+have described today's state of one unit and added no detection whatever. That gap is #136 and is unchanged
+by this decision.
 
 ## What this unblocks, and what it does not
 
