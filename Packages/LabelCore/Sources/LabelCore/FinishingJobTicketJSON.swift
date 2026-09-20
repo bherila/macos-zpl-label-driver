@@ -215,6 +215,12 @@ public enum FinishingJobTicketJSON {
             return ["evidence": "documentedModel", "sourceID": sourceID]
         case .reportedInstallation:
             return ["evidence": "reportedInstallation", "sourceID": NSNull()]
+        case .observedByHost:
+            // No host observation establishes a native dot pitch. The registry
+            // says what the device is, never how finely it prints, so this is
+            // refused exactly as an unobserved pitch is refused: fail closed
+            // rather than store a provenance nothing can have produced.
+            throw FinishingJobTicketJSONError.invalidValue("nativePitch")
         case .unobserved:
             throw FinishingJobTicketJSONError.invalidValue("nativePitch")
         }

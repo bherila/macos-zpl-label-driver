@@ -491,14 +491,38 @@ public enum PrinterProfileJSON {
             return ["kind": "documentedModel", "sourceID": sourceID]
         case .reportedInstallation:
             return ["kind": "reportedInstallation", "sourceID": NSNull()]
+        case let .observedByHost(method):
+            return ["kind": "observedByHost", "method": method.rawValue]
         case .unobserved:
             return ["kind": "unobserved", "sourceID": NSNull()]
         }
     }
 
     private static func decodeEvidence(_ raw: Any) throws -> CapabilityEvidence {
+        // The key set is checked per kind rather than once for all kinds.
+        // `object(_:allowed:)` demands an exact match, so a single shared set
+        // containing "method" would force every evidence object -- including
+        // every profile already written to disk -- to grow a null "method"
+        // field. A host observation has no source document, so it carries
+        // "method" and no "sourceID"; the other three keep their exact
+        // existing shape, byte for byte.
+        //
+        // "method" is also not smuggled through "sourceID". A source
+        // identifier names a document, a method names how this host looked,
+        // and one field meaning both is the conflation this case exists to end.
+        guard let fields = raw as? [String: Any] else {
+            throw PrinterProfileJSONError.invalidType("object")
+        }
+        let kind = try string(fields, "kind")
+        if kind == "observedByHost" {
+            let value = try object(raw, allowed: ["kind", "method"])
+            guard let method = HostObservationMethod(rawValue: try string(value, "method")) else {
+                throw PrinterProfileJSONError.invalidValue("method")
+            }
+            return .observedByHost(method: method)
+        }
         let value = try object(raw, allowed: ["kind", "sourceID"])
-        switch try string(value, "kind") {
+        switch kind {
         case "documentedModel":
             return .documentedModel(
                 sourceID: try safeString(value, "sourceID", maximumBytes: 128)

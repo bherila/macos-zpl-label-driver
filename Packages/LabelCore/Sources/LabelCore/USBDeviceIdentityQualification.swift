@@ -133,14 +133,17 @@ public enum USBIdentityQualification {
 
     /// A registry observation made by this installation on this Mac.
     ///
-    /// `CapabilityEvidence` has three cases and none of them is "observed from
-    /// the device"; adding one would change the stored profile schema and its
-    /// codec, which is outside this slice. Of the three, `reportedInstallation`
-    /// is the accurate one: this installation reported it. It is deliberately
-    /// not `documentedModel`, because no published document states a
-    /// particular unit's serial number, and not `unobserved`, which profile
-    /// validation rejects for an observation.
-    public static let evidence: CapabilityEvidence = .reportedInstallation
+    /// This was `reportedInstallation` when the qualification path landed,
+    /// because `CapabilityEvidence` had no case meaning "this host read it
+    /// from the device". That stored a fact this Mac read out of the I/O
+    /// Registry with the same provenance as a fact a person typed, which is
+    /// the conflation #131 raised.
+    ///
+    /// It is deliberately not `documentedModel`, because no published document
+    /// states a particular unit's serial number, and not `unobserved`, which
+    /// profile validation rejects for an observation.
+    public static let evidence: CapabilityEvidence =
+        .observedByHost(method: .ioRegistryProperty)
 
     /// Qualifies an observation, or throws the specific reason it did not.
     ///
