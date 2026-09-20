@@ -8,9 +8,33 @@ public enum CapabilityState: String, Equatable, Sendable {
     case unknown
 }
 
+/// How a host-side observation was made.
+///
+/// A closed enumeration rather than a free string: this value is stored in a
+/// profile, and an arbitrary caller-supplied string in a profile is exactly
+/// what `AGENTS.md` forbids inserting into device-facing data. Adding a method
+/// is a deliberate schema change, not a caller's choice.
+public enum HostObservationMethod: String, Equatable, Sendable {
+    /// Read from a property on this Mac's I/O Registry entry for the device.
+    /// This opens no device, claims no interface and sends no command.
+    case ioRegistryProperty
+}
+
 public enum CapabilityEvidence: Equatable, Sendable {
     case documentedModel(sourceID: String)
+    /// A human operating this installation asserted it: "I loaded 4x6 stock."
     case reportedInstallation
+    /// This host read it from the device itself, without the device being
+    /// asked anything.
+    ///
+    /// Distinct from `reportedInstallation` on purpose. A value this Mac read
+    /// out of the I/O Registry and a value a person typed are different
+    /// strengths of evidence, and this project separates compiled, simulated,
+    /// GUI-tested and physically printed precisely so provenance cannot be
+    /// flattened. It is also weaker than `documentedModel` in a different
+    /// direction rather than stronger: a document describes a model, a host
+    /// observation describes the unit in front of this machine.
+    case observedByHost(method: HostObservationMethod)
     case unobserved
 }
 

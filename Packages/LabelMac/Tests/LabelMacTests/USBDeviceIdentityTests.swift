@@ -47,7 +47,10 @@ final class USBDeviceIdentityTests: XCTestCase {
         guard case .observed(_, let evidence) = model.profile.connection.stableIdentity else {
             return XCTFail("qualification did not produce an observed identity")
         }
-        XCTAssertEqual(evidence, .reportedInstallation)
+        // Since #131 a registry read records that this host observed it. The
+        // GUI path is the one that produced the stored value #131 objected to,
+        // so this is where the corrected provenance has to be asserted.
+        XCTAssertEqual(evidence, .observedByHost(method: .ioRegistryProperty))
         XCTAssertEqual(model.profile.revision, before.revision + 1)
         XCTAssertEqual(model.facts.first { $0.id == "identity" }?.status, .configured)
         XCTAssertEqual(model.facts.first { $0.id == "transport" }?.status, .configured)

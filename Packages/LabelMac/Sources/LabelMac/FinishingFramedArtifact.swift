@@ -55,6 +55,11 @@ public struct FinishingFramedArtifact: Equatable, Sendable {
             switch value {
             case let .documentedModel(id): try integer(1); try string(id)
             case .reportedInstallation: try integer(2)
+            // A new tag rather than reusing 2. This artifact is a digest input,
+            // so encoding a host observation as an installation declaration
+            // would make two different provenances hash identically -- the
+            // flattening #131 removed, reintroduced where nothing would see it.
+            case let .observedByHost(method): try integer(3); try string(method.rawValue)
             case .unobserved: try integer(0)
             }
         }

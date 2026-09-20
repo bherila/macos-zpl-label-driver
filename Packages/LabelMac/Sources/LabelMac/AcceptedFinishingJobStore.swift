@@ -196,6 +196,11 @@ public struct AcceptedFinishingJobStore: @unchecked Sendable {
             switch evidence {
             case let .documentedModel(sourceID): pitchEvidence = "documented"; pitchSource = sourceID
             case .reportedInstallation: pitchEvidence = "reported"; pitchSource = nil
+            // No host observation establishes a native dot pitch: the registry
+            // says what the device is, never how finely it prints. Refused
+            // exactly as an unobserved pitch is, rather than persisted under
+            // one of the two spellings this record understands.
+            case .observedByHost: throw Error.invalidRecord
             case .unobserved: throw Error.invalidRecord
             }
             switch job.copyOwnership {

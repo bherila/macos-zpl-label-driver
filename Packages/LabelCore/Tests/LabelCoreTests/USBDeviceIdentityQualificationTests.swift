@@ -166,8 +166,12 @@ final class USBDeviceIdentityQualificationTests: XCTestCase {
         let identity = try qualify(serial: .reported("36J153900185")).identity
         let adopted = try base.adoptingStableIdentity(identity)
         XCTAssertEqual(adopted.revision, 4)
+        // Since #131 a registry-derived identity records that this host read
+        // it, not that a person reported it. The distinction is the point: a
+        // value read out of the I/O Registry and a value someone typed are
+        // different strengths of evidence.
         XCTAssertEqual(adopted.connection.stableIdentity,
-                       .observed(identity, evidence: .reportedInstallation))
+                       .observed(identity, evidence: .observedByHost(method: .ioRegistryProperty)))
         XCTAssertEqual(adopted.connection.transport, base.connection.transport)
         XCTAssertEqual(adopted.schemaVersion, base.schemaVersion)
         XCTAssertEqual(adopted.capabilities, base.capabilities)
