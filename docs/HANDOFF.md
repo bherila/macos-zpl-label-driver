@@ -1,3 +1,68 @@
+# Seven slices, a hosted macOS run, and the first two new ledger records in a week — 2026-09-20
+
+All seven merged. Nothing was printed, installed or authorized, and **no byte was sent to the printer**.
+The GC420d was attached and power-cycled during the session for #128's reattachment checks; that work is
+host observation of the I/O Registry, which opens no device.
+
+| PR | Slice | Squashed to |
+|---|---|---|
+| #140 | `AGENTS.md`: a re-seal replaces the receipt it cites, never appends one | `5057a1f` |
+| #142 | GC420d serial survives unplug/replug, power-cycle and a port move | `a3f64c0` |
+| #141 | the offline ticket's error surface closed without flattening it | `96995e3` |
+| #144 | ADR 0005: the queue installation transaction and privileged boundary | `ab8115c` |
+| #143 | a scheduled staleness watch that gates nobody | `8f0c883` |
+| #123 | per-unit USB identity qualified from read-only registry metadata | `b8d0883` |
+| #145 | a registry read stops being recorded as an installation declaration | `1471eda` |
+
+## The ledger grew from two records to four
+
+`M3-AC03` and `M2-AC05` now have records. Both were blocked on the same thing — a hosted `macos-26` run,
+tracked in #103 — because their enforcement lives in `Packages/LabelMac`, which does not build on Linux.
+See `docs/validation/M3-HOSTED-MACOS-CONTROL-COVERAGE-2026-09-20.md`, which carries the mutation proofs.
+
+**Both proofs are worth reading before trusting either record.** For `M2-AC05` the obvious place to look,
+`WorkerBitmapBindingTests.swift`, does *not* cover the byte-for-byte guard: it has one test, for dimension
+and allocation bounds, whose positive case still passes with the guard deleted. The real coverage is in the
+two render-parent suites, and deleting the guard fails exactly two named tests out of 440. A reader who
+checked only the unit named after the file would have concluded the opposite, in either direction.
+
+## Three findings that contradict #103 as written
+
+An issue describes a past tree. All three were verified against `1471eda` before anything was built.
+
+1. **The duplication #103 named as root cause is already fixed.** `^MMD`, `^MMP,N` and `~JK` do not appear
+   in `FinishingFramedOutput.swift` — `grep -c` returns `0`. They live in `ZPLControlProtocolCoverage.swift`
+   and the LabelMac file derives from them, guarded by
+   `testNoEmittingSourceRestatesAFinishingLiteral`, which reads the emitting sources as text and runs on
+   every host including Linux.
+2. **F04 does not follow automatically.** #103 says it does, "since `M3-AC01` and `M3-AC02` are already
+   satisfied with current digest-bound records". They have no records at all, and both boxes are unchecked.
+   F04 stays pending on both.
+3. **`M3-AC04` is not closed by this run.** Ordinary output carrying no reset, calibrate, save, erase or
+   firmware command is asserted over the LabelCore control encoders but over nothing that
+   `FinishingFramedOutput` assembles. Every component of those bytes comes from a covered source, which is
+   an argument from composition rather than an executed test. One added assertion in the framed-output test
+   closes it; that is a source change, so it is a separate slice.
+
+## The receipt-replacement rule, used for the first time
+
+#140 wrote the rule into `AGENTS.md` after `M2-AC13`'s fifth receipt made 17 entries against a 16-entry cap
+and preflight refused it. This re-seal is the first to follow it:
+`docs/validation/M2-RESEAL-AFTER-SEVEN-SLICES-2026-09-20.md` **replaces** the 2026-09-19 receipt in both
+records rather than joining it, and names the whole chain by path so nothing becomes unauditable.
+`M2-AC13` stays at 13 evidence entries instead of climbing to 14.
+
+Seven merges, one re-seal. Seven re-seals would have been seven slices doing one slice's work, and each
+would have staled on the next merge before anyone read it.
+
+## What a green hosted run still does not establish
+
+`M3-AC10` owns observed cut and peel behaviour at level H and stays open; the reference unit has no cutter
+and no peeler. `M3-AC07` through `M3-AC09` are level I and need real processes against an installed queue,
+which #129 and ADR 0005 say does not exist yet. The five other criteria #103 lists as blocked on this same
+run — `M2-AC01`, `M2-AC06`, `M3-AC01`, `M3-AC02`, `M3-AC04` — are deliberately not claimed here. Asserting
+five more on the strength of one green run is the shortcut this ledger exists to prevent. They stay in #103.
+
 # First work on the maintainer's Mac, and the re-seal that followed — 2026-09-19
 
 The session moved from a Linux container to the maintainer's Mac (Apple Silicon, macOS 27.0) with the

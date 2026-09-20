@@ -5,7 +5,7 @@
       "acceptanceID": "M2-AC04",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "9aa0a210ed40d0dd53d7c2a1e2af6b38f10e388f",
+      "sourceSHA": "1471eda37aa4f03415a8f89097bd362464efcc84",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/BitmapLayout.swift",
@@ -34,8 +34,8 @@
           "sha256": "d4a4d440352af1d41681f929dccab411588a5f8a5327c11c8c837cb685f696a1"
         },
         {
-          "path": "docs/validation/M2-RESEAL-AFTER-USB-BINDING-AND-BUILD-GUIDE-2026-09-19.md",
-          "sha256": "231c509dc45c2e5deb345d9c98e26a3a08849019b3abb33c03c75be7f71bbd24"
+          "path": "docs/validation/M2-RESEAL-AFTER-SEVEN-SLICES-2026-09-20.md",
+          "sha256": "c7632e02e2940839b211a2b4f898633d233ae37bd6b8b634664c99c01cb78564"
         }
       ]
     },
@@ -43,7 +43,7 @@
       "acceptanceID": "M2-AC13",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "9aa0a210ed40d0dd53d7c2a1e2af6b38f10e388f",
+      "sourceSHA": "1471eda37aa4f03415a8f89097bd362464efcc84",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometry.swift",
@@ -124,8 +124,116 @@
           "sha256": "d4a4d440352af1d41681f929dccab411588a5f8a5327c11c8c837cb685f696a1"
         },
         {
-          "path": "docs/validation/M2-RESEAL-AFTER-USB-BINDING-AND-BUILD-GUIDE-2026-09-19.md",
-          "sha256": "231c509dc45c2e5deb345d9c98e26a3a08849019b3abb33c03c75be7f71bbd24"
+          "path": "docs/validation/M2-RESEAL-AFTER-SEVEN-SLICES-2026-09-20.md",
+          "sha256": "c7632e02e2940839b211a2b4f898633d233ae37bd6b8b634664c99c01cb78564"
+        }
+      ]
+    },
+    {
+      "acceptanceID": "M3-AC03",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "1471eda37aa4f03415a8f89097bd362464efcc84",
+      "implementation": [
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLControlProtocolCoverage.swift",
+          "sha256": "2bf8d75a76510d28135bd046e2369986b334f0690697474acdf1d00a3ef42f9f"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLControlEncoder.swift",
+          "sha256": "8620cca56899ce92a7c4fa9fa1054e61693db551163e604cb9cba116b2013a48"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLDocumentedControlEncoder.swift",
+          "sha256": "1c440b2ec70c7394c24d485f6757bb1f98c08105b425beb05d443555229efef3"
+        },
+        {
+          "path": "Packages/LabelMac/Sources/LabelMac/FinishingFramedOutput.swift",
+          "sha256": "30d0639b78384564b56bb9289e30aa272e3ce177e4b39a346ac188df55688a1d"
+        },
+        {
+          "path": "docs/REFERENCES.md",
+          "sha256": "a2938b1291fb54ce258f63ad9c7651cc171bcf62364644cacfd82407069b251a"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLControlProtocolCoverageTests.swift",
+          "sha256": "188860f4f55cb70ddad76f45302ad15d7bb2ec4d7c73a82f01343ee000ab55fa"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLControlEncoderTests.swift",
+          "sha256": "b1a7745ca3c0442fcce30c27ff9c7cd655fec1e5a1f51a326a82f08042e294c1"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLDocumentedControlEncoderTests.swift",
+          "sha256": "230b8c20595ada42fa3b650afb79d91db249aaeefc6327ce6f02a47b3256ccb9"
+        },
+        {
+          "path": "Packages/LabelMac/Tests/LabelMacTests/ProfileBoundFinishingJobPlanTests.swift",
+          "sha256": "d7272eaf97ad12f040b5ae3d1722214e27e74a65f5ad502f7279ec4c798b36f8"
+        },
+        {
+          "path": "docs/validation/M3-DOCUMENTED-CONTROL-ENCODING-2026-09-17.md",
+          "sha256": "cbe8203abd0e75d7744f505de0d4338da9c702ac96d7c99fd01fc2af7434caa9"
+        },
+        {
+          "path": "docs/validation/M3-HOSTED-MACOS-CONTROL-COVERAGE-2026-09-20.md",
+          "sha256": "3445d1f5366ccfe3e5a6ea5a51bf1a39661da65df72e43d81154db25ca6dc4a2"
+        }
+      ]
+    },
+    {
+      "acceptanceID": "M2-AC05",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "1471eda37aa4f03415a8f89097bd362464efcc84",
+      "implementation": [
+        {
+          "path": "Packages/LabelMac/Sources/LabelMac/WorkerBitmapBinding.swift",
+          "sha256": "2dbaafc73d4d4be0f3255f89010a8a8cec5e02b1f6407f99945221ba42482ce2"
+        },
+        {
+          "path": "Packages/LabelMac/Sources/LabelMac/OfflineRenderWorker.swift",
+          "sha256": "e1a0e489c58fe8ef676b72d6ed64e6849a3cc514e96536f7271c7c69c27d9732"
+        },
+        {
+          "path": "Packages/LabelMac/Sources/LabelMac/OfflineExtractionWorker.swift",
+          "sha256": "463f65a42a487bd0c05318622c2266a9ed202d76e33cf070052b94ac7eee4ae1"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ZPLGraphicEncoder.swift",
+          "sha256": "a15fdd3327d19234b6d35f6ccbd679c64f3b5f44366fcf14c94e89a1e44b5a3b"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/MonochromeBitmap.swift",
+          "sha256": "c6bd617eda5558a0b9657e9b3e9580b261ffbe41aa97983896acfd9b80de4703"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "Packages/LabelMac/Tests/LabelMacTests/OfflineRenderWorkerTests.swift",
+          "sha256": "1bc7e436914a5d55bcdaf3dd55fa32a242f720f77404638fd3e055b41a2170e9"
+        },
+        {
+          "path": "Packages/LabelMac/Tests/LabelMacTests/OfflineExtractionWorkerTests.swift",
+          "sha256": "0f42361b331353c4700ae9ebd8985261afea36bbdeadab9b930e7910150d61f0"
+        },
+        {
+          "path": "Packages/LabelMac/Tests/LabelMacTests/WorkerBitmapBindingTests.swift",
+          "sha256": "d5a2e947e3a8adfeb03b7a866cd77898d5605f1874327d638a7cf2f8eb1ca17a"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ZPLGraphicEncoderTests.swift",
+          "sha256": "273fdc5fb6788b1e24ee8f069f480e14fe5521783d882258c936e881aea34d3b"
+        },
+        {
+          "path": "docs/validation/M2-AUTOMATED-CORE-2026-09-15.md",
+          "sha256": "73a04cfa8bb643cbd739ebef4133799abf93e7a7a55ffcbe93d8a9c2e5d7d0c2"
+        },
+        {
+          "path": "docs/validation/M3-HOSTED-MACOS-CONTROL-COVERAGE-2026-09-20.md",
+          "sha256": "3445d1f5366ccfe3e5a6ea5a51bf1a39661da65df72e43d81154db25ca6dc4a2"
         }
       ]
     }

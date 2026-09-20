@@ -11,7 +11,7 @@ Evidence levels: **A** automated; **C** repository/CI/configuration inspection; 
 |---|---|---|---|---|
 | [ ] | M3-AC01 | Capability truthfulness | A | Unknown, absent and unsupported remain distinct; unverified accessory controls are not enabled silently. Evidence: [2026-09-15 automated controls](../../validation/M3-AUTOMATED-CONTROLS-2026-09-15.md). |
 | [ ] | M3-AC02 | Settings validation | A | Every explicit choice is range/combination checked; unsupported options fail instead of silently clamping or dropping. Evidence: [2026-09-15 automated controls](../../validation/M3-AUTOMATED-CONTROLS-2026-09-15.md). |
-| [ ] | M3-AC03 | Control coverage | A | Protocol mapping covers speed, darkness, thermal method, tracking, dimensions, offsets and supported finishing with cited semantics. |
+| [x] | M3-AC03 | Control coverage | A | Protocol mapping covers speed, darkness, thermal method, tracking, dimensions, offsets and supported finishing with cited semantics. Evidence: [2026-09-20 hosted macOS control coverage](../../validation/M3-HOSTED-MACOS-CONTROL-COVERAGE-2026-09-20.md). |
 | [ ] | M3-AC04 | No implicit persistent mutation | A | Ordinary output has no reset/calibrate/save/erase/firmware commands; persistent actions require separate authorization. Evidence: [2026-09-15 automated controls](../../validation/M3-AUTOMATED-CONTROLS-2026-09-15.md). |
 | [ ] | M3-AC05 | Network correctness | A | Short writes, backpressure, framing, zero-byte failure, mid-stream disconnect and timeouts pass simulator tests. |
 | [ ] | M3-AC06 | USB path | H | The declared USB configuration prints and recovers from unplug/replug using a tested lifetime/cancellation contract. |
