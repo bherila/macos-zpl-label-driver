@@ -1,3 +1,79 @@
+# First work on the maintainer's Mac, and the re-seal that followed — 2026-09-19
+
+The session moved from a Linux container to the maintainer's Mac (Apple Silicon, macOS 27.0) with the
+GC420d attached by USB. That made three things possible that had not been, and corrected one thing that
+had been said too strongly. Nothing was printed, installed or authorized, and **no byte was sent to the
+printer**.
+
+| PR | Slice | Squashed to |
+|---|---|---|
+| #127 | USB identity observed read-only; probe; README; `AGENTS.md`; the stranded GUI record | `286b212` |
+| #137 | two regression tests salvaged from the GUI session's worktree | `9fe4d48` |
+| #138 | `docs/BUILDING.md` | `9aa0a21` |
+
+## What is now known
+
+**The GC420d publishes a USB serial number** — 12 characters, digits and upper-case, not a placeholder —
+under the key names #123 reads. Had it not, #123 would have been correct and unblocked nothing. The serial
+and every digest of it are recorded nowhere; `scripts/usb_identity_probe.py` never prints one.
+
+**#123's real code path works on real hardware.** An uncommitted throwaway test on #123's branch drove the
+real IOKit discovery and the real CryptoKit qualification headlessly: outcome `qualified`, identity
+redacted, re-qualification idempotent, and `canInstallQueue` still `false` on identity alone. Before this
+that code had only run against an injected registry seam.
+
+**`(EPL)` in the USB product string is a plug-and-play identity string, not a language statement.** The
+GC420 lists EPL2 and ZPL II together (R26), and the maintainer reports `lpr -l` prints ZPL correctly. The
+real hazard is EPL Line Mode, recorded in `docs/hardware/GC420D.md` and tracked as #136. R47 states which
+pages were actually read and which could not be.
+
+## The correction
+
+**There is no install action behind `canInstallQueue`.** Its only consumer is a status icon; `Sources/`
+contains no `lpadmin`, `SMAppService`, authorization call or `installQueue`. Earlier notes here and on #89
+said identity qualification would make 23 criteria testable. It makes them not structurally impossible;
+the installation path itself is unbuilt. Corrected on #89 and #123 and tracked as #129.
+
+## Two things that were nearly lost
+
+Both surfaced only because each target was inspected before being deleted during local cleanup.
+
+The 2026-09-18 GUI session's validation record had sat untracked in a detached worktree for a day. It is
+committed verbatim with a dated addendum that says which of its two contradictory statements about the
+printer stands and gives the disposition of every observation.
+
+That worktree also held two tests the GUI session wrote with no toolchain and never compiled. One pins
+something `main` lacked: an edit binding captured before a focus-only commit must still be valid for a real
+edit afterwards. Both pass on `main` and both fail with the no-op guard removed. A third worktree's
+detached HEAD was the only reference to 159 commits; `archive/swift-cache-35bb92f` preserves them.
+
+## Re-seal
+
+`M2-AC04` and `M2-AC13` re-bound to the tip of `main` after #127, #137 and #138. 33 of 33 cited paths
+re-hashed and matching, so `sourceSHA` is the only field that moved. #138 was landed before this re-seal
+deliberately: a build guide under `docs/` is a source path and would have staled it within minutes. See
+[2026-09-19 re-seal](validation/M2-RESEAL-AFTER-USB-BINDING-AND-BUILD-GUIDE-2026-09-19.md).
+
+**The re-seal procedure changed, because it had to.** The ledger bounds each record's reference lists at 16
+entries, and every re-seal so far appended its own receipt to both records. `M2-AC13` holds 12 entries of
+real evidence, so its fifth receipt was its 17th entry and preflight refused it. A record now cites **only
+the latest receipt**, which names the chain of earlier ones. The cap was not raised: it is a deliberate
+bound, raising it only postpones the same failure, and it would be a `scripts/` change that stales the
+ledger. No evidence of either criterion was removed — a receipt records that a rebind was safe, not that a
+criterion holds — and the four earlier receipts stay in the repository, manifest-covered and named. The
+next agent should replace the cited receipt, never append one; `AGENTS.md` should say so at its next edit.
+
+Not held for #123. That PR waits on a reattachment check needing a person at the printer (#128), and a
+stale `main` should not wait indefinitely on a held pull request. Merging it owes one further re-seal;
+#134 stays open for that.
+
+## Open, by what blocks it
+
+- **Hands on the printer:** #128 (reattachment stability, gates #123), #136 (Line Mode), #90.
+- **A supervised GUI session:** #133 (the #118 fixes have never been seen on screen), #119, #80.
+- **A maintainer decision:** #130 (eleven checked boxes with no record), #101 and #93 (security review).
+- **Nothing — buildable now:** #129 (design the install path), #131, #132, #135, and #103's evidence slice.
+
 # Manifest scope decided, and the first re-seal under enforcement — 2026-09-19
 
 `MANIFEST.sha256` is now whole-tree and enforced. ADR 0004's recommended option 1 was taken in the

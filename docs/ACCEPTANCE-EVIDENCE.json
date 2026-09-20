@@ -5,7 +5,7 @@
       "acceptanceID": "M2-AC04",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "87cbd247161f30b51a05c59047a4bd4fbd4690b4",
+      "sourceSHA": "9aa0a210ed40d0dd53d7c2a1e2af6b38f10e388f",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/BitmapLayout.swift",
@@ -34,20 +34,8 @@
           "sha256": "d4a4d440352af1d41681f929dccab411588a5f8a5327c11c8c837cb685f696a1"
         },
         {
-          "path": "docs/validation/M2-RESEAL-AFTER-REPORT-DEADLINE-2026-09-19.md",
-          "sha256": "43fccadfa2addddcd03dae5fd0df836899bafd4a8744868787896fcbc32f9d1f"
-        },
-        {
-          "path": "docs/validation/M2-RESEAL-AFTER-EDITOR-AND-CI-2026-09-19.md",
-          "sha256": "7279e94927f112fcbda98ef40967a77ba5fc60feb592fa1fd27c2d1d85195abd"
-        },
-        {
-          "path": "docs/validation/M2-RESEAL-AFTER-TICKET-AND-LITERAL-SLICES-2026-09-19.md",
-          "sha256": "9b172c0795fcf235c79d9a34ca57e030337ccb4bfc0c61958974ce7d193ea71a"
-        },
-        {
-          "path": "docs/validation/M2-RESEAL-AFTER-MANIFEST-SCOPE-2026-09-19.md",
-          "sha256": "9080993c360c49275628ce64114194f00a69276816216f57316bf362de22c559"
+          "path": "docs/validation/M2-RESEAL-AFTER-USB-BINDING-AND-BUILD-GUIDE-2026-09-19.md",
+          "sha256": "231c509dc45c2e5deb345d9c98e26a3a08849019b3abb33c03c75be7f71bbd24"
         }
       ]
     },
@@ -55,7 +43,7 @@
       "acceptanceID": "M2-AC13",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "87cbd247161f30b51a05c59047a4bd4fbd4690b4",
+      "sourceSHA": "9aa0a210ed40d0dd53d7c2a1e2af6b38f10e388f",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometry.swift",
@@ -136,20 +124,8 @@
           "sha256": "d4a4d440352af1d41681f929dccab411588a5f8a5327c11c8c837cb685f696a1"
         },
         {
-          "path": "docs/validation/M2-RESEAL-AFTER-REPORT-DEADLINE-2026-09-19.md",
-          "sha256": "43fccadfa2addddcd03dae5fd0df836899bafd4a8744868787896fcbc32f9d1f"
-        },
-        {
-          "path": "docs/validation/M2-RESEAL-AFTER-EDITOR-AND-CI-2026-09-19.md",
-          "sha256": "7279e94927f112fcbda98ef40967a77ba5fc60feb592fa1fd27c2d1d85195abd"
-        },
-        {
-          "path": "docs/validation/M2-RESEAL-AFTER-TICKET-AND-LITERAL-SLICES-2026-09-19.md",
-          "sha256": "9b172c0795fcf235c79d9a34ca57e030337ccb4bfc0c61958974ce7d193ea71a"
-        },
-        {
-          "path": "docs/validation/M2-RESEAL-AFTER-MANIFEST-SCOPE-2026-09-19.md",
-          "sha256": "9080993c360c49275628ce64114194f00a69276816216f57316bf362de22c559"
+          "path": "docs/validation/M2-RESEAL-AFTER-USB-BINDING-AND-BUILD-GUIDE-2026-09-19.md",
+          "sha256": "231c509dc45c2e5deb345d9c98e26a3a08849019b3abb33c03c75be7f71bbd24"
         }
       ]
     }
