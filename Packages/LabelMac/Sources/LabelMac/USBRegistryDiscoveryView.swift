@@ -11,6 +11,15 @@ public final class USBRegistryDiscoveryModel: ObservableObject {
     private var request: UUID?
     private let discover: @Sendable () async throws -> USBRegistryDiscoverySnapshot
 
+    /// The observation the picker currently names, if any.
+    ///
+    /// Resolving the selection is not acting on it. Selection stays inert:
+    /// nothing here qualifies an identity or touches a profile.
+    public var selectedObservation: USBPrinterObservation? {
+        guard let selectedObservationID else { return nil }
+        return snapshot?.printers.first { $0.id == selectedObservationID }
+    }
+
     public init() { discover = { try USBRegistryDiscovery.snapshot() } }
     init(discover: @escaping @Sendable () async throws -> USBRegistryDiscoverySnapshot) { self.discover = discover }
 
@@ -51,7 +60,14 @@ public final class USBRegistryDiscoveryModel: ObservableObject {
 
 public struct USBRegistryDiscoveryView: View {
     @ObservedObject private var model: USBRegistryDiscoveryModel
-    public init(model: USBRegistryDiscoveryModel) { self.model = model }
+    /// Supplied when this picker is shown beside a setup the person may
+    /// qualify against. Without it the picker stays a read-only scan.
+    private let setup: ReferencePrinterSetupModel?
+
+    public init(model: USBRegistryDiscoveryModel, setup: ReferencePrinterSetupModel? = nil) {
+        self.model = model
+        self.setup = setup
+    }
 
     public var body: some View {
         GroupBox("Read-only USB discovery") {
@@ -68,8 +84,15 @@ public struct USBRegistryDiscoveryView: View {
                         }
                     }
                 }
+                if let setup = setup, let observation = model.selectedObservation {
+                    // Qualification is a separate, deliberate action. Choosing
+                    // a row in the picker still does nothing at all.
+                    Button("Use This Device's Identity") { setup.qualifyIdentity(from: observation) }
+                    Text(setup.installationReadinessMessage)
+                        .accessibilityLabel(setup.installationReadinessMessage)
+                }
                 if let status = model.status { Text(status).accessibilityLabel(status) }
-                Text("Discovery reads registry metadata only. Selection does not qualify a GC420d, save a connection, authorize installation or send printer commands. Observations can become stale after attachment changes; refresh before further validation.")
+                Text("Discovery reads registry metadata only. Selection does not qualify a GC420d, save a connection, authorize installation or send printer commands. Qualifying an identity records which unit this Mac is looking at; it does not install a queue, verify delivery or confirm loaded stock. Observations can become stale after attachment changes; refresh before further validation.")
                     .font(.caption)
             }
         }

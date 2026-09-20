@@ -350,6 +350,10 @@ public enum PrinterProfileError: Error, Equatable, Sendable {
     case unsupportedDarkness(Int)
     case unavailableTracking(MediaTracking)
     case unavailableMediaGeometry
+    /// An observation carrying `unobserved` evidence is not an observation.
+    case invalidObservationEvidence
+    /// A revision bump would leave the range that JSON preserves exactly.
+    case unrepresentableProfileRevision
 }
 
 /// A typed request for printer media geometry, distinct from document layout.

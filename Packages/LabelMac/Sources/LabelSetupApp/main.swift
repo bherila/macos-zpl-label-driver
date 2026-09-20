@@ -72,7 +72,11 @@ struct SetupRootView: View {
                 if let printerDefaults = controller.printerDefaults {
                     PrinterDefaultsEditingView(model: printerDefaults)
                 }
-                USBRegistryDiscoveryView(model: controller.usbDiscovery)
+                // The picker is handed the setup it may qualify against, so a
+                // selected observation can be turned into a stable identity by
+                // an explicit action. Selecting a row still does nothing.
+                USBRegistryDiscoveryView(model: controller.usbDiscovery,
+                                         setup: controller.printerSetup)
                 FinishingInspectionView(model: controller.finishingJobs)
                 GroupBox("Offline diagnostics") {
                     VStack(alignment: .leading) {
