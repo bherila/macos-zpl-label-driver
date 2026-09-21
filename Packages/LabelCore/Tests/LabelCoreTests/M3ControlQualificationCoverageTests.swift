@@ -24,42 +24,71 @@ final class M3ControlQualificationCoverageTests: XCTestCase {
 
     // MARK: - Profile-layer tracking qualification (M3-AC01)
 
-    /// A profile whose gap-tracking fact is the only thing that varies. The
-    /// reference GC420d profile is schema 1, so its tracking request is refused
-    /// by the schema clause long before the capability clauses are reached;
-    /// these need a schema that admits tracking at all.
-    private func trackingProfile(_ gap: CapabilityFact, version: Int = 6) throws -> PrinterProfile {
+    /// A profile whose gap-tracking fact is the only thing that varies; `nil`
+    /// leaves the mode out of the table entirely, which is the *absent* case
+    /// rather than an unknown one. The reference GC420d profile is schema 1, so
+    /// its tracking request is refused by the schema clause long before the
+    /// capability clauses are reached; these need a schema that admits tracking
+    /// at all.
+    private func trackingProfile(_ gap: CapabilityFact?, version: Int = 6) throws -> PrinterProfile {
         let base = try PrinterProfile.gc420dUSBReference(revision: 3)
         let capabilities = base.capabilities
+        var tracking: [MediaTracking: CapabilityFact] =
+            [.blackMark: documented, .continuous: documented]
+        tracking[.gap] = gap
         return try PrinterProfile(
             schemaVersion: version, revision: 3,
             capabilities: .init(
                 model: "synthetic-m3-tracking-profile",
                 thermalTransfer: capabilities.thermalTransfer, cutter: capabilities.cutter,
                 peeler: capabilities.peeler, rewind: capabilities.rewind,
-                tracking: [.gap: gap, .blackMark: documented, .continuous: documented],
+                tracking: tracking,
                 printSpeedChoicesIps: capabilities.printSpeedChoicesIps,
                 darkness: capabilities.darkness),
             installedHardware: base.installedHardware, media: base.media,
             connection: base.connection)
     }
 
+    /// `PrinterProfileError.unavailableTracking` carries the tracking *kind*
+    /// and not the capability state, so the refusal alone cannot show that
+    /// unsupported, unknown, unevidenced-supported and absent stayed four
+    /// things. Distinctness is therefore asserted where it is observable: on
+    /// the facts the constructed profile retains. Both halves matter — a
+    /// refusal that erased the states, or retained states behind a resolver
+    /// that accepted them, would each fail this test.
     func testTrackingStateAndEvidenceAreSeparateRequirementsAtTheProfileLayer() throws {
         XCTAssertEqual(try trackingProfile(documented)
             .resolveControls(job: .init(tracking: .gap)).tracking, .value(.gap))
 
-        // Unsupported and unknown are distinct facts, and neither is supported,
-        // even when a real document is cited behind them.
-        for fact in [documentedUnsupported, documentedUnknown] {
+        let unevidenced = CapabilityFact(state: .supported, evidence: .unobserved)
+        let refusable = [documentedUnsupported, documentedUnknown, unevidenced]
+
+        // Nothing normalises one refusable fact into another on the way into
+        // the profile: three inputs, three retained states, and the third is
+        // told apart from a supported one by its evidence alone.
+        let retained = try refusable.map {
+            try XCTUnwrap(trackingProfile($0).capabilities.tracking[.gap])
+        }
+        XCTAssertEqual(retained, refusable)
+        XCTAssertEqual(retained.map(\.state), [.unsupported, .unknown, .supported])
+        XCTAssertEqual(Set(retained.map(\.state)).count, 3)
+        XCTAssertEqual(retained[2].state, documented.state)
+        XCTAssertNotEqual(retained[2].evidence, documented.evidence)
+
+        // And none of the three authorises the control.
+        for fact in refusable {
             XCTAssertThrowsError(try trackingProfile(fact)
                 .resolveControls(job: .init(tracking: .gap))) {
                 XCTAssertEqual($0 as? PrinterProfileError, .unavailableTracking(.gap))
             }
         }
 
-        // Supported on paper with nothing behind it is not supported either.
-        XCTAssertThrowsError(try trackingProfile(.init(state: .supported, evidence: .unobserved))
-            .resolveControls(job: .init(tracking: .gap))) {
+        // Absent is a fourth thing: no entry at all, which is observably not a
+        // stored unknown, and is refused rather than defaulted.
+        let absent = try trackingProfile(nil)
+        XCTAssertNil(absent.capabilities.tracking[.gap])
+        XCTAssertNotEqual(absent.capabilities.tracking[.gap], documentedUnknown)
+        XCTAssertThrowsError(try absent.resolveControls(job: .init(tracking: .gap))) {
             XCTAssertEqual($0 as? PrinterProfileError, .unavailableTracking(.gap))
         }
     }
