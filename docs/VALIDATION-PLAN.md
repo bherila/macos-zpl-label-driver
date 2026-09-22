@@ -12,6 +12,31 @@
 
 Hosted macOS can validate many noninteractive I tests. Application dialog, retail-host setup, privacy approvals, restart and physical devices often need a reviewed local session. Linux can validate portable Swift but not Apple frameworks. A printed label image shown on screen is not H evidence.
 
+### Which session a criterion needs
+
+The level says what a pass establishes. It does not say where one can be obtained, and that is the
+question in front of an agent deciding what to work on: three criteria at level `I` can need three
+different sessions. [`docs/test-surfaces.json`](test-surfaces.json) records that second answer for
+every criterion, and `python3 scripts/check_test_surfaces.py` keeps it honest against
+[`milestones.json`](milestones.json) -- the same identifiers, no orphans in either direction, and a
+surface whose declared level matches the level the criterion prescribes. A surface implies a level,
+so changing one without the other is a contradiction the checker refuses rather than reports.
+
+| Surface | Level | Where a pass can be obtained | Runs on every pull request |
+|---|---|---|---|
+| `automated` | A | Linux container and hosted `macos-26` CI | yes |
+| `config` | C | repository and CI inspection | yes |
+| `macos-native` | I | hosted `macos-26` CI, noninteractive | yes |
+| `gui` | I | test Mac, interactive supervised session | no |
+| `installed` | I | test Mac with an installed scheduler or helper | no |
+| `physical` | H | the named GC420d over USB | no |
+| `release` | R | the release gate | no |
+
+The map says where a criterion **can** be validated and nothing about whether it **has** been. That
+is [`ACCEPTANCE-EVIDENCE.json`](ACCEPTANCE-EVIDENCE.json), and a surface here is never evidence
+there. Reachable is not validated, and 50 of 90 reachable is not 50 of 90 done.
+
+
 ## Required test layers
 
 **Portable:** unit/property tests for checked geometry, units, canonical regions, profile/version validation, option precedence, copy/order plans, mono layout, encodings/decoders, state transitions and fault policy. Use deterministic seeds and bounded adversarial inputs.

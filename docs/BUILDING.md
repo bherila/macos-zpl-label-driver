@@ -37,6 +37,7 @@ Run from the repository root. This is the set `AGENTS.md` requires before a pull
 
 ```sh
 python3 scripts/check_repo.py                    # links, metadata, action pins, workflow rules
+python3 scripts/check_test_surfaces.py           # every criterion declares one execution surface
 python3 -m unittest discover -s scripts/tests    # well under a minute
 python3 scripts/run-accelerator-checks.py        # LabelCore tests plus the independent ZPL oracle
 swift test --package-path Packages/LabelCore     # ~330 tests, a few seconds once built
