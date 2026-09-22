@@ -118,8 +118,16 @@ passed in both, reported by the controller rather than the authoring lane:
 
 | State | Revision | Result |
 |---|---|---|
-| before | `main` at `19474bf` | `PASS: offline accelerator suite.` |
-| after | this branch at `f9073bf` | `PASS: offline accelerator suite.` |
+| before | `96e3391`, this branch's merge base | `PASS: offline accelerator suite.` |
+| after | this branch at `67e92d4` | `PASS: offline accelerator suite.` |
+
+The "before" revision is the **merge base**, not the current `main`. A first
+attempt used `main` at `19474bf`, which is wrong for this slice: `19474bf` is
+not an ancestor of this branch and neither is an ancestor of the other, and it
+carries the merged #149 and #151 that this branch does not, so the two trees
+are divergent rather than consecutive. Comparing them would not have isolated
+this slice's effect whatever the numbers said. `96e3391` is the tree this
+branch forked from, so it is the state immediately before these commits.
 
 Both runs report the same case counts — 132 cross-language round-trips, 180
 compression, 12 encoding-benchmark CLI, 15 inert CUPS ABI, 14 inert CUPS filter
