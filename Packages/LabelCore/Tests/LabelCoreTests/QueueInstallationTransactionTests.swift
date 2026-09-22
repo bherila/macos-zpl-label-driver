@@ -70,6 +70,9 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
     var reservesUnderWhateverThePathResolvesTo = false
     /// The seam cannot say which directory it acted inside, or whether it acted.
     var rootReservationOutcomeUnknown = false
+    /// A *conforming* seam that did create the root and then could not confirm
+    /// it: `unknown` expressly allows that the reservation acted.
+    var rootReservationUnknownAfterCreating = false
     var createQueueFails = false
     var persistRecordFails = false
     /// How many journal writes have been attempted, and the one-based call from
@@ -140,6 +143,11 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
     /// the removal.
     var fileChangedBeforeRemoval: [String: ObservedFileState] = [:]
     private(set) var log: [Event] = []
+    /// The durable journal as it stood when each `createFile` was called, so a
+    /// test can see what an interruption inside that effect would leave.
+    private(set) var journalAtCreateFile: [String: String] = [:]
+    /// Every journal text this seam accepted as durable, in order.
+    private(set) var persistedTexts: [String] = []
 
     var removalEvents: [Event] {
         log.filter {
@@ -186,11 +194,13 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
         // Contract: mkdir semantics. Anything already there is a refusal.
         guard files[artifact.path.value] == nil else { throw Failure.notExclusive }
         files[artifact.path.value] = try state(of: artifact)
+        if rootReservationUnknownAfterCreating { return .unknown }
         return .reserved(actual)
     }
 
     mutating func createFile(_ artifact: PlannedFileArtifact) throws -> FileArtifactCreation {
         log.append(.createFile(artifact.path.value))
+        journalAtCreateFile[artifact.path.value] = persistedRecord
         if createFileFailures.contains(artifact.path.value) { throw Failure.refused }
         if createFileOutcomeUnknown.contains(artifact.path.value) { return .unknown }
         // Contract: create-if-absent. An occupied path is refused, and nothing
@@ -236,6 +246,7 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
         }
         if journalDurability == .synchronizedToStorage {
             persistedRecord = text
+            persistedTexts.append(text)
             files[artifact.path.value] = try ObservedFileState(
                 kind: .regularFile,
                 uid: artifact.ownership.uid,
@@ -888,16 +899,30 @@ final class QueueInstallationTransactionTests: XCTestCase {
 
     /// Finding J: the note of a step must precede its effect, or an interruption
     /// between them hides an artifact from recovery entirely.
+    ///
+    /// The stimulus is a creation whose outcome is `unknown`, the seam's model
+    /// of an interruption inside the effect. It used to be a throw, but the
+    /// seam's contract gives a throw the guarantee of no effect, and a step
+    /// proved not to have run is now retracted rather than left pending — see
+    /// `testACreationThatThrowsLeavesNothingForRollbackToDelete`.
     func testEveryStepIsJournalledAsPendingBeforeItsEffect() throws {
         var sink = try Fixture.cleanSink()
-        sink.createFileFailures.insert(Fixture.filterPath)
+        sink.createFileOutcomeUnknown.insert(Fixture.filterPath)
         let plan = try Fixture.plan(with: &sink)
         var transaction = try QueueInstallationTransaction(plan: plan)
         XCTAssertThrowsError(try transaction.stage(using: &sink)) {
-            XCTAssertEqual($0 as? QueueInstallationError, .effectFailed)
+            XCTAssertEqual(
+                $0 as? QueueInstallationError, .stagedArtifactCreationUnverified(.filterExecutable)
+            )
         }
-        // The durable record names the filter even though its creation failed,
-        // because its existence is unknown, not known-absent.
+        // *Before*, not merely eventually: the journal already named the filter
+        // as pending when its effect was invoked.
+        let atEffect = try QueueInstallationOwnershipRecord.decode(
+            try XCTUnwrap(sink.journalAtCreateFile[Fixture.filterPath])
+        )
+        XCTAssertEqual(atEffect.pendingArtifact, .file(try AbsolutePath(Fixture.filterPath)))
+        // The durable record names the filter even though its creation was not
+        // confirmed, because its existence is unknown, not known-absent.
         let durable = try QueueInstallationOwnershipRecord.decode(try XCTUnwrap(sink.persistedRecord))
         XCTAssertEqual(durable.pendingArtifact, .file(try AbsolutePath(Fixture.filterPath)))
         XCTAssertTrue(durable.owns(.file(try AbsolutePath(Fixture.filterPath))))
@@ -2787,6 +2812,178 @@ final class QueueInstallationTransactionTests: XCTestCase {
         XCTAssertNoThrow(try QueueInstallationOwnershipRecord.decode(record.canonicalText))
     }
 
+    /// `maximumCanonicalByteCount` is a second, independent description of the
+    /// encoding `canonicalText` produces. The test above only asks whether the
+    /// estimator accepts or refuses its own chosen boundary, which cannot
+    /// notice the two drifting apart. This asks the encoder instead: every
+    /// journal text actually written, across the legal progressions and at
+    /// boundary-sized intents, must fit the advertised bound, and every line
+    /// of it must fit the width the documented formula gives its key.
+    ///
+    /// The widths below are the documented ones, written out as constants
+    /// rather than read back from the estimator, so that a change to either
+    /// side fails here instead of being absorbed by the other.
+    func testEveryJournalActuallyWrittenFitsTheAdvertisedBound() throws {
+        let parentWidth = AbsolutePath.maximumByteCount - 22
+        let wide = try QueueInstallationStagingPolicy(permittedStagingParents: (0..<2).map {
+            let prefix = "/Library/Printers/p\($0)/"
+            return try AbsolutePath(prefix + String(repeating: "x", count: parentWidth - prefix.utf8.count))
+        })
+        let longestName = "Q" + String(repeating: "q", count: 126)
+        let intents: [(String, QueueInstallationIntent)] = [
+            ("fixture", try Fixture.intent()),
+            ("device destination, longest queue name", try Fixture.intent(
+                queueName: longestName, destination: Fixture.deviceDestination()
+            )),
+            ("boundary-sized paths", try Fixture.intent(
+                rootPath: wide.permittedStagingParents[0].value + "/r",
+                queueName: longestName, destination: Fixture.deviceDestination(),
+                stagingPolicy: wide
+            )),
+        ]
+        let cap = QueueInstallationOwnershipRecord.maximumEncodedByteCount
+        for (label, intent) in intents {
+            let bound = QueueInstallationOwnershipRecord.maximumCanonicalByteCount(for: intent)
+            XCTAssertEqual(bound, try Self.documentedBound(for: intent), label)
+            XCTAssertLessThanOrEqual(bound, cap, label)
+            let texts = try Self.everyJournalWritten(for: intent)
+            // Every recorded phase, a pending file, a pending queue carrying its
+            // intended token, and a confirmed token with its acquisition: the
+            // states the header lines are widest in were all reached.
+            let joined = texts.joined()
+            for needle in ["phase=in-progress", "phase=completed", "phase=rolled-back",
+                           "phase=residual", "pending=queue", "queueAcquisition=exclusive",
+                           "queueAcquisition=ambiguous"] {
+                XCTAssertTrue(joined.contains(needle), "\(label): never reached \(needle)")
+            }
+            XCTAssertTrue(texts.contains { !$0.contains("pendingQueueIncarnation=-") }, label)
+            XCTAssertTrue(texts.contains { $0.contains("pending=/") }, label)
+            for text in texts {
+                XCTAssertLessThanOrEqual(text.utf8.count, bound, label)
+                try Self.assertEveryLineFitsItsDocumentedWidth(text, intent: intent, label: label)
+            }
+        }
+    }
+
+    /// The formula in `maximumCanonicalByteCount`'s documentation, evaluated
+    /// with its widths spelled as constants.
+    private static func documentedBound(for intent: QueueInstallationIntent) throws -> Int {
+        let sha256 = 64, decimalIdentifier = 10, octalMode = 4, transactionID = 32
+        let longestAcquisition = "ambiguous-create-or-modify".utf8.count
+        let longestPhase = "in-progress".utf8.count
+        let ids = intent.creationOrderedFiles.map(\.path.value) + ["queue"]
+        let longestID = try XCTUnwrap(ids.map(\.utf8.count).max())
+        func line(_ key: String, _ width: Int) -> Int { key.utf8.count + 1 + width + 1 }
+        var total = line("schemaVersion", 1) + line("transactionID", transactionID)
+            + line("queue", intent.queue.name.utf8.count)
+            + line("queueDestination", intent.destination.canonicalText.utf8.count)
+            + line("queueIncarnation", sha256) + line("queueAcquisition", longestAcquisition)
+            + line("phase", longestPhase) + line("pending", longestID)
+            + line("pendingQueueIncarnation", sha256)
+        for parent in intent.stagingPolicy.permittedStagingParents {
+            total += line("permittedStagingParent", parent.value.utf8.count)
+        }
+        for file in intent.creationOrderedFiles {
+            total += line("file", file.kind.rawValue.utf8.count + file.path.value.utf8.count
+                + decimalIdentifier * 2 + octalMode + sha256 + 5)
+        }
+        for id in ids { total += line("created", id.utf8.count) }
+        return total
+    }
+
+    private static func assertEveryLineFitsItsDocumentedWidth(
+        _ text: String, intent: QueueInstallationIntent, label: String
+    ) throws {
+        let longestID = try XCTUnwrap(
+            (intent.creationOrderedFiles.map(\.path.value) + ["queue"]).map(\.utf8.count).max()
+        )
+        var counts: [String: Int] = [:]
+        for line in text.split(separator: "\n") {
+            let parts = line.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+            let key = String(parts[0]), value = parts.count == 2 ? String(parts[1]) : ""
+            counts[key, default: 0] += 1
+            let width = value.utf8.count
+            switch key {
+            case "schemaVersion": XCTAssertEqual(width, 1, label)
+            case "transactionID": XCTAssertEqual(width, 32, label)
+            case "queue": XCTAssertEqual(value, intent.queue.name, label)
+            case "queueDestination": XCTAssertEqual(value, intent.destination.canonicalText, label)
+            case "queueIncarnation", "pendingQueueIncarnation":
+                XCTAssertTrue(value == "-" || width == 64, "\(label): \(key)")
+            case "queueAcquisition": XCTAssertLessThanOrEqual(width, 26, label)
+            case "phase": XCTAssertLessThanOrEqual(width, 11, label)
+            case "pending", "created": XCTAssertLessThanOrEqual(width, longestID, "\(label): \(key)")
+            case "permittedStagingParent":
+                XCTAssertTrue(intent.stagingPolicy.permittedStagingParents.map(\.value).contains(value))
+            case "file":
+                let fields = value.split(separator: "|", omittingEmptySubsequences: false)
+                XCTAssertEqual(fields.count, 6, label)
+                guard fields.count == 6 else { continue }
+                XCTAssertLessThanOrEqual(fields[2].utf8.count, 10, label)
+                XCTAssertLessThanOrEqual(fields[3].utf8.count, 10, label)
+                XCTAssertEqual(fields[4].utf8.count, 4, label)
+                XCTAssertTrue(fields[5] == "-" || fields[5].utf8.count == 64, label)
+            default:
+                XCTFail("\(label): a line the documented formula does not budget for: \(key)")
+            }
+        }
+        for key in ["schemaVersion", "transactionID", "queue", "queueDestination",
+                    "queueIncarnation", "queueAcquisition", "phase", "pending",
+                    "pendingQueueIncarnation"] {
+            XCTAssertEqual(counts[key], 1, "\(label): \(key)")
+        }
+        XCTAssertEqual(counts["permittedStagingParent"], intent.stagingPolicy.permittedStagingParents.count)
+        XCTAssertEqual(counts["file"], intent.creationOrderedFiles.count, label)
+        XCTAssertLessThanOrEqual(counts["created", default: 0], intent.creationOrderedFiles.count + 1)
+    }
+
+    /// Drives one intent through the legal progressions and returns every
+    /// journal text the seam accepted, plus the encoding of each terminal
+    /// record: a `rolledBack` record is never written, because the journal is
+    /// gone by then, but it is still an encoding the bound speaks for.
+    /// Outcomes are not asserted here; other tests own them.
+    private static func everyJournalWritten(for intent: QueueInstallationIntent) throws -> [String] {
+        func sink() throws -> InertInstallationSink {
+            var sink = InertInstallationSink()
+            sink.files[try XCTUnwrap(intent.protectedRoot.path.parent).value] = try Fixture.suitableParent()
+            let root = intent.protectedRoot.path.value
+            sink.createQueueDescription = try SchedulerQueueDescriptionIdentity(
+                describedBy: intent.printerDescription
+            )
+            sink.filterBinding = Fixture.filterBinding(rootPath: root)
+            return sink
+        }
+        var texts: [String] = []
+        func drive(
+            _ configure: (inout InertInstallationSink) -> Void,
+            recordValidatedAfterwards: Bool = false
+        ) throws {
+            var sink = try sink()
+            configure(&sink)
+            var transaction = try QueueInstallationTransaction(
+                plan: Fixture.plan(with: &sink, intent: intent)
+            )
+            if let staged = try? transaction.stage(using: &sink),
+               let validated = try? transaction.validateStagedArtifacts(staged, using: &sink),
+               (try? transaction.createQueue(authorizedBy: validated, using: &sink)) != nil {
+                _ = try? transaction.complete(using: &sink)
+            }
+            let outcome: QueueInstallationOutcome
+            if recordValidatedAfterwards {
+                var recovery = try Fixture.recordValidated(transaction, &sink)
+                outcome = recovery.recover(using: &sink)
+            } else {
+                outcome = transaction.rollBack(using: &sink)
+            }
+            texts += sink.persistedTexts + [outcome.record.canonicalText]
+        }
+        try drive({ _ in }, recordValidatedAfterwards: true)
+        try drive { $0.acquisition = .ambiguousCreateOrModify }
+        try drive { $0.incarnationWriteFails = true }
+        try drive { $0.createFileOutcomeUnknown.insert(intent.filter.path.value) }
+        return texts
+    }
+
     // MARK: - Placement is create-if-absent
 
     /// Finding F5: the protocol called the root reservation the transaction's
@@ -2929,7 +3126,136 @@ final class QueueInstallationTransactionTests: XCTestCase {
         XCTAssertThrowsError(try third.stage(using: &undurable)) {
             XCTAssertEqual($0 as? QueueInstallationError, .effectFailed)
         }
-        XCTAssertEqual(third.record.pendingArtifact, filter)
+        XCTAssertEqual(
+            try QueueInstallationOwnershipRecord
+                .decode(try XCTUnwrap(undurable.persistedRecord)).pendingArtifact,
+            filter
+        )
+
+        // The durable journal still names the step, but that is a fact about
+        // storage, not about what this invocation may delete: `alreadyPresent`
+        // already proved it created nothing there. Once the transient
+        // persistence failure clears, a rollback must still leave the file.
+        // In memory the knowledge is kept, beside the durable bytes it has not
+        // yet reached.
+        XCTAssertNil(third.record.pendingArtifact)
+        undurable.persistRecordFailsFromCall = nil
+        _ = third.rollBack(using: &undurable)
+        XCTAssertFalse(undurable.removalEvents.contains(.removeFile(Fixture.filterPath)))
+        XCTAssertEqual(undurable.files[Fixture.filterPath], foreign)
+        // Recovery's compare-and-swap before its first destructive effect is
+        // what carries the retraction to storage.
+        XCTAssertNil(
+            try QueueInstallationOwnershipRecord
+                .decode(try XCTUnwrap(undurable.persistedRecord)).pendingArtifact
+        )
+    }
+
+    /// Round seven, finding A, second half. The seam's contract gives a throw
+    /// from `createFile` the same guarantee `alreadyPresent` carries — the
+    /// operation had no effect — so a pending mark left behind by one is the
+    /// same false claim of ownership. A file of the planned shape that appears
+    /// at the path afterwards matches the plan by construction, and a rollback
+    /// that still treats the path as pending deletes it.
+    func testACreationThatThrowsLeavesNothingForRollbackToDelete() throws {
+        var sink = try Fixture.cleanSink()
+        sink.createFileFailures.insert(Fixture.filterPath)
+        var transaction = try QueueInstallationTransaction(plan: Fixture.plan(with: &sink))
+        XCTAssertThrowsError(try transaction.stage(using: &sink)) {
+            XCTAssertEqual($0 as? QueueInstallationError, .effectFailed)
+        }
+        XCTAssertNil(sink.files[Fixture.filterPath])
+        let filter = QueueInstallationArtifactID.file(try AbsolutePath(Fixture.filterPath))
+        XCTAssertFalse(transaction.record.owns(filter))
+        XCTAssertNil(
+            try QueueInstallationOwnershipRecord
+                .decode(try XCTUnwrap(sink.persistedRecord)).pendingArtifact
+        )
+
+        // Another administrator places a file of exactly the planned shape.
+        let foreign = try ObservedFileState(
+            kind: .regularFile, uid: 0, gid: 0, modeBits: 0o755,
+            contentSHA256: Fixture.digest("b"),
+            accessControl: .noWriteGrantsBeyondOwner, codeSignature: .valid
+        )
+        sink.files[Fixture.filterPath] = foreign
+        _ = transaction.rollBack(using: &sink)
+        XCTAssertFalse(sink.removalEvents.contains(.removeFile(Fixture.filterPath)))
+        XCTAssertEqual(sink.files[Fixture.filterPath], foreign)
+    }
+
+    /// Round seven, finding B. `ProtectedRootReservation.unknown` expressly
+    /// allows that the reservation acted, and staging throws before anything is
+    /// recorded, so the transaction's inventory is empty. An empty inventory
+    /// derives an empty recovery plan, and an empty plan used to run to
+    /// `rolledBack`: a clean report over a root that may well be standing.
+    /// Leaving that directory alone is right; calling it clean is not.
+    ///
+    /// The existing uncertainty switch returns `unknown` before creating
+    /// anything, so it never exercised this. This seam creates the root first.
+    func testAnUncertainRootReservationIsNeverReportedAsACleanRollback() throws {
+        var sink = try Fixture.cleanSink()
+        var transaction = try QueueInstallationTransaction(plan: Fixture.plan(with: &sink))
+        sink.rootReservationUnknownAfterCreating = true
+        XCTAssertThrowsError(try transaction.stage(using: &sink)) {
+            XCTAssertEqual($0 as? QueueInstallationError, .protectedRootParentUnconfirmed)
+        }
+        let root = try XCTUnwrap(sink.files[Fixture.rootPath])
+        let logBeforeRollback = sink.log
+
+        let expected = QueueInstallationPhase.residual(.protectedRootReservationUnverified)
+        XCTAssertEqual(transaction.phase, expected)
+        let first = transaction.rollBack(using: &sink)
+        XCTAssertEqual(Self.residualReason(first), .protectedRootReservationUnverified)
+        // Repeating it does not wear the uncertainty down into a clean result.
+        let second = transaction.rollBack(using: &sink)
+        XCTAssertEqual(Self.residualReason(second), .protectedRootReservationUnverified)
+        // Nor does the explicit-plan entry point, which builds its own executor.
+        let explicit = try transaction.rollBack(
+            following: try transaction.recoveryPlan(), using: &sink
+        )
+        XCTAssertEqual(Self.residualReason(explicit), .protectedRootReservationUnverified)
+        XCTAssertEqual(transaction.phase, expected)
+        // Staging cannot be retried over it either.
+        XCTAssertThrowsError(try transaction.stage(using: &sink)) {
+            XCTAssertEqual($0 as? QueueInstallationError, .invalidPhase)
+        }
+
+        // The possibly created root is preserved, and nothing destructive — nor
+        // anything at all — was attempted against the seam.
+        XCTAssertEqual(sink.files[Fixture.rootPath], root)
+        XCTAssertTrue(sink.removalEvents.isEmpty)
+        XCTAssertEqual(sink.log, logBeforeRollback)
+        XCTAssertNil(sink.persistedRecord)
+
+        // The mismatched-parent arm is the same situation, reached by a
+        // non-conforming seam that did create the root: also never clean.
+        var ignoring = try Fixture.cleanSink()
+        var mismatched = try QueueInstallationTransaction(plan: Fixture.plan(with: &ignoring))
+        ignoring.reservesUnderWhateverThePathResolvesTo = true
+        ignoring.parentIdentityAtReservation = .known(try Fixture.parentIdentity("dev-1:ino-9999"))
+        XCTAssertThrowsError(try mismatched.stage(using: &ignoring))
+        XCTAssertNotNil(ignoring.files[Fixture.rootPath])
+        XCTAssertEqual(
+            Self.residualReason(mismatched.rollBack(using: &ignoring)),
+            .protectedRootReservationUnverified
+        )
+        XCTAssertNotNil(ignoring.files[Fixture.rootPath])
+
+        // The bound from the other side: a reservation that declined, or that
+        // threw, guarantees nothing was created, and rolls back cleanly.
+        var declined = try Fixture.cleanSink()
+        var refused = try QueueInstallationTransaction(plan: Fixture.plan(with: &declined))
+        declined.createRootFails = true
+        XCTAssertThrowsError(try refused.stage(using: &declined))
+        XCTAssertEqual(refused.rollBack(using: &declined), .rolledBack(refused.record))
+    }
+
+    private static func residualReason(
+        _ outcome: QueueInstallationOutcome
+    ) -> QueueInstallationResidualReason? {
+        if case let .residual(_, reason) = outcome { return reason }
+        return nil
     }
 
     /// Round five, finding D. `QueueInstallationPreconditions.capture` validates

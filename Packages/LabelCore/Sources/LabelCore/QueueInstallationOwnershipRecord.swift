@@ -160,6 +160,9 @@ public struct AbsolutePath: Equatable, Hashable, Sendable {
 /// POSIX ownership as a pair of bounded identifiers.
 public struct POSIXOwnership: Equatable, Hashable, Sendable {
     public static let rootWheel = POSIXOwnership(unchecked: 0, gid: 0)
+    /// The largest uid or gid accepted, and therefore the widest decimal
+    /// spelling the record encoding can carry for either.
+    public static let maximumIdentifier = Int(Int32.max)
 
     public let uid: Int
     public let gid: Int
@@ -170,7 +173,7 @@ public struct POSIXOwnership: Equatable, Hashable, Sendable {
     }
 
     public init(uid: Int, gid: Int) throws {
-        guard (0...Int(Int32.max)).contains(uid), (0...Int(Int32.max)).contains(gid) else {
+        guard (0...Self.maximumIdentifier).contains(uid), (0...Self.maximumIdentifier).contains(gid) else {
             throw QueueInstallationError.invalidOwnership
         }
         self.uid = uid
@@ -191,6 +194,9 @@ public struct POSIXMode: Equatable, Hashable, Sendable {
         self.rawValue = rawValue
     }
 
+    /// The fixed width of `octalText`, and the only width `decodeOctal` accepts.
+    public static let octalWidth = 4
+
     /// Exactly four octal digits, so the record encoding is fixed width.
     public var octalText: String {
         var digits = ""
@@ -204,7 +210,7 @@ public struct POSIXMode: Equatable, Hashable, Sendable {
 
     public static func decodeOctal(_ text: String) throws -> POSIXMode {
         let bytes = Array(text.utf8)
-        guard bytes.count == 4, bytes.allSatisfy({ (0x30...0x37).contains($0) }) else {
+        guard bytes.count == octalWidth, bytes.allSatisfy({ (0x30...0x37).contains($0) }) else {
             throw QueueInstallationError.invalidMode
         }
         var value = 0
@@ -780,11 +786,13 @@ public enum SchedulerQueueAcquisition: String, Equatable, Sendable, CaseIterable
 /// A caller-supplied identifier for one transaction: 32 lowercase hex digits.
 /// This model generates no randomness and reads no clock.
 public struct QueueInstallationTransactionID: Equatable, Hashable, Sendable {
+    public static let hexWidth = 32
+
     public let hex: String
 
     public init(hex: String) throws {
         let bytes = Array(hex.utf8)
-        guard bytes.count == 32,
+        guard bytes.count == Self.hexWidth,
               bytes.allSatisfy({ (0x30...0x39).contains($0) || (0x61...0x66).contains($0) }) else {
             throw QueueInstallationError.invalidTransactionID
         }
@@ -792,9 +800,13 @@ public struct QueueInstallationTransactionID: Equatable, Hashable, Sendable {
     }
 }
 
+/// The width of a lowercase hexadecimal SHA-256, the only spelling
+/// `isLowercaseSHA256` accepts.
+let lowercaseSHA256Width = 64
+
 func isLowercaseSHA256(_ value: String) -> Bool {
     let bytes = Array(value.utf8)
-    return bytes.count == 64 && bytes.allSatisfy { (0x30...0x39).contains($0) || (0x61...0x66).contains($0) }
+    return bytes.count == lowercaseSHA256Width && bytes.allSatisfy { (0x30...0x39).contains($0) || (0x61...0x66).contains($0) }
 }
 
 /// Parses the one decimal spelling this encoding emits: digits only, no sign, no
@@ -1542,7 +1554,10 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
     ///
     /// `10` is the widest decimal uid or gid, since `POSIXOwnership` bounds both
     /// at `Int32.max` = 2147483647; `4` is `POSIXMode.octalText`'s fixed width;
-    /// `64` is a lowercase SHA-256 and `32` a transaction identifier.
+    /// `64` is a lowercase SHA-256 and `32` a transaction identifier. Each is
+    /// read from the type that validates it rather than restated here, so the
+    /// estimator cannot drift from what the encoder is allowed to emit; the
+    /// encoder-agreement test pins the resulting widths from the other side.
     ///
     /// The bound is deliberately not reachable. It gives `queueIncarnation`,
     /// `pendingQueueIncarnation`, `queueAcquisition` and `pending` their longest
@@ -1558,9 +1573,9 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
     /// 5165, and the header about 1487 — roughly 19.6 KiB against a 16 KiB cap.
     /// The bound is therefore not decorative; it refuses real shapes.
     public static func maximumCanonicalByteCount(for intent: QueueInstallationIntent) -> Int {
-        let sha256Width = 64
-        let identifierWidth = 10
-        let modeWidth = 4
+        let sha256Width = lowercaseSHA256Width
+        let identifierWidth = String(POSIXOwnership.maximumIdentifier).utf8.count
+        let modeWidth = POSIXMode.octalWidth
         let plannedIDs = intent.creationOrderedFiles.map { QueueInstallationArtifactID.file($0.path) }
             + [QueueInstallationArtifactID.schedulerQueue]
         let longestIDSpelling = plannedIDs.map { encode(artifact: $0).utf8.count }.max() ?? 1
@@ -1572,7 +1587,7 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         var total = 0
         func line(_ key: String, _ valueWidth: Int) { total += key.utf8.count + 1 + valueWidth + 1 }
         line("schemaVersion", String(schemaVersion).utf8.count)
-        line("transactionID", 32)
+        line("transactionID", QueueInstallationTransactionID.hexWidth)
         line("queue", intent.queue.name.utf8.count)
         line("queueDestination", intent.destination.canonicalText.utf8.count)
         line("queueIncarnation", sha256Width)

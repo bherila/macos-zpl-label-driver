@@ -160,6 +160,12 @@ public enum QueueInstallationResidualReason: Equatable, Sendable {
     case unexpectedArtifactState
     case effectFailed
     case recoveryPlanUnavailable
+    /// The protected root's reservation reported an outcome that does not
+    /// settle whether a root was created, or which directory it was created
+    /// under, and no journal exists yet to record either. Nothing is removed,
+    /// and no rollback afterwards is reported as clean: the case is for the
+    /// manual check in `docs/validation/M1-TRANSACTION-RECOVERY.md`.
+    case protectedRootReservationUnverified
 }
 
 /// Who is driving a recovery, and therefore what it is allowed to destroy.
@@ -689,7 +695,20 @@ public struct QueueInstallationTransaction {
     public private(set) var record: QueueInstallationOwnershipRecord
     /// The exact journal bytes this transaction last wrote. Every subsequent
     /// write is conditional on them.
+    ///
+    /// These are a fact about *storage*, and `record` is a fact about what this
+    /// invocation may own. The two usually agree, but not always, and the gap
+    /// only ever runs one way: `record` may name less than these bytes when
+    /// the seam has proved a step had no effect and the retraction could not
+    /// yet be made durable. The next conditional write reconciles them, and
+    /// refuses if storage moved in between.
     public private(set) var lastDurableText: String?
+    /// Set when the root reservation may have acted without this transaction
+    /// being able to record what it did. Both rollback entry points honour it
+    /// before building an executor, because an empty inventory derives an
+    /// empty recovery plan and an empty plan would otherwise run to
+    /// `rolledBack`.
+    private var rootReservationUnresolved = false
 
     public init(plan: QueueInstallationPlan) throws {
         self.plan = plan
@@ -728,6 +747,46 @@ public struct QueueInstallationTransaction {
             throw QueueInstallationError.journalWriteNotDurable
         }
         lastDurableText = text
+    }
+
+    /// Withdraws the pending mark for a creation the seam has guaranteed had no
+    /// effect, and journals the withdrawal.
+    ///
+    /// Three facts are kept apart here: what might exist at the path, what the
+    /// journal last durably recorded, and what this invocation is entitled to
+    /// delete. The seam's guarantee settles the third — this invocation created
+    /// nothing there — and a failed journal write does not unsettle it. So the
+    /// retraction stays in `record` even when the write fails, and the failure
+    /// is what is reported, because it is what actually happened.
+    ///
+    /// An earlier version restored the pending mark on that failure, so that
+    /// memory matched what storage might hold. That gave the knowledge back
+    /// away: once the transient failure cleared, an automatic rollback probed
+    /// the pending path, found a file of the planned shape — which a foreign
+    /// file at a planned path is by construction — and deleted it.
+    ///
+    /// Leaving `lastDurableText` at the bytes that still name the step is not a
+    /// claim that the retraction landed. It is what makes the next write
+    /// conditional on storage still holding the pending mark: recovery's
+    /// compare-and-swap before its first destructive effect writes the
+    /// retraction over exactly those bytes, and refuses with a journal
+    /// conflict if a non-durable write left something else there. After a
+    /// restart the durable journal may still name the step, and a recovery
+    /// loaded from it has only the plan to compare against; that is site 2 of
+    /// the open gap under *Unheld claims*, and this does not close it.
+    private mutating func retractPendingCreation<Sink: QueueInstallationEffectSink>(
+        using sink: inout Sink
+    ) throws {
+        record = record.retractingPendingArtifact()
+        try writeJournal(using: &sink)
+    }
+
+    /// Records that the root reservation may have acted without leaving
+    /// anything this transaction can name. See `rootReservationUnresolved`.
+    private mutating func enterUnresolvedRootReservation() {
+        rootReservationUnresolved = true
+        record = record.markingResidual()
+        phase = .residual(.protectedRootReservationUnverified)
     }
 
     /// Re-observes every staged artifact and the journal, and requires each to
@@ -819,6 +878,10 @@ public struct QueueInstallationTransaction {
             // nothing to clean up.
             throw QueueInstallationError.stagingParentReplacedBeforeReservation
         case .unknown:
+            // `unknown` expressly allows that the reservation acted, so a root
+            // may be standing that no journal names. It is left alone, and it
+            // is also never described as cleaned up.
+            enterUnresolvedRootReservation()
             throw QueueInstallationError.protectedRootParentUnconfirmed
         case let .reserved(actualParent):
             // The argument is not taken on trust. A conformer that ignored it
@@ -834,7 +897,12 @@ public struct QueueInstallationTransaction {
             // this whole check exists to prevent. It is a case for the manual
             // check in `docs/validation/M1-TRANSACTION-RECOVERY.md`, and it is
             // strictly better than staging a filter and pointing a queue at it.
+            //
+            // Nor does a later `rollBack` report that root as cleaned up: this
+            // transaction's inventory is empty, and an empty inventory derives
+            // an empty recovery plan that would otherwise run to `rolledBack`.
             guard actualParent == expectedParent else {
+                enterUnresolvedRootReservation()
                 throw QueueInstallationError.protectedRootParentUnconfirmed
             }
         }
@@ -854,6 +922,10 @@ public struct QueueInstallationTransaction {
             do {
                 creation = try sink.createFile(artifact)
             } catch {
+                // The seam's contract gives a throw the guarantee
+                // `alreadyPresent` carries — no effect — so the pending mark is
+                // retracted for the same reason given below.
+                try retractPendingCreation(using: &sink)
                 throw QueueInstallationError.effectFailed
             }
             switch creation {
@@ -879,20 +951,7 @@ public struct QueueInstallationTransaction {
                 // `unknown` below is the case this reasoning does *not* cover.
                 // It guarantees nothing, so its path really is one recovery must
                 // probe rather than assume, and its mark stays.
-                let stillPending = record
-                record = record.retractingPendingArtifact()
-                do {
-                    try writeJournal(using: &sink)
-                } catch {
-                    // The retraction is not proved durable, so the journal may
-                    // still name the step. Memory goes back to matching what
-                    // storage may hold — claiming a retraction we cannot show
-                    // reached storage is the same mistake in the other
-                    // direction — and the durability failure is what is
-                    // reported, because it is what actually happened.
-                    record = stillPending
-                    throw error
-                }
+                try retractPendingCreation(using: &sink)
                 throw QueueInstallationError.stagedArtifactAlreadyPresent(artifact.kind)
             case .unknown:
                 throw QueueInstallationError.stagedArtifactCreationUnverified(artifact.kind)
@@ -1098,6 +1157,7 @@ public struct QueueInstallationTransaction {
     public mutating func rollBack<Sink: QueueInstallationEffectSink>(
         using sink: inout Sink
     ) -> QueueInstallationOutcome {
+        if let unresolved = unresolvedRootReservationOutcome() { return unresolved }
         var recovery = recoveryExecutor()
         let outcome = recovery.recover(using: &sink)
         adopt(recovery, outcome: outcome)
@@ -1108,10 +1168,20 @@ public struct QueueInstallationTransaction {
         following plan: QueueInstallationRecoveryPlan,
         using sink: inout Sink
     ) throws -> QueueInstallationOutcome {
+        if let unresolved = unresolvedRootReservationOutcome() { return unresolved }
         var recovery = recoveryExecutor()
         let outcome = try recovery.recover(following: plan, using: &sink)
         adopt(recovery, outcome: outcome)
         return outcome
+    }
+
+    /// A root reservation whose outcome is unknown is never rolled back and
+    /// never reported as rolled back, however often it is asked. Nothing is
+    /// sent to the seam: there is no journal to update, and the one object
+    /// that may exist is the one this transaction cannot identify.
+    private func unresolvedRootReservationOutcome() -> QueueInstallationOutcome? {
+        guard rootReservationUnresolved else { return nil }
+        return .residual(record, .protectedRootReservationUnverified)
     }
 
     private func recoveryExecutor() -> QueueInstallationRecovery {
