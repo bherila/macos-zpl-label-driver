@@ -80,6 +80,63 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
         run: python3 scripts/ci_scope.py
 
+  # Runs on EVERY pull request and push, with no `if:` and no scope gate.
+  #
+  # Until this job existed, a documentation-only pull request ran no Swift test and no
+  # accelerator check at all: both live only in `scripts/ci-swift.sh`, which runs only in
+  # `swift-macos-arm64`, which is gated on `swift_changed == 'true'`. `ci_scope.py` is right
+  # to keep a thirteen-minute macOS runner off a Markdown diff, but the PORTABLE half of the
+  # suite has no such cost and no reason to be conditional -- and a docs change can still
+  # break it, because `run-accelerator-checks.py` calls `check_repo.py` (relative links,
+  # action pins, required files) and the fixture manifest checker. Those ran here only by
+  # accident of a Swift file being touched.
+  #
+  # `Packages/LabelCore` is portable Swift plus a small C bridge against the CUPS headers, so
+  # it builds and tests on Linux. `Packages/LabelMac` does NOT and is not attempted here; it
+  # is first compiled on hosted `macos-26`, exactly as docs/BUILDING.md says.
+  #
+  # No printer, no private network, no secret and no artifact. The accelerator suite's CUPS
+  # cases drive the inert `labelprobe` discard sink and the capture filter, neither of which
+  # opens a device.
+  portable:
+    name: portable-ubuntu-arm64
+    # Deliberately no `needs:`. Preflight failing must not turn this job into a skip, because
+    # a skip is the one conclusion `ci-required` below refuses; the two jobs report
+    # independently and both must succeed.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # `check_repo.py` builds the traceability report, which asks git whether an
+          # evidence record's bound revision is an ancestor of HEAD. A shallow clone cannot
+          # answer that and the report fails closed, so the history is fetched.
+          fetch-depth: 0
+      - name: Install the CUPS development headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libcups2-dev
+      - name: Record the toolchain under test
+        run: |
+          swift --version
+          python3 --version
+      # Two commands, one of which contains the other: `run-accelerator-checks.py` also runs
+      # the LabelCore suite in debug. The standalone run is kept and kept first because it is
+      # the command AGENTS.md and docs/BUILDING.md name, and because when it is the thing that
+      # breaks the log should say so before three other checkers have run. It is also nearly
+      # free the second time: the build is warm, so the repeat is test execution only.
+      - name: LabelCore tests
+        run: swift test --package-path Packages/LabelCore
+      # Debug only. `scripts/ci-swift.sh` also runs this suite with `--configuration release`,
+      # and that stays macOS-only on purpose: a release pass is a second full compile of the
+      # package, which is this job's dominant cost, and what it buys is a defect class
+      # (behaviour that differs by optimization level) that the macOS job already covers on
+      # every Swift-affecting pull request. Paying it twice would roughly double the runtime
+      # of the job whose entire point is to be cheap enough to run unconditionally.
+      - name: Portable accelerator suite and independent ZPL oracle
+        run: python3 scripts/run-accelerator-checks.py
+
   macos:
     name: swift-macos-arm64
     needs: repository
@@ -162,7 +219,7 @@ jobs:
 
   required:
     name: ci-required
-    needs: [repository, macos]
+    needs: [repository, portable, macos]
     if: always()
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 2
@@ -170,11 +227,30 @@ jobs:
       - name: Check all required results
         env:
           REPOSITORY_RESULT: ${{ needs.repository.result }}
+          PORTABLE_RESULT: ${{ needs.portable.result }}
           SWIFT_NEEDED: ${{ needs.repository.outputs.swift_changed }}
           MACOS_RESULT: ${{ needs.macos.result }}
         shell: bash
         run: |
           test "$REPOSITORY_RESULT" = "success"
+          # The macOS job is conditional, so its result is judged against the scope decision
+          # that produced it: a skip is acceptable only when the scope classifier said the
+          # change cannot affect Swift, and an unreadable scope decision is refused outright.
+          #
+          # `portable` is NOT conditional. It carries no `if:`, no `needs:` and no scope gate,
+          # so there is no legitimate reason for it to conclude anything but `success`, and
+          # `success` is the only value accepted here. `skipped` and `cancelled` are named in
+          # the message because they are the two conclusions that would otherwise be mistaken
+          # for "nothing to do": a skip could only mean the job was removed or gated by a
+          # later edit, and a cancellation means the portable suite did not finish. Neither is
+          # evidence that the portable checks passed, and AGENTS.md is explicit that a missing
+          # required test is a failure rather than a successful conditional skip.
+          if [[ "$PORTABLE_RESULT" != "success" ]]; then
+            echo "portable-ubuntu-arm64 concluded '${PORTABLE_RESULT:-<absent>}'." >&2
+            echo "That job is unconditional; only 'success' is acceptable, and 'skipped' or" >&2
+            echo "'cancelled' is not evidence the portable suite ran. Refusing a false green." >&2
+            exit 1
+          fi
           if [[ "$SWIFT_NEEDED" == "true" ]]; then
             test "$MACOS_RESULT" = "success"
           elif [[ "$SWIFT_NEEDED" == "false" ]]; then
