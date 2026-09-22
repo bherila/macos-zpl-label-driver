@@ -5,13 +5,29 @@ import XCTest
 /// Closes the M3-AC01 and M3-AC02 clauses that a mutation sweep of the control
 /// qualification sources found unguarded by any existing test.
 ///
-/// Every assertion names the exact error. The gaps found were not guards whose
-/// removal let an invalid request succeed outright; they were guards whose
-/// removal left a *later* guard to throw a different error, so an assertion
-/// that only demands "some error" cannot see them. A supported-looking fact
-/// with no evidence, an unknown fact that carries real model documentation, and
-/// a declaration stored before its schema version all have to be refused as
-/// themselves, not as whatever the next check happens to say.
+/// Of the twelve guards the sweep found uncovered, removing eight lets an
+/// invalid input succeed outright — a tracking mode authorised from a fact
+/// nothing evidenced, a continuous or black-mark mode resolved with no length
+/// or offset at all, `peelPrepeelNotApplicable` returned for an unobserved
+/// mechanism, a schema-4 profile holding a schema-5 declaration. The other four
+/// still refuse, but with a different error, or with the same error from a
+/// redundant copy. Two separate causes kept the existing suite quiet: for five
+/// guards no test ever supplied an input the guard would refuse, and for the
+/// rest the input was supplied but the assertion never named the error. The
+/// first cause is why assertion strength alone was not the whole story, and it
+/// is why these tests are as much about *which inputs* they feed as about how
+/// tightly they assert.
+///
+/// So the tests here do two things. They name the exact error, because a guard
+/// whose removal merely changes the error is invisible to a bare
+/// `XCTAssertThrowsError`. And they feed inputs the suite did not have: a
+/// supported-looking fact with no evidence, an unknown or unsupported fact that
+/// cites real model documentation, a tracking mode selected with no geometry or
+/// offset payload to fall back on, a declaration stored before its schema
+/// version, and an output limit above its declared bound. Where the error
+/// cannot carry the distinction — `unavailableTracking` reports the tracking
+/// kind and not the capability state — distinctness is asserted on the facts
+/// the constructed profile retains instead.
 ///
 /// Nothing here observes a device. All facts are synthetic fixtures.
 final class M3ControlQualificationCoverageTests: XCTestCase {

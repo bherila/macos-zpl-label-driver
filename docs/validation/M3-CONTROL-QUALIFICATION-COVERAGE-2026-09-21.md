@@ -61,23 +61,42 @@ checks passed for all 89 runs, so no mutation survived into the tree. Several
 mutations touched files this lane may not edit (the qualification sources
 themselves); they were byte-restored under the same check.
 
-Knowing that a guard is uncovered does not say what removing it *does*, and an
-earlier revision of this document reasoned about that instead of measuring it
-and got it wrong for five guards. A second, separate pass therefore classified
-the twelve empirically. A temporary, uncommitted probe (deleted before the
-commit; it is scaffolding, not a test, and asserts nothing) exercises exactly
-the invalid inputs the new tests use and prints, for each, whether a value came
-back or an error was thrown and which. It was run once on the unmutated tree as
-a control — all sixteen probe inputs rejected, with the errors the new tests
-assert — and then once under each of the twelve mutations, byte-restoring the
-mutated source and re-checking its SHA-256 after every run:
+Knowing that a guard is uncovered does not say what removing it *does*, nor why
+no test noticed. **Those are two questions with two different methods, and
+answering the second from the first is what made two previous revisions of this
+document wrong.** Both were therefore measured, in two further passes, with
+temporary uncommitted scaffolding (deleted before the commit; it asserts
+nothing).
+
+*What does removal do* — run the mutation. A probe exercises exactly the invalid
+inputs the new tests use and prints, for each, whether a value came back or an
+error was thrown and which. Run once on the unmutated tree as a control — all
+sixteen probe inputs rejected, with the errors the new tests assert — then once
+under each of the twelve mutations:
 
 ```sh
 swift test --package-path Packages/LabelCore --filter M3ProbeClassificationTests
 ```
 
-Part 2 reports that measurement. `git status --porcelain` is empty at the
-commit: the probe file is gone and every mutation is restored.
+*Why did no existing test notice* — search the suite for the input. Each guard's
+refusal was replaced by `fatalError("GUARD-TAKEN-<id>")`, Lane D's own test file
+was moved out of the package so only the 346-test baseline ran, and the suite
+was executed. A crash proves some existing test fed an input this guard actually
+refused, and names the test; a clean `Executed 346 tests, with 0 failures`
+proves none did. The compound tracking guard was temporarily split into one
+guard per clause so its state and evidence clauses were separately attributable.
+For every guard the probe showed was reached, the input the existing suite feeds
+was then replayed under the mutation to see whether removal changes the error at
+all:
+
+```sh
+swift test --package-path Packages/LabelCore --filter M3ProbeExistingInputsTests
+```
+
+Both probe passes byte-restored the mutated source and re-checked its SHA-256
+after every run. Parts 2a and 2b report the two measurements.
+`git status --porcelain` is empty at the commit: both probe files are gone and
+every mutation is restored.
 
 Baseline and post-change runs:
 
@@ -185,45 +204,138 @@ specific is named first. Full suite counts were 346 tests before this slice.
 | M89 | schema-2 gate on configured defaults | AC02 | `ConfiguredPrinterDefaultsTests.testDefaultsDoNotAuthorizeUnsupportedOrUnqualifiedControls` |
 | M90 | ordinary admission rejects declaration-only schema 8 | AC02 | `FinishingJobTicketTests.testOrdinaryQueueAndTicketRolesStillRejectFinishingProfileEight` (+4) |
 
-### Part 2 — 12 guards survived, what removing each one actually does, and why no test saw it
+### Part 2 — 12 guards survived: what removing each one does, and why no test saw it
 
 These twelve mutations produced **zero** test failures on the 346-test baseline.
-Two separate questions have to be answered about each, and an earlier revision
-of this document answered the second one wrongly for most of them:
+Two separate questions have to be answered about each, **and they have different
+methods**. "What does removal do" is answered by *running the mutation*. "Why did
+no existing test notice" is answered by *searching the suite for the input* —
+which test, if any, ever fed something this guard refused. Answering the second
+question from the first is what produced the errors in the two previous
+revisions of this document: a mutation result says nothing about whether an
+input was ever supplied, and the two questions are not even about the same
+input. Both are now measured, separately, and they do **not** line up row for
+row. Part 2a and Part 2b are therefore different tables, and the paragraph
+between them explains why a guard can appear in a different bucket in each.
 
-1. *Why did no existing test notice?* — for all twelve, because the existing
-   assertions demanded only that **something** was thrown, never which error.
-   This is the same shape of trap the 2026-09-20 handoff recorded for M2-AC05.
-2. *What does removing the guard actually let through?* — this was **not**
-   uniform, and was re-derived empirically rather than reasoned about. A probe
-   was run under each mutation that exercises exactly the invalid input the new
-   tests use and reports whether a value comes back or an error is thrown. On
-   the unmutated tree all sixteen probe inputs are rejected with the expected
-   error; the table below records what each mutation changed that to.
+#### Part 2a — what removing the guard does (measured by running the mutation)
 
-**The empirical split is 8 / 3 / 1, not 1 / 11.** Eight guards are the only
-thing standing between an invalid input and a returned value; three leave a
-later check to refuse with a *different* error; one does both depending on the
-input. In particular the profile-layer continuous-length and black-mark-offset
-guards (M13, M14) are **not** redundant copies of the policy-type rules, as this
-document previously claimed: the policy types are only consulted when the
-request carries a `mediaGeometry` or `offsets` payload, and the invalid input
-here carries neither, so nothing else is ever reached.
+A probe was run under each mutation that exercises exactly the invalid input the
+new tests use and reports whether a value comes back or an error is thrown. On
+the unmutated tree all sixteen probe inputs are rejected with the expected
+error; the table records what each mutation changed that to.
 
-| # | Surviving guard | Clause | Removing it | Observed outcome for the invalid input | Why no test saw it |
-|---|---|---|---|---|---|
-| M11 | `PrinterProfile`: tracking `fact.evidence != .unobserved` | AC01 | **ACCEPTS** | `resolveControls` returns `tracking = .value(.gap)` for a supported-on-paper, `.unobserved` fact | The only profiles requesting tracking in the suite are schema 1 (refused by the schema clause) or hold fully documented facts; this clause never decided an outcome. |
-| M12 | `PrinterProfile`: tracking `fact.state == .supported` | AC01 | **ACCEPTS** | returns `.value(.gap)` for both a documented `unsupported` and a documented `unknown` fact | Same. Every unknown fact the suite tried carried `.unobserved` evidence, so the adjacent clause caught it first. |
-| M13 | `PrinterProfile`: continuous tracking requires an explicit length | AC02 | **ACCEPTS** | returns `.value(.continuous)` with no label length resolved at all | `PhysicalGeometryQualification` holds a tested copy of the rule, but is only consulted when the request carries a `mediaGeometry`; this one does not, so the copy is never reached. |
-| M14 | `PrinterProfile`: black-mark tracking requires an explicit offset | AC02 | **ACCEPTS** | returns `.value(.blackMark)` with no offset resolved at all | Same shape: `OffsetControlQualification`'s copy is only consulted when the request carries an `offsets` payload. |
-| M42 | `FinishingOutputQualification`: unknown prepeel refused | AC01 | **ACCEPTS** | returns `ModePolicy.peelPrepeelNotApplicable` — a positive claim about a mechanism nobody observed | The only unknown prepeel fact tested carried `.unobserved` evidence, so `documented()` threw first. |
-| M46 | `FinishingOutputQualification`: `supported()` state check | AC01 | **ACCEPTS** | returns `delayedCutSeparateFiles` (documented-`unsupported` `quantityOne`) and `peelExplicitNoPrepeel` (documented-`unsupported` `peelLabelTaken`) | Every "bad" wire fact in the suite was unknown-and-unobserved or `reportedInstallation`, both of which `documented()` rejects. A **documented `unsupported`** fact was never tried. |
-| M85 | `PrinterProfile`: schema-5 gate on a physical-geometry declaration | AC02 | **ACCEPTS** | a schema-4 profile is constructed holding a supported 832-dot width declaration | No test stores a well-formed geometry declaration in a pre-schema-5 profile. |
-| M86 | `PrinterProfile`: schema-6 gate on an offset declaration | AC02 | **ACCEPTS** | a schema-5 profile is constructed holding a supported `-30...40` shift-left declaration | Same for offsets in a pre-schema-6 profile. |
-| M05 | `PrinterProfile`: backfeed capability-state guard | AC01 | rejects differently | `unsupportedBackfeedSpeed(2)` instead of `unavailableBackfeedSpeed(.unknown)` / `(.unsupported)` — the request still fails, but unknown and unsupported collapse into one error, which is the AC01 distinctness itself | `MotorSpeedIntegrationTests` exercises this distinction for **feed** only. |
-| M16 | `PrinterProfile`: offsets require schema ≥ 6 | AC02 | rejects differently | `OffsetControlQualification.Error.unavailable(.shiftLeft, .unknown)` instead of `invalidProfileVersion` | `OffsetControlIntegrationTests` asserts only that the schema-1 reference throws, not which error. |
-| M41 | `FinishingOutputQualification`: unknown RFID refused | AC01 | rejects differently | `unsupportedRFID` instead of `unavailable(.rfid, .unknown)` — refused, but for the wrong reason: it reports a model known to have RFID, when the truth is that nobody knows | The only unknown RFID fact tested carried `.unobserved` evidence, so `documented()` threw first. |
-| M33 | `FinishingControlQualification`: `1...64Ki` output-limit declaration | AC02 | **both** | `maximumOutputBytes: 0` → rejects differently (`outputLimit`, not `invalidOutputLimit`); `maximumOutputBytes: 65537` → **ACCEPTS**, emitting `^MMT` | The suite tried only a zero limit, and only asserted that it threw; no test tried a limit above the bound. |
+**The split is 8 accepted / 3 rejected-differently / 1 both, not 1 / 11.** Eight
+guards are the only thing standing between an invalid input and a returned
+value; three leave a later check to refuse with a *different* error; one does
+both depending on the input. In particular the profile-layer continuous-length
+and black-mark-offset guards (M13, M14) are **not** redundant copies of the
+policy-type rules *for this input*, as an earlier revision claimed: the policy
+types are only consulted when the request carries a `mediaGeometry` or `offsets`
+payload, and the input the new tests feed carries neither, so nothing else is
+ever reached. (Part 2b shows that for an input which *does* carry a payload the
+copies do apply — which is why M13 and M14 land in a different bucket there.)
+
+| # | Surviving guard | Clause | Removing it | Observed outcome for the invalid input |
+|---|---|---|---|---|
+| M11 | `PrinterProfile`: tracking `fact.evidence != .unobserved` | AC01 | **ACCEPTS** | `resolveControls` returns `tracking = .value(.gap)` for a supported-on-paper, `.unobserved` fact |
+| M12 | `PrinterProfile`: tracking `fact.state == .supported` | AC01 | **ACCEPTS** | returns `.value(.gap)` for both a documented `unsupported` and a documented `unknown` fact |
+| M13 | `PrinterProfile`: continuous tracking requires an explicit length | AC02 | **ACCEPTS** | returns `.value(.continuous)` with no label length resolved at all |
+| M14 | `PrinterProfile`: black-mark tracking requires an explicit offset | AC02 | **ACCEPTS** | returns `.value(.blackMark)` with no offset resolved at all |
+| M42 | `FinishingOutputQualification`: unknown prepeel refused | AC01 | **ACCEPTS** | returns `ModePolicy.peelPrepeelNotApplicable` — a positive claim about a mechanism nobody observed |
+| M46 | `FinishingOutputQualification`: `supported()` state check | AC01 | **ACCEPTS** | returns `delayedCutSeparateFiles` (documented-`unsupported` `quantityOne`) and `peelExplicitNoPrepeel` (documented-`unsupported` `peelLabelTaken`) |
+| M85 | `PrinterProfile`: schema-5 gate on a physical-geometry declaration | AC02 | **ACCEPTS** | a schema-4 profile is constructed holding a supported 832-dot width declaration |
+| M86 | `PrinterProfile`: schema-6 gate on an offset declaration | AC02 | **ACCEPTS** | a schema-5 profile is constructed holding a supported `-30...40` shift-left declaration |
+| M05 | `PrinterProfile`: backfeed capability-state guard | AC01 | rejects differently | `unsupportedBackfeedSpeed(2)` instead of `unavailableBackfeedSpeed(.unknown)` / `(.unsupported)` — the request still fails, but unknown and unsupported collapse into one error, which is the AC01 distinctness itself |
+| M16 | `PrinterProfile`: offsets require schema ≥ 6 | AC02 | rejects differently | `OffsetControlQualification.Error.unavailable(.shiftLeft, .unknown)` instead of `invalidProfileVersion` |
+| M41 | `FinishingOutputQualification`: unknown RFID refused | AC01 | rejects differently | `unsupportedRFID` instead of `unavailable(.rfid, .unknown)` — refused, but for the wrong reason: it reports a model known to have RFID, when the truth is that nobody knows |
+| M33 | `FinishingControlQualification`: `1...64Ki` output-limit declaration | AC02 | **both** | `maximumOutputBytes: 0` → rejects differently (`outputLimit`, not `invalidOutputLimit`); `maximumOutputBytes: 65537` → **ACCEPTS**, emitting `^MMT` |
+
+#### Part 2b — why no existing test noticed (measured by searching the suite)
+
+A mutation result cannot answer this, and the first two revisions of this
+document tried to. What answers it is whether any pre-existing test ever fed
+this guard something it refused. That was established by a **reachability
+probe**: each guard's refusal was temporarily replaced by
+`fatalError("GUARD-TAKEN-<id>")`, Lane D's own test file was moved out of the
+package so only the 346-test baseline ran, and the suite was executed. A crash
+means some existing test fed an input this guard actually rejected, and the
+output names the test that was running; a clean `Executed 346 tests, with 0
+failures` means none did. The compound tracking guard was temporarily split into
+one guard per clause so the state and evidence clauses were separately
+attributable. For the guards that *were* reached, the input the existing suite
+feeds was then replayed under the mutation to see whether removal changes the
+error at all.
+
+Three causes, not two:
+
+- **A — input absent.** No existing test ever made this guard refuse anything.
+  A bare `XCTAssertThrowsError` could not have caught the removal because the
+  input was never supplied. This is the cause the 2026-09-20 handoff recorded
+  for M2-AC05, and it is worth being exact about which cause that was, because
+  this document previously cited it loosely for all twelve guards here.
+  `docs/PROGRESS.json` describes it as: "the obvious place to look,
+  `WorkerBitmapBindingTests.swift`, does not cover the guard: it holds one test
+  for dimension and allocation bounds **whose positive case still passes without
+  it**." A positive case that still passes is an input that never reached the
+  refusal — cause A, not a weakly-asserted negative case. The lesson it carries
+  ("do not assume the obviously-named test covers what it is named after") is
+  what motivated this sweep, and it applies to all three causes.
+- **B1 — exercised, error unnamed, removal changes the error.** The input was
+  fed, the guard did refuse it, and removal shifts the refusal to a different
+  error. Naming the error in the existing assertion **would** have caught it.
+- **B2 — exercised, error unnamed, removal throws the identical error.** The
+  input was fed, but it carries a payload that makes a policy-type copy of the
+  rule apply, and that copy throws the *same* error case. Naming the error would
+  **not** have caught it; only a different input would.
+
+| # | Cause | How established |
+|---|---|---|
+| M05 | **A** | `fatalError` at the backfeed state guard: suite completed `Executed 346 tests, with 0 failures`. Feed speed is validated before backfeed, and the one existing request that reaches the backfeed block (`.init(backfeedSpeedIps: 4)` in `MotorSpeedIntegrationTests.testUnknownUnsupportedAndIncompleteRemainDistinct`) has backfeed **supported**, so the state guard passes and the membership check refuses instead. No existing test pairs an unavailable backfeed with a usable feed. |
+| M11 | **A** | Tracking guard split per clause; `fatalError` on the evidence clause never reached, suite completed 346/0. Every existing tracking request is either schema 1 or 2 (`PrinterProfileTests` ×2, `ConfiguredPrinterDefaultsTests`, `ZPLDocumentedControlEncoderTests`), refused by the `schemaVersion >= 5` clause, or schema 5/6 against a fully documented, supported fact (`GeometryControlIntegrationTests` ×3, `OffsetControlIntegrationTests`). |
+| M12 | **A** | Same probe, `fatalError` on the state clause never reached, suite completed 346/0. Same input inventory. |
+| M85 | **A** | `fatalError` at the schema-5 declaration gate never reached, suite completed 346/0. The JSON tests that set `schemaVersion` to 1–4 on a schema-5 fixture (`GeometryControlIntegrationTests.testProfileFiveCanonicalDefaultsAndAllMalformedFields`) are refused by the codec before `PrinterProfile.init` runs, so they never reach this gate; no test calls the initialiser directly with that combination. |
+| M86 | **A** | Same, for the schema-6 offset declaration gate: never reached, suite completed 346/0. |
+| M33 | **A + B1** | `fatalError` at the limit bound **was** reached, by `FinishingControlQualificationTests.testModesRemainOfflineAndDoNotSelectCutIntervalsCopiesOrDestructiveCommands` — the `maximumOutputBytes: 0` case, asserted with a bare `XCTAssertThrowsError`; replayed under the mutation it becomes `outputLimit` instead of `invalidOutputLimit`, so that half is **B1**. The above-bound half is **A**: no existing test passes a limit greater than 64 KiB. |
+| M16 | **B1** | `fatalError` reached in `OffsetControlIntegrationTests.testBlackMarkMappingRequiresQualifiedOffsetAndRejectsIncompatibleLength`. Replayed: `invalidProfileVersion` → `unavailable(.shiftLeft, .unknown)`. |
+| M41 | **B1** | `fatalError` reached in `FinishingProfilePersistenceTests.testEveryQualifiedFinishingModeResolvesWithoutAdmittingMechanicalEncoding`. Replayed: `unavailable(.rfid, .unknown)` → `missingModelEvidence(.rfid)`. |
+| M42 | **B1** | Same test. Replayed: `unavailable(.prepeel, .unknown)` → `missingModelEvidence(.prepeel)`. |
+| M46 | **B1** | Same test. Replayed: `unavailable(.quantityOne, .unknown)` → `missingModelEvidence(.quantityOne)`. |
+| M13 | **B2** | `fatalError` reached in `GeometryControlIntegrationTests.testConflictingModeAndLengthCannotBeSilentlyDropped`. That input selects continuous tracking against a profile whose configured defaults already carry a `mediaGeometry`, so replayed under the mutation `PhysicalGeometryQualification` throws the **identical** `continuousLengthRequired`. |
+| M14 | **B2** | `fatalError` reached in `FinishingProfilePersistenceTests.testOfflineFinishingResolutionSharesEffectiveControlValidationAndKeepsOrdinaryGate`. That input selects black-mark tracking against a profile whose configured defaults already carry an `offsets` payload, so replayed under the mutation `OffsetControlQualification` throws the **identical** `blackMarkOffsetRequired`. |
+
+**Counts: A = 5, B1 = 4, B2 = 2, and M33 in both A and B1.**
+
+##### Why 2a and 2b do not line up, and three corrections that follow
+
+The two tables are about **different inputs**, so a guard can accept in 2a and
+be reached in 2b without contradiction. M42 and M46 are the clearest case: the
+existing suite feeds an unknown-and-`.unobserved` fact, which the guard refuses
+and whose removal merely changes the error (B1); the new tests feed a
+*documented* unknown or unsupported fact, which removal **accepts** (2a). The
+guard is the only thing refusing the second input, and only the first was ever
+tried. M13 and M14 are the mirror image: reached on an input that carries a
+payload, where a policy copy still refuses identically (B2), but accepting on
+the payload-free input the new tests feed.
+
+Three claims in earlier revisions of this document were wrong and are corrected
+here:
+
+1. "For all twelve, the assertions demanded only that something was thrown."
+   False for the five cause-A guards: those inputs were never supplied, so no
+   assertion of any strength could have caught the removal. This was the
+   finding under review.
+2. The rows for M41, M42 and M46 said `documented()` "threw first" for the
+   existing unknown-state facts. That is the wrong order:
+   `guard rfid.state != .unknown`, `guard prepeel.state != .unknown` and
+   `supported()`'s state check all run **before** `documented()`, and the
+   reachability probe confirms they are the clauses that actually refuse those
+   inputs. The reason no test noticed is that the assertions did not name the
+   error, not that another clause got there first.
+3. M13 and M14 were placed in the absent bucket on the reasoning that the
+   policy types hold tested copies. Measured, they are reached: the copies do
+   apply to the inputs the existing suite feeds, and throw the same error case,
+   which is why removal was invisible there.
 
 ### Part 3 — the twelve gaps, closed and re-proved
 
