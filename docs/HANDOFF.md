@@ -1,3 +1,80 @@
+# Five slices merged, four records re-sealed, and the portable suite runs on every PR — 2026-09-22
+
+All five merged on the maintainer's explicit authorization. Nothing was printed, installed or authorized,
+and **no byte was sent to any printer**. Every merge was green on its exact head, with `swift-macos-arm64`
+executed rather than skipped.
+
+| PR | Slice | Reviewed head | Squashed to |
+|---|---|---|---|
+| #163 | portable Swift and accelerator checks on every pull request | `e6fb35c` | `fb7c9f9` |
+| #150 | portable, inert queue installation transaction model (M1, #129) | `187d5a1` | `cb5b562` |
+| #156 | execution-surface map, reconciled with #163 | `45be538` | `4b16baa` |
+| #160 | `actions/cache/save` 4.3.0 → 6.1.0 | `477e1fb` | `a5e50a0` |
+| #161 | `actions/cache/restore` 4.3.0 → 6.1.0 | `cf5b6e5` | `55a67f8` |
+
+## #150: two recovery-state findings fixed before merge
+
+An external review of `906a16b` found two source-derived counterexamples. Both were **reproduced failing
+on the unmodified head** before anything changed:
+
+- **A failed retraction restored deletion authority.** After `createFile` returned `alreadyPresent`, a
+  failed journal write put the pending mark back in memory. Once the fault cleared, automatic rollback
+  deleted a foreign file that matched the plan. A `createFile` throw, which the seam defines as no
+  effect, left the same mark. What the journal last recorded and what this invocation may delete are now
+  kept apart: the retraction stays in the record, and recovery's compare-and-swap before its first removal
+  carries it to storage. `unknown` still keeps its mark.
+- **An uncertain root reservation could report a clean rollback.** `.unknown`, or a reservation under an
+  unexpected parent, left an empty inventory whose empty recovery plan ran to `rolledBack`. It now enters
+  residual `protectedRootReservationUnverified`, and both rollback entry points return that on every call
+  without touching the seam.
+
+An encoder-agreement test now pins `maximumCanonicalByteCount` against every journal actually written,
+across the legal progressions and at boundary-sized intents. The estimator reads its widths from the
+types that validate them. All six guard mutations and four estimator mutations fail a named test. The
+estimator mutations are caught by the formula-equality assertion, **not** by an encoding exceeding the
+bound: the bound's deliberate slack absorbs a small undercount, and the test says which assertion carries
+the claim.
+
+`testEveryStepIsJournalledAsPendingBeforeItsEffect` used a throw to model an interruption, which the
+retraction contradicts. It now uses `unknown` and also checks the journal as it stood at the effect.
+
+**Still open, and not closed by this:** the held cross-process claim described once under *Unheld claims*
+at the top of `QueueInstallationTransaction.swift`, tracked in #162. A held coordination mechanism,
+post-restart ownership evidence and protection from uncooperative writers are three different
+obligations. ADR 0005 remains *proposed*, and `LabelCore` still ships no conforming sink.
+
+## #163 and #156: what CI reaches is now what the map says
+
+Before #163, a documentation-only pull request ran **no** Swift test and **no** accelerator check.
+`portable-ubuntu-arm64` now runs both on every pull request, in debug only, with no gate. #156's map was
+reconciled on top of it: `automated-swift` moves to every-pull-request, giving **31 / 10 / 49** (was
+8 / 33 / 49). Two limits are recorded in `derivedFrom.portableJob` rather than rounded away:
+- the release-configuration pass still needs the gated macOS job;
+- `automated-macos` does not move, because its executors cannot run on Linux.
+
+These are places a pass can be obtained, never passes. The older `50 of 90` and per-surface list further
+down this file are historical and superseded by `docs/VALIDATION-PLAN.md`.
+
+## Re-seal
+
+`docs/validation/EVIDENCE-RESEAL-AFTER-FOURTEEN-SLICES-2026-09-22.md` rebinds `M2-AC04`, `M2-AC05`,
+`M2-AC13` and `M3-AC03` from `1471eda` to `55a67f8`. Fourteen source merges (#149–#161) had staled all
+four, nine of them before this session. **49 of 49** cited paths re-hashed identical. The receipt
+replaces the 2026-09-20 one in `M2-AC04` and `M2-AC13`, and is added to `M2-AC05` and `M3-AC03`, which
+cited none.
+
+## Owed next
+
+- Confirm on the first `main` push run after #160 that the new cache-save action actually uploads. A PR
+  run never saves.
+- Confirm on merged `main` that the four records survived this slice's own squash merge
+  (`evidence_currency.py --gate-stale` on a clean checkout of `main`).
+- #162: the held-claim design for ADR 0005. It is the maintainer's decision.
+- #156's follow-up: represent criteria needing several executions explicitly, so "all required" is
+  distinct from genuinely alternative evidence paths. That is a separate schema change.
+- Unchanged: GUI, installed scheduler, administrator, USB transport, physical output and every release
+  gate remain NOT RUN.
+
 # Seven slices, a hosted macOS run, and the first two new ledger records in a week — 2026-09-20
 
 All seven merged. Nothing was printed, installed or authorized, and **no byte was sent to the printer**.
