@@ -90,7 +90,10 @@ final class VirtualQueueDefinitionTests: XCTestCase {
             workflowProfile: ImmutableProfileReference(id: "workflow", revision: 1, sha256: digestA),
             printerProfile: ImmutableProfileReference(id: "printer", revision: 7, sha256: digestB),
             workflowDefaults: .init(darkness: 10), validatingAgainst: profile
-        )) { XCTAssertEqual($0 as? PrinterProfileError, .unavailableDarkness) }
+        )) {
+            XCTAssertEqual($0 as? PrinterProfileError,
+                           .controlRequiresSchemaVersion(.darkness, required: 4, profileVersion: 1))
+        }
 
         var object = try XCTUnwrap(try JSONSerialization.jsonObject(
             with: VirtualQueueJSON.encode(try queue())

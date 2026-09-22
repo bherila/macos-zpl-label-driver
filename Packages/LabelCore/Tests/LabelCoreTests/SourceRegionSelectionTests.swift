@@ -27,4 +27,40 @@ final class SourceRegionSelectionTests: XCTestCase {
                 endX: values.4, endY: values.5))
         }
     }
+
+    /// An off-page drag origin is refused as `invalidDrag` by the origin rule
+    /// itself. Without that rule the clamped endpoint still yields a rectangle
+    /// outside the unit square, so `NormalizedRect` refuses it a step later
+    /// with `PageGeometryError.invalidNormalizedRegion` — a different rule
+    /// producing a different refusal, which a bare throws-assertion accepts.
+    func testOffPageDragOriginIsRefusedAsInvalidDragNotAsAnInvalidRegion() {
+        let width = 200.0
+        let height = 400.0
+        for start in [(-1.0, 40.0), (width.nextUp, 40.0), (width + 1, 40.0),
+                      (20.0, -1.0), (20.0, height.nextUp), (20.0, height + 1),
+                      (-0.5, -0.5)] {
+            XCTAssertThrowsError(try SourceRegionSelection.rectangle(
+                viewportWidth: width, viewportHeight: height,
+                startX: start.0, startY: start.1, endX: 100, endY: 200
+            ), "\(start)") {
+                XCTAssertEqual($0 as? SourceRegionSelection.Error, .invalidDrag, "\(start)")
+            }
+        }
+    }
+
+    /// The accepted side of the same bound: both closed edges of the viewport
+    /// are legal drag origins. Expectations are fixed literals, not values
+    /// recomputed from the viewport the way the call under test computes them.
+    func testViewportEdgesRemainLegalDragOrigins() throws {
+        XCTAssertEqual(
+            try SourceRegionSelection.rectangle(viewportWidth: 200, viewportHeight: 400,
+                startX: 0, startY: 0, endX: 100, endY: 200),
+            try NormalizedRect(x: 0, y: 0, width: 0.5, height: 0.5)
+        )
+        XCTAssertEqual(
+            try SourceRegionSelection.rectangle(viewportWidth: 200, viewportHeight: 400,
+                startX: 200, startY: 400, endX: 100, endY: 200),
+            try NormalizedRect(x: 0.5, y: 0.5, width: 0.5, height: 0.5)
+        )
+    }
 }

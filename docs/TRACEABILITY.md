@@ -148,3 +148,31 @@ is then opened `O_NOFOLLOW` relative to the previous descriptor, so a symlinked 
 the tree cannot redirect a read outside it either, and at most 2 MiB + 1 byte is read from any
 file — the extra byte is what proves the cap, which is enforced while reading rather than checked
 against `st_size` afterwards.
+
+### `INVALID-REFERENCES` gates a source slice that touches a cited path
+
+The gating list above has a consequence worth stating on its own, because it is the one that
+costs a contributor a build rather than a re-read. `INVALID-REFERENCES` is severity `GATE`
+unconditionally: unlike `STALE-SOURCE` it does not wait for `--gate-stale`, so it fails every
+pull request, not only a `main` push. A slice that changes one byte of a file a live record
+**cites** therefore cannot merge, and that includes a slice which only adds a test to that file.
+
+PR #148 is the worked example. It added assertions for `M3-AC04` inside
+`Packages/LabelMac/Tests/LabelMacTests/ProfileBoundFinishingJobPlanTests.swift`, which `M3-AC03`
+cites as evidence. The assertions were correct and the manifest was refreshed correctly; the
+digest the ledger holds for that file simply stopped matching, and preflight refused the change.
+Clearing it by re-hashing is forbidden — *if a cited file changed, that is a new claim and needs
+its evidence re-run, not a quiet re-hash* — and re-running `M3-AC03` means a hosted macOS pass,
+which is a different slice from the one in front of you. #149 landed the same substance in a new
+file with `ProfileBoundFinishingJobPlanTests.swift` untouched, and passed.
+
+So there are exactly two honest routes, and they are chosen **before** writing, by reading the
+cited paths out of `docs/ACCEPTANCE-EVIDENCE.json`:
+
+1. put the new coverage in a new file, leaving every cited byte alone; or
+2. re-run the cited record's evidence and rebind it in the same slice — which for anything under
+   `Packages/LabelMac` needs a macOS host, since Linux cannot build that package.
+
+Neither is a workaround. The gate is doing its job: a record binds bytes, and bytes that moved
+are no longer the bytes it attested to. What the gate cannot tell you is which of the two routes
+your change wants, and that is a judgement made cheaply at the start and expensively after CI.

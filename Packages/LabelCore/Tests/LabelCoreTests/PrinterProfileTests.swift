@@ -58,13 +58,27 @@ final class PrinterProfileTests: XCTestCase {
             (.init(finishing: .cut), .unsupportedFinishing(.cut)),
             (.init(finishing: .peel), .unsupportedFinishing(.peel)),
             (.init(finishing: .rewind), .unsupportedFinishing(.rewind)),
-            (.init(darkness: 10), .unavailableDarkness),
-            (.init(tracking: .gap), .unavailableTracking(.gap)),
-            (.init(tracking: .continuous), .unavailableTracking(.continuous)),
+            // The reference profile is schema 1, which cannot express darkness
+            // or tracking at all. That is a fact about the record, and it is
+            // reported as one: the profile's own documented claim that gap
+            // tracking is supported is asserted below, so a refusal naming the
+            // printer here would be a false statement about the device.
+            (.init(darkness: 10), .controlRequiresSchemaVersion(.darkness, required: 4, profileVersion: 1)),
+            (.init(tracking: .gap),
+             .controlRequiresSchemaVersion(.tracking(.gap), required: 5, profileVersion: 1)),
+            (.init(tracking: .continuous),
+             .controlRequiresSchemaVersion(.tracking(.continuous), required: 5, profileVersion: 1)),
+            (.init(tracking: .blackMark),
+             .controlRequiresSchemaVersion(.tracking(.blackMark), required: 6, profileVersion: 1)),
         ]
         for (request, expected) in cases {
             XCTAssertThrowsError(try profile.validate(request)) { XCTAssertEqual($0 as? PrinterProfileError, expected) }
         }
+        XCTAssertEqual(profile.schemaVersion, 1)
+        XCTAssertEqual(profile.capabilities.tracking[.gap],
+                       CapabilityFact(state: .supported, evidence: .documentedModel(sourceID: "R26")))
+        XCTAssertEqual(profile.capabilities.darkness,
+                       CapabilityFact(state: .unknown, evidence: .unobserved))
     }
 
     func testAbsentControlMeansLeaveUnchangedRatherThanGuessedDefault() throws {
@@ -250,11 +264,16 @@ final class PrinterProfileTests: XCTestCase {
             try observedProfile.resolveControls(job: .init(printSpeedIps: 3)).printSpeedIps,
             .value(3)
         )
+        // A read-only observation of the current device setting does not make
+        // the control available, and the refusal still names the schema record
+        // rather than the printer.
         XCTAssertThrowsError(try observedProfile.resolveControls(job: .init(darkness: 12))) {
-            XCTAssertEqual($0 as? PrinterProfileError, .unavailableDarkness)
+            XCTAssertEqual($0 as? PrinterProfileError,
+                           .controlRequiresSchemaVersion(.darkness, required: 4, profileVersion: 1))
         }
         XCTAssertThrowsError(try observedProfile.resolveControls(job: .init(tracking: .gap))) {
-            XCTAssertEqual($0 as? PrinterProfileError, .unavailableTracking(.gap))
+            XCTAssertEqual($0 as? PrinterProfileError,
+                           .controlRequiresSchemaVersion(.tracking(.gap), required: 5, profileVersion: 1))
         }
     }
 
