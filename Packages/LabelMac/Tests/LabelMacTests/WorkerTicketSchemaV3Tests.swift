@@ -593,29 +593,33 @@ final class WorkerTicketSchemaV3Tests: XCTestCase {
         XCTAssertEqual(refusal(wide(nodeCap - spent + 1), "one node over the cap"), .malformedJSON)
     }
 
-    /// FINDING for the #93 / #101 human pass, recorded rather than fixed.
+    /// The finding this test recorded for the #93 / #101 human pass is fixed,
+    /// and the test is now its regression.
     ///
     /// Unknown fields are ignored: the strict key-set check applies to the
     /// margin object alone, so an unrelated key rides along into the worker's
     /// parent unexamined. That is ordinary `Decodable` behaviour and is not by
     /// itself a defect.
     ///
-    /// What it exposes is: the initializer parses the same bytes twice, once
+    /// What it exposed was: the initializer parses the same bytes twice, once
     /// through `WorkerProtocolJSON` (whose failure is mapped to
-    /// `malformedJSON`) and once through `JSONSerialization` (whose `try` is
-    /// bare). A numeric literal in an *ignored* field can be accepted by the
+    /// `malformedJSON`) and once through `JSONSerialization`, whose `try` was
+    /// bare. A numeric literal in an *ignored* field can be accepted by the
     /// first and refused by the second -- `1e400` is one -- and the resulting
-    /// `NSError` leaves the initializer untyped, contradicting the closed
-    /// surface `OfflineConversionTicketErrorSurfaceTests` documents.
+    /// `NSError` left the initializer untyped, contradicting the closed surface
+    /// `OfflineConversionTicketErrorSurfaceTests` documents. Observed on
+    /// Linux/swift-foundation 6.1.3 against a faithful replica of this
+    /// initializer: `NSCocoaErrorDomain` 3840, "Number 1e400 is not
+    /// representable in Swift"; never observed on macOS, where LabelMac's first
+    /// real compile is hosted CI.
     ///
-    /// Observed on Linux/swift-foundation 6.1.3 against a faithful replica of
-    /// this initializer: `NSCocoaErrorDomain` 3840, "Number 1e400 is not
-    /// representable in Swift". Not observed on macOS, and not asserted here:
-    /// this slice is coverage and reporting, and narrowing or widening the
-    /// admission is the human pass's call. The assertion is therefore the part
-    /// that holds either way -- the document never yields a ticket whose fields
-    /// differ from the honest base's.
-    func testUnknownFieldsAreIgnoredAndOneOverflowingLiteralEscapesUntyped() throws {
+    /// `OfflineConversionTicket.rootObject(from:)` now owns that second parse
+    /// and maps both of its failure modes to `malformedJSON`, so an untyped
+    /// escape is a failure here rather than a tolerated outcome. Which of the
+    /// two *admitted* outcomes occurs still depends on the Foundation build --
+    /// the document either parses to the honest ticket or is refused -- so both
+    /// of those remain accepted.
+    func testUnknownFieldsAreIgnoredAndAnOverflowingLiteralCannotEscapeUntyped() throws {
         let ignorable = try OfflineConversionTicket(
             jsonData: sample("\"pageNumber\":1,", "\"unknown\":true,\"pageNumber\":1,"))
         XCTAssertEqual(ignorable, try OfflineConversionTicket(jsonData: Data(Self.baseVersionThree.utf8)),
@@ -632,11 +636,8 @@ final class WorkerTicketSchemaV3Tests: XCTestCase {
         } catch let error as OfflineConversionTicket.TicketError {
             XCTAssertEqual(error, .malformedJSON)
         } catch {
-            // The finding above. Deliberately not a failure: asserting it would
-            // pin a defect as expected behaviour, and asserting the contract
-            // would fail a suite this slice is not authorised to fix.
-            XCTAssertFalse(error is OfflineConversionTicket.TicketError,
-                           "untyped escape from the ticket initializer: \(error)")
+            XCTFail("untyped escape from the ticket initializer: "
+                    + "\(type(of: error)) crossed the boundary: \(error)")
         }
     }
 
