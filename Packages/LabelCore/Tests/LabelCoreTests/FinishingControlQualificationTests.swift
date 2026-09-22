@@ -78,30 +78,105 @@ final class FinishingControlQualificationTests: XCTestCase {
         XCTAssertEqual(try plan(.everyLabel, count: 10_000).count, 10_000)
     }
 
+    /// Names the exact refusal, so a schedule admission failure can never be
+    /// satisfied by an unrelated rule that happens to reject the same input.
+    private func refusal(_ count: Int, _ schedule: CutSchedule,
+                         finishing: FinishingControlQualification,
+                         qualification: CutScheduleQualification,
+                         file: StaticString = #filePath, line: UInt = #line) -> Error? {
+        var captured: Error?
+        XCTAssertThrowsError(try CutSchedulePlanner.boundaries(afterOutputLabels: count,
+            schedule: schedule, finishing: finishing, qualification: qualification),
+            file: file, line: line) { captured = $0 }
+        return captured
+    }
+
     func testCutModeSupportCannotSubstituteForEachScheduleOrInstalledCutter() throws {
         for schedule in [CutSchedule.everyLabel, .batch(size: 2, cutRemainderAtJobEnd: true), .endOfJob] {
-            XCTAssertThrowsError(try CutSchedulePlanner.boundaries(afterOutputLabels: 3,
-                schedule: schedule, finishing: policy))
-            XCTAssertThrowsError(try CutSchedulePlanner.boundaries(afterOutputLabels: 3,
-                schedule: schedule, finishing: .init(modes: policy.modes, enabledModes: [.cut]), qualification: schedules))
+            XCTAssertEqual(refusal(3, schedule, finishing: policy, qualification: .init())
+                as? CutSchedulePlanner.Error, .unavailableSchedule(.unknown))
+            XCTAssertEqual(refusal(3, schedule,
+                finishing: .init(modes: policy.modes, enabledModes: [.cut]), qualification: schedules)
+                as? FinishingControlQualification.Error, .unverifiedAccessory(.cut))
         }
         for size in [0, -1, 6, Int.min, Int.max] {
-            XCTAssertThrowsError(try CutSchedulePlanner.boundaries(afterOutputLabels: 7,
-                schedule: .batch(size: size, cutRemainderAtJobEnd: true), finishing: policy, qualification: schedules))
+            XCTAssertEqual(refusal(7, .batch(size: size, cutRemainderAtJobEnd: true),
+                finishing: policy, qualification: schedules)
+                as? CutSchedulePlanner.Error, .invalidBatchSize)
         }
+        // Both sides of the declared 1...maximumBatchSize interval.
+        XCTAssertEqual(try CutSchedulePlanner.boundaries(afterOutputLabels: 7,
+            schedule: .batch(size: 1, cutRemainderAtJobEnd: false), finishing: policy,
+            qualification: schedules), [1, 2, 3, 4, 5, 6, 7])
+        XCTAssertEqual(try CutSchedulePlanner.boundaries(afterOutputLabels: 7,
+            schedule: .batch(size: 5, cutRemainderAtJobEnd: false), finishing: policy,
+            qualification: schedules), [5])
         for count in [0, -1, 10_001, Int.max] {
-            XCTAssertThrowsError(try CutSchedulePlanner.boundaries(afterOutputLabels: count,
-                schedule: .endOfJob, finishing: policy, qualification: schedules))
+            XCTAssertEqual(refusal(count, .endOfJob, finishing: policy, qualification: schedules)
+                as? CutSchedulePlanner.Error, .invalidLabelCount)
         }
+        // Both sides of the 1...maximumLabels output-count interval.
+        XCTAssertEqual(try CutSchedulePlanner.boundaries(afterOutputLabels: 1, schedule: .endOfJob,
+            finishing: policy, qualification: schedules), [1])
+        XCTAssertEqual(try CutSchedulePlanner.boundaries(afterOutputLabels: 10_000, schedule: .endOfJob,
+            finishing: policy, qualification: schedules), [10_000])
     }
 
     func testMalformedBatchDeclarationsDoNotTurnUnknownIntoUnlimited() throws {
-        for qualification in [CutScheduleQualification(batch: supported),
-                              .init(maximumBatchSize: 0),
-                              .init(batch: supported, maximumBatchSize: Int.max),
-                              .init(batch: .init(state: .supported, evidence: .unobserved), maximumBatchSize: 5)] {
-            XCTAssertThrowsError(try CutSchedulePlanner.boundaries(afterOutputLabels: 3,
-                schedule: .everyLabel, finishing: policy, qualification: qualification))
+        let unevidenced = CapabilityFact(state: .supported, evidence: .unobserved)
+        // Every declaration below is asked about the batch schedule it actually
+        // describes. Asking about a different schedule would be refused by the
+        // per-schedule support rule instead, which hides this rule entirely.
+        for qualification: CutScheduleQualification in [
+            .init(batch: supported),
+            .init(batch: supported, maximumBatchSize: 0),
+            .init(batch: supported, maximumBatchSize: 10_001),
+            .init(batch: supported, maximumBatchSize: Int.max),
+            .init(batch: unevidenced, maximumBatchSize: 5),
+            // A maximum without a supported batch declaration is not a limit.
+            .init(everyLabel: supported, endOfJob: supported, maximumBatchSize: 5),
+            .init(maximumBatchSize: 0),
+        ] {
+            XCTAssertEqual(refusal(3, .batch(size: 2, cutRemainderAtJobEnd: true),
+                finishing: policy, qualification: qualification)
+                as? CutSchedulePlanner.Error, .invalidBatchDeclaration)
         }
+        // Both sides of the 1...maximumLabels batch-maximum interval.
+        for maximum in [1, CutSchedulePlanner.maximumLabels] {
+            XCTAssertEqual(try CutSchedulePlanner.boundaries(afterOutputLabels: 3,
+                schedule: .batch(size: 1, cutRemainderAtJobEnd: false), finishing: policy,
+                qualification: .init(batch: supported, maximumBatchSize: maximum)), [1, 2, 3])
+        }
+    }
+
+    func testUnknownUnsupportedAndUnevidencedSchedulesAreRefusedPerSchedule() throws {
+        let unevidenced = CapabilityFact(state: .supported, evidence: .unobserved)
+        let unsupported = CapabilityFact(state: .unsupported, evidence: supported.evidence)
+        for (schedule, make) in [
+            (CutSchedule.everyLabel, { (fact: CapabilityFact) in
+                CutScheduleQualification(everyLabel: fact) }),
+            (.endOfJob, { CutScheduleQualification(endOfJob: $0) }),
+        ] as [(CutSchedule, (CapabilityFact) -> CutScheduleQualification)] {
+            // An unknown schedule is not a usable one, and an unsupported one
+            // keeps its own distinct state in the refusal.
+            XCTAssertEqual(refusal(3, schedule, finishing: policy,
+                qualification: make(.init(state: .unknown, evidence: .unobserved)))
+                as? CutSchedulePlanner.Error, .unavailableSchedule(.unknown))
+            XCTAssertEqual(refusal(3, schedule, finishing: policy, qualification: make(unsupported))
+                as? CutSchedulePlanner.Error, .unavailableSchedule(.unsupported))
+            // Supported with no evidence at all is a separate refusal, never a
+            // qualified schedule and never collapsed into `unavailableSchedule`.
+            XCTAssertEqual(refusal(3, schedule, finishing: policy, qualification: make(unevidenced))
+                as? CutSchedulePlanner.Error, .missingScheduleEvidence)
+        }
+        // A supported batch declaration carrying no evidence is refused by the
+        // stricter declaration rule before the per-schedule evidence rule.
+        XCTAssertEqual(refusal(3, .batch(size: 2, cutRemainderAtJobEnd: true), finishing: policy,
+            qualification: .init(batch: unsupported))
+            as? CutSchedulePlanner.Error, .unavailableSchedule(.unsupported))
+        // One qualified schedule never qualifies another.
+        XCTAssertEqual(refusal(3, .endOfJob, finishing: policy,
+            qualification: .init(everyLabel: supported))
+            as? CutSchedulePlanner.Error, .unavailableSchedule(.unknown))
     }
 }
