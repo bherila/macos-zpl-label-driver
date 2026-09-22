@@ -78,60 +78,77 @@ final class WorkerTicketSchemaV3Tests: XCTestCase {
 
     // MARK: - Part A: what the worker puts on the wire (#93 gap 1)
 
-    /// The zero-margin ticket must still be the v2 document, byte for byte.
+    /// The v2 wire document as it shipped, byte for byte.
     ///
-    /// The expectation is written out here as an independent object rather than
-    /// derived from the emitter, so every field, its JSON type and the sorted
-    /// key order are pinned. Serializing it through the same API the emitter
-    /// uses keeps the comparison about content instead of about how a given
-    /// Foundation prints a `Double`.
-    func testZeroMarginTicketIsTheByteIdenticalVersionTwoDocument() throws {
-        let label = try plannedLabel(outputMargins: .zero)
-        let expectedWire: [String: Any] = [
-            "schemaVersion": 2,
-            "pageNumber": label.sourcePage,
-            "physicalSize": ["widthMillimeters": Double(20), "heightMillimeters": Double(10)],
-            "resolution": ["xDotsPerMillimeter": Double(1), "yDotsPerMillimeter": Double(1)],
-            "conversion": ["mode": "textAndBarcodeThreshold", "cutoff": 128],
-            "placementPolicy": "fit",
-            "extraction": [
-                "region": ["x": label.normalizedRect.x, "y": label.normalizedRect.y,
-                           "width": label.normalizedRect.width, "height": label.normalizedRect.height],
-                "expectedSourceRect": ["x": label.sourceRect.x, "y": label.sourceRect.y,
-                                       "width": label.sourceRect.width, "height": label.sourceRect.height],
-                "rotation": label.rotation.rawValue,
-            ],
-        ]
-        let expected = try JSONSerialization.data(withJSONObject: expectedWire, options: [.sortedKeys])
-        let actual = try emitted(margins: .zero)
-        XCTAssertEqual(actual, expected, String(decoding: actual, as: UTF8.self))
+    /// This constant is the *historical* form, not a re-derivation of it. An
+    /// expectation built by calling `JSONSerialization` with the same options
+    /// the emitter uses would move with the emitter: a change in Foundation's
+    /// floating-point spelling, key ordering or separators would shift both
+    /// sides identically and the comparison would stay green while the bytes a
+    /// running worker receives had changed. That is precisely the compatibility
+    /// claim this pair of tests exists to make, so the constant has to be
+    /// independent of the serializer under test.
+    ///
+    /// **If a test fails against this constant, the wire form changed.** Do not
+    /// update the constant to match the emitter; that converts a detected
+    /// regression into a silent one. Every value here is an integral `Double`
+    /// or an `Int`, the one case every JSON serializer spells identically, so a
+    /// failure means content or ordering moved rather than number printing.
+    ///
+    /// Fixture: 20 mm x 10 mm stock at 1 dot/mm, page 1, the whole page as one
+    /// unrotated region, threshold 128.
+    private static let goldenVersionTwo = """
+    {"conversion":{"cutoff":128,"mode":"textAndBarcodeThreshold"},\
+    "extraction":{"expectedSourceRect":{"height":10,"width":20,"x":0,"y":0},\
+    "region":{"height":1,"width":1,"x":0,"y":0},"rotation":0},\
+    "pageNumber":1,"physicalSize":{"heightMillimeters":10,"widthMillimeters":20},\
+    "placementPolicy":"fit","resolution":{"xDotsPerMillimeter":1,"yDotsPerMillimeter":1},\
+    "schemaVersion":2}
+    """
 
-        // Byte-level facts that hold whatever a Foundation does with numbers.
+    /// The same fixture with margins of 1 / 2 / 3 / 0.5 mm, also fixed bytes.
+    /// `0.5` is exactly representable, so it too spells identically everywhere.
+    private static let goldenVersionThree = """
+    {"conversion":{"cutoff":128,"mode":"textAndBarcodeThreshold"},\
+    "extraction":{"expectedSourceRect":{"height":10,"width":20,"x":0,"y":0},\
+    "region":{"height":1,"width":1,"x":0,"y":0},"rotation":0},\
+    "outputMargins":{"bottom":0.5,"left":1,"right":3,"top":2},\
+    "pageNumber":1,"physicalSize":{"heightMillimeters":10,"widthMillimeters":20},\
+    "placementPolicy":"fit","resolution":{"xDotsPerMillimeter":1,"yDotsPerMillimeter":1},\
+    "schemaVersion":3}
+    """
+
+    /// A zero-margin plan emits the historical v2 bytes, unchanged.
+    func testZeroMarginTicketIsTheByteIdenticalVersionTwoDocument() throws {
+        let actual = try emitted(margins: .zero)
         let text = String(decoding: actual, as: UTF8.self)
+        XCTAssertEqual(text, Self.goldenVersionTwo,
+                       "the v2 wire form changed; do not edit the golden to match it")
+        XCTAssertEqual(actual, Data(Self.goldenVersionTwo.utf8))
         XCTAssertFalse(text.contains("outputMargins"), "a zero-margin ticket must carry no margin key")
-        XCTAssertTrue(text.contains("\"schemaVersion\":2"))
     }
 
-    /// The v3 ticket is the v2 document with the margin object inserted and the
-    /// version bumped -- and nothing else moved. Comparing the two emissions as
-    /// text, rather than each against a literal, states that relation exactly
-    /// without depending on how this Foundation spells a `Double`.
+    /// A non-zero margin emits the historical v3 bytes, which are the v2 bytes
+    /// with the margin object inserted at its sorted position and the version
+    /// bumped -- and nothing else moved. The relation is asserted between the
+    /// two constants as well as against the emitter, so "nothing else moved" is
+    /// stated explicitly rather than inherited from a shared serializer call.
     func testVersionThreeTicketIsTheVersionTwoBytesPlusTheMarginObject() throws {
         let margins = try OutputMargins(left: 1, top: 2, right: 3, bottom: 0.5)
-        let versionTwo = String(decoding: try emitted(margins: .zero), as: UTF8.self)
-        let versionThree = String(decoding: try emitted(margins: margins), as: UTF8.self)
+        let text = String(decoding: try emitted(margins: margins), as: UTF8.self)
+        XCTAssertEqual(text, Self.goldenVersionThree,
+                       "the v3 wire form changed; do not edit the golden to match it")
 
-        let marginFragment = String(decoding: try JSONSerialization.data(
-            withJSONObject: ["left": margins.left, "top": margins.top,
-                             "right": margins.right, "bottom": margins.bottom],
-            options: [.sortedKeys]), as: UTF8.self)
-        // Sorted keys put `outputMargins` between `extraction` and `pageNumber`.
-        XCTAssertTrue(versionTwo.contains(",\"pageNumber\":"))
-        let expected = versionTwo
-            .replacingOccurrences(of: ",\"pageNumber\":",
-                                  with: ",\"outputMargins\":\(marginFragment),\"pageNumber\":")
+        let inserted = Self.goldenVersionTwo
+            .replacingOccurrences(
+                of: ",\"pageNumber\":",
+                with: ",\"outputMargins\":{\"bottom\":0.5,\"left\":1,\"right\":3,\"top\":2},\"pageNumber\":")
             .replacingOccurrences(of: "\"schemaVersion\":2", with: "\"schemaVersion\":3")
-        XCTAssertEqual(versionThree, expected)
+        XCTAssertEqual(Self.goldenVersionThree, inserted,
+                       "the two goldens differ by more than the margin object and the version")
+        XCTAssertEqual(text.utf8.count,
+                       Self.goldenVersionTwo.utf8.count + 1 + "\"outputMargins\":".utf8.count
+                           + "{\"bottom\":0.5,\"left\":1,\"right\":3,\"top\":2}".utf8.count)
     }
 
     /// The configured margins reach the wire as themselves. A value that is not
@@ -200,6 +217,19 @@ final class WorkerTicketSchemaV3Tests: XCTestCase {
     """
 
     private static let marginObject = "{\"bottom\":1,\"left\":1,\"right\":1,\"top\":1}"
+
+    /// A full-page v1 document that parses. Version 1 forbids an extraction
+    /// region, so this is not the v3 base with its version rewritten -- a v1
+    /// ticket still carrying `extraction` is refused by the schema-v1 rule
+    /// whatever the margin guard does, which would let a margin-guard
+    /// regression pass unnoticed. Here the margin object is the only thing that
+    /// can be added to make it invalid.
+    private static let baseVersionOne = """
+    {"conversion":{"cutoff":128,"mode":"textAndBarcodeThreshold"},\
+    "pageNumber":1,"physicalSize":{"heightMillimeters":10,"widthMillimeters":20},\
+    "placementPolicy":"fit","resolution":{"xDotsPerMillimeter":8,"yDotsPerMillimeter":8},\
+    "schemaVersion":1}
+    """
 
     private func sample(_ find: String, _ replacement: String) -> Data {
         XCTAssertTrue(Self.baseVersionThree.contains(find), "sample base lost: \(find)")
@@ -319,7 +349,21 @@ final class WorkerTicketSchemaV3Tests: XCTestCase {
     func testNonZeroMarginsOnAVersionTwoTicketAreRefusedOnBothRoutes() throws {
         XCTAssertEqual(refusal(sample("\"schemaVersion\":3", "\"schemaVersion\":2"), "v2 with margins"),
                        .malformedJSON)
-        XCTAssertEqual(refusal(sample("\"schemaVersion\":3", "\"schemaVersion\":1"), "v1 with margins"),
+
+        // The v1 route needs a document whose *only* fault is the margin
+        // object. Rewriting the v3 base's version leaves its `extraction`
+        // object in place, and a v1 ticket carrying an extraction region is
+        // refused by the schema-v1 rule on its own -- so that sample stays
+        // green with the margin guard deleted and proves nothing. These two
+        // assertions differ by exactly the margin object.
+        let versionOne = try OfflineConversionTicket(jsonData: Data(Self.baseVersionOne.utf8))
+        XCTAssertEqual(versionOne.schemaVersion, 1)
+        XCTAssertEqual(versionOne.outputMargins, .zero)
+        XCTAssertNil(versionOne.sourceRegion)
+        let versionOneWithMargins = Data(Self.baseVersionOne.replacingOccurrences(
+            of: "\"pageNumber\":1,",
+            with: "\"outputMargins\":\(Self.marginObject),\"pageNumber\":1,").utf8)
+        XCTAssertEqual(refusal(versionOneWithMargins, "v1 whose only fault is the margin object"),
                        .malformedJSON)
         // The direct route: no JSON document produces this, so it needs the
         // designated initializer to be covered at all.
@@ -491,27 +535,62 @@ final class WorkerTicketSchemaV3Tests: XCTestCase {
         }
     }
 
-    /// The ticket's resource bound is `TokenPreservingJSON`'s: 4 MiB of input,
-    /// 64 levels of nesting and 100,000 nodes, all applied before any field is
-    /// decoded. A document over any one of them is refused, and one comfortably
-    /// under them still parses, so the refusals are the caps and not the
-    /// padding.
-    func testOversizedDeepAndNodeHeavyDocumentsAreRefusedBeforeDecoding() throws {
-        let opening = String(Self.baseVersionThree.dropFirst())
-        let overCap = "{" + String(repeating: " ", count: 4 * 1024 * 1024) + opening
-        XCTAssertEqual(refusal(Data(overCap.utf8), "over 4 MiB"), .malformedJSON)
+    /// Each declared cap is bracketed: admitted at the limit, refused one step
+    /// past it. An oversized sample alone cannot pin a limit -- a 200-level
+    /// document is refused by a guard set anywhere from 1 to 199, and would
+    /// also be refused by a parser with a nesting limit of its own, so it
+    /// cannot say whose refusal it saw. The bracket says exactly where the
+    /// boundary is, and that the parser admits everything up to it.
+    ///
+    /// The caps come from `TokenPreservingJSON` and are restated here on
+    /// purpose: they are internal to `LabelCore`, and a test that read them
+    /// from the implementation would follow a change to them rather than
+    /// detect it. 4 MiB of input, 64 levels of nesting, 100,000 nodes.
+    ///
+    /// Neither Foundation parser is doing this work: measured on Linux with
+    /// swift-foundation 6.1.3, `JSONSerialization` and `JSONDecoder` both
+    /// accept the 65- and 200-level documents that the token guard refuses
+    /// (they refuse somewhere between 200 and 600). The 65-level refusal below
+    /// is therefore the repo's guard, and deleting that guard makes this test
+    /// fail rather than falling through to a Foundation limit.
+    func testDeclaredResourceCapsAreBracketedNotMerelyExceeded() throws {
+        // Byte cap: a document padded to exactly 4 MiB parses; one byte more
+        // is refused, and the extra byte is whitespace, so nothing but the
+        // count distinguishes them.
+        func padded(to total: Int) -> Data {
+            let padding = total - Self.baseVersionThree.utf8.count
+            return Data(("{" + String(repeating: " ", count: padding)
+                + Self.baseVersionThree.dropFirst()).utf8)
+        }
+        let byteCap = 4 * 1024 * 1024
+        XCTAssertEqual(try OfflineConversionTicket(jsonData: padded(to: byteCap)).schemaVersion, 3)
+        XCTAssertEqual(refusal(padded(to: byteCap + 1), "one byte over 4 MiB"), .malformedJSON)
 
-        let underCap = "{" + String(repeating: " ", count: 64 * 1024) + opening
-        XCTAssertEqual(try OfflineConversionTicket(jsonData: Data(underCap.utf8)).schemaVersion, 3)
+        // Nesting cap: an unknown field nested to exactly 64 levels parses; 65
+        // is refused. The array is empty at the bottom, so the two documents
+        // differ by one level of nesting and nothing else.
+        func nested(_ levels: Int) -> Data {
+            let payload = "\"deep\":" + String(repeating: "[", count: levels)
+                + String(repeating: "]", count: levels) + ","
+            return sample("\"pageNumber\":1,", payload + "\"pageNumber\":1,")
+        }
+        XCTAssertEqual(try OfflineConversionTicket(jsonData: nested(64)).schemaVersion, 3)
+        XCTAssertEqual(refusal(nested(65), "65 levels of nesting"), .malformedJSON)
 
-        let deep = "\"deep\":" + String(repeating: "[", count: 200)
-            + String(repeating: "]", count: 200) + ","
-        XCTAssertEqual(refusal(sample("\"pageNumber\":1,", deep + "\"pageNumber\":1,"), "200 deep"),
-                       .malformedJSON)
-
-        let wide = "\"wide\":[" + Array(repeating: "0", count: 120_000).joined(separator: ",") + "],"
-        XCTAssertEqual(refusal(sample("\"pageNumber\":1,", wide + "\"pageNumber\":1,"), "120k nodes"),
-                       .malformedJSON)
+        // Node cap: the cap counts every value in the document, and the base
+        // spends 30 of them, plus one for the array itself -- so 99,969
+        // elements is the last admitted array and 99,970 is one too many. If
+        // the base document gains or loses a value, these two numbers move
+        // together and this test says so rather than drifting quietly.
+        func wide(_ count: Int) -> Data {
+            let payload = "\"wide\":[" + Array(repeating: "0", count: count).joined(separator: ",") + "],"
+            return sample("\"pageNumber\":1,", payload + "\"pageNumber\":1,")
+        }
+        let nodeCap = 100_000
+        let spent = 31
+        XCTAssertEqual(try OfflineConversionTicket(jsonData: wide(nodeCap - spent)).schemaVersion, 3,
+                       "the base document no longer spends \(spent) of the \(nodeCap) nodes")
+        XCTAssertEqual(refusal(wide(nodeCap - spent + 1), "one node over the cap"), .malformedJSON)
     }
 
     /// FINDING for the #93 / #101 human pass, recorded rather than fixed.
@@ -539,16 +618,17 @@ final class WorkerTicketSchemaV3Tests: XCTestCase {
     func testUnknownFieldsAreIgnoredAndOneOverflowingLiteralEscapesUntyped() throws {
         let ignorable = try OfflineConversionTicket(
             jsonData: sample("\"pageNumber\":1,", "\"unknown\":true,\"pageNumber\":1,"))
-        XCTAssertEqual(ignorable.schemaVersion, 3)
-        XCTAssertEqual(ignorable.pageNumber, 1)
+        XCTAssertEqual(ignorable, try OfflineConversionTicket(jsonData: Data(Self.baseVersionThree.utf8)),
+                       "an ignored field changed an admitted field")
 
+        let honest = try OfflineConversionTicket(jsonData: Data(Self.baseVersionThree.utf8))
         let overflowing = sample("\"pageNumber\":1,", "\"unused\":1e400,\"pageNumber\":1,")
         do {
+            // The `try` has to sit outside the assertion: XCTAssertEqual turns a
+            // thrown error into its own failure, which would swallow the very
+            // error this test exists to classify.
             let admitted = try OfflineConversionTicket(jsonData: overflowing)
-            XCTAssertEqual(admitted.schemaVersion, 3)
-            XCTAssertEqual(admitted.pageNumber, 1)
-            XCTAssertEqual(admitted.outputMargins,
-                           try OutputMargins(left: 1, top: 1, right: 1, bottom: 1))
+            XCTAssertEqual(admitted, honest)
         } catch let error as OfflineConversionTicket.TicketError {
             XCTAssertEqual(error, .malformedJSON)
         } catch {
@@ -578,11 +658,13 @@ final class WorkerTicketSchemaV3Tests: XCTestCase {
         }
         for (name, data) in encodings {
             do {
+                // The whole ticket, not a few of its fields: a decoding
+                // regression in resolution, conversion, placement policy,
+                // region, source rect or rotation has to fail this too. The
+                // `try` stays outside the assertion so a thrown error reaches
+                // the catch clauses instead of becoming XCTest's own failure.
                 let admitted = try OfflineConversionTicket(jsonData: data)
-                XCTAssertEqual(admitted.schemaVersion, honest.schemaVersion, name)
-                XCTAssertEqual(admitted.pageNumber, honest.pageNumber, name)
-                XCTAssertEqual(admitted.physicalSize, honest.physicalSize, name)
-                XCTAssertEqual(admitted.outputMargins, honest.outputMargins, name)
+                XCTAssertEqual(admitted, honest, name)
             } catch let error as OfflineConversionTicket.TicketError {
                 XCTAssertEqual(error, .malformedJSON, name)
             } catch {
