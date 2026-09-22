@@ -10,7 +10,7 @@ Do not commit third-party manual PDFs, font files, real customer labels, private
 
 ## Read before work
 
-Read docs/ACCELERATOR.md and docs/ACCELERATOR-VALIDATION.md, then START-HERE.md, EPIC.md, docs/DECISIONS.md, docs/ARCHITECTURE.md, docs/CONTRACTS.md, docs/EXECUTION.md, and docs/VALIDATION-PLAN.md. Then read the four files for the active milestone. Inspect current source, git status, recent commits and active PRs before assuming a fresh repo or a stale handoff is current.
+Read docs/ACCELERATOR.md and docs/ACCELERATOR-VALIDATION.md, then START-HERE.md, EPIC.md, docs/DECISIONS.md, docs/ARCHITECTURE.md, docs/CONTRACTS.md, docs/EXECUTION.md, and docs/VALIDATION-PLAN.md. Then read the four files for the active milestone. Inspect current source, git status, recent commits and active PRs before assuming a fresh repo or a stale handoff is current. Before choosing what to work on, read `docs/test-surfaces.json`. The prescribed A/C/I/H/R level says what a pass establishes, not what session is needed to obtain one, and three criteria at level I can need three different sessions: hosted `macos-26` CI, a supervised GUI session, or an installed scheduler on a test Mac. `scripts/check_test_surfaces.py` prints the current split and keeps the map honest against `docs/milestones.json`, refusing a surface whose declared level contradicts the level its criterion prescribes. A surface records where a pass could be obtained and never that one was, so reachable is not validated and the map is never evidence.
 
 ## Work and commits
 
