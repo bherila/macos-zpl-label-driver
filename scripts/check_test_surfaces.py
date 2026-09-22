@@ -13,7 +13,11 @@ only the ones whose changed paths select the surface, or none, because the pass
 needs apparatus the pull request under review does not have. Two surfaces may
 share a location and differ in reach, which is why repository inspection is split
 into config and config-experiment: proving CI fails closed needs pull requests
-built for that purpose, not the pull request being reviewed.
+built for that purpose, not the pull request being reviewed. The level A rows
+are split the same way and for the same reason, by which job actually runs them:
+the always-running preflight job runs the Python checkers and scripts/tests,
+while the Swift suite and the accelerator checks are reached only through
+scripts/ci-swift.sh in the gated macOS job.
 
 This checker keeps the map honest against docs/milestones.json: the same
 criterion identifiers, no orphans either way, a surface whose declared level
@@ -61,15 +65,54 @@ def prescribed_levels(milestones):
     upward, in order. The file stores no identifier of its own, so this derivation
     is the only definition there is.
     """
+    if not isinstance(milestones, list):
+        raise Unevaluable(f'{MILESTONES} is {type(milestones).__name__}, not a JSON array')
     levels = {}
-    for milestone in milestones:
-        number = milestone['n']
-        for index, criterion in enumerate(milestone['criteria'], 1):
+    for position, milestone in enumerate(milestones, 1):
+        if not isinstance(milestone, dict):
+            raise Unevaluable(
+                f'milestone {position} is {type(milestone).__name__}, not a JSON object')
+        number = milestone.get('n')
+        if not isinstance(number, int) or isinstance(number, bool):
+            raise Unevaluable(f'milestone {position} declares n {number!r}, which is not an integer')
+        criteria = milestone.get('criteria')
+        if not isinstance(criteria, list):
+            raise Unevaluable(
+                f'M{number} declares criteria as {type(criteria).__name__}, not a JSON array')
+        for index, criterion in enumerate(criteria, 1):
+            identifier = f'M{number}-AC{index:02d}'
+            if not isinstance(criterion, list) or len(criterion) < 2:
+                raise Unevaluable(f'{identifier} is not a criterion of at least title and level')
             level = criterion[1]
+            # `level not in LEVELS` hashes its left operand, so an unhashable level raised
+            # TypeError straight out of main() rather than refusing the document.
+            if not isinstance(level, str):
+                raise Unevaluable(
+                    f'{identifier} prescribes level {level!r}, which is not a string')
             if level not in LEVELS:
-                raise Unevaluable(f'M{number}-AC{index:02d} prescribes unknown level {level!r}')
-            levels[f'M{number}-AC{index:02d}'] = level
+                raise Unevaluable(f'{identifier} prescribes unknown level {level!r}')
+            levels[identifier] = level
     return levels
+
+
+def _object(document, key):
+    """The value at `key`, which must be present and be a JSON object.
+
+    The raw value is judged BEFORE any defaulting. `document.get(key) or {}`
+    substituted an empty object for null, [] and "" -- every falsey malformed
+    edit -- so `"surfaces": null` reached the comparison as an empty map and was
+    reported as ninety criteria with no declared surface: exit 1, the code
+    meaning the map and the milestones disagree, for a file that declared
+    nothing at all. A missing key and a null key are both refusals here, and
+    they say which one happened; an empty object is a real, evaluable document
+    and stays a finding rather than a refusal.
+    """
+    if key not in document:
+        raise Unevaluable(f'the document omits "{key}"')
+    value = document[key]
+    if not isinstance(value, dict):
+        raise Unevaluable(f'"{key}" is {type(value).__name__}, not a JSON object')
+    return value
 
 
 def _shape(surfaces):
@@ -85,12 +128,8 @@ def _shape(surfaces):
         raise Unevaluable(f'the document is {type(surfaces).__name__}, not a JSON object')
     if surfaces.get('schemaVersion') != SUPPORTED_SCHEMA:
         raise Unevaluable(f'unsupported schemaVersion {surfaces.get("schemaVersion")!r}')
-    definitions = surfaces.get('surfaces') or {}
-    if not isinstance(definitions, dict):
-        raise Unevaluable(f'"surfaces" is {type(definitions).__name__}, not a JSON object')
-    assigned = surfaces.get('criteria') or {}
-    if not isinstance(assigned, dict):
-        raise Unevaluable(f'"criteria" is {type(assigned).__name__}, not a JSON object')
+    definitions = _object(surfaces, 'surfaces')
+    assigned = _object(surfaces, 'criteria')
     for name, definition in sorted(definitions.items()):
         if not isinstance(definition, dict):
             raise Unevaluable(
@@ -107,6 +146,17 @@ def findings(levels, surfaces):
         missing = REQUIRED_SURFACE_KEYS - set(definition)
         if missing:
             found.append(f'surface {name!r} omits {", ".join(sorted(missing))}')
+            continue
+        # Every required field is prose or a keyword, so every one of them is a non-empty
+        # string. Checking the whole set rather than the field a reviewer happened to name
+        # is the point: `level` reached `in LEVELS`, which hashes it, so `"level": []`
+        # raised TypeError out of main(); `reach` is used as a dictionary key in
+        # summarise(); and the rest are published. One sweep covers the class.
+        mistyped = [key for key in sorted(REQUIRED_SURFACE_KEYS)
+                    if not isinstance(definition[key], str) or not definition[key].strip()]
+        if mistyped:
+            found.append(f'surface {name!r} declares {", ".join(mistyped)} as something other '
+                         f'than a non-empty string')
             continue
         if definition['level'] not in LEVELS:
             found.append(f'surface {name!r} declares unknown level {definition["level"]!r}')
@@ -140,7 +190,9 @@ def findings(levels, surfaces):
             found.append(f'{identifier} names undefined surface {name!r}')
             continue
         declared = definition.get('level')
-        if declared in LEVELS and declared != levels[identifier]:
+        # A surface whose level was already reported as mistyped is still named here, so this
+        # must not hash an arbitrary value either.
+        if isinstance(declared, str) and declared in LEVELS and declared != levels[identifier]:
             found.append(
                 f'{identifier} prescribes level {levels[identifier]} but surface {name!r} is level {declared}')
     return found
@@ -148,8 +200,7 @@ def findings(levels, surfaces):
 
 def summarise(levels, surfaces):
     """Counts per surface, and the total sitting on each reach class."""
-    definitions = surfaces['surfaces']
-    assigned = surfaces['criteria']
+    definitions, assigned = _shape(surfaces)
     counts = {name: 0 for name in definitions}
     for identifier in levels:
         counts[assigned[identifier]] = counts.get(assigned[identifier], 0) + 1
@@ -169,9 +220,30 @@ def marker(definition):
     return 'a separate named session'
 
 
+def _reject_duplicate_keys(pairs):
+    """json.loads keeps the LAST of two identical keys and reports nothing.
+
+    A document assigning one criterion to two different surfaces -- two
+    "M1-AC01" entries -- therefore produced no orphan, no level disagreement
+    and a published count drawn from whichever entry came last. The same
+    collapse hides a surface defined twice. There is no honest verdict about a
+    document that says two things, so this refuses it. It is installed on every
+    document load(), not on one, because docs/milestones.json is hand-edited
+    too and a duplicated "n" or "criteria" key would silently shift every
+    positional identifier derived from it.
+    """
+    seen = {}
+    for key, value in pairs:
+        if key in seen:
+            raise ValueError(f'duplicate key {key!r} in one JSON object')
+        seen[key] = value
+    return seen
+
+
 def load(path):
     try:
-        return json.loads((ROOT / path).read_text(encoding='utf-8'))
+        return json.loads((ROOT / path).read_text(encoding='utf-8'),
+                          object_pairs_hook=_reject_duplicate_keys)
     except (OSError, ValueError) as error:
         raise Unevaluable(f'{path}: {error}') from error
 
@@ -201,7 +273,7 @@ def main():
         total = len(levels)
         print(f'Execution surfaces agree with {MILESTONES} for all {total} criteria.')
         for name in sorted(counts, key=lambda k: (-counts[k], k)):
-            print(f'  {name:<17} {counts[name]:>3}  level {definitions[name]["level"]}  '
+            print(f'  {name:<19} {counts[name]:>3}  level {definitions[name]["level"]}  '
                   f'{marker(definitions[name])}')
         print(f'{reach[REACH_EVERY]} of {total} criteria sit on a surface every ordinary pull '
               f"request reaches, {reach[REACH_SELECTED]} of {total} only when the pull request's "

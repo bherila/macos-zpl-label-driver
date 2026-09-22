@@ -1,4 +1,8 @@
+import contextlib
 import importlib.util
+import io
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -88,7 +92,14 @@ def published_totals(text, total):
 
 
 def published_rows(text):
-    """The plan's per-surface table rows: name -> (level, reach column, stated count)."""
+    """The plan's per-surface table rows: name -> (level, reach column, stated count).
+
+    A repeated surface name is a failure, not an overwrite. `rows[name] = ...`
+    kept the last of two rows for the same surface, so duplicating a row left a
+    13-entry dict still summing to 90 and every assertion below green while the
+    rendered table showed the surface twice with two different counts -- a
+    parser that validates every row only if no row appears twice.
+    """
     rows = {}
     for line in text.split('\n'):
         cells = [cell.strip() for cell in line.strip().split('|')]
@@ -97,7 +108,10 @@ def published_rows(text):
         name, level, _where, reach_column, count = cells[1:6]
         if not (name.startswith('`') and name.endswith('`')) or not count.isdigit():
             continue
-        rows[name.strip('`')] = (level, reach_column, int(count))
+        name = name.strip('`')
+        if name in rows:
+            raise AssertionError(f'{PLAN} publishes more than one table row for {name!r}')
+        rows[name] = (level, reach_column, int(count))
     return rows
 
 
@@ -159,6 +173,136 @@ class MalformedDocumentTests(unittest.TestCase):
         levels = surfaces.prescribed_levels(milestones('A'))
         with self.assertRaises(surfaces.Unevaluable):
             surfaces.findings(levels, document({'M0-AC01': 'automated'}, schema=2))
+
+    def test_a_falsey_surfaces_map_is_refused_rather_than_defaulted_away(self):
+        """`surfaces.get("surfaces") or {}` replaced every falsey value before the shape
+        check could see it, so "surfaces": null was read as an empty object and reported as
+        ninety criteria with no surface -- exit 1, "the map and the milestones disagree",
+        about a file that declared nothing. Each falsey shape is named so that the fix
+        cannot be a single `is not None`.
+        """
+        levels = surfaces.prescribed_levels(milestones('A'))
+        for empty in (None, [], '', 0, False):
+            for key in ('surfaces', 'criteria'):
+                broken = document({'M0-AC01': 'automated'})
+                broken[key] = empty
+                with self.subTest(value=empty, key=key):
+                    with self.assertRaises(surfaces.Unevaluable) as caught:
+                        surfaces.findings(levels, broken)
+                    self.assertIn(f'"{key}"', str(caught.exception))
+
+    def test_an_absent_map_is_refused_and_says_which_key_is_missing(self):
+        levels = surfaces.prescribed_levels(milestones('A'))
+        for key in ('surfaces', 'criteria'):
+            broken = document({'M0-AC01': 'automated'})
+            del broken[key]
+            with self.subTest(key=key):
+                with self.assertRaises(surfaces.Unevaluable) as caught:
+                    surfaces.findings(levels, broken)
+                self.assertEqual(str(caught.exception), f'the document omits "{key}"')
+
+    def test_an_empty_object_is_still_evaluated_and_not_refused(self):
+        """The bound from the other side: {} has a shape, so it is a finding, never a refusal."""
+        levels = surfaces.prescribed_levels(milestones('A'))
+        found = surfaces.findings(levels, document({}, {}))
+        self.assertEqual(found, ['M0-AC01 has no declared execution surface'])
+
+    def test_a_malformed_map_exits_two_rather_than_one(self):
+        """The published contract: 2 means no verdict, 1 means the two files disagree.
+
+        findings() raising Unevaluable is only half the claim; main() must map it to the
+        exit code the docstring promises, and nothing else may escape on the way.
+        """
+        real = surfaces.load
+        milestone_document = real(surfaces.MILESTONES)
+
+        def fake(path):
+            return milestone_document if path == surfaces.MILESTONES else {
+                'schemaVersion': 1, 'surfaces': None, 'criteria': None}
+
+        argv = sys.argv
+        surfaces.load, sys.argv = fake, ['check_test_surfaces.py']
+        try:
+            with contextlib.redirect_stderr(io.StringIO()) as captured:
+                status = surfaces.main()
+        finally:
+            surfaces.load, sys.argv = real, argv
+        self.assertEqual(status, 2)
+        self.assertIn('Cannot evaluate', captured.getvalue())
+
+    def test_a_duplicate_json_key_cannot_be_evaluated(self):
+        """json.loads keeps the last of two identical keys and says nothing.
+
+        Two "M1-AC01" entries assigning different surfaces produced no orphan, no level
+        disagreement and a count drawn from whichever came last. Exercised through load()
+        so the hook is proved installed, and on both documents load() reads.
+        """
+        root = surfaces.ROOT
+        with tempfile.TemporaryDirectory() as directory:
+            for name, text in (
+                    ('surfaces.json', '{"criteria": {"M1-AC01": "gui", "M1-AC01": "physical"}}'),
+                    ('milestones.json', '[{"n": 0, "criteria": [], "criteria": []}]')):
+                (Path(directory) / name).write_text(text, encoding='utf-8')
+            surfaces.ROOT = Path(directory)
+            try:
+                for name, key in (('surfaces.json', 'M1-AC01'), ('milestones.json', 'criteria')):
+                    with self.subTest(document=name):
+                        with self.assertRaises(surfaces.Unevaluable) as caught:
+                            surfaces.load(name)
+                        self.assertIn(f"duplicate key '{key}'", str(caught.exception))
+            finally:
+                surfaces.ROOT = root
+
+    def test_a_unique_key_document_still_loads(self):
+        """The bound from the other side: the hook must not refuse an ordinary document."""
+        self.assertEqual(surfaces.load(surfaces.SURFACES)['schemaVersion'], 1)
+
+
+class MistypedFieldTests(unittest.TestCase):
+    """A field of the wrong type is reported, never raised.
+
+    `level` reached `in LEVELS`, a set, so "level": [] raised `TypeError: unhashable
+    type` past main()'s Unevaluable handler and printed a traceback. The guard is the
+    whole set of fields rather than the one that was named: `reach` is later used as a
+    dictionary key, and the rest are published prose.
+    """
+
+    def test_every_required_field_is_type_checked_before_use(self):
+        levels = surfaces.prescribed_levels(milestones('A'))
+        for key in sorted(surfaces.REQUIRED_SURFACE_KEYS):
+            for value in ([], {}, None, 7, True, '', '   '):
+                with self.subTest(field=key, value=value):
+                    broken = surface('A')
+                    broken[key] = value
+                    found = surfaces.findings(
+                        levels, document({'M0-AC01': 'automated'}, {'automated': broken}))
+                    self.assertEqual(found, [
+                        f"surface 'automated' declares {key} as something other than a "
+                        'non-empty string'])
+
+    def test_an_unhashable_level_on_a_named_surface_is_still_only_a_finding(self):
+        """The criteria loop looks the same definition up again and must not hash it either."""
+        levels = surfaces.prescribed_levels(milestones('A'))
+        broken = surface('A')
+        broken['level'] = []
+        found = surfaces.findings(
+            levels, document({'M0-AC01': 'automated'}, {'automated': broken}))
+        self.assertEqual(len(found), 1)
+        self.assertIn('level', found[0])
+
+    def test_a_milestone_document_of_the_wrong_shape_cannot_be_evaluated(self):
+        """prescribed_levels reads four fields of its own; each is checked before use."""
+        for broken in (
+                {'n': 0},
+                [{'criteria': [['t', 'A', 'd']]}],
+                [{'n': 0, 'criteria': {'a': 1}}],
+                [{'n': 0, 'criteria': [['title only']]}],
+                [{'n': 0, 'criteria': [['title', [], 'd']]}],
+                [{'n': 0, 'criteria': [['title', {}, 'd']]}],
+                [['n', 0]]):
+            with self.subTest(document=broken):
+                with self.assertRaises(surfaces.Unevaluable):
+                    surfaces.prescribed_levels(broken)
 
 
 class FindingTests(unittest.TestCase):
@@ -435,8 +579,79 @@ class CommittedClassificationTests(unittest.TestCase):
                              f'{PLAN} describes {name} as {column!r}')
         self.assertEqual(sum(stated for _, _, stated in rows.values()), len(levels))
 
+    def test_the_a_level_rows_are_split_by_the_job_that_actually_runs_them(self):
+        """The correction this revision exists for, and the claim it replaces.
+
+        A single `automated` surface claimed every-ordinary-PR reach because its portable
+        tests run in the Linux container on any branch. That is a local run. In CI the
+        always-running job runs the Python checkers and scripts/tests and no Swift at all;
+        `swift test --package-path Packages/LabelCore` and run-accelerator-checks.py are
+        reached only through scripts/ci-swift.sh in the gated macOS job, so a Markdown-only
+        pull request exercised no Swift-backed A row while the map said it exercised thirty.
+        The assertion is on the workflow, not on the map restating itself.
+        """
+        self.assertNotIn('automated', self.definitions)
+        preflight = self.definitions['automated-preflight']
+        swift = self.definitions['automated-swift']
+        self.assertEqual(preflight['level'], 'A')
+        self.assertEqual(swift['level'], 'A')
+        self.assertEqual(preflight['reach'], surfaces.REACH_EVERY)
+        self.assertEqual(swift['reach'], surfaces.REACH_SELECTED)
+        # The same swift_changed output gates both, so the same condition must describe both.
+        self.assertEqual(swift['reachedWhen'], self.definitions['macos-native']['reachedWhen'])
+
+        workflow = (surfaces.ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
+        script = (surfaces.ROOT / 'scripts/ci-swift.sh').read_text(encoding='utf-8')
+        self.assertNotIn('swift test', workflow)
+        self.assertNotIn('run-accelerator-checks', workflow)
+        self.assertIn('bash scripts/ci-swift.sh', workflow)
+        self.assertIn('run-accelerator-checks.py', script)
+        self.assertIn('swift test', script)
+        self.assertIn('"swift","test","--package-path","Packages/LabelCore"', ''.join(
+            (surfaces.ROOT / 'scripts/run-accelerator-checks.py')
+            .read_text(encoding='utf-8').split()))
+        self.assertFalse(ci_scope.needs_swift(['docs/VALIDATION-PLAN.md']))
+
+    def test_the_preflight_rows_are_the_ones_the_python_checkers_decide(self):
+        """Named individually: a row moved back without its evidence moving fails here."""
+        self.assertEqual(
+            sorted(k for k, v in self.assigned.items() if v == 'automated-preflight'),
+            ['M0-AC07', 'M0-AC08', 'M0-AC11', 'M5-AC12', 'M6-AC01'])
+        swift_backed = sorted(k for k, v in self.assigned.items() if v == 'automated-swift')
+        self.assertEqual(len(swift_backed), 25)
+        self.assertIn('M0-AC03', swift_backed)
+        self.assertIn('M2-AC13', swift_backed)
+        self.assertNotIn('automated', set(self.assigned.values()))
+
     def test_no_surface_is_defined_without_a_criterion_using_it(self):
         self.assertEqual(sorted(self.definitions), sorted(set(self.assigned.values())))
+
+
+class PublishedTableParsingTests(unittest.TestCase):
+    """The parser that reads the plan's table must not lose a row.
+
+    `rows[name] = ...` overwrote a repeated surface, so duplicating a row left the dict
+    the right size and the right sum while the rendered table showed the surface twice
+    with two different counts. Every assertion about "every table row" was then true of
+    every row the parser had kept, which is not the property its name claims.
+    """
+
+    TABLE = ('| Surface | Level | Where | Which PRs reach it | Criteria |\n'
+             '|---|---|---|---|---|\n'
+             '| `alpha` | A | somewhere | every ordinary PR | 4 |\n'
+             '| `beta` | I | elsewhere | none | 6 |\n')
+
+    def test_each_row_is_read_once(self):
+        self.assertEqual(published_rows(self.TABLE), {
+            'alpha': ('A', 'every ordinary PR', 4),
+            'beta': ('I', 'none', 6),
+        })
+
+    def test_a_repeated_surface_row_fails_instead_of_overwriting(self):
+        duplicated = self.TABLE + '| `alpha` | A | somewhere | every ordinary PR | 30 |\n'
+        with self.assertRaises(AssertionError) as caught:
+            published_rows(duplicated)
+        self.assertIn("'alpha'", str(caught.exception))
 
 
 if __name__ == '__main__':

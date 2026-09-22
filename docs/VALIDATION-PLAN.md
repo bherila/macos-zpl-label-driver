@@ -43,11 +43,12 @@ the one being reviewed.
 
 | Surface | Level | Where a pass can be obtained | Which PRs reach it | Criteria |
 |---|---|---|---|---|
-| `automated` | A | Linux container and hosted `macos-26` CI | every ordinary PR | 30 |
+| `automated-swift` | A | the LabelCore Swift suite and the offline accelerator checks | only Swift-affecting PRs | 25 |
 | `installed` | I | test Mac with an installed scheduler or helper | none | 18 |
 | `gui` | I | test Mac, interactive supervised session | none | 11 |
 | `physical` | H | the named tear-off GC420d over USB | none | 8 |
 | `macos-native` | I | hosted `macos-26` CI, noninteractive | only Swift-affecting PRs | 7 |
+| `automated-preflight` | A | the always-running preflight job: Python checkers and `scripts/tests` | every ordinary PR | 5 |
 | `config` | C | repository and CI inspection on the PR under review | every ordinary PR | 4 |
 | `release` | R | the release gate | none | 3 |
 | `accessory` | H | a printer that actually has the cutter or peeler under test | none | 2 |
@@ -62,11 +63,32 @@ gates `swift-macos-arm64` on the `swift_changed` output that `scripts/ci_scope.p
 changed paths, so a pull request touching only Markdown, `LICENSE`, `docs/PROGRESS.json`,
 `docs/milestones.json` or `docs/requirements.json` never compiles anything natively and reaches none
 of those seven criteria. The classifier fails open, so an uncertain diff still runs the job.
-`automated` is not conditional in the same way: its portable tests run in the Linux container on any
-branch whatever the diff contains, and hosted CI is an additional place they run rather than the
-only one.
 
-Seven surfaces exist because a single flag was carrying both questions. `config-experiment` holds
+The same gate decides most of the level `A` rows, and an earlier revision of this section denied it.
+It kept one `automated` surface at every-ordinary-PR reach, reasoning that the portable tests run in
+the Linux container on any branch whatever the diff contains. That is true of a local run and false
+of CI, and CI is what a map of which pull requests reach a surface publishes. The always-running
+`repository-preflight` job runs `check_repo.py`, `python3 -m unittest discover -s scripts/tests`,
+`evidence_currency.py`, `manifest_audit.py` and `ci_scope.py` -- and no Swift. `swift test
+--package-path Packages/LabelCore` and `run-accelerator-checks.py` are reached only through
+`scripts/ci-swift.sh`, which only the gated `swift-macos-arm64` job runs. A Markdown-only pull
+request therefore exercised no Swift-backed `A` row at all while this table said it exercised
+thirty.
+
+So `automated` is split by executor. `automated-preflight` keeps every-ordinary-PR reach and holds
+the five rows the Python checkers and the `scripts/tests` suite decide: M0-AC07, M0-AC08, M0-AC11,
+M5-AC12 and M6-AC01. `automated-swift` holds the other twenty-five -- M0-AC03, the nine M2 rows, the
+seven M3 rows and the eight M4 rows -- whose evidence is produced by the LabelCore Swift suite or by
+`run-accelerator-checks.py`, and it carries the same `reachedWhen` condition as `macos-native`
+because the same `swift_changed` output gates both. A row citing both executors, as M2-AC13 does,
+takes `automated-swift`: the claim a Python test cannot make on its own decides the row. Neither
+level moved, because a level says what a pass establishes and this split changes only which pull
+requests obtain one. **This is a gap in CI coverage that the map surfaced, not a labelling error.**
+Running the portable `LabelCore` suite in an unconditional Linux job -- it builds there with
+`libcups2-dev` -- would make the original claim true and is very likely the better long-term answer,
+but that is a change to `.github/workflows/ci.yml` and belongs in its own slice.
+
+Eight surfaces exist because a single flag was carrying both questions. `config-experiment` holds
 M0-AC06 and M0-AC09, whose evidence is an intentionally failing pull request, a documentation-only
 pull request and a fork pull request -- repository inspection, but never of the pull request under
 review. `bootstrap` holds M0-AC01, whose "before creation" is a one-time event the pull request
@@ -81,14 +103,14 @@ needs a named local setup. `accessory` holds M3-AC10 and M6-AC06, which need an 
 target; the S1 unit is tear-off with no cutter and establishes nothing about them. `per-claim` holds
 M6-AC11, which has no single session at all: an Intel claim needs execution on Intel, an IPP claim
 needs its integration path exercised, and neither follows from a hosted Apple Silicon run.
-`macos-native` is the seventh, above.
+`macos-native` is the seventh and `automated-swift` the eighth, both above.
 
 The map says where a criterion **can** be validated and nothing about whether it **has** been. That
 is [`ACCEPTANCE-EVIDENCE.json`](ACCEPTANCE-EVIDENCE.json), and a surface here is never evidence
 there. Reachable is not validated: sitting on a surface a pull request reaches is not a pass, and
 the figures below count places, not results.
 
-34 of 90 criteria sit on a surface every ordinary pull request reaches, 7 of 90 only when the pull
+9 of 90 criteria sit on a surface every ordinary pull request reaches, 32 of 90 only when the pull
 request's changed paths select that surface, and 49 of 90 need a separate named session.
 
 
