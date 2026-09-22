@@ -47,6 +47,33 @@ swift test --package-path Packages/LabelMac      # ~430 tests, about three minut
 The first `LabelMac` build takes several minutes; later runs are incremental. Test counts drift upward,
 so trust the command's own summary line rather than the figures above.
 
+### What CI runs, and when
+
+`.github/workflows/ci.yml` has three jobs that do work and one gate, `ci-required`, that judges
+them. Two of the three run on **every** pull request and push; only the macOS job is scoped.
+
+| Job | Runner | Runs when | Commands |
+|---|---|---|---|
+| `repository-preflight` | `ubuntu-24.04-arm` | always | `check_repo.py`, `python3 -m unittest discover -s scripts/tests`, `evidence_currency.py`, `manifest_audit.py`, `ci_scope.py` |
+| `portable-ubuntu-arm64` | `ubuntu-24.04-arm` | always | `swift test --package-path Packages/LabelCore`, `python3 scripts/run-accelerator-checks.py` |
+| `swift-macos-arm64` | `macos-26` | only when `scripts/ci_scope.py` classifies the diff as Swift-affecting | `bash scripts/ci-swift.sh` |
+
+`portable-ubuntu-arm64` installs `libcups2-dev` and then runs the portable suite in **debug only**.
+The release-configuration pass (`run-accelerator-checks.py --configuration release`) is a second full
+compile of the package, and it stays inside `scripts/ci-swift.sh` on macOS rather than being repeated
+here.
+
+Before this job existed, a documentation-only pull request ran **no Swift test and no accelerator
+check at all**: both lived only in `scripts/ci-swift.sh`, behind the macOS job's scope gate. Keeping a
+thirteen-minute macOS runner off a Markdown diff is correct; switching off the portable half with it
+was not, particularly as `run-accelerator-checks.py` also runs `check_repo.py` and the fixture
+manifest check, which a documentation change can break.
+
+`ci-required` is the single required check. It asserts `repository-preflight` succeeded, that
+`portable-ubuntu-arm64` succeeded — `success` outright, since that job is unconditional, so `skipped`
+and `cancelled` are both refused — and that the macOS job either succeeded or was skipped *for the
+reason the scope classifier gave*. An unreadable scope decision fails it.
+
 ### The CI-equivalent sequence (macOS)
 
 ```sh
