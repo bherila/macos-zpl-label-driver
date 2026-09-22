@@ -122,4 +122,87 @@ final class AcceptedJobStateTests: XCTestCase {
         XCTAssertThrowsError(try AcceptedJobStateRecord(acceptanceID: "job", acceptedTicketSHA256: hashA, generation: 2, previousStateSHA256: hashA, phase: .accepted))
         XCTAssertThrowsError(try AcceptedJobStateRecord(acceptanceID: "job", acceptedTicketSHA256: "bad", generation: 1, previousStateSHA256: nil, phase: .accepted))
     }
+
+    /// A generation-2 record whose only questionable field is the progress
+    /// count, so `invalidPayload` can only come from the payload bound.
+    private func progressRecord(_ phase: AcceptedJobPhase) throws -> AcceptedJobStateRecord {
+        try AcceptedJobStateRecord(
+            acceptanceID: "bounded-job", acceptedTicketSHA256: hashA,
+            generation: 2, previousStateSHA256: hashB, phase: phase
+        )
+    }
+
+    /// Brackets `0...byteCount` from both sides. The transition rules in
+    /// `allows` never see these values: construction is direct, so a refusal
+    /// here is the payload bound and nothing else.
+    func testAcceptedProgressBytesAreBracketedByTheDeclaredPayloadLength() throws {
+        for accepted in [0, 1, 9, 10] {
+            for phase in [
+                AcceptedJobPhase.transmitting(payloadSHA256: hashA, byteCount: 10, bytesAccepted: accepted),
+                .uncertain(payloadSHA256: hashA, byteCount: 10, bytesAccepted: accepted),
+            ] {
+                XCTAssertEqual(try progressRecord(phase).phase, phase)
+            }
+        }
+        for accepted in [-1, 11, Int.min, Int.max] {
+            for phase in [
+                AcceptedJobPhase.transmitting(payloadSHA256: hashA, byteCount: 10, bytesAccepted: accepted),
+                .uncertain(payloadSHA256: hashA, byteCount: 10, bytesAccepted: accepted),
+            ] {
+                XCTAssertThrowsError(try progressRecord(phase), "\(accepted)") {
+                    XCTAssertEqual($0 as? AcceptedJobStateError, .invalidPayload, "\(accepted)")
+                }
+            }
+        }
+    }
+
+    /// Canonical schema-2 bytes as a persisted store would hold them. Field
+    /// order matches `JSONSerialization` with `.sortedKeys`.
+    private func persistedTransmitting(bytesAccepted token: String) -> Data {
+        Data("""
+        {"acceptanceID":"persisted-job","acceptedTicketSHA256":"\(hashA)","generation":2,\
+        "phase":{"byteCount":10,"bytesAccepted":\(token),"kind":"transmitting",\
+        "payloadSHA256":"\(hashA)"},"previousStateSHA256":"\(hashB)","schemaVersion":2}
+        """.utf8)
+    }
+
+    /// The persisted path is the one that matters: a state file on disk is
+    /// untrusted input, so a progress count outside the payload must be
+    /// refused by the decoder and not merely by a typed caller.
+    func testPersistedProgressBytesOutsideThePayloadAreRefusedByTheDecoder() throws {
+        for accepted in [0, 10] {
+            XCTAssertEqual(
+                try AcceptedJobStateJSON.decode(persistedTransmitting(bytesAccepted: "\(accepted)")).phase,
+                .transmitting(payloadSHA256: hashA, byteCount: 10, bytesAccepted: accepted)
+            )
+        }
+        for token in ["-1", "11", "-9223372036854775808", "9223372036854775807"] {
+            XCTAssertThrowsError(try AcceptedJobStateJSON.decode(persistedTransmitting(bytesAccepted: token)), token) {
+                XCTAssertEqual($0 as? AcceptedJobStateJSONError, .invalidValue, token)
+            }
+        }
+    }
+
+    /// The same bound on the legacy migration path, which reads schema-1
+    /// bytes a previous release may already have written to disk.
+    func testLegacyMigrationRefusesProgressBytesOutsideThePayload() throws {
+        func legacy(_ token: String) -> Data {
+            Data("""
+            {"acceptanceID":"legacy-job","generation":4,"phase":{"byteCount":10,\
+            "bytesAccepted":\(token),"kind":"transmitting","payloadSHA256":"\(hashA)"},\
+            "previousStateSHA256":"\(hashB)","schemaVersion":1}
+            """.utf8)
+        }
+        XCTAssertEqual(
+            try AcceptedJobStateJSON.migrateLegacyV1(legacy("10"), acceptedTicketSHA256: hashB).phase,
+            .transmitting(payloadSHA256: hashA, byteCount: 10, bytesAccepted: 10)
+        )
+        for token in ["-1", "11"] {
+            XCTAssertThrowsError(try AcceptedJobStateJSON.migrateLegacyV1(
+                legacy(token), acceptedTicketSHA256: hashB
+            ), token) {
+                XCTAssertEqual($0 as? AcceptedJobStateJSONError, .invalidValue, token)
+            }
+        }
+    }
 }
