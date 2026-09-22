@@ -1,7 +1,7 @@
 import Foundation
 
 /// Typed vocabulary for a *planned* queue installation and the durable record of
-/// what such a transaction actually created.
+/// what such a transaction created or was about to create.
 ///
 /// Nothing in this file performs an installation. It builds no command line,
 /// spawns no process, touches no filesystem, contacts no scheduler and reads no
@@ -15,6 +15,7 @@ public enum QueueInstallationError: Error, Equatable, Sendable {
     case invalidDigest
     case invalidQueueName
     case invalidTransactionID
+    case invalidIncarnation
     case invalidObservation
     case artifactKindMismatch
     case artifactOutsideProtectedRoot
@@ -23,7 +24,14 @@ public enum QueueInstallationError: Error, Equatable, Sendable {
     case refused(QueueInstallationRefusal)
     case invalidPhase
     case transactionMismatch
+    /// Preconditions were captured for a different intent than the plan they
+    /// were offered to.
+    case preconditionsIntentMismatch
     case stagedArtifactInvalid(QueueInstallationArtifactKind, ArtifactValidationFailure)
+    /// A queue was created but its configuration did not hand back the
+    /// incarnation token this transaction wrote, so it cannot be claimed as
+    /// this transaction's. It stays pending in the record for recovery.
+    case queueIncarnationUnconfirmed
     case effectFailed
     case recoveryOrderingViolation
     /// A supplied recovery plan does not cover every artifact the record still
@@ -33,6 +41,9 @@ public enum QueueInstallationError: Error, Equatable, Sendable {
     case invalidRecord
     /// A record's phase contradicts what it says it created.
     case inconsistentRecordPhase
+    /// A record that should carry a journal artifact does not, so recovery has
+    /// nowhere to read or write its own evidence.
+    case recordHasNoJournal
 }
 
 // MARK: - Bounded primitive values
@@ -160,22 +171,41 @@ public struct PlannedSchedulerQueue: Equatable, Hashable, Sendable {
     }
 }
 
-/// An opaque identity for one *particular* queue, as the seam observes it: a
-/// digest over the configuration the scheduler actually holds, such as its
-/// device target and description bytes.
+/// An *unrepeatable* token this transaction writes into the queue's own
+/// configuration and reads back, so that one particular queue object can be
+/// told apart from any later queue of the same name.
 ///
-/// A name is not an identity. Two queues can share a name across time, so a
-/// transaction records the identity observed immediately after it created its
-/// queue and requires an exact match before ever removing one. The model never
-/// derives an identity of its own, and an identity that cannot be established
-/// is `nil`: unknown, never a licence to delete.
-public struct SchedulerQueueIdentity: Equatable, Hashable, Sendable {
-    public let sha256: String
+/// It must be freshly generated per transaction and must **not** be derived from
+/// the queue's configuration. A digest of the configuration would be
+/// reproducible: another administrator creating the same name with the same
+/// device target and description would produce the same value, and a removal
+/// gated on it would delete their queue. This model generates no randomness, so
+/// the token is supplied by the caller and its unrepeatability is the caller's
+/// obligation.
+public struct SchedulerQueueIncarnation: Equatable, Hashable, Sendable {
+    public let token: String
 
-    public init(sha256: String) throws {
-        guard isLowercaseSHA256(sha256) else { throw QueueInstallationError.invalidDigest }
-        self.sha256 = sha256
+    public init(token: String) throws {
+        guard isLowercaseSHA256(token) else { throw QueueInstallationError.invalidIncarnation }
+        self.token = token
     }
+}
+
+/// What a create operation could prove about acquiring the queue *name*.
+///
+/// `lpadmin -p` is create-or-modify, not an exclusive namespace acquisition.
+/// `docs/validation/M1-TRANSACTION-RECOVERY.md` states the consequence
+/// directly: "even a successful response and exact discard URI readback cannot
+/// prove that no competing queue was modified". A seam built on it must
+/// therefore report `ambiguousCreateOrModify`, and this model refuses to call
+/// such a transaction complete.
+public enum SchedulerQueueAcquisition: String, Equatable, Sendable, CaseIterable {
+    /// The seam proved that this operation created the name and did not modify
+    /// an existing queue.
+    case exclusiveCreation = "exclusive-creation"
+    /// The operation reported success but cannot distinguish creation from
+    /// modification of a queue that appeared first.
+    case ambiguousCreateOrModify = "ambiguous-create-or-modify"
 }
 
 /// A caller-supplied identifier for one transaction: 32 lowercase hex digits.
@@ -343,12 +373,12 @@ public enum FileArtifactObservation: Equatable, Sendable {
     }
 }
 
-/// The same three answers for a queue, and for a present queue the identity the
-/// seam could establish for it. `present(nil)` means a queue of that name exists
-/// but the seam could not say *which* queue it is; that is unknown, and unknown
-/// never authorizes a removal.
+/// The same three answers for a queue, and for a present queue the incarnation
+/// token the seam could read out of its configuration. `present(nil)` means a
+/// queue of that name exists but carries no readable incarnation; that is
+/// unknown, and unknown never authorizes a removal.
 public enum SchedulerQueueObservation: Equatable, Sendable {
-    case present(SchedulerQueueIdentity?)
+    case present(SchedulerQueueIncarnation?)
     case confirmedAbsent
     case queryFailed
 
@@ -362,8 +392,8 @@ public enum SchedulerQueueObservation: Equatable, Sendable {
         return false
     }
 
-    public var identity: SchedulerQueueIdentity? {
-        if case let .present(identity) = self { return identity }
+    public var incarnation: SchedulerQueueIncarnation? {
+        if case let .present(incarnation) = self { return incarnation }
         return nil
     }
 }
@@ -424,43 +454,57 @@ public enum QueueInstallationRecordedPhase: String, Equatable, Sendable, CaseIte
     case residual
 }
 
-/// The durable record naming every artifact the transaction created, so recovery
-/// is finite and a human can recover from evidence rather than from guesswork.
+/// The durable record naming every artifact the transaction created, plus the
+/// one it is *about to* create, so recovery is finite and a human can recover
+/// from evidence rather than from guesswork.
+///
+/// The pending entry exists because an effect and the note of it cannot happen
+/// at the same instant. A step is written as pending *before* the effect runs
+/// and moved to created afterwards, so an interruption at the worst moment
+/// leaves an artifact whose existence is unknown but whose *name* is recorded.
+/// Recovery probes a pending artifact and never assumes it was not created.
 ///
 /// The encoding is a fixed, canonical line sequence, and decoding is strict: an
 /// unknown key, a duplicate key, a reordered section, a non-canonical integer, a
 /// phase that contradicts the artifact list, or any input whose re-encoding
 /// differs by a single byte fails closed rather than being partly believed.
 public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
-    public static let schemaVersion = 1
+    public static let schemaVersion = 2
     public static let maximumFileArtifacts = 8
     public static let maximumCreatedArtifacts = 16
     public static let maximumEncodedByteCount = 16 * 1024
 
     public let transactionID: QueueInstallationTransactionID
     public let queue: PlannedSchedulerQueue
-    /// The identity observed for this transaction's own queue, when one could be
-    /// established. Removal requires an exact match against it.
-    public let queueIdentity: SchedulerQueueIdentity?
+    /// The incarnation token confirmed for this transaction's own queue.
+    /// Removal requires an exact match against it.
+    public let queueIncarnation: SchedulerQueueIncarnation?
+    /// What the create operation could prove about acquiring the name.
+    public let queueAcquisition: SchedulerQueueAcquisition?
     public let phase: QueueInstallationRecordedPhase
+    /// The step whose effect was about to run. Its existence is unknown.
+    public let pendingArtifact: QueueInstallationArtifactID?
     /// Every planned file artifact, in the order the transaction would create them.
     public let files: [PlannedFileArtifact]
-    /// The subset confirmed created, in creation order. Rollback may touch these
-    /// and nothing else.
+    /// The subset confirmed created, in creation order.
     public let createdArtifacts: [QueueInstallationArtifactID]
 
     private init(
         validated transactionID: QueueInstallationTransactionID,
         queue: PlannedSchedulerQueue,
-        queueIdentity: SchedulerQueueIdentity?,
+        queueIncarnation: SchedulerQueueIncarnation?,
+        queueAcquisition: SchedulerQueueAcquisition?,
         phase: QueueInstallationRecordedPhase,
+        pendingArtifact: QueueInstallationArtifactID?,
         files: [PlannedFileArtifact],
         createdArtifacts: [QueueInstallationArtifactID]
     ) {
         self.transactionID = transactionID
         self.queue = queue
-        self.queueIdentity = queueIdentity
+        self.queueIncarnation = queueIncarnation
+        self.queueAcquisition = queueAcquisition
         self.phase = phase
+        self.pendingArtifact = pendingArtifact
         self.files = files
         self.createdArtifacts = createdArtifacts
     }
@@ -468,8 +512,10 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
     public init(
         transactionID: QueueInstallationTransactionID,
         queue: PlannedSchedulerQueue,
-        queueIdentity: SchedulerQueueIdentity? = nil,
+        queueIncarnation: SchedulerQueueIncarnation? = nil,
+        queueAcquisition: SchedulerQueueAcquisition? = nil,
         phase: QueueInstallationRecordedPhase,
+        pendingArtifact: QueueInstallationArtifactID? = nil,
         files: [PlannedFileArtifact],
         createdArtifacts: [QueueInstallationArtifactID]
     ) throws {
@@ -479,38 +525,59 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         guard createdArtifacts.count <= Self.maximumCreatedArtifacts else {
             throw QueueInstallationError.tooManyArtifacts
         }
-        var seenPaths = Set<AbsolutePath>()
+        var plannedPaths = Set<AbsolutePath>()
         for file in files {
-            guard seenPaths.insert(file.path).inserted else { throw QueueInstallationError.duplicateArtifactPath }
+            guard plannedPaths.insert(file.path).inserted else { throw QueueInstallationError.duplicateArtifactPath }
         }
         var seenCreated = Set<QueueInstallationArtifactID>()
         for created in createdArtifacts {
             guard seenCreated.insert(created).inserted else { throw QueueInstallationError.duplicateArtifactPath }
             if case let .file(path) = created {
-                guard seenPaths.contains(path) else { throw QueueInstallationError.notOwnedByTransaction }
+                guard plannedPaths.contains(path) else { throw QueueInstallationError.notOwnedByTransaction }
+            }
+        }
+        if let pendingArtifact {
+            // A pending step is one this transaction planned and has not yet
+            // confirmed. It cannot already be created.
+            guard !seenCreated.contains(pendingArtifact) else { throw QueueInstallationError.duplicateArtifactPath }
+            if case let .file(path) = pendingArtifact {
+                guard plannedPaths.contains(path) else { throw QueueInstallationError.notOwnedByTransaction }
             }
         }
         let createdQueue = seenCreated.contains(.schedulerQueue)
-        // An identity can only describe a queue this transaction created.
-        guard queueIdentity == nil || createdQueue else { throw QueueInstallationError.inconsistentRecordPhase }
+        // An incarnation or an acquisition can only describe a queue this
+        // transaction created, and they are recorded together.
+        guard (queueIncarnation == nil) == (queueAcquisition == nil) else {
+            throw QueueInstallationError.inconsistentRecordPhase
+        }
+        guard queueIncarnation == nil || createdQueue else {
+            throw QueueInstallationError.inconsistentRecordPhase
+        }
         switch phase {
         case .completed:
-            // Completion means every planned artifact exists and the queue was
-            // identified. Anything less is in progress or residual, not done.
-            guard createdQueue, queueIdentity != nil,
-                  seenCreated.count == files.count + 1 else {
+            // Completion means every planned artifact exists, in the order it
+            // was planned, with nothing pending, the queue identified, and the
+            // name provably acquired. Anything less is in progress or residual.
+            let expected = files.map { QueueInstallationArtifactID.file($0.path) } + [.schedulerQueue]
+            guard createdArtifacts == expected, pendingArtifact == nil,
+                  queueIncarnation != nil, queueAcquisition == .exclusiveCreation else {
                 throw QueueInstallationError.inconsistentRecordPhase
             }
         case .rolledBack:
-            // Rolled back means nothing of this transaction remains.
-            guard createdArtifacts.isEmpty else { throw QueueInstallationError.inconsistentRecordPhase }
+            // Rolled back means nothing of this transaction remains, and nothing
+            // is left in the unknown pending state either.
+            guard createdArtifacts.isEmpty, pendingArtifact == nil else {
+                throw QueueInstallationError.inconsistentRecordPhase
+            }
         case .inProgress, .residual:
             break
         }
         self.transactionID = transactionID
         self.queue = queue
-        self.queueIdentity = queueIdentity
+        self.queueIncarnation = queueIncarnation
+        self.queueAcquisition = queueAcquisition
         self.phase = phase
+        self.pendingArtifact = pendingArtifact
         self.files = files
         self.createdArtifacts = createdArtifacts
     }
@@ -520,20 +587,31 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         return files.first { $0.path == path }
     }
 
+    /// The journal this record lives in. Recovery needs it to read its own
+    /// evidence back and to shorten it as it proceeds.
+    public var journalArtifact: PlannedFileArtifact? {
+        files.first { $0.kind == .ownershipRecord }
+    }
+
+    /// Created artifacts plus the pending one, in creation order. This is what
+    /// recovery must cover: a pending step may or may not exist, and assuming it
+    /// does not is exactly the mistake that leaves an orphan.
+    public var ownedArtifactsInCreationOrder: [QueueInstallationArtifactID] {
+        createdArtifacts + (pendingArtifact.map { [$0] } ?? [])
+    }
+
     public func owns(_ id: QueueInstallationArtifactID) -> Bool {
-        createdArtifacts.contains(id)
+        createdArtifacts.contains(id) || pendingArtifact == id
     }
 
     /// A phase must stay consistent with what the record says it created, so
     /// this revalidates rather than assuming.
     public func replacingPhase(_ phase: QueueInstallationRecordedPhase) throws -> Self {
         try Self(
-            transactionID: transactionID,
-            queue: queue,
-            queueIdentity: queueIdentity,
-            phase: phase,
-            files: files,
-            createdArtifacts: createdArtifacts
+            transactionID: transactionID, queue: queue,
+            queueIncarnation: queueIncarnation, queueAcquisition: queueAcquisition,
+            phase: phase, pendingArtifact: pendingArtifact,
+            files: files, createdArtifacts: createdArtifacts
         )
     }
 
@@ -542,51 +620,56 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
     /// not need a throwing caller.
     public func markingResidual() -> Self {
         Self(
-            validated: transactionID, queue: queue, queueIdentity: queueIdentity,
-            phase: .residual, files: files, createdArtifacts: createdArtifacts
+            validated: transactionID, queue: queue,
+            queueIncarnation: queueIncarnation, queueAcquisition: queueAcquisition,
+            phase: .residual, pendingArtifact: pendingArtifact,
+            files: files, createdArtifacts: createdArtifacts
         )
     }
 
-    /// Records one more artifact as created. It must be a planned artifact of
-    /// this transaction and must not already be recorded.
-    public func appendingCreatedArtifact(_ id: QueueInstallationArtifactID) throws -> Self {
+    /// Names the step whose effect is about to run. Written durably *before* the
+    /// effect, so an interruption cannot hide it.
+    public func markingPending(_ id: QueueInstallationArtifactID) throws -> Self {
         try Self(
-            transactionID: transactionID,
-            queue: queue,
-            queueIdentity: queueIdentity,
-            phase: phase,
-            files: files,
-            createdArtifacts: createdArtifacts + [id]
+            transactionID: transactionID, queue: queue,
+            queueIncarnation: queueIncarnation, queueAcquisition: queueAcquisition,
+            phase: phase, pendingArtifact: id,
+            files: files, createdArtifacts: createdArtifacts
         )
     }
 
-    /// Binds the identity observed for the queue this transaction created.
-    public func bindingQueueIdentity(_ identity: SchedulerQueueIdentity?) throws -> Self {
-        try Self(
-            transactionID: transactionID,
-            queue: queue,
-            queueIdentity: identity,
-            phase: phase,
-            files: files,
-            createdArtifacts: createdArtifacts
+    /// Promotes the pending step to created, once its effect has been confirmed.
+    public func confirmingPending(
+        queueIncarnation incarnation: SchedulerQueueIncarnation? = nil,
+        queueAcquisition acquisition: SchedulerQueueAcquisition? = nil
+    ) throws -> Self {
+        guard let pendingArtifact else { throw QueueInstallationError.invalidPhase }
+        return try Self(
+            transactionID: transactionID, queue: queue,
+            queueIncarnation: incarnation ?? queueIncarnation,
+            queueAcquisition: acquisition ?? queueAcquisition,
+            phase: phase, pendingArtifact: nil,
+            files: files, createdArtifacts: createdArtifacts + [pendingArtifact]
         )
     }
 
-    /// Drops an artifact that is confirmed gone, and with the queue its identity.
-    /// This is what makes a second rollback pass idempotent rather than a second
-    /// deletion.
+    /// Drops an artifact that is confirmed gone, and with the queue its
+    /// incarnation and acquisition. This is what makes a second recovery pass
+    /// idempotent rather than a second deletion.
     ///
     /// Shortening the list cannot break the `in-progress`, `residual` or
-    /// `rolled-back` rules, but it can contradict `completed`, which asserts that
-    /// everything planned exists. A record that loses an artifact is therefore
-    /// no longer complete, and says so.
+    /// `rolled-back` rules, but it can contradict `completed`, which asserts
+    /// that everything planned exists. A record that loses an artifact is
+    /// therefore no longer complete, and says so.
     public func removingCreatedArtifact(_ id: QueueInstallationArtifactID) -> Self {
-        let remaining = createdArtifacts.filter { $0 != id }
+        let droppedQueue = id == .schedulerQueue
         return Self(
             validated: transactionID, queue: queue,
-            queueIdentity: id == .schedulerQueue ? nil : queueIdentity,
+            queueIncarnation: droppedQueue ? nil : queueIncarnation,
+            queueAcquisition: droppedQueue ? nil : queueAcquisition,
             phase: phase == .completed ? .inProgress : phase,
-            files: files, createdArtifacts: remaining
+            pendingArtifact: pendingArtifact == id ? nil : pendingArtifact,
+            files: files, createdArtifacts: createdArtifacts.filter { $0 != id }
         )
     }
 
@@ -595,8 +678,10 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         lines.append("schemaVersion=\(Self.schemaVersion)")
         lines.append("transactionID=\(transactionID.hex)")
         lines.append("queue=\(queue.name)")
-        lines.append("queueIdentity=\(queueIdentity?.sha256 ?? "-")")
+        lines.append("queueIncarnation=\(queueIncarnation?.token ?? "-")")
+        lines.append("queueAcquisition=\(queueAcquisition?.rawValue ?? "-")")
         lines.append("phase=\(phase.rawValue)")
+        lines.append("pending=\(pendingArtifact.map(Self.encode(artifact:)) ?? "-")")
         for file in files {
             let fields = [
                 file.kind.rawValue,
@@ -609,12 +694,20 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
             lines.append("file=" + fields.joined(separator: "|"))
         }
         for created in createdArtifacts {
-            switch created {
-            case .schedulerQueue: lines.append("created=queue")
-            case let .file(path): lines.append("created=" + path.value)
-            }
+            lines.append("created=" + Self.encode(artifact: created))
         }
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    private static func encode(artifact: QueueInstallationArtifactID) -> String {
+        switch artifact {
+        case .schedulerQueue: "queue"
+        case let .file(path): path.value
+        }
+    }
+
+    private static func decode(artifact value: String) throws -> QueueInstallationArtifactID {
+        value == "queue" ? .schedulerQueue : .file(try AbsolutePath(value))
     }
 
     public static func decode(_ text: String) throws -> Self {
@@ -624,7 +717,7 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         var lines = text.split(separator: "\n", omittingEmptySubsequences: false)
         guard lines.last == "" else { throw QueueInstallationError.invalidRecord }
         lines.removeLast()
-        guard lines.count >= 6 else { throw QueueInstallationError.invalidRecord }
+        guard lines.count >= 8 else { throw QueueInstallationError.invalidRecord }
 
         func field(_ line: Substring, _ key: String) throws -> String {
             let prefix = key + "="
@@ -637,13 +730,24 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         }
         let transactionID = try QueueInstallationTransactionID(hex: field(lines[1], "transactionID"))
         let queue = try PlannedSchedulerQueue(name: field(lines[2], "queue"))
-        let identityField = try field(lines[3], "queueIdentity")
-        let queueIdentity = identityField == "-" ? nil : try SchedulerQueueIdentity(sha256: identityField)
-        guard let phase = QueueInstallationRecordedPhase(rawValue: try field(lines[4], "phase")) else {
+        let incarnationField = try field(lines[3], "queueIncarnation")
+        let incarnation = incarnationField == "-"
+            ? nil : try SchedulerQueueIncarnation(token: incarnationField)
+        let acquisitionField = try field(lines[4], "queueAcquisition")
+        var acquisition: SchedulerQueueAcquisition?
+        if acquisitionField != "-" {
+            guard let parsed = SchedulerQueueAcquisition(rawValue: acquisitionField) else {
+                throw QueueInstallationError.invalidRecord
+            }
+            acquisition = parsed
+        }
+        guard let phase = QueueInstallationRecordedPhase(rawValue: try field(lines[5], "phase")) else {
             throw QueueInstallationError.invalidRecord
         }
+        let pendingField = try field(lines[6], "pending")
+        let pending = pendingField == "-" ? nil : try decode(artifact: pendingField)
 
-        var index = 5
+        var index = 7
         var files: [PlannedFileArtifact] = []
         while index < lines.count, lines[index].hasPrefix("file=") {
             files.append(try decodeFile(field(lines[index], "file")))
@@ -651,20 +755,17 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         }
         var created: [QueueInstallationArtifactID] = []
         while index < lines.count, lines[index].hasPrefix("created=") {
-            let value = try field(lines[index], "created")
-            created.append(value == "queue" ? .schedulerQueue : .file(try AbsolutePath(value)))
+            created.append(try decode(artifact: field(lines[index], "created")))
             index += 1
         }
         // Any remaining line is an unknown key, a reordered section or trailing
         // junk. A record that is not exactly canonical is not believed at all.
         guard index == lines.count else { throw QueueInstallationError.invalidRecord }
         let record = try Self(
-            transactionID: transactionID,
-            queue: queue,
-            queueIdentity: queueIdentity,
-            phase: phase,
-            files: files,
-            createdArtifacts: created
+            transactionID: transactionID, queue: queue,
+            queueIncarnation: incarnation, queueAcquisition: acquisition,
+            phase: phase, pendingArtifact: pending,
+            files: files, createdArtifacts: created
         )
         // One canonical spelling per record. Anything that decodes but would
         // re-encode differently is a second byte representation of the same
@@ -701,9 +802,9 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
 /// value this type can hold.
 ///
 /// Ordering is all this type can enforce. *Completeness* is a question about a
-/// particular record, so a transaction additionally requires that a supplied
-/// plan is exactly the one its own record derives — an empty or partial plan
-/// recovers nothing and must never be mistaken for a rollback.
+/// particular record, so a recovery additionally requires that a supplied plan
+/// is exactly the one its own record derives — an empty or partial plan recovers
+/// nothing and must never be mistaken for a rollback.
 public struct QueueInstallationRecoveryPlan: Equatable, Sendable {
     public enum Step: Equatable, Sendable {
         case removeQueue(PlannedSchedulerQueue)
@@ -742,11 +843,12 @@ public struct QueueInstallationRecoveryPlan: Equatable, Sendable {
         self.steps = steps
     }
 
-    /// Reverses the record's creation order, which puts the queue first and the
-    /// protected root last, then re-checks that ordering through `init(steps:)`.
+    /// Reverses the record's creation order — created artifacts *and* the
+    /// pending one — which puts the queue first and the protected root last,
+    /// then re-checks that ordering through `init(steps:)`.
     public init(record: QueueInstallationOwnershipRecord) throws {
         var steps: [Step] = []
-        for id in record.createdArtifacts.reversed() {
+        for id in record.ownedArtifactsInCreationOrder.reversed() {
             switch id {
             case .schedulerQueue:
                 steps.append(.removeQueue(record.queue))

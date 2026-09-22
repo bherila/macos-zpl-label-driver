@@ -10,23 +10,23 @@ import Foundation
 /// belongs to the maintainer, and ADR 0005 remains *proposed*. ADR 0003 still
 /// holds adapter selection open and nothing here reopens it.
 ///
-/// What the model does fix is the *shape* common to every option ADR 0005 leaves
-/// open:
+/// What the model fixes is the *shape* common to every option ADR 0005 leaves
+/// open, and — just as much — the shape of what cannot be promised:
 ///
-/// - Preconditions are captured before a plan can exist, and the plan is a
-///   value: an explicit inventory of every artifact with its intended absolute
-///   path, ownership and mode.
-/// - Staging and validation are separate moments. The gap between them is a
-///   TOCTOU window, so validation re-observes rather than trusting what staging
-///   believed, and the token types make the wrong order unrepresentable.
-/// - The durable ownership record is rewritten at every change of ownership,
-///   before the transaction relies on what it just took, so a transaction that
-///   dies at any point leaves a record that names what exists.
-/// - Recovery is queue-first: the queue is removed before the filter, so a
-///   partial failure never leaves a live queue pointing at a removed filter.
-/// - Rollback is finite, idempotent and ownership-conservative. It removes
-///   exactly what the record names, never a queue it cannot identify as its own,
-///   and it refuses a plan that would recover only part of the transaction.
+/// - Preconditions are captured before a plan can exist, are bound to the intent
+///   they inspected, and the plan is a value.
+/// - Staging and validation are separate moments, and so are validation and
+///   queue creation: every staged artifact is re-observed immediately before the
+///   queue that would point at it is created.
+/// - Every step is journalled *before* its effect runs and confirmed after, so
+///   an interruption leaves an artifact whose existence is unknown but whose
+///   name is recorded. Journal writes are conditional on the bytes last written.
+/// - Recovery is queue-first, finite, idempotent and ownership-conservative, and
+///   it can be loaded back from the journal alone — see
+///   `QueueInstallationRecovery`.
+/// - Acquiring a queue *name* is not something a create-or-modify operation can
+///   prove. A transaction whose seam cannot prove exclusive creation is not
+///   completed; it is residual with the ambiguity named.
 /// - An unverified or unobserved outcome is its own case. Unknown is never
 ///   false, zero, supported or completed.
 
@@ -47,22 +47,41 @@ public enum QueueInstallationRefusal: Equatable, Sendable {
     case stagingParentStateUnknown
 }
 
-/// Why a transaction stopped in a state a human must inspect. Every one of these
-/// is a *failure to know*, and none of them is ever reported as success.
+/// Why a transaction or recovery stopped in a state a human must inspect. Every
+/// one of these is a *failure to know*, and none is ever reported as success.
 public enum QueueInstallationResidualReason: Equatable, Sendable {
     case queueStateUnknown
     case queueStateUnknownAfterCreation
     case queueAbsentAfterCreation
     case queueRemovalUnverified
-    /// A queue of the right name is present, but it could not be shown to be the
-    /// one this transaction created. A name is not an identity, so this stops the
-    /// transaction instead of deleting someone else's queue.
-    case queueIdentityUnverified
+    /// A queue of the right name is present, but it does not carry the
+    /// unrepeatable incarnation token this transaction wrote. A name is not an
+    /// identity, so this stops recovery instead of deleting someone else's queue.
+    case queueIncarnationUnverified
+    /// The queue is present and this transaction cannot prove it acquired the
+    /// name rather than modifying a queue that appeared first. Automatic
+    /// recovery never removes a present queue for this reason.
+    case queueOwnershipAmbiguous
+    /// The journal no longer holds the bytes this transaction last wrote, so the
+    /// write was refused rather than destroying whatever replaced them.
+    case journalConflict
     case fileStateUnknown
     case fileRemovalUnverified
     case unexpectedArtifactState
     case effectFailed
     case recoveryPlanUnavailable
+}
+
+/// Who is driving a recovery, and therefore what it is allowed to destroy.
+public enum QueueInstallationRecoveryAuthority: String, Equatable, Sendable, CaseIterable {
+    /// A transaction cleaning up after itself, unattended. It never removes a
+    /// queue that is present, because create-or-modify success cannot prove who
+    /// acquired the name.
+    case automatic
+    /// A separately authorized recovery driven from the durable record. It may
+    /// remove a present queue, but only one carrying this record's exact
+    /// incarnation token.
+    case recordValidated = "record-validated"
 }
 
 /// The terminal value of a transaction. Only `completed` means the transaction
@@ -102,20 +121,43 @@ public enum QueueInstallationOutcome: Equatable, Sendable {
 /// had no effect; an operation that may or may not have taken effect must not be
 /// reported as a throw, because the model would then under-record what it owns.
 ///
-/// `persistOwnershipRecord` **must** replace the record's bytes in one step, so
-/// that a reader sees either the previous record or the new one and never a
-/// half-written list. This model cannot enforce that from here; it is a
-/// requirement on any conforming type, and an implementation that cannot meet it
-/// must not conform.
+/// **Four of these carry requirements this model cannot enforce.** They are
+/// stated here because stating them is the model's job; meeting them is the
+/// conformer's, and an implementation that cannot meet one must not conform:
+///
+/// - `createProtectedRoot` must fail if anything already exists at the path —
+///   `mkdir` semantics, not create-or-replace. This is the transaction's only
+///   exclusive namespace reservation.
+/// - `persistOwnershipRecord` must replace the journal's bytes in one step, and
+///   only if its current contents are exactly `previous` (`nil` meaning it must
+///   not exist at all). Without that condition an unconditional rewrite would
+///   destroy a journal something else had replaced. Note honestly that advisory
+///   locking cannot bind a writer that declines to cooperate.
+/// - `removeEmptyDirectory` must fail when the directory is not empty —
+///   `rmdir` semantics. A recursive delete would sweep away an unowned child
+///   that appeared beneath the protected root.
+/// - `createQueue` must write `incarnation` into the queue's own configuration
+///   so a later read can return it, and must report `exclusiveCreation` only if
+///   it can prove it created the name rather than modifying a queue that
+///   appeared first. An `lpadmin`-style create-or-modify operation cannot prove
+///   that and must report `ambiguousCreateOrModify`.
 public protocol QueueInstallationEffectSink {
     mutating func observeQueue(_ queue: PlannedSchedulerQueue) -> SchedulerQueueObservation
     mutating func observeFile(at path: AbsolutePath) -> FileArtifactObservation
+    mutating func createProtectedRoot(_ artifact: PlannedFileArtifact) throws
     mutating func createFile(_ artifact: PlannedFileArtifact) throws
-    mutating func createQueue(_ queue: PlannedSchedulerQueue, describedBy description: PlannedFileArtifact) throws
-    mutating func persistOwnershipRecord(_ text: String, at artifact: PlannedFileArtifact) throws
+    mutating func persistOwnershipRecord(
+        _ text: String, replacing previous: String?, at artifact: PlannedFileArtifact
+    ) throws
     mutating func readOwnershipRecord(at artifact: PlannedFileArtifact) -> OwnershipRecordObservation
+    mutating func createQueue(
+        _ queue: PlannedSchedulerQueue,
+        describedBy description: PlannedFileArtifact,
+        incarnation: SchedulerQueueIncarnation
+    ) throws -> SchedulerQueueAcquisition
     mutating func removeQueue(_ queue: PlannedSchedulerQueue) throws
     mutating func removeFile(at path: AbsolutePath) throws
+    mutating func removeEmptyDirectory(at path: AbsolutePath) throws
 }
 
 // MARK: - Intent
@@ -165,45 +207,56 @@ public struct QueueInstallationIntent: Equatable, Sendable {
     }
 
     /// Creation order. The protected root reserves the namespace first and the
-    /// durable ownership record is written before any payload, so a transaction
-    /// that dies mid-staging has already named what it may own.
+    /// journal is written before any payload, so a transaction that dies
+    /// mid-staging has already named what it may own.
     public var creationOrderedFiles: [PlannedFileArtifact] {
         [protectedRoot, ownershipRecord, filter, printerDescription]
     }
 
-    /// The artifacts placed with `createFile`. The ownership record is not one
-    /// of them: it is the transaction's journal, written and rewritten through
-    /// `persistOwnershipRecord`.
-    public var directlyCreatedFiles: [PlannedFileArtifact] {
-        [protectedRoot, filter, printerDescription]
+    /// The payload artifacts placed with `createFile`. The root has its own
+    /// exclusive reservation operation, and the journal is written and rewritten
+    /// through `persistOwnershipRecord`.
+    public var stagedPayloadFiles: [PlannedFileArtifact] {
+        [filter, printerDescription]
     }
 }
 
 // MARK: - Preconditions
 
-/// Everything observed before a plan may exist. Captured once, as a value.
+/// Everything observed before a plan may exist, together with the intent those
+/// observations were made *for*.
+///
+/// The binding matters: preconditions inspect a specific staging parent and a
+/// specific protected root, so letting a plan accept observations taken for some
+/// other intent would defeat the protected-root assumption before staging
+/// starts. Construction is therefore restricted to `capture`.
 public struct QueueInstallationPreconditions: Equatable, Sendable {
+    public let intent: QueueInstallationIntent
     public let queue: SchedulerQueueObservation
     public let stagingParent: FileArtifactObservation
     public let protectedRoot: FileArtifactObservation
 
-    public init(
+    private init(
+        intent: QueueInstallationIntent,
         queue: SchedulerQueueObservation,
         stagingParent: FileArtifactObservation,
         protectedRoot: FileArtifactObservation
     ) {
+        self.intent = intent
         self.queue = queue
         self.stagingParent = stagingParent
         self.protectedRoot = protectedRoot
     }
 
     /// Reads the three tri-state queries a plan depends on. This is the only
-    /// step that runs before planning, and it creates nothing.
+    /// step that runs before planning, the only way to obtain this value, and
+    /// it creates nothing.
     public static func capture<Sink: QueueInstallationEffectSink>(
         for intent: QueueInstallationIntent,
         from sink: inout Sink
     ) -> Self {
         Self(
+            intent: intent,
             queue: sink.observeQueue(intent.queue),
             stagingParent: sink.observeFile(at: intent.stagingParent),
             protectedRoot: sink.observeFile(at: intent.protectedRoot.path)
@@ -242,20 +295,28 @@ public struct QueueInstallationPreconditions: Equatable, Sendable {
 
 // MARK: - Plan
 
-/// A plan is a value that cannot exist until preconditions admitted it. Holding
-/// one changes nothing and authorizes nothing.
+/// A plan is a value that cannot exist until preconditions taken *for this
+/// intent* admitted it. Holding one changes nothing and authorizes nothing.
 public struct QueueInstallationPlan: Equatable, Sendable {
     public let transactionID: QueueInstallationTransactionID
+    /// The unrepeatable token this transaction will write into its queue's
+    /// configuration. Supplied by the caller; the model generates no randomness.
+    public let queueIncarnation: SchedulerQueueIncarnation
     public let intent: QueueInstallationIntent
     public let preconditions: QueueInstallationPreconditions
 
     public init(
         transactionID: QueueInstallationTransactionID,
+        queueIncarnation: SchedulerQueueIncarnation,
         intent: QueueInstallationIntent,
         preconditions: QueueInstallationPreconditions
     ) throws {
+        guard preconditions.intent == intent else {
+            throw QueueInstallationError.preconditionsIntentMismatch
+        }
         if let refusal = preconditions.refusal { throw QueueInstallationError.refused(refusal) }
         self.transactionID = transactionID
+        self.queueIncarnation = queueIncarnation
         self.intent = intent
         self.preconditions = preconditions
     }
@@ -269,10 +330,10 @@ public struct QueueInstallationPlan: Equatable, Sendable {
 
 // MARK: - Ordering tokens
 
-/// Proof that staging ran. Only `QueueInstallationTransaction.stage()` can make
-/// one, so validation cannot be reached before staging. It carries the intent it
-/// staged, because a transaction identifier alone is caller-supplied and two
-/// transactions could share one.
+/// Proof that staging ran. Only `QueueInstallationTransaction.stage(using:)` can
+/// make one, so validation cannot be reached before staging. It carries the
+/// intent it staged, because a transaction identifier alone is caller-supplied
+/// and two transactions could share one.
 public struct QueueInstallationStagedArtifacts: Equatable, Sendable {
     public let transactionID: QueueInstallationTransactionID
     public let intent: QueueInstallationIntent
@@ -289,6 +350,9 @@ public struct QueueInstallationStagedArtifacts: Equatable, Sendable {
 /// Only `QueueInstallationTransaction.validateStagedArtifacts(_:using:)` can make
 /// one, and it consumes a `QueueInstallationStagedArtifacts`, so the two steps
 /// cannot be represented in the other order.
+///
+/// It is proof that validation happened, not that it still holds: the artifacts
+/// are re-observed again immediately before the queue is created.
 public struct QueueInstallationValidatedArtifacts: Equatable, Sendable {
     public let transactionID: QueueInstallationTransactionID
     public let intent: QueueInstallationIntent
@@ -324,6 +388,9 @@ public struct QueueInstallationTransaction {
     public let plan: QueueInstallationPlan
     public private(set) var phase: QueueInstallationPhase
     public private(set) var record: QueueInstallationOwnershipRecord
+    /// The exact journal bytes this transaction last wrote. Every subsequent
+    /// write is conditional on them.
+    public private(set) var lastDurableText: String?
 
     public init(plan: QueueInstallationPlan) throws {
         self.plan = plan
@@ -339,76 +406,28 @@ public struct QueueInstallationTransaction {
 
     // MARK: Journalling
 
-    /// Rewrites the durable record. Called after every change of ownership and
-    /// before the transaction relies on what it just took, so the record on disk
-    /// never lags behind what exists.
-    private mutating func writeRecord<Sink: QueueInstallationEffectSink>(using sink: inout Sink) throws {
+    /// Rewrites the journal, conditional on the bytes last written. Called with
+    /// a step marked pending *before* its effect runs, and again once the effect
+    /// is confirmed, so the record never lags behind what may exist.
+    private mutating func writeJournal<Sink: QueueInstallationEffectSink>(
+        using sink: inout Sink, creating: Bool = false
+    ) throws {
+        let text = record.canonicalText
         do {
-            try sink.persistOwnershipRecord(record.canonicalText, at: plan.intent.ownershipRecord)
+            try sink.persistOwnershipRecord(
+                text, replacing: creating ? nil : lastDurableText, at: plan.intent.ownershipRecord
+            )
         } catch {
             throw QueueInstallationError.effectFailed
         }
+        lastDurableText = text
     }
 
-    /// Rewrites the record only while the record itself is still one of this
-    /// transaction's artifacts. Once recovery has removed it, writing again
-    /// would recreate the very file that was just cleaned up.
-    private mutating func writeRecordIfStillOwned<Sink: QueueInstallationEffectSink>(
+    /// Re-observes every staged artifact and the journal, and requires each to
+    /// still match the plan exactly.
+    private mutating func revalidateStagedArtifacts<Sink: QueueInstallationEffectSink>(
         using sink: inout Sink
     ) throws {
-        guard record.owns(.file(plan.intent.ownershipRecord.path)) else { return }
-        try writeRecord(using: &sink)
-    }
-
-    // MARK: Steps
-
-    /// Creates the protected root, writes the durable record, and then places
-    /// each remaining artifact, rewriting the record as each one is taken.
-    ///
-    /// The one irreducible window is between creating the root and the record's
-    /// first write: an interruption there can orphan an empty, fixed-name,
-    /// root-owned directory and nothing else. Everything created after that
-    /// point is named in the record before the transaction moves on.
-    public mutating func stage<Sink: QueueInstallationEffectSink>(
-        using sink: inout Sink
-    ) throws -> QueueInstallationStagedArtifacts {
-        guard phase == .planned else { throw QueueInstallationError.invalidPhase }
-        for artifact in plan.intent.directlyCreatedFiles {
-            do {
-                try sink.createFile(artifact)
-            } catch {
-                throw QueueInstallationError.effectFailed
-            }
-            record = try record.appendingCreatedArtifact(.file(artifact.path))
-            try writeRecord(using: &sink)
-            if artifact.kind == .protectedRoot {
-                // The first write created the record file itself, so the record
-                // now takes ownership of it and says so.
-                record = try record.appendingCreatedArtifact(.file(plan.intent.ownershipRecord.path))
-                try writeRecord(using: &sink)
-            }
-        }
-        phase = .staged
-        return QueueInstallationStagedArtifacts(
-            transactionID: plan.transactionID, intent: plan.intent
-        )
-    }
-
-    /// Re-observes every staged artifact and compares it against the plan.
-    /// Staging and validation are separate moments; the gap between them is a
-    /// TOCTOU window, so nothing staging believed is carried forward as fact —
-    /// including the durable record, which is read back and decoded.
-    public mutating func validateStagedArtifacts<Sink: QueueInstallationEffectSink>(
-        _ staged: QueueInstallationStagedArtifacts,
-        using sink: inout Sink
-    ) throws -> QueueInstallationValidatedArtifacts {
-        guard phase == .staged else { throw QueueInstallationError.invalidPhase }
-        // A transaction identifier is caller-supplied, so the token must also
-        // carry the intent it staged; otherwise one transaction could validate
-        // another's paths and then create its own queue having checked nothing.
-        guard staged.transactionID == plan.transactionID, staged.intent == plan.intent else {
-            throw QueueInstallationError.transactionMismatch
-        }
         for artifact in plan.intent.creationOrderedFiles {
             let observation = sink.observeFile(at: artifact.path)
             if let failure = artifact.validationFailure(against: observation) {
@@ -425,17 +444,86 @@ public struct QueueInstallationTransaction {
                 throw QueueInstallationError.stagedArtifactInvalid(.ownershipRecord, .contentMismatch)
             }
         }
+    }
+
+    // MARK: Steps
+
+    /// Reserves the protected root exclusively, writes the journal inside it,
+    /// then places each payload artifact — journalling the step as pending
+    /// before its effect and as created after it.
+    ///
+    /// The one irreducible window is the root reservation itself, because the
+    /// journal has nowhere to live until the root exists. An interruption there
+    /// can orphan one empty, fixed-name, root-owned directory and nothing else;
+    /// `docs/validation/M1-TRANSACTION-RECOVERY.md` describes the manual check
+    /// that window requires. Everything after it is named before its effect.
+    public mutating func stage<Sink: QueueInstallationEffectSink>(
+        using sink: inout Sink
+    ) throws -> QueueInstallationStagedArtifacts {
+        guard phase == .planned else { throw QueueInstallationError.invalidPhase }
+        do {
+            try sink.createProtectedRoot(plan.intent.protectedRoot)
+        } catch {
+            throw QueueInstallationError.effectFailed
+        }
+        record = try record.markingPending(.file(plan.intent.protectedRoot.path))
+        record = try record.confirmingPending()
+        // The journal's own first write is its creation, so it is exclusive: a
+        // journal already inside a root we just exclusively reserved would be a
+        // contradiction, and is refused rather than overwritten.
+        record = try record.markingPending(.file(plan.intent.ownershipRecord.path))
+        record = try record.confirmingPending()
+        try writeJournal(using: &sink, creating: true)
+
+        for artifact in plan.intent.stagedPayloadFiles {
+            record = try record.markingPending(.file(artifact.path))
+            try writeJournal(using: &sink)
+            do {
+                try sink.createFile(artifact)
+            } catch {
+                throw QueueInstallationError.effectFailed
+            }
+            record = try record.confirmingPending()
+            try writeJournal(using: &sink)
+        }
+        phase = .staged
+        return QueueInstallationStagedArtifacts(
+            transactionID: plan.transactionID, intent: plan.intent
+        )
+    }
+
+    /// Re-observes every staged artifact and compares it against the plan.
+    /// Staging and validation are separate moments; the gap between them is a
+    /// TOCTOU window, so nothing staging believed is carried forward as fact —
+    /// including the journal, which is read back and decoded.
+    public mutating func validateStagedArtifacts<Sink: QueueInstallationEffectSink>(
+        _ staged: QueueInstallationStagedArtifacts,
+        using sink: inout Sink
+    ) throws -> QueueInstallationValidatedArtifacts {
+        guard phase == .staged else { throw QueueInstallationError.invalidPhase }
+        // A transaction identifier is caller-supplied, so the token must also
+        // carry the intent it staged; otherwise one transaction could validate
+        // another's paths and then create its own queue having checked nothing.
+        guard staged.transactionID == plan.transactionID, staged.intent == plan.intent else {
+            throw QueueInstallationError.transactionMismatch
+        }
+        try revalidateStagedArtifacts(using: &sink)
         phase = .validated
         return QueueInstallationValidatedArtifacts(
             transactionID: plan.transactionID, intent: plan.intent
         )
     }
 
-    /// Creating a queue is create-or-modify, not create-exclusive, so absence is
-    /// re-proved immediately beforehand. A failed query refuses; it is never
-    /// read as absence. The queue is recorded as owned before anything relies on
-    /// it, and the identity observed for it is bound into the record so that a
-    /// later removal can require an exact match.
+    /// Creates the queue, having first re-proved that every staged artifact is
+    /// still exactly as validated — a validation token says validation *happened*,
+    /// not that it still holds, and a queue must never be pointed at a filter
+    /// that changed in between.
+    ///
+    /// Absence is re-proved immediately beforehand because creating a queue is
+    /// create-or-modify; a failed query refuses and is never read as absence.
+    /// The step is journalled as pending before the effect, and the incarnation
+    /// token must read back out of the created queue's configuration before it
+    /// is recorded as created.
     public mutating func createQueue<Sink: QueueInstallationEffectSink>(
         authorizedBy validated: QueueInstallationValidatedArtifacts,
         using sink: inout Sink
@@ -444,40 +532,62 @@ public struct QueueInstallationTransaction {
         guard validated.transactionID == plan.transactionID, validated.intent == plan.intent else {
             throw QueueInstallationError.transactionMismatch
         }
+        try revalidateStagedArtifacts(using: &sink)
         switch sink.observeQueue(plan.intent.queue) {
         case .present: throw QueueInstallationError.refused(.queueAlreadyPresent)
         case .queryFailed: throw QueueInstallationError.refused(.queueStateUnknown)
         case .confirmedAbsent: break
         }
+        record = try record.markingPending(.schedulerQueue)
+        try writeJournal(using: &sink)
+        let acquisition: SchedulerQueueAcquisition
         do {
-            try sink.createQueue(plan.intent.queue, describedBy: plan.intent.printerDescription)
+            acquisition = try sink.createQueue(
+                plan.intent.queue,
+                describedBy: plan.intent.printerDescription,
+                incarnation: plan.queueIncarnation
+            )
         } catch {
             throw QueueInstallationError.effectFailed
         }
-        record = try record.appendingCreatedArtifact(.schedulerQueue)
-        try writeRecord(using: &sink)
-        if case let .present(identity) = sink.observeQueue(plan.intent.queue), identity != nil {
-            record = try record.bindingQueueIdentity(identity)
-            try writeRecord(using: &sink)
+        // The queue stays *pending* until its own configuration hands back the
+        // token we wrote. Until then its existence is recorded but unproven as
+        // ours, which is exactly what recovery needs to know.
+        guard case let .present(observed) = sink.observeQueue(plan.intent.queue),
+              let observed, observed == plan.queueIncarnation else {
+            throw QueueInstallationError.queueIncarnationUnconfirmed
         }
+        record = try record.confirmingPending(
+            queueIncarnation: plan.queueIncarnation, queueAcquisition: acquisition
+        )
+        try writeJournal(using: &sink)
         phase = .queueCreated
     }
 
-    /// Completion requires an affirmative observation *of this transaction's own
-    /// queue*. An unknown, absent or unidentifiable queue is residual, never
-    /// success.
+    /// Completion requires an affirmative observation of this transaction's own
+    /// queue *and* proof that the name was acquired rather than possibly
+    /// modified. An unknown, absent, unidentifiable or ambiguously acquired
+    /// queue is residual, never success.
+    ///
+    /// A seam built on `lpadmin` reports `ambiguousCreateOrModify`, so it never
+    /// reaches `completed` here. That is deliberate and is a finding for
+    /// ADR 0005, not a defect to relax.
     public mutating func complete<Sink: QueueInstallationEffectSink>(
         using sink: inout Sink
     ) throws -> QueueInstallationOutcome {
         guard phase == .queueCreated else { throw QueueInstallationError.invalidPhase }
         switch sink.observeQueue(plan.intent.queue) {
         case let .present(observed):
-            guard let observed, let recorded = record.queueIdentity, observed == recorded else {
-                return enterResidual(.queueIdentityUnverified, using: &sink)
+            guard let observed, observed == plan.queueIncarnation,
+                  record.queueIncarnation == plan.queueIncarnation else {
+                return enterResidual(.queueIncarnationUnverified, using: &sink)
             }
-            record = try record.replacingPhase(.completed)
+            guard record.queueAcquisition == .exclusiveCreation else {
+                return enterResidual(.queueOwnershipAmbiguous, using: &sink)
+            }
             do {
-                try writeRecordIfStillOwned(using: &sink)
+                record = try record.replacingPhase(.completed)
+                try writeJournal(using: &sink)
             } catch {
                 return enterResidual(.effectFailed, using: &sink)
             }
@@ -495,143 +605,45 @@ public struct QueueInstallationTransaction {
         try QueueInstallationRecoveryPlan(record: record)
     }
 
-    /// One finite pass of queue-first recovery over exactly what this
-    /// transaction created. Calling it again is safe: artifacts already
-    /// confirmed absent are dropped from the record instead of removed twice.
+    /// Rolls the transaction back through the shared recovery executor, with
+    /// `automatic` authority: it will not remove a queue that is present.
     public mutating func rollBack<Sink: QueueInstallationEffectSink>(
         using sink: inout Sink
     ) -> QueueInstallationOutcome {
-        guard let recovery = try? recoveryPlan() else {
+        guard var recovery = try? recoveryExecutor() else {
             return enterResidual(.recoveryPlanUnavailable, using: &sink)
         }
-        guard let outcome = try? rollBack(following: recovery, using: &sink) else {
-            return enterResidual(.recoveryPlanUnavailable, using: &sink)
-        }
+        let outcome = recovery.recover(using: &sink)
+        adopt(recovery, outcome: outcome)
         return outcome
     }
 
-    /// Ownership is conserved in both directions, and both checks run before any
-    /// effect. A plan naming an artifact this transaction did not create removes
-    /// nothing; and a plan that is not exactly the one this record derives —
-    /// an empty plan, or one that drops the queue and keeps the filter — removes
-    /// nothing either, because recovering part of a transaction is not a
-    /// rollback and must never be reported as one.
     public mutating func rollBack<Sink: QueueInstallationEffectSink>(
-        following recovery: QueueInstallationRecoveryPlan,
+        following plan: QueueInstallationRecoveryPlan,
         using sink: inout Sink
     ) throws -> QueueInstallationOutcome {
-        for step in recovery.steps {
-            guard record.owns(step.artifactID) else { throw QueueInstallationError.notOwnedByTransaction }
-            if case let .removeFile(artifact) = step {
-                guard record.files.contains(artifact) else { throw QueueInstallationError.notOwnedByTransaction }
-            }
-        }
-        guard recovery == (try QueueInstallationRecoveryPlan(record: record)) else {
-            throw QueueInstallationError.incompleteRecoveryPlan
-        }
-        for step in recovery.steps {
-            switch step {
-            case let .removeQueue(queue):
-                if let residual = removeQueueStep(queue, using: &sink) { return residual }
-            case let .removeFile(artifact):
-                if let residual = removeFileStep(artifact, using: &sink) { return residual }
-            }
-        }
-        record = try record.replacingPhase(.rolledBack)
-        phase = .rolledBack
-        return .rolledBack(record)
+        var recovery = try recoveryExecutor()
+        let outcome = try recovery.recover(following: plan, using: &sink)
+        adopt(recovery, outcome: outcome)
+        return outcome
     }
 
-    private mutating func removeQueueStep<Sink: QueueInstallationEffectSink>(
-        _ queue: PlannedSchedulerQueue, using sink: inout Sink
-    ) -> QueueInstallationOutcome? {
-        switch sink.observeQueue(queue) {
-        case .queryFailed:
-            return enterResidual(.queueStateUnknown, using: &sink)
-        case .confirmedAbsent:
-            return dropping(.schedulerQueue, using: &sink)
-        case let .present(observed):
-            // A name is not an identity. If this transaction's queue was already
-            // removed and another administrator created one with the same name,
-            // removing it would destroy theirs, so an identity that is missing or
-            // different stops the rollback instead.
-            guard let observed, let recorded = record.queueIdentity, observed == recorded else {
-                return enterResidual(.queueIdentityUnverified, using: &sink)
-            }
-            do {
-                try sink.removeQueue(queue)
-            } catch {
-                return enterResidual(.effectFailed, using: &sink)
-            }
-            // Removal is only believed once absence is re-observed. Nothing the
-            // queue depends on may be removed before that.
-            switch sink.observeQueue(queue) {
-            case .confirmedAbsent:
-                return dropping(.schedulerQueue, using: &sink)
-            case .present:
-                return enterResidual(.queueRemovalUnverified, using: &sink)
-            case .queryFailed:
-                return enterResidual(.queueStateUnknown, using: &sink)
-            }
-        }
+    private func recoveryExecutor() throws -> QueueInstallationRecovery {
+        try QueueInstallationRecovery(
+            resuming: record, authority: .automatic, lastDurableText: lastDurableText
+        )
     }
 
-    private mutating func removeFileStep<Sink: QueueInstallationEffectSink>(
-        _ artifact: PlannedFileArtifact, using sink: inout Sink
-    ) -> QueueInstallationOutcome? {
-        let observation = sink.observeFile(at: artifact.path)
-        if observation.isConfirmedAbsent {
-            return dropping(.file(artifact.path), using: &sink)
+    private mutating func adopt(
+        _ recovery: QueueInstallationRecovery, outcome: QueueInstallationOutcome
+    ) {
+        record = recovery.record
+        lastDurableText = recovery.lastDurableText
+        switch outcome {
+        case .rolledBack: phase = .rolledBack
+        case let .residual(_, reason): phase = .residual(reason)
+        case .completed: break
         }
-        if let failure = artifact.validationFailure(against: observation) {
-            // Something other than what this transaction created now occupies
-            // the path, or the query failed. Either way it is retained for a
-            // human, not deleted on a guess.
-            return enterResidual(
-                failure == .observationFailed ? .fileStateUnknown : .unexpectedArtifactState, using: &sink
-            )
-        }
-        if artifact.kind == .ownershipRecord {
-            // The journal is the one artifact whose bytes no planned digest can
-            // pin, because it is rewritten as the transaction runs. Metadata
-            // alone would let a replaced journal be deleted, so read it back and
-            // require that it is still this transaction's.
-            switch sink.readOwnershipRecord(at: artifact) {
-            case .queryFailed:
-                return enterResidual(.fileStateUnknown, using: &sink)
-            case .confirmedAbsent:
-                return enterResidual(.unexpectedArtifactState, using: &sink)
-            case let .present(text):
-                guard let durable = try? QueueInstallationOwnershipRecord.decode(text),
-                      durable.transactionID == record.transactionID else {
-                    return enterResidual(.unexpectedArtifactState, using: &sink)
-                }
-            }
-        }
-        do {
-            try sink.removeFile(at: artifact.path)
-        } catch {
-            return enterResidual(.effectFailed, using: &sink)
-        }
-        guard sink.observeFile(at: artifact.path).isConfirmedAbsent else {
-            return enterResidual(.fileRemovalUnverified, using: &sink)
-        }
-        return dropping(.file(artifact.path), using: &sink)
-    }
-
-    /// Drops a confirmed-absent artifact from the record and journals the
-    /// shorter list, so an interruption mid-recovery still leaves a record that
-    /// names exactly what is left.
-    private mutating func dropping<Sink: QueueInstallationEffectSink>(
-        _ id: QueueInstallationArtifactID, using sink: inout Sink
-    ) -> QueueInstallationOutcome? {
-        record = record.removingCreatedArtifact(id)
-        do {
-            try writeRecordIfStillOwned(using: &sink)
-        } catch {
-            return enterResidual(.effectFailed, using: &sink)
-        }
-        return nil
     }
 
     private mutating func enterResidual<Sink: QueueInstallationEffectSink>(
@@ -639,9 +651,10 @@ public struct QueueInstallationTransaction {
     ) -> QueueInstallationOutcome {
         phase = .residual(reason)
         record = record.markingResidual()
-        // A best effort: the transaction is already in a state a human must
-        // inspect, and failing to journal that does not make it less so.
-        try? writeRecordIfStillOwned(using: &sink)
+        // A best effort, and a conditional one: the transaction is already in a
+        // state a human must inspect, and failing to journal that does not make
+        // it less so.
+        try? writeJournal(using: &sink)
         return .residual(record, reason)
     }
 }
