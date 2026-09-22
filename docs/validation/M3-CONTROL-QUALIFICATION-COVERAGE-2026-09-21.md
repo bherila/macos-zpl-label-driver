@@ -3,12 +3,14 @@
 - Date/time and operator: 2026-09-21, automated Claude session, unattended
 - Exact repository commit SHA: base `96e33918299fc82a48c5289e4452c39a6f974c37`
   (`origin/main`). Every command below was executed on branch
-  `claude/m3-capability-truthfulness-coverage`, whose only difference from that
-  base is this document and the new test file it cites. **No ledger record is
-  written by this slice and no acceptance checkbox is checked.** This is a
-  source slice; binding a criterion to a merged SHA is a separate controller
-  slice against the merged result (see `docs/TRACEABILITY.md` and the
-  "Evidence ledger and sequencing" section of `AGENTS.md`).
+  `claude/m3-capability-truthfulness-coverage`, which differs from that base in
+  exactly three files: this document, the new test file it cites, and the two
+  `MANIFEST.sha256` entries covering them. No production source is touched.
+  **No ledger record is written by this slice and no acceptance checkbox is
+  checked.** This is a source slice; binding a criterion to a merged SHA is a
+  separate controller slice against the merged result (see
+  `docs/TRACEABILITY.md` and the "Evidence ledger and sequencing" section of
+  `AGENTS.md`).
 - Related requirement and acceptance IDs: M3-AC01 (capability truthfulness) and
   M3-AC02 (settings validation), both of which requirement F04 depends on.
   Neither box was checked before this slice and neither had any ledger record.
@@ -278,9 +280,13 @@ Three causes, not two:
   `WorkerBitmapBindingTests.swift`, does not cover the guard: it holds one test
   for dimension and allocation bounds **whose positive case still passes without
   it**." A positive case that still passes is an input that never reached the
-  refusal — cause A, not a weakly-asserted negative case. The lesson it carries
-  ("do not assume the obviously-named test covers what it is named after") is
-  what motivated this sweep, and it applies to all three causes.
+  refusal, which reads as cause A rather than a weakly-asserted negative case.
+  **That is a reading of another record, not a measurement made here**: the
+  guard is in `Packages/LabelMac`, which cannot be built or run on this host, so
+  nothing in this document re-establishes it and the classification of M2-AC05
+  is not evidence for anything in the tables below. The lesson it carries ("do
+  not assume the obviously-named test covers what it is named after") is what
+  motivated this sweep, and it applies to all three causes.
 - **B1 — exercised, error unnamed, removal changes the error.** The input was
   fed, the guard did refuse it, and removal shifts the refusal to a different
   error. Naming the error in the existing assertion **would** have caught it.
