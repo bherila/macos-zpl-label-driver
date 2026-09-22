@@ -39,10 +39,16 @@ import XCTest
 /// supported-looking fact with no evidence, an unknown or unsupported fact that
 /// cites real model documentation, a tracking mode selected with no geometry or
 /// offset payload to fall back on, a declaration stored before its schema
-/// version, and an output limit above its declared bound. Where the error
-/// cannot carry the distinction — `unavailableTracking` reports the tracking
-/// kind and not the capability state — distinctness is asserted on the facts
-/// the constructed profile retains instead.
+/// version, and an output limit above its declared bound.
+///
+/// When this file was first written the tracking refusal could not carry the
+/// distinction at all — `unavailableTracking` reported only the tracking kind —
+/// so distinctness was asserted on the facts the constructed profile retains
+/// instead. That refusal now carries a `CapabilityRefusalReason`, and the
+/// schema-version gate it used to absorb is a separate error, so distinctness
+/// is asserted on the refusal itself as well as on the retained facts. The
+/// retained-fact assertions stay: they catch a profile that normalises one
+/// refusable fact into another on the way in, which no refusal could show.
 ///
 /// Nothing here observes a device. All facts are synthetic fixtures.
 final class M3ControlQualificationCoverageTests: XCTestCase {
@@ -80,13 +86,33 @@ final class M3ControlQualificationCoverageTests: XCTestCase {
             connection: base.connection)
     }
 
-    /// `PrinterProfileError.unavailableTracking` carries the tracking *kind*
-    /// and not the capability state, so the refusal alone cannot show that
-    /// unsupported, unknown, unevidenced-supported and absent stayed four
-    /// things. Distinctness is therefore asserted where it is observable: on
-    /// the facts the constructed profile retains. Both halves matter — a
-    /// refusal that erased the states, or retained states behind a resolver
-    /// that accepted them, would each fail this test.
+    /// A profile whose darkness fact and schema version are the only things
+    /// that vary. Darkness is stored as a non-optional fact, so unlike
+    /// tracking it has no absent case to distinguish.
+    private func darknessProfile(_ darkness: CapabilityFact, version: Int) throws -> PrinterProfile {
+        let base = try PrinterProfile.gc420dUSBReference(revision: 3)
+        let capabilities = base.capabilities
+        return try PrinterProfile(
+            schemaVersion: version, revision: 3,
+            capabilities: .init(
+                model: "synthetic-m3-darkness-profile",
+                thermalTransfer: capabilities.thermalTransfer, cutter: capabilities.cutter,
+                peeler: capabilities.peeler, rewind: capabilities.rewind,
+                tracking: capabilities.tracking,
+                printSpeedChoicesIps: capabilities.printSpeedChoicesIps,
+                darkness: darkness),
+            installedHardware: base.installedHardware, media: base.media,
+            connection: base.connection)
+    }
+
+    /// Distinctness has two places to live and this test checks both. The
+    /// facts the constructed profile retains show that nothing normalises one
+    /// refusable fact into another on the way in; the refusal's
+    /// `CapabilityRefusalReason` shows that the four are still four on the way
+    /// out. Both halves matter — a refusal that erased the states, or retained
+    /// states behind a resolver that accepted them, would each fail this test.
+    /// The per-reason assertions live in
+    /// `testTrackingRefusalNamesWhichCapabilityRecordProducedIt`.
     func testTrackingStateAndEvidenceAreSeparateRequirementsAtTheProfileLayer() throws {
         XCTAssertEqual(try trackingProfile(documented)
             .resolveControls(job: .init(tracking: .gap)).tracking, .value(.gap))
@@ -106,11 +132,17 @@ final class M3ControlQualificationCoverageTests: XCTestCase {
         XCTAssertEqual(retained[2].state, documented.state)
         XCTAssertNotEqual(retained[2].evidence, documented.evidence)
 
-        // And none of the three authorises the control.
-        for fact in refusable {
+        // And none of the three authorises the control, each under its own
+        // reason rather than one shared refusal.
+        let expected: [CapabilityRefusalReason] = [
+            .unsupported(.documentedModel(sourceID: "synthetic-m3-coverage-fixture")),
+            .unknown(.documentedModel(sourceID: "synthetic-m3-coverage-fixture")),
+            .unobservedSupport,
+        ]
+        for (fact, reason) in zip(refusable, expected) {
             XCTAssertThrowsError(try trackingProfile(fact)
                 .resolveControls(job: .init(tracking: .gap))) {
-                XCTAssertEqual($0 as? PrinterProfileError, .unavailableTracking(.gap))
+                XCTAssertEqual($0 as? PrinterProfileError, .unavailableTracking(.gap, reason))
             }
         }
 
@@ -120,7 +152,145 @@ final class M3ControlQualificationCoverageTests: XCTestCase {
         XCTAssertNil(absent.capabilities.tracking[.gap])
         XCTAssertNotEqual(absent.capabilities.tracking[.gap], documentedUnknown)
         XCTAssertThrowsError(try absent.resolveControls(job: .init(tracking: .gap))) {
-            XCTAssertEqual($0 as? PrinterProfileError, .unavailableTracking(.gap))
+            XCTAssertEqual($0 as? PrinterProfileError, .unavailableTracking(.gap, .absent))
+        }
+    }
+
+    /// The invariant this closes: *Unknown capability/status is not false,
+    /// zero, supported or completed.* Four materially different records used
+    /// to produce one indistinguishable refusal, so a setup surface reading
+    /// it could only say "unavailable" — and any wording stronger than that,
+    /// such as "this printer does not support gap tracking", would have been a
+    /// false claim about the device for three of the four.
+    ///
+    /// Each reason is asserted by name, and every pair is asserted distinct,
+    /// so collapsing any two back together fails here rather than passing on
+    /// the strength of a bare `XCTAssertThrowsError`.
+    func testTrackingRefusalNamesWhichCapabilityRecordProducedIt() throws {
+        let source = CapabilityEvidence.documentedModel(sourceID: "synthetic-m3-coverage-fixture")
+        let cases: [(CapabilityFact?, CapabilityRefusalReason)] = [
+            (nil, .absent),
+            (documentedUnsupported, .unsupported(source)),
+            (documentedUnknown, .unknown(source)),
+            (CapabilityFact(state: .supported, evidence: .unobserved), .unobservedSupport),
+            // An unknown fact that is also unobserved reports as unknown. The
+            // state is consulted first, so "nobody decided" is never relabelled
+            // as a support claim that failed its evidence check.
+            (CapabilityFact(state: .unknown, evidence: .unobserved), .unknown(.unobserved)),
+            (CapabilityFact(state: .unsupported, evidence: .reportedInstallation),
+             .unsupported(.reportedInstallation)),
+        ]
+        for (fact, reason) in cases {
+            XCTAssertThrowsError(try trackingProfile(fact)
+                .resolveControls(job: .init(tracking: .gap))) {
+                XCTAssertEqual($0 as? PrinterProfileError, .unavailableTracking(.gap, reason))
+            }
+        }
+
+        // No two of these reasons are the same value, so none of them can be
+        // reported in place of another.
+        let reasons = cases.map(\.1)
+        for (outer, first) in reasons.enumerated() {
+            for (inner, second) in reasons.enumerated() where inner > outer {
+                XCTAssertNotEqual(first, second, "reasons \(outer) and \(inner) collapsed")
+            }
+        }
+
+        // The other side of the bracket: an evidenced, supported fact has no
+        // reason at all, and the control resolves.
+        XCTAssertNil(CapabilityRefusalReason.reason(for: documented))
+        XCTAssertEqual(try trackingProfile(documented)
+            .resolveControls(job: .init(tracking: .gap)).tracking, .value(.gap))
+    }
+
+    /// A schema-version refusal is a statement about the profile record; a
+    /// capability refusal is a statement about what that record says of the
+    /// printer. Folding the first into the second made a profile too old to
+    /// express tracking look like a printer that cannot track.
+    ///
+    /// Both gates are bracketed from each side: the version one below the gate
+    /// refuses and names the version, the version at the gate resolves, and the
+    /// capability fact is held supported-and-documented throughout so the
+    /// refusal demonstrably cannot be about the device.
+    func testASchemaVersionRefusalIsSeparateFromACapabilityRefusal() throws {
+        for (mode, required) in [(MediaTracking.gap, 5), (.continuous, 5), (.blackMark, 6)] {
+            let below = try trackingProfile(documented, version: required - 1)
+            XCTAssertEqual(below.capabilities.tracking[mode], documented)
+            XCTAssertThrowsError(try below.resolveControls(job: .init(tracking: mode))) {
+                XCTAssertEqual($0 as? PrinterProfileError, .controlRequiresSchemaVersion(
+                    .tracking(mode), required: required, profileVersion: required - 1))
+            }
+            // Nothing above the gate reports the version error for this mode.
+            let atGate = try trackingProfile(documented, version: required)
+            if mode == .gap {
+                XCTAssertEqual(try atGate.resolveControls(job: .init(tracking: mode)).tracking,
+                               .value(mode))
+            } else {
+                // Continuous needs a length and black mark needs an offset, so
+                // these resolve no further — but they are past the schema gate,
+                // which is what this test is about.
+                XCTAssertThrowsError(try atGate.resolveControls(job: .init(tracking: mode))) {
+                    XCTAssertNil($0 as? PrinterProfileError)
+                }
+            }
+        }
+
+        // Which version a mode needs is part of the refusal: black mark needs
+        // one more than the others, and a schema-5 profile says so.
+        let five = try trackingProfile(documented, version: 5)
+        XCTAssertThrowsError(try five.resolveControls(job: .init(tracking: .blackMark))) {
+            XCTAssertEqual($0 as? PrinterProfileError, .controlRequiresSchemaVersion(
+                .tracking(.blackMark), required: 6, profileVersion: 5))
+        }
+        XCTAssertNotEqual(
+            PrinterProfileError.controlRequiresSchemaVersion(.tracking(.blackMark), required: 6, profileVersion: 5),
+            PrinterProfileError.controlRequiresSchemaVersion(.tracking(.gap), required: 5, profileVersion: 5))
+    }
+
+    /// The darkness twin of the two tests above. Its capability is stored as a
+    /// non-optional fact, so `.absent` cannot arise; the other three reasons
+    /// and the schema gate all can, and each is named.
+    func testDarknessRefusalSeparatesTheSchemaGateFromTheCapabilityRecord() throws {
+        let source = CapabilityEvidence.documentedModel(sourceID: "synthetic-m3-coverage-fixture")
+
+        // Schema gate: the fact is supported and documented at every version
+        // here, so only the record's version refuses below 4.
+        for version in 1...3 {
+            XCTAssertThrowsError(try darknessProfile(documented, version: version)
+                .resolveControls(job: .init(darkness: 15))) {
+                XCTAssertEqual($0 as? PrinterProfileError, .controlRequiresSchemaVersion(
+                    .darkness, required: 4, profileVersion: version))
+            }
+        }
+        XCTAssertEqual(try darknessProfile(documented, version: 4)
+            .resolveControls(job: .init(darkness: 15)).darkness, .value(15))
+
+        // Capability record, at a version that can express darkness.
+        let cases: [(CapabilityFact, CapabilityRefusalReason)] = [
+            (documentedUnsupported, .unsupported(source)),
+            (documentedUnknown, .unknown(source)),
+            (CapabilityFact(state: .supported, evidence: .unobserved), .unobservedSupport),
+            (CapabilityFact(state: .unknown, evidence: .unobserved), .unknown(.unobserved)),
+        ]
+        for (fact, reason) in cases {
+            XCTAssertThrowsError(try darknessProfile(fact, version: 4)
+                .resolveControls(job: .init(darkness: 15))) {
+                XCTAssertEqual($0 as? PrinterProfileError, .unavailableDarkness(reason))
+            }
+        }
+        let reasons = cases.map(\.1)
+        for (outer, first) in reasons.enumerated() {
+            for (inner, second) in reasons.enumerated() where inner > outer {
+                XCTAssertNotEqual(first, second, "reasons \(outer) and \(inner) collapsed")
+            }
+        }
+
+        // A qualified capability still refuses a value off the documented
+        // range, and reports that as a value problem rather than availability.
+        let qualified = try darknessProfile(documented, version: 4)
+        XCTAssertEqual(try qualified.resolveControls(job: .init(darkness: 30)).darkness, .value(30))
+        XCTAssertThrowsError(try qualified.resolveControls(job: .init(darkness: 31))) {
+            XCTAssertEqual($0 as? PrinterProfileError, .unsupportedDarkness(31))
         }
     }
 
