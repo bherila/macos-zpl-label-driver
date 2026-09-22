@@ -11,6 +11,15 @@ import Foundation
 /// `QueueInstallationPlan`, because a plan's preconditions refuse an existing
 /// protected root. Recovery therefore needs no plan: the record is sufficient.
 ///
+/// Every destructive step is guarded twice over. The journal is re-asserted
+/// through its compare-and-swap *before* the effect runs, so a journal something
+/// else replaced stops recovery while the artifacts it describes are still
+/// there; and the effect itself is conditional, carrying the state it expects so
+/// that a conformer performs it only while that state still holds. An
+/// observation followed by an unconditional delete would leave a window between
+/// the two in which the object being deleted is no longer the object that was
+/// checked.
+///
 /// Nothing here is privileged and nothing here is an installation path. Every
 /// effect goes through the injected seam, and `LabelCore` ships no conforming
 /// type.
@@ -20,6 +29,11 @@ public struct QueueInstallationRecovery {
     /// The exact bytes this recovery last saw durably. Every journal write is
     /// conditional on them, so a journal replaced behind our back is detected
     /// instead of overwritten.
+    ///
+    /// A recovery constructed without them can prove nothing about the journal,
+    /// and the compare-and-swap that precedes every destructive effect will
+    /// therefore refuse. That is deliberate: not knowing what the journal holds
+    /// is not permission to delete what it describes.
     public private(set) var lastDurableText: String?
     private let journal: PlannedFileArtifact
 
@@ -27,33 +41,55 @@ public struct QueueInstallationRecovery {
         resuming record: QueueInstallationOwnershipRecord,
         authority: QueueInstallationRecoveryAuthority,
         lastDurableText: String? = nil
-    ) throws {
-        guard let journal = record.journalArtifact else { throw QueueInstallationError.recordHasNoJournal }
+    ) {
         self.record = record
         self.authority = authority
         self.lastDurableText = lastDurableText
-        self.journal = journal
+        journal = record.journalArtifact
     }
 
     /// Hydrates recovery state from the journal on the other side of the seam.
-    /// The bytes are decoded strictly and must describe a record that lives in
-    /// the very artifact they were read from.
+    ///
+    /// The artifact is **validated before it is read**: kind, ownership, mode,
+    /// symlink and effective access control are checked against the planned
+    /// journal artifact first, because the read operation hands back bytes and
+    /// nothing else. Without that, a symbolic link or a wrong-owner file holding
+    /// a copied canonical record could hydrate a record-validated recovery and
+    /// so authorize destructive cleanup from contents anybody could place.
+    ///
+    /// The bytes are then read under a byte cap, decoded strictly, and must
+    /// describe a record that both lives in the very artifact they were read
+    /// from *and* claims that artifact as one it created. A record that plans a
+    /// journal it never created has an empty recovery plan, and reporting a
+    /// successful rollback while leaving that journal — and the root containing
+    /// it — on disk is exactly the false clean-up this refuses.
     public static func load<Sink: QueueInstallationEffectSink>(
         journalAt journal: PlannedFileArtifact,
         authority: QueueInstallationRecoveryAuthority,
         using sink: inout Sink
     ) throws -> Self {
         guard journal.kind == .ownershipRecord else { throw QueueInstallationError.artifactKindMismatch }
-        switch sink.readOwnershipRecord(at: journal) {
+        let observation = sink.observeFile(at: journal.path)
+        if let failure = journal.validationFailure(against: observation) {
+            throw QueueInstallationError.stagedArtifactInvalid(.ownershipRecord, failure)
+        }
+        let limit = QueueInstallationOwnershipRecord.maximumEncodedByteCount
+        switch sink.readOwnershipRecord(at: journal, maximumByteCount: limit) {
         case .queryFailed:
             // Unreadable is not absent and is certainly not "nothing to do".
             throw QueueInstallationError.effectFailed
         case .confirmedAbsent:
             throw QueueInstallationError.invalidRecord
+        case .exceededMaximumByteCount:
+            throw QueueInstallationError.ownershipRecordTooLarge
         case let .present(text):
+            guard text.utf8.count <= limit else { throw QueueInstallationError.ownershipRecordTooLarge }
             let record = try QueueInstallationOwnershipRecord.decode(text)
             guard record.journalArtifact == journal else { throw QueueInstallationError.recordHasNoJournal }
-            return try Self(resuming: record, authority: authority, lastDurableText: text)
+            guard record.owns(.file(journal.path)) else {
+                throw QueueInstallationError.journalNotOwnedByRecord
+            }
+            return Self(resuming: record, authority: authority, lastDurableText: text)
         }
     }
 
@@ -118,7 +154,7 @@ public struct QueueInstallationRecovery {
             return enterResidual(.queueStateUnknown, using: &sink)
         case .confirmedAbsent:
             return dropping(.schedulerQueue, using: &sink)
-        case let .present(observed):
+        case let .present(state):
             // Automatic recovery never removes a *present* queue, whatever it
             // looks like. Creating a queue is create-or-modify, not an
             // exclusive acquisition, so this transaction cannot prove it won
@@ -133,13 +169,40 @@ public struct QueueInstallationRecovery {
             // is not either: another administrator recreating the same name with
             // the same target and description would match it. Only the
             // unrepeatable incarnation token this transaction wrote will do.
-            guard let observed, let recorded = record.queueIncarnation, observed == recorded else {
+            guard let observed = state.incarnation, let recorded = record.queueIncarnation,
+                  observed == recorded else {
                 return enterResidual(.queueIncarnationUnverified, using: &sink)
             }
+            // The queue also has to still deliver where the record says it was
+            // pointed. A destination that changed means something modified this
+            // queue, and an unreadable one is unknown; neither is ours to delete
+            // on the strength of the token alone.
+            guard case let .known(destination) = state.destination,
+                  destination == record.destination else {
+                return enterResidual(.queueDestinationUnverified, using: &sink)
+            }
+            if let residual = journalStillOurs(using: &sink) { return residual }
+            // The observation above and the deletion below are two moments. If
+            // the checked queue were deleted and the name recreated in between,
+            // an unconditional removal by name would land on the replacement. So
+            // the deletion carries the incarnation it expects and a conformer
+            // performs it only while that incarnation still holds; when it no
+            // longer does, nothing is deleted and this stops.
+            let removal: SchedulerQueueRemoval
             do {
-                try sink.removeQueue(queue)
+                removal = try sink.removeQueue(queue, ifIncarnationMatches: recorded)
             } catch {
                 return enterResidual(.effectFailed, using: &sink)
+            }
+            switch removal {
+            case .incarnationChanged:
+                return enterResidual(.queueIncarnationUnverified, using: &sink)
+            case .unknown:
+                // Ambiguous, so it is never replayed: a second attempt could
+                // delete a queue that appeared in the meantime.
+                return enterResidual(.queueRemovalUnverified, using: &sink)
+            case .removed:
+                break
             }
             // Removal is only believed once absence is re-observed. Nothing the
             // queue depends on may be removed before that.
@@ -178,37 +241,56 @@ public struct QueueInstallationRecovery {
             // require that it is this record in full — not merely a canonical
             // record reusing the same caller-supplied transaction identifier
             // with a different queue, intent or inventory.
-            switch sink.readOwnershipRecord(at: artifact) {
+            let limit = QueueInstallationOwnershipRecord.maximumEncodedByteCount
+            switch sink.readOwnershipRecord(at: artifact, maximumByteCount: limit) {
             case .queryFailed:
                 return enterResidual(.fileStateUnknown, using: &sink)
             case .confirmedAbsent:
                 return enterResidual(.unexpectedArtifactState, using: &sink)
+            case .exceededMaximumByteCount:
+                return enterResidual(.fileStateUnknown, using: &sink)
             case let .present(text):
+                guard text.utf8.count <= limit else { return enterResidual(.fileStateUnknown, using: &sink) }
                 guard let durable = try? QueueInstallationOwnershipRecord.decode(text),
                       durable == record else {
                     return enterResidual(.unexpectedArtifactState, using: &sink)
                 }
             }
         }
+        if artifact.kind == .protectedRoot {
+            // The root is a directory, and the only artifact removed with
+            // the empty-directory operation. That operation's contract
+            // requires failure when the directory is not empty, so an
+            // unowned child that appeared underneath stops recovery instead
+            // of being swept away with it. This model cannot enforce that
+            // contract; a conformer that deletes recursively must not
+            // conform. The ordering check here is the part the model can
+            // enforce: the root is removed only once nothing else is owned.
+            guard record.ownedArtifactsInCreationOrder == [.file(artifact.path)] else {
+                return enterResidual(.unexpectedArtifactState, using: &sink)
+            }
+        }
+        if let residual = journalStillOurs(using: &sink) { return residual }
+        let removal: FileArtifactRemoval
         do {
             if artifact.kind == .protectedRoot {
-                // The root is a directory, and the only artifact removed with
-                // the empty-directory operation. That operation's contract
-                // requires failure when the directory is not empty, so an
-                // unowned child that appeared underneath stops recovery instead
-                // of being swept away with it. This model cannot enforce that
-                // contract; a conformer that deletes recursively must not
-                // conform. The ordering check above is the part the model can
-                // enforce: the root is removed only once nothing else is owned.
-                guard record.ownedArtifactsInCreationOrder == [.file(artifact.path)] else {
-                    return enterResidual(.unexpectedArtifactState, using: &sink)
-                }
-                try sink.removeEmptyDirectory(at: artifact.path)
+                removal = try sink.removeEmptyDirectory(artifact)
             } else {
-                try sink.removeFile(at: artifact.path)
+                removal = try sink.removeFile(artifact)
             }
         } catch {
             return enterResidual(.effectFailed, using: &sink)
+        }
+        switch removal {
+        case .artifactChanged:
+            // The path stopped holding what was validated a moment ago, so the
+            // conditional removal declined rather than deleting whatever is
+            // there now.
+            return enterResidual(.unexpectedArtifactState, using: &sink)
+        case .unknown:
+            return enterResidual(.fileRemovalUnverified, using: &sink)
+        case .removed:
+            break
         }
         guard sink.observeFile(at: artifact.path).isConfirmedAbsent else {
             return enterResidual(.fileRemovalUnverified, using: &sink)
@@ -230,10 +312,41 @@ public struct QueueInstallationRecovery {
             // The journal is not the one we last wrote, so something replaced it
             // and an unconditional rewrite would have destroyed that evidence.
             return enterResidual(.journalConflict, using: &sink)
+        case .notDurable:
+            return enterResidual(.journalNotDurable, using: &sink)
         }
     }
 
-    private enum JournalWrite { case written, notOwned, rejected }
+    private enum JournalWrite { case written, notOwned, rejected, notDurable }
+
+    /// Re-asserts, **before** a destructive effect, that the journal still holds
+    /// exactly the bytes this recovery last saw, using the same compare-and-swap
+    /// every journal write uses.
+    ///
+    /// Without this the first removal of a pass runs against a journal nothing
+    /// has re-checked: if another transaction had already replaced the durable
+    /// record — recreating the root and writing its own inventory — the conflict
+    /// would only be noticed by the write that *follows* the removal, by which
+    /// time that transaction's queue or file is gone. The model cannot hold a
+    /// cross-process lock, so it uses the one conditional primitive it has, in
+    /// the one order that is safe: check first, destroy second.
+    ///
+    /// Once recovery has removed the journal itself there is nothing left to
+    /// compare against, and the remaining step — the empty protected root — is
+    /// guarded instead by the requirement that nothing else is still owned and
+    /// by the removal's own `rmdir` semantics.
+    private mutating func journalStillOurs<Sink: QueueInstallationEffectSink>(
+        using sink: inout Sink
+    ) -> QueueInstallationOutcome? {
+        switch writeJournalIfStillOwned(using: &sink) {
+        case .written, .notOwned:
+            return nil
+        case .rejected:
+            return enterResidual(.journalConflict, using: &sink)
+        case .notDurable:
+            return enterResidual(.journalNotDurable, using: &sink)
+        }
+    }
 
     /// Rewrites the journal only while it is still one of this record's
     /// artifacts — once recovery has removed it, writing again would recreate
@@ -244,11 +357,15 @@ public struct QueueInstallationRecovery {
     ) -> JournalWrite {
         guard record.owns(.file(journal.path)) else { return .notOwned }
         let text = record.canonicalText
+        let durability: JournalDurability
         do {
-            try sink.persistOwnershipRecord(text, replacing: lastDurableText, at: journal)
+            durability = try sink.persistOwnershipRecord(text, replacing: lastDurableText, at: journal)
         } catch {
             return .rejected
         }
+        // A write the conformer cannot say reached stable storage leaves the
+        // durable bytes unknown, so `lastDurableText` is not advanced to them.
+        guard durability == .synchronizedToStorage else { return .notDurable }
         lastDurableText = text
         return .written
     }
