@@ -11,6 +11,11 @@ import Foundation
 /// `QueueInstallationPlan`, because a plan's preconditions refuse an existing
 /// protected root. Recovery therefore needs no plan: the record is sufficient.
 ///
+/// What it cannot do is hold a claim across an interval. Every guard below binds
+/// one operation to a state it carries; none of them keeps a state true while
+/// several operations run. `removeQueueStep` documents the one place where that
+/// distinction currently costs something.
+///
 /// Every destructive step is guarded twice over. The journal is re-asserted
 /// through its compare-and-swap *before* the effect runs, so a journal something
 /// else replaced stops recovery while the artifacts it describes are still
@@ -150,6 +155,31 @@ public struct QueueInstallationRecovery {
 
     // MARK: - Steps
 
+    /// **Known gap, deliberately not closed here.** Once the queue is confirmed
+    /// absent and dropped from the record, this pass goes on to delete the
+    /// printer description, the filter and the journal without ever looking at
+    /// the scheduler namespace again. Another administrator who recreates a
+    /// queue of that name during that interval is left with a live queue whose
+    /// payloads are being removed underneath it.
+    ///
+    /// Every condition in this file binds one *operation* to a state: the
+    /// journal's compare-and-swap, the incarnation, destination and description
+    /// carried into `removeQueue`, the artifact carried into each removal. None
+    /// of them can express "the queue stayed absent while I tore its payloads
+    /// down", because that claim has to hold across several operations and no
+    /// single conditional primitive spans them. Re-observing the queue before
+    /// each payload removal would narrow the window and close nothing, and
+    /// reporting that as a fix is worse than the gap.
+    ///
+    /// Closing it honestly needs a *held* claim over the queue name and the
+    /// protected root, spanning the pass — a coordination domain the seam offers
+    /// and this model requires — which `AGENTS.md` also asks for in the other
+    /// direction: "All product queues and maintenance actions share one physical
+    /// device coordination domain", and "A Swift actor is not a cross-process
+    /// device lock". Which mechanism can provide one is a property of the
+    /// installation mechanism, and ADR 0005 is still *proposed* and has not
+    /// chosen one. It is therefore a decision for that ADR and for the
+    /// maintainer, not something to invent inside a review round.
     private mutating func removeQueueStep<Sink: QueueInstallationEffectSink>(
         _ queue: PlannedSchedulerQueue, using sink: inout Sink
     ) -> QueueInstallationOutcome? {

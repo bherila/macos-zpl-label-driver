@@ -156,7 +156,18 @@ public enum QueueInstallationOutcome: Equatable, Sendable {
 /// - `createProtectedRoot` must fail if anything already exists at the path —
 ///   `mkdir` semantics, not create-or-replace. It is the reservation the
 ///   transaction cannot journal in advance, because the journal has nowhere to
-///   live until the root exists.
+///   live until the root exists. It is also **conditional on the parent**: it
+///   creates the root inside the directory object `identity` names and nowhere
+///   else, and it must decline with `parentIdentityChanged` rather than create
+///   anything when that object is no longer at `parent`. A conformer does this
+///   by holding the validated parent open and creating relative to that
+///   descriptor — `mkdirat` on a descriptor, not `mkdir` on a reassembled
+///   string — and reports back the identity of the descriptor it used, so the
+///   model can check the answer instead of assuming the argument was honoured.
+///   Without that binding the preconditions prove something about one directory
+///   and the reservation happens in whatever directory the path resolves to at
+///   the later moment, which is exactly how a root lands somewhere `AGENTS.md`
+///   forbids writing to.
 /// - `createFile` is **create-if-absent** and must open without following
 ///   symbolic links: a path that is already occupied refuses the step and
 ///   nothing at that path is written, truncated, replaced or followed. It is
@@ -239,7 +250,11 @@ public enum QueueInstallationOutcome: Equatable, Sendable {
 public protocol QueueInstallationEffectSink {
     mutating func observeQueue(_ queue: PlannedSchedulerQueue) -> SchedulerQueueObservation
     mutating func observeFile(at path: AbsolutePath) -> FileArtifactObservation
-    mutating func createProtectedRoot(_ artifact: PlannedFileArtifact) throws
+    mutating func createProtectedRoot(
+        _ artifact: PlannedFileArtifact,
+        inside parent: AbsolutePath,
+        ifParentIdentityMatches identity: DirectoryIdentity
+    ) throws -> ProtectedRootReservation
     mutating func createFile(_ artifact: PlannedFileArtifact) throws -> FileArtifactCreation
     mutating func persistOwnershipRecord(
         _ text: String, replacing previous: String?, at artifact: PlannedFileArtifact
@@ -439,8 +454,28 @@ public struct QueueInstallationPreconditions: Equatable, Sendable {
             case .grantsWriteToOtherPrincipals: return .stagingParentUnsuitable
             case .unknown: return .stagingParentStateUnknown
             }
+            // Everything above describes *a* directory sitting at that path. It
+            // does not say which object that directory is, and the reservation
+            // that follows has to happen inside the very object these checks
+            // passed — not inside whatever the path resolves to a moment later.
+            // An observation that did not identify the directory has not
+            // identified it, and unknown is not a match.
+            //
+            // This check is last so that a parent which is unsuitable or
+            // unreadable still refuses for the reason it really has.
+            guard case .known = state.directoryIdentity else { return .stagingParentStateUnknown }
             return nil
         }
+    }
+
+    /// The identity of the directory object the staging parent was observed to
+    /// be. Non-nil exactly when `refusal` is nil, because an unidentified parent
+    /// is itself a refusal — so a plan always carries one, and staging can
+    /// require the reservation to be made inside it.
+    public var stagingParentIdentity: DirectoryIdentity? {
+        guard case let .present(state) = stagingParent,
+              case let .known(identity) = state.directoryIdentity else { return nil }
+        return identity
     }
 }
 
@@ -633,14 +668,59 @@ public struct QueueInstallationTransaction {
     /// can orphan one empty, fixed-name, root-owned directory and nothing else;
     /// `docs/validation/M1-TRANSACTION-RECOVERY.md` describes the manual check
     /// that window requires. Everything after it is named before its effect.
+    ///
+    /// The reservation is bound to the directory object the preconditions
+    /// validated, not to the path that named it, so a parent replaced in between
+    /// declines the reservation instead of redirecting it. The two refusals that
+    /// can still follow a *non-conforming* seam leave the same single empty
+    /// directory that window already allows for, and the model does not remove
+    /// it: it has just been told it cannot say what that directory is under.
     public mutating func stage<Sink: QueueInstallationEffectSink>(
         using sink: inout Sink
     ) throws -> QueueInstallationStagedArtifacts {
         guard phase == .planned else { throw QueueInstallationError.invalidPhase }
+        // The reservation is bound to the directory object preconditions
+        // validated, not to the string that named it. `stagingParentIdentity` is
+        // non-nil for every plan, because an unidentified parent refuses at
+        // planning time.
+        guard let expectedParent = plan.preconditions.stagingParentIdentity else {
+            throw QueueInstallationError.protectedRootParentUnconfirmed
+        }
+        let reservation: ProtectedRootReservation
         do {
-            try sink.createProtectedRoot(plan.intent.protectedRoot)
+            reservation = try sink.createProtectedRoot(
+                plan.intent.protectedRoot,
+                inside: plan.intent.stagingParent,
+                ifParentIdentityMatches: expectedParent
+            )
         } catch {
             throw QueueInstallationError.effectFailed
+        }
+        switch reservation {
+        case .parentIdentityChanged:
+            // The condition was carried into the operation, so this is a
+            // refusal and not a report: nothing was created, and there is
+            // nothing to clean up.
+            throw QueueInstallationError.stagingParentReplacedBeforeReservation
+        case .unknown:
+            throw QueueInstallationError.protectedRootParentUnconfirmed
+        case let .reserved(actualParent):
+            // The argument is not taken on trust. A conformer that ignored it
+            // and reserved inside whatever the path resolved to reports that
+            // directory here, and is caught by the model rather than by nobody.
+            //
+            // A refusal at this point leaves the one thing the irreducible
+            // window below already allows for: a single empty, fixed-name,
+            // root-owned directory, with no journal, because the journal has
+            // nowhere to live until the root exists. The model does not remove
+            // it, precisely because it has just been told it does not know which
+            // directory it is under, and deleting on that basis is the mistake
+            // this whole check exists to prevent. It is a case for the manual
+            // check in `docs/validation/M1-TRANSACTION-RECOVERY.md`, and it is
+            // strictly better than staging a filter and pointing a queue at it.
+            guard actualParent == expectedParent else {
+                throw QueueInstallationError.protectedRootParentUnconfirmed
+            }
         }
         record = try record.markingPending(.file(plan.intent.protectedRoot.path))
         record = try record.confirmingPending()
@@ -667,9 +747,36 @@ public struct QueueInstallationTransaction {
                 // Something else is at a path this transaction planned to
                 // create. It was not replaced, and this transaction will not
                 // adopt it: validating it afterwards would find the planned
-                // bytes and say nothing about where they came from. The step
-                // stays named in the journal, because a refusal here is still a
-                // path recovery must probe rather than assume.
+                // bytes and say nothing about where they came from.
+                //
+                // The pending mark is therefore *retracted*, and retracted
+                // durably before the refusal is raised. `alreadyPresent`
+                // guarantees the seam modified nothing, so this transaction
+                // created nothing at that path and owns nothing there — while a
+                // pending entry says the opposite. A later automatic `rollBack`
+                // probes pending artifacts and removes whatever matches the
+                // plan, and a foreign file at a planned path matches the plan by
+                // construction: same mode, same digest, same signature. Leaving
+                // the mark would have this transaction delete a file it never
+                // created, which is the one thing ownership conservation is for.
+                //
+                // `unknown` below is the case this reasoning does *not* cover.
+                // It guarantees nothing, so its path really is one recovery must
+                // probe rather than assume, and its mark stays.
+                let stillPending = record
+                record = record.retractingPendingArtifact()
+                do {
+                    try writeJournal(using: &sink)
+                } catch {
+                    // The retraction is not proved durable, so the journal may
+                    // still name the step. Memory goes back to matching what
+                    // storage may hold — claiming a retraction we cannot show
+                    // reached storage is the same mistake in the other
+                    // direction — and the durability failure is what is
+                    // reported, because it is what actually happened.
+                    record = stillPending
+                    throw error
+                }
                 throw QueueInstallationError.stagedArtifactAlreadyPresent(artifact.kind)
             case .unknown:
                 throw QueueInstallationError.stagedArtifactCreationUnverified(artifact.kind)

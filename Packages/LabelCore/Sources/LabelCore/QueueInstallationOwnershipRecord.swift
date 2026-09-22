@@ -87,6 +87,14 @@ public enum QueueInstallationError: Error, Equatable, Sendable {
     /// A queue was created but its configuration did not hand back the exact
     /// printer description this transaction asked it to be built from.
     case queueDescriptionUnconfirmed
+    /// The directory the protected root was to be reserved inside was no longer
+    /// the one preconditions validated, so the reservation was declined and
+    /// nothing was created.
+    case stagingParentReplacedBeforeReservation
+    /// The reservation could not be bound to the validated staging parent: the
+    /// seam could not say which directory it acted inside, or named a different
+    /// one. The root may or may not exist, and where it would be is unknown.
+    case protectedRootParentUnconfirmed
 }
 
 // MARK: - Bounded primitive values
@@ -227,9 +235,10 @@ public struct PlannedSchedulerQueue: Equatable, Hashable, Sendable {
 ///
 /// Two rules, in this order:
 ///
-/// - `refusedTrees` is refused whatever the allowlist says. A policy naming one
-///   of them cannot be constructed at all, so no intent can be checked against
-///   one.
+/// - `refusedTrees` is refused whatever the allowlist says, and the refusal is
+///   case-insensitive, so `/system` and `/PRIVATE/VAR/DB` are refused as
+///   surely as their canonical spellings. A policy naming one of them cannot be
+///   constructed at all, so no intent can be checked against one.
 /// - The protected root's parent must be one of the permitted parents
 ///   *exactly*. Containment is deliberately not accepted: "somewhere under
 ///   /Library" is not a staging location, it is a region.
@@ -265,10 +274,47 @@ public struct QueueInstallationStagingPolicy: Equatable, Hashable, Sendable {
         permittedStagingParents = unique
     }
 
-    /// True when the path *is* one of the refused trees or lies under one. The
-    /// comparison is component-wise, so `/usr/libexec` is not `/usr/lib`.
+    /// True when the path *is* one of the refused trees or lies under one.
+    ///
+    /// The comparison is component-wise, so `/usr/libexec` is not under
+    /// `/usr/lib`; a plain string prefix would make it one.
+    ///
+    /// It is also **case-insensitive over ASCII**, which is this model's
+    /// portable approximation of filesystem identity. The model consults no
+    /// filesystem — it cannot, and must not — so it cannot ask whether two
+    /// spellings name the same directory. A byte-exact comparison answers a
+    /// different question from the one being asked: macOS volumes are
+    /// case-insensitive by default, so `/system` and `/PRIVATE/VAR/DB` reach
+    /// exactly the trees `AGENTS.md` forbids writing to while passing a
+    /// case-sensitive check, and the intent's exact-parent check would then
+    /// admit a root beneath one of them.
+    ///
+    /// Folding errs deliberately in one direction. On a case-sensitive volume
+    /// it can refuse a spelling that is genuinely a different directory — a
+    /// real `/System` and a distinct `/system` could both exist there — and the
+    /// cost of that is a staging location the caller must respell. The opposite
+    /// error is staging inside `/System`, so the refusal is the safe side to be
+    /// wrong on, and no allowlist may override it.
+    ///
+    /// `AbsolutePath` admits printable ASCII only, so folding is plain ASCII
+    /// arithmetic: no locale, no Unicode case mapping, and no dependence on the
+    /// host's collation.
     public static func isSystemCritical(_ path: AbsolutePath) -> Bool {
-        refusedTrees.contains { path.value == $0 || path.value.hasPrefix($0 + "/") }
+        let components = Self.asciiFoldedComponents(path.value)
+        return refusedTrees.contains { tree in
+            let treeComponents = Self.asciiFoldedComponents(tree)
+            guard components.count >= treeComponents.count else { return false }
+            return Array(components.prefix(treeComponents.count)) == treeComponents
+        }
+    }
+
+    /// The path's components, each lowercased over A-Z and nothing else.
+    /// Comparing components rather than characters is what keeps `/usr/libexec`
+    /// out of `/usr/lib`.
+    private static func asciiFoldedComponents(_ path: String) -> [[UInt8]] {
+        path.split(separator: "/", omittingEmptySubsequences: true).map { component in
+            component.utf8.map { (0x41...0x5a).contains($0) ? $0 + 0x20 : $0 }
+        }
     }
 
     public func admits(_ parent: AbsolutePath) -> Bool {
@@ -476,6 +522,70 @@ public enum FileArtifactCreation: String, Equatable, Sendable, CaseIterable {
     /// or followed.
     case alreadyPresent = "already-present"
     /// The operation may or may not have taken effect.
+    case unknown
+}
+
+/// An opaque, conformer-supplied identifier for one directory *object*, as
+/// distinct from one directory *path*.
+///
+/// The model never parses one, never orders one and never writes one into the
+/// durable record. It only ever compares two for equality, so what it means is
+/// entirely the conformer's to decide, subject to one requirement: the same
+/// directory object yields the same value, and a different object does not. A
+/// POSIX conformer would spell it from the device and inode numbers of the
+/// descriptor it is holding open.
+///
+/// It exists for the same reason `SchedulerQueueIncarnation` does. A queue name
+/// is not a queue, and a path is not a directory: both can be made to refer to
+/// something else between the moment they are checked and the moment they are
+/// used.
+public struct DirectoryIdentity: Equatable, Hashable, Sendable {
+    public static let maximumByteCount = 128
+
+    public let token: String
+
+    public init(token: String) throws {
+        let bytes = Array(token.utf8)
+        guard (1...Self.maximumByteCount).contains(bytes.count),
+              bytes.allSatisfy({ $0 > 0x20 && $0 < 0x7f }) else {
+            throw QueueInstallationError.invalidObservation
+        }
+        self.token = token
+    }
+}
+
+/// A directory identity the seam could read, or its honest absence. Defaults to
+/// `unknown` wherever it appears, and unknown never matches anything.
+public enum ObservedDirectoryIdentity: Equatable, Sendable {
+    case known(DirectoryIdentity)
+    case unknown
+}
+
+/// The outcome of reserving the protected root *inside a named directory
+/// object*.
+///
+/// `createProtectedRoot` used to carry only the child path, so a conformer
+/// spelling it as an ordinary `mkdir("/parent/child")` conformed perfectly while
+/// creating the root underneath a parent that had been replaced — by a symbolic
+/// link, or by a different directory — after `QueueInstallationPreconditions`
+/// validated it. The preconditions bind to one directory object; the reservation
+/// bound to nothing but a string.
+///
+/// So the reservation is conditional, in the shape the removals already use: it
+/// carries the identity it expects and is performed only while that identity
+/// still holds. And it hands back the identity it actually acted inside, so the
+/// model checks the answer rather than trusting that the argument was honoured
+/// — an argument nothing reads back is an argument a conformer can ignore.
+public enum ProtectedRootReservation: Equatable, Sendable {
+    /// Reserved, inside the directory object this identity names. It is read
+    /// from the descriptor the creation used, not from a later stat of the
+    /// parent's path.
+    case reserved(DirectoryIdentity)
+    /// The parent no longer had the identity the call carried, so **nothing was
+    /// created**.
+    case parentIdentityChanged
+    /// The conformer cannot say which directory it acted inside, or whether it
+    /// acted at all. Nothing may be assumed in either direction.
     case unknown
 }
 
@@ -704,6 +814,11 @@ public struct ObservedFileState: Equatable, Sendable {
     /// Defaults to `unknown` for the same reason: an executable whose signature
     /// nobody checked is not an executable with a valid signature.
     public let codeSignature: ObservedCodeSignature
+    /// Which directory *object* this is, when the observation is of a
+    /// directory. Defaults to `unknown`, again for the same reason: an
+    /// observation that did not identify the directory has not identified it,
+    /// and only a staging parent is required to carry one.
+    public let directoryIdentity: ObservedDirectoryIdentity
 
     public init(
         kind: ObservedFileKind,
@@ -712,7 +827,8 @@ public struct ObservedFileState: Equatable, Sendable {
         modeBits: Int? = nil,
         contentSHA256: String? = nil,
         accessControl: ObservedAccessControl = .unknown,
-        codeSignature: ObservedCodeSignature = .unknown
+        codeSignature: ObservedCodeSignature = .unknown,
+        directoryIdentity: ObservedDirectoryIdentity = .unknown
     ) throws {
         if let uid {
             guard (0...Int(Int32.max)).contains(uid) else { throw QueueInstallationError.invalidObservation }
@@ -733,6 +849,7 @@ public struct ObservedFileState: Equatable, Sendable {
         self.contentSHA256 = contentSHA256
         self.accessControl = accessControl
         self.codeSignature = codeSignature
+        self.directoryIdentity = directoryIdentity
     }
 }
 
@@ -1015,6 +1132,17 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         guard createdArtifacts.count <= Self.maximumCreatedArtifacts else {
             throw QueueInstallationError.tooManyArtifacts
         }
+        // The aggregate encoding, not just the counts and the path lengths.
+        // This is checked against the intent's *worst* case rather than this
+        // record's current one, because the encoding grows as steps are
+        // confirmed: a record that fitted while empty and stopped fitting three
+        // artifacts later would fail in the middle of staging, after effects had
+        // already run. Refusing the whole shape up front means the first record
+        // a transaction builds is the one that refuses, before any effect and
+        // therefore before anything is persisted.
+        guard Self.maximumCanonicalByteCount(for: intent) <= Self.maximumEncodedByteCount else {
+            throw QueueInstallationError.ownershipRecordTooLarge
+        }
         let plannedPaths = Set(files.map(\.path))
         var seenCreated = Set<QueueInstallationArtifactID>()
         for created in createdArtifacts {
@@ -1220,6 +1348,116 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
             phase: phase == .completed ? .inProgress : phase,
             pendingArtifact: pendingArtifact == id ? nil : pendingArtifact,
             createdArtifacts: createdArtifacts.filter { $0 != id }
+        )
+    }
+
+    /// The largest canonical encoding **any** record over `intent` can ever
+    /// produce, in bytes.
+    ///
+    /// This exists because the record's own bound and the bound every read of
+    /// it carries are the same number, and nothing used to compare the two. The
+    /// initializer checked counts and path lengths; the reader checked an
+    /// aggregate. With the allowlist at `maximumPermittedParents` and paths near
+    /// `AbsolutePath.maximumByteCount`, a record passed the initializer, was
+    /// persisted, and was then rejected as oversized by every subsequent bounded
+    /// read — including `QueueInstallationRecovery.load` — stranding whatever it
+    /// named. A journal nothing can read back is worse than no journal, because
+    /// the artifacts exist either way.
+    ///
+    /// Every line is `key=value` plus one newline, so the bound is a sum of
+    /// known widths. With `P` permitted parents and the four files an intent
+    /// always has:
+    ///
+    ///     fixed   = the nine header lines, each key plus its *longest*
+    ///               possible value plus 1
+    ///     parents = P x (23 + |parent| + 1)          // "permittedStagingParent="
+    ///     files   = sum over files of
+    ///               5 + |kind| + 1 + |path| + 1 + 10 + 1 + 10 + 1 + 4 + 1 + 64 + 1
+    ///     created = sum over the F+1 planned identifiers of 8 + |spelling| + 1
+    ///
+    /// `10` is the widest decimal uid or gid, since `POSIXOwnership` bounds both
+    /// at `Int32.max` = 2147483647; `4` is `POSIXMode.octalText`'s fixed width;
+    /// `64` is a lowercase SHA-256 and `32` a transaction identifier.
+    ///
+    /// The bound is deliberately not reachable. It gives `queueIncarnation`,
+    /// `pendingQueueIncarnation`, `queueAcquisition` and `pending` their longest
+    /// spellings at once, and lists every planned artifact as created, although
+    /// the validating initializer would reject that combination: a pending queue
+    /// may not also carry a confirmed token. An upper bound that is only correct
+    /// for reachable states is not an upper bound. Erring long refuses a
+    /// borderline intent a little early; erring short strands a journal, so this
+    /// is the side to be wrong on.
+    ///
+    /// Worked worst case, for the record: 8 parents of 1024 bytes is 8384, four
+    /// files of 1024-byte paths is about 4572, five created identifiers is about
+    /// 5165, and the header about 1487 — roughly 19.6 KiB against a 16 KiB cap.
+    /// The bound is therefore not decorative; it refuses real shapes.
+    public static func maximumCanonicalByteCount(for intent: QueueInstallationIntent) -> Int {
+        let sha256Width = 64
+        let identifierWidth = 10
+        let modeWidth = 4
+        let plannedIDs = intent.creationOrderedFiles.map { QueueInstallationArtifactID.file($0.path) }
+            + [QueueInstallationArtifactID.schedulerQueue]
+        let longestIDSpelling = plannedIDs.map { encode(artifact: $0).utf8.count }.max() ?? 1
+        let longestAcquisition = SchedulerQueueAcquisition.allCases
+            .map(\.rawValue.utf8.count).max() ?? 1
+        let longestPhase = QueueInstallationRecordedPhase.allCases
+            .map(\.rawValue.utf8.count).max() ?? 1
+
+        var total = 0
+        func line(_ key: String, _ valueWidth: Int) { total += key.utf8.count + 1 + valueWidth + 1 }
+        line("schemaVersion", String(schemaVersion).utf8.count)
+        line("transactionID", 32)
+        line("queue", intent.queue.name.utf8.count)
+        line("queueDestination", intent.destination.canonicalText.utf8.count)
+        line("queueIncarnation", sha256Width)
+        line("queueAcquisition", longestAcquisition)
+        line("phase", longestPhase)
+        line("pending", longestIDSpelling)
+        line("pendingQueueIncarnation", sha256Width)
+        for parent in intent.stagingPolicy.permittedStagingParents {
+            line("permittedStagingParent", parent.value.utf8.count)
+        }
+        for file in intent.creationOrderedFiles {
+            // kind|path|uid|gid|mode|digest, five separators.
+            line("file", file.kind.rawValue.utf8.count + file.path.value.utf8.count
+                + identifierWidth + identifierWidth + modeWidth + sha256Width + 5)
+        }
+        for id in plannedIDs {
+            line("created", encode(artifact: id).utf8.count)
+        }
+        return total
+    }
+
+    /// Retracts the pending mark for a step whose effect provably did not run.
+    ///
+    /// This is **not** the same as dropping a created artifact, and it is not
+    /// the same as a step whose outcome is unknown. A pending entry exists to
+    /// say "this path may hold something of ours, so probe it"; recovery
+    /// therefore treats a pending artifact as owned, and deletes what it finds
+    /// there once that thing matches the plan. Only an answer that *guarantees*
+    /// the seam modified nothing may retract the mark —
+    /// `FileArtifactCreation.alreadyPresent` is that answer, and
+    /// `FileArtifactCreation.unknown` is precisely not, so it keeps its mark.
+    ///
+    /// Without the retraction, a foreign file sitting at a planned path — one
+    /// whose metadata, mode, digest and signature all match the plan, because
+    /// that is exactly the case validation cannot tell apart from our own work —
+    /// is deleted by the next automatic rollback. Conserving ownership in that
+    /// direction is what this model claims, so the mark has to go.
+    ///
+    /// Dropping the pending step can never contradict a phase: `completed` and
+    /// `rolledBack` both already require nothing pending, and `inProgress` and
+    /// `residual` place no requirement on it. It also only ever shortens the
+    /// encoding, so it cannot cross the aggregate size bound.
+    public func retractingPendingArtifact() -> Self {
+        Self(
+            validated: transactionID, intent: intent,
+            queueIncarnation: queueIncarnation,
+            pendingQueueIncarnation: nil,
+            queueAcquisition: queueAcquisition,
+            phase: phase, pendingArtifact: nil,
+            createdArtifacts: createdArtifacts
         )
     }
 

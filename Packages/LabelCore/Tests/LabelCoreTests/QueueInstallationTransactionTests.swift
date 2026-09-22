@@ -59,6 +59,17 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
     /// Paths whose creation reports an outcome the seam cannot determine.
     var createFileOutcomeUnknown: Set<String> = []
     var createRootFails = false
+    /// The directory object the reservation really happens inside, when that is
+    /// to differ from the one the staging parent was observed to be. This is a
+    /// parent replaced — by a symbolic link, or by another directory — in the
+    /// window between preconditions and the reservation.
+    var parentIdentityAtReservation: ObservedDirectoryIdentity?
+    /// A *non*-conforming seam: it ignores the identity it was given and
+    /// reserves inside whatever the path resolves to, then reports that
+    /// directory. This is the `mkdir("/parent/child")` conformer.
+    var reservesUnderWhateverThePathResolvesTo = false
+    /// The seam cannot say which directory it acted inside, or whether it acted.
+    var rootReservationOutcomeUnknown = false
     var createQueueFails = false
     var persistRecordFails = false
     /// How many journal writes have been attempted, and the one-based call from
@@ -139,12 +150,27 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
         return .present(state)
     }
 
-    mutating func createProtectedRoot(_ artifact: PlannedFileArtifact) throws {
+    mutating func createProtectedRoot(
+        _ artifact: PlannedFileArtifact,
+        inside parent: AbsolutePath,
+        ifParentIdentityMatches identity: DirectoryIdentity
+    ) throws -> ProtectedRootReservation {
         log.append(.createProtectedRoot(artifact.path.value))
         if createRootFails { throw Failure.refused }
+        if rootReservationOutcomeUnknown { return .unknown }
+        // Contract: create inside the directory object `identity` names, and
+        // nowhere else. A parent that is no longer that object declines, and
+        // nothing is created.
+        let observedParent = parentIdentityAtReservation
+            ?? (files[parent.value].map(\.directoryIdentity) ?? .unknown)
+        guard case let .known(actual) = observedParent else { return .unknown }
+        if actual != identity, !reservesUnderWhateverThePathResolvesTo {
+            return .parentIdentityChanged
+        }
         // Contract: mkdir semantics. Anything already there is a refusal.
         guard files[artifact.path.value] == nil else { throw Failure.notExclusive }
         files[artifact.path.value] = try state(of: artifact)
+        return .reserved(actual)
     }
 
     mutating func createFile(_ artifact: PlannedFileArtifact) throws -> FileArtifactCreation {
@@ -428,10 +454,17 @@ private enum Fixture {
         )
     }
 
-    static func suitableParent() throws -> ObservedFileState {
+    /// The identity the staging parent is observed to have. An arbitrary opaque
+    /// token: the model only ever compares two of these.
+    static func parentIdentity(_ token: String = "dev-1:ino-4242") throws -> DirectoryIdentity {
+        try DirectoryIdentity(token: token)
+    }
+
+    static func suitableParent(identity: String = "dev-1:ino-4242") throws -> ObservedFileState {
         try ObservedFileState(
             kind: .directory, uid: 0, gid: 0, modeBits: 0o755,
-            accessControl: .noWriteGrantsBeyondOwner
+            accessControl: .noWriteGrantsBeyondOwner,
+            directoryIdentity: .known(parentIdentity(identity))
         )
     }
 
@@ -2498,6 +2531,143 @@ final class QueueInstallationTransactionTests: XCTestCase {
     }
 
 
+    /// Round five, finding A — a regression the round-four staging allowlist
+    /// introduced. The refusal was a *case-sensitive* string comparison, and
+    /// macOS volumes are case-insensitive by default, so `/system` and
+    /// `/PRIVATE/VAR/DB` named exactly the trees `AGENTS.md` forbids writing to
+    /// while passing the check that claimed to refuse them. The intent's
+    /// exact-parent check then admitted a protected root beneath one.
+    ///
+    /// Every spelling below differs from its canonical tree *only* in case, so
+    /// nothing else can be producing the refusal.
+    func testARefusedTreeIsRefusedUnderACaseVariedAlias() throws {
+        let aliases = [
+            "/system", "/SYSTEM", "/System",
+            "/PRIVATE/VAR/DB", "/private/VAR/db", "/Private/Var/Db",
+            "/BIN", "/Usr/Bin", "/DEV",
+        ]
+        for alias in aliases {
+            XCTAssertTrue(
+                QueueInstallationStagingPolicy.isSystemCritical(try AbsolutePath(alias)), alias
+            )
+            XCTAssertThrowsError(
+                try QueueInstallationStagingPolicy(permittedStagingParents: [AbsolutePath(alias)]),
+                alias
+            ) { XCTAssertEqual($0 as? QueueInstallationError, .stagingLocationRefused) }
+            // And a staging parent *inside* the alias, which is the shape an
+            // installation would really declare.
+            XCTAssertThrowsError(
+                try QueueInstallationStagingPolicy(
+                    permittedStagingParents: [AbsolutePath(alias + "/Printers")]
+                ), alias
+            ) { XCTAssertEqual($0 as? QueueInstallationError, .stagingLocationRefused) }
+        }
+
+        // An intent rooted under the alias is therefore unreachable: the policy
+        // it would have to be checked against cannot be built at all.
+        XCTAssertThrowsError(
+            try Fixture.intent(
+                rootPath: "/system/Printers/LabelDriverModel",
+                stagingPolicy: QueueInstallationStagingPolicy(
+                    permittedStagingParents: [AbsolutePath("/system/Printers")]
+                )
+            )
+        ) { XCTAssertEqual($0 as? QueueInstallationError, .stagingLocationRefused) }
+
+        // The bound from the other side, now that folding is in play: case
+        // insensitivity must not widen a tree across a component boundary, and
+        // a location that is simply not one of the trees is still admitted in
+        // any case.
+        XCTAssertFalse(
+            QueueInstallationStagingPolicy.isSystemCritical(try AbsolutePath("/USR/LIBEXEC"))
+        )
+        XCTAssertFalse(
+            QueueInstallationStagingPolicy.isSystemCritical(try AbsolutePath("/usr/LIBexec/cups"))
+        )
+        XCTAssertFalse(
+            QueueInstallationStagingPolicy.isSystemCritical(try AbsolutePath("/private/var/dbase"))
+        )
+        XCTAssertFalse(
+            QueueInstallationStagingPolicy.isSystemCritical(try AbsolutePath("/LIBRARY/Printers"))
+        )
+        XCTAssertNoThrow(try QueueInstallationStagingPolicy(
+            permittedStagingParents: [AbsolutePath("/USR/LIBEXEC")]
+        ))
+    }
+
+    /// Round five, finding C. `AbsolutePath.maximumByteCount` is 1024 and
+    /// `maximumEncodedByteCount` is 16 KiB, and until now nothing compared the
+    /// two. An allowlist at its maximum count with paths near the path cap
+    /// produced a record that passed its initializer and was persisted, after
+    /// which every bounded read — `revalidateStagedArtifacts`, and
+    /// `QueueInstallationRecovery.load` on restart — rejected the transaction's
+    /// own journal as oversized, stranding whatever it had staged.
+    ///
+    /// The bound is bracketed from both sides here rather than merely exceeded.
+    func testARecordWhoseWorstCaseEncodingExceedsTheReadCapIsRefusedAtConstruction() throws {
+        let cap = QueueInstallationOwnershipRecord.maximumEncodedByteCount
+        // Eight permitted parents, each one byte under the path cap. None of
+        // them is a refused tree, so the refusal under test cannot be that one.
+        func parents(count: Int, width: Int) throws -> QueueInstallationStagingPolicy {
+            try QueueInstallationStagingPolicy(permittedStagingParents: (0..<count).map { index in
+                let prefix = "/Library/Printers/p\(index)/"
+                return try AbsolutePath(
+                    prefix + String(repeating: "x", count: width - prefix.utf8.count)
+                )
+            })
+        }
+        // A parent this wide leaves room for a root one component below it and
+        // that root's longest child, all still inside `AbsolutePath`'s own cap:
+        // 1002 + 2 for "/r" + 20 for "/labelcapture-filter" is 1024 exactly.
+        let parentWidth = AbsolutePath.maximumByteCount - 22
+        let wide = try parents(
+            count: QueueInstallationStagingPolicy.maximumPermittedParents, width: parentWidth
+        )
+        let root = wide.permittedStagingParents[0].value + "/r"
+        let oversized = try Fixture.intent(rootPath: root, stagingPolicy: wide)
+        XCTAssertGreaterThan(
+            QueueInstallationOwnershipRecord.maximumCanonicalByteCount(for: oversized), cap
+        )
+        XCTAssertThrowsError(
+            try QueueInstallationOwnershipRecord(
+                transactionID: QueueInstallationTransactionID(hex: Fixture.transactionHex),
+                intent: oversized, phase: .inProgress, createdArtifacts: []
+            )
+        ) { XCTAssertEqual($0 as? QueueInstallationError, .ownershipRecordTooLarge) }
+        // And therefore no transaction over it can exist, which is what makes
+        // this a refusal before any effect rather than after one.
+        var sink = InertInstallationSink()
+        sink.files[try XCTUnwrap(oversized.protectedRoot.path.parent).value] =
+            try Fixture.suitableParent()
+        XCTAssertThrowsError(
+            try QueueInstallationTransaction(
+                plan: Fixture.plan(with: &sink, intent: oversized)
+            )
+        ) { XCTAssertEqual($0 as? QueueInstallationError, .ownershipRecordTooLarge) }
+        XCTAssertTrue(sink.log.allSatisfy {
+            if case .observeFile = $0 { return true }
+            if case .observeQueue = $0 { return true }
+            return false
+        })
+
+        // The other side of the bound: two parents of the same width fit, the
+        // record is constructible, and its own encoding really is under the cap
+        // that every read of it carries.
+        let narrow = try parents(count: 2, width: parentWidth)
+        let admitted = try Fixture.intent(
+            rootPath: narrow.permittedStagingParents[0].value + "/r", stagingPolicy: narrow
+        )
+        XCTAssertLessThanOrEqual(
+            QueueInstallationOwnershipRecord.maximumCanonicalByteCount(for: admitted), cap
+        )
+        let record = try QueueInstallationOwnershipRecord(
+            transactionID: QueueInstallationTransactionID(hex: Fixture.transactionHex),
+            intent: admitted, phase: .inProgress, createdArtifacts: []
+        )
+        XCTAssertLessThanOrEqual(record.canonicalText.utf8.count, cap)
+        XCTAssertNoThrow(try QueueInstallationOwnershipRecord.decode(record.canonicalText))
+    }
+
     // MARK: - Placement is create-if-absent
 
     /// Finding F5: the protocol called the root reservation the transaction's
@@ -2527,12 +2697,15 @@ final class QueueInstallationTransactionTests: XCTestCase {
         XCTAssertTrue(indistinguishable.log.contains(.createFile(Fixture.filterPath)))
         XCTAssertNotEqual(transaction.phase, .staged)
         XCTAssertTrue(indistinguishable.queues.isEmpty)
-        // The step is still named in the journal, because a path this
-        // transaction touched is a path recovery must probe.
+        // The step is *not* left named in the journal. `alreadyPresent`
+        // guarantees the seam modified nothing, so this transaction owns
+        // nothing at that path, and a pending entry would say otherwise —
+        // see `testAnAlreadyPresentPayloadIsNotLeftForRollbackToDelete`.
         let durable = try QueueInstallationOwnershipRecord.decode(
             try XCTUnwrap(indistinguishable.persistedRecord)
         )
-        XCTAssertEqual(durable.pendingArtifact, .file(try AbsolutePath(Fixture.filterPath)))
+        XCTAssertNil(durable.pendingArtifact)
+        XCTAssertFalse(durable.owns(.file(try AbsolutePath(Fixture.filterPath))))
 
         // And nothing at the path was written, truncated or replaced.
         var occupied = try Fixture.cleanSink()
@@ -2564,6 +2737,164 @@ final class QueueInstallationTransactionTests: XCTestCase {
         // about occupancy and nothing else.
         var clear = try Fixture.cleanSink()
         XCTAssertTrue(try Fixture.installed(&clear).1.isCompleted)
+    }
+
+    /// Round five, finding B — a regression the round-four create-exclusive fix
+    /// introduced. `alreadyPresent` threw while leaving the foreign path named
+    /// as this transaction's *pending* artifact, and a pending artifact is one
+    /// recovery treats as owned and probes. Because a file that defeats the
+    /// create-exclusive check is by construction one that matches the plan —
+    /// same kind, ownership, mode, digest and signature — the probe succeeded
+    /// and the next automatic rollback deleted a file this transaction never
+    /// created.
+    ///
+    /// The throw alone proves nothing here. What matters is what a rollback
+    /// afterwards does at that path, so that is what this asserts.
+    func testAnAlreadyPresentPayloadIsNotLeftForRollbackToDelete() throws {
+        var sink = try Fixture.cleanSink()
+        let foreign = try ObservedFileState(
+            kind: .regularFile, uid: 0, gid: 0, modeBits: 0o755,
+            contentSHA256: Fixture.digest("b"),
+            accessControl: .noWriteGrantsBeyondOwner, codeSignature: .valid
+        )
+        sink.files[Fixture.filterPath] = foreign
+        var transaction = try QueueInstallationTransaction(plan: Fixture.plan(with: &sink))
+        XCTAssertThrowsError(try transaction.stage(using: &sink)) {
+            XCTAssertEqual(
+                $0 as? QueueInstallationError, .stagedArtifactAlreadyPresent(.filterExecutable)
+            )
+        }
+        let filter = QueueInstallationArtifactID.file(try AbsolutePath(Fixture.filterPath))
+        XCTAssertFalse(transaction.record.owns(filter))
+        XCTAssertNil(transaction.record.pendingArtifact)
+        // Durably, not just in memory: a rollback after a restart reads the
+        // journal, so an in-memory-only retraction would fix nothing.
+        XCTAssertNil(
+            try QueueInstallationOwnershipRecord
+                .decode(try XCTUnwrap(sink.persistedRecord)).pendingArtifact
+        )
+
+        // The property under test: a rollback removes nothing at that path and
+        // does not even attempt a removal there.
+        _ = transaction.rollBack(using: &sink)
+        XCTAssertFalse(sink.removalEvents.contains(.removeFile(Fixture.filterPath)))
+        XCTAssertFalse(sink.removalEvents.contains(.removeOwnershipRecord(Fixture.filterPath)))
+        XCTAssertEqual(sink.files[Fixture.filterPath], foreign)
+
+        // `unknown` is the case this reasoning does not cover, and it keeps its
+        // pending mark: nothing was guaranteed, so the path stays one recovery
+        // must probe. Round four was right about that one and wrong only about
+        // `alreadyPresent`.
+        var ambiguous = try Fixture.cleanSink()
+        ambiguous.createFileOutcomeUnknown.insert(Fixture.filterPath)
+        var second = try QueueInstallationTransaction(plan: Fixture.plan(with: &ambiguous))
+        XCTAssertThrowsError(try second.stage(using: &ambiguous)) {
+            XCTAssertEqual(
+                $0 as? QueueInstallationError, .stagedArtifactCreationUnverified(.filterExecutable)
+            )
+        }
+        XCTAssertEqual(second.record.pendingArtifact, filter)
+        XCTAssertEqual(
+            try QueueInstallationOwnershipRecord
+                .decode(try XCTUnwrap(ambiguous.persistedRecord)).pendingArtifact,
+            filter
+        )
+
+        // And a retraction that cannot be proved durable is not claimed: the
+        // durability failure is reported, and the record still names the step.
+        var undurable = try Fixture.cleanSink()
+        undurable.files[Fixture.filterPath] = foreign
+        var third = try QueueInstallationTransaction(plan: Fixture.plan(with: &undurable))
+        // Writes up to and including the pending mark for the filter succeed;
+        // the retraction is the next one.
+        undurable.persistRecordFailsFromCall = 3
+        XCTAssertThrowsError(try third.stage(using: &undurable)) {
+            XCTAssertEqual($0 as? QueueInstallationError, .effectFailed)
+        }
+        XCTAssertEqual(third.record.pendingArtifact, filter)
+    }
+
+    /// Round five, finding D. `QueueInstallationPreconditions.capture` validates
+    /// a specific staging parent — kind, ownership, mode and effective access
+    /// control — and `createProtectedRoot` then carried only the child path. A
+    /// conformer spelling the reservation as an ordinary `mkdir` conformed
+    /// perfectly while creating the root underneath a parent that had been
+    /// replaced, by a symbolic link or by a different directory, after those
+    /// checks passed. `AGENTS.md`: "Do not write to `/System`".
+    ///
+    /// The fix is round four's F1 shape rather than a contract nobody can
+    /// observe: the reservation carries the identity it expects, declines
+    /// without creating anything when that identity no longer holds, and hands
+    /// back the directory it actually acted inside so the model checks it.
+    func testTheRootReservationIsBoundToTheValidatedStagingParent() throws {
+        // The parent is replaced between the observation and the reservation.
+        // The condition travels with the operation, so nothing is created.
+        var replaced = try Fixture.cleanSink()
+        var transaction = try QueueInstallationTransaction(plan: Fixture.plan(with: &replaced))
+        replaced.parentIdentityAtReservation = .known(try Fixture.parentIdentity("dev-1:ino-9999"))
+        XCTAssertThrowsError(try transaction.stage(using: &replaced)) {
+            XCTAssertEqual(
+                $0 as? QueueInstallationError, .stagingParentReplacedBeforeReservation
+            )
+        }
+        XCTAssertNil(replaced.files[Fixture.rootPath])
+        XCTAssertTrue(replaced.queues.isEmpty)
+        XCTAssertNotEqual(transaction.phase, .staged)
+
+        // A seam that ignores the identity it was given and reserves inside
+        // whatever the path resolves to is caught by the model, not trusted.
+        // This is the `mkdir("/parent/child")` conformer, and it is the one the
+        // old signature could not tell apart from a correct one.
+        var ignoring = try Fixture.cleanSink()
+        var second = try QueueInstallationTransaction(plan: Fixture.plan(with: &ignoring))
+        ignoring.reservesUnderWhateverThePathResolvesTo = true
+        ignoring.parentIdentityAtReservation = .known(try Fixture.parentIdentity("dev-1:ino-9999"))
+        XCTAssertThrowsError(try second.stage(using: &ignoring)) {
+            XCTAssertEqual($0 as? QueueInstallationError, .protectedRootParentUnconfirmed)
+        }
+        // It did create the root, under a parent nobody validated, and the model
+        // does not delete it: it has just been told it does not know what that
+        // directory is under. The refusal stops everything that would have
+        // followed, which is the part the model can guarantee.
+        XCTAssertNotNil(ignoring.files[Fixture.rootPath])
+        XCTAssertTrue(ignoring.queues.isEmpty)
+        XCTAssertFalse(ignoring.log.contains(.createFile(Fixture.filterPath)))
+        XCTAssertNil(ignoring.persistedRecord)
+
+        // A seam that cannot say which directory it acted inside has not bound
+        // anything either, and unknown is not a match.
+        var ambiguous = try Fixture.cleanSink()
+        var third = try QueueInstallationTransaction(plan: Fixture.plan(with: &ambiguous))
+        ambiguous.rootReservationOutcomeUnknown = true
+        XCTAssertThrowsError(try third.stage(using: &ambiguous)) {
+            XCTAssertEqual($0 as? QueueInstallationError, .protectedRootParentUnconfirmed)
+        }
+        XCTAssertFalse(ambiguous.log.contains(.createFile(Fixture.filterPath)))
+
+        // And a parent nobody identified refuses at planning time, so the
+        // identity a plan carries is never absent. The refusal is `unknown`
+        // rather than `unsuitable`: not having looked is not a finding.
+        var unidentified = try Fixture.cleanSink()
+        unidentified.files[Fixture.stagingParent] = try ObservedFileState(
+            kind: .directory, uid: 0, gid: 0, modeBits: 0o755,
+            accessControl: .noWriteGrantsBeyondOwner
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(unidentified.files[Fixture.stagingParent]).directoryIdentity, .unknown
+        )
+        XCTAssertThrowsError(try Fixture.plan(with: &unidentified)) {
+            XCTAssertEqual($0 as? QueueInstallationError, .refused(.stagingParentStateUnknown))
+        }
+
+        // The bound from the other side: with the parent still the parent, the
+        // very same sequence stages and completes, so the refusals above are
+        // about the binding and nothing else.
+        var intact = try Fixture.cleanSink()
+        let plan = try Fixture.plan(with: &intact)
+        XCTAssertEqual(
+            plan.preconditions.stagingParentIdentity, try Fixture.parentIdentity()
+        )
+        XCTAssertTrue(try Fixture.installed(&intact).1.isCompleted)
     }
 
     // MARK: - An installed filter has to be signed
