@@ -38,6 +38,60 @@ public enum CapabilityEvidence: Equatable, Sendable {
     case unobserved
 }
 
+/// Why a capability-gated control was refused.
+///
+/// A refusal must not assert anything nobody observed. "This printer cannot"
+/// and "nobody has determined whether it can" are different claims about the
+/// device, and `AGENTS.md` forbids flattening them: *Unknown capability/status
+/// is not false, zero, supported or completed.* A setup surface that reported
+/// "your printer does not support gap tracking" when the truth is that no
+/// record exists would be making a false claim about hardware.
+///
+/// Closed on purpose. These values reach a user-visible refusal, and the only
+/// payload they carry is evidence the profile already holds; no caller-supplied
+/// string travels this path.
+public enum CapabilityRefusalReason: Equatable, Sendable {
+    /// The capability table holds no entry at all. Distinct from a recorded
+    /// `.unknown`: an absent entry means nobody wrote anything down, while a
+    /// stored unknown means somebody deliberately recorded that it is not
+    /// known. Unreachable for a capability a profile stores non-optionally.
+    case absent
+    /// A recorded, positive statement that this printer cannot do it, carrying
+    /// the evidence that statement rests on.
+    case unsupported(CapabilityEvidence)
+    /// A recorded fact whose state is not known. An absence of knowledge, not
+    /// a claim about the device.
+    case unknown(CapabilityEvidence)
+    /// Support is claimed but nothing observed it, so the claim qualifies
+    /// nothing. The state is `.supported` here by construction; only the
+    /// missing observation refuses the control.
+    case unobservedSupport
+
+    /// Classifies one capability fact, or its absence. `nil` means the fact
+    /// qualifies the control and there is nothing to refuse.
+    ///
+    /// The order reproduces the guard this replaces — state first, then
+    /// evidence — so a fact that is both unknown and unobserved reports as
+    /// `.unknown(.unobserved)` rather than being relabelled a failed support
+    /// claim. `.unobservedSupport` is reserved for a fact that claims support.
+    public static func reason(for fact: CapabilityFact?) -> CapabilityRefusalReason? {
+        guard let fact else { return .absent }
+        switch fact.state {
+        case .unsupported: return .unsupported(fact.evidence)
+        case .unknown: return .unknown(fact.evidence)
+        case .supported: return fact.evidence == .unobserved ? .unobservedSupport : nil
+        }
+    }
+}
+
+/// A control whose availability a profile's *schema version* gates, before any
+/// capability fact is consulted. Closed, and named per control so that a
+/// refusal can say which control it is about.
+public enum SchemaGatedControl: Equatable, Sendable {
+    case darkness
+    case tracking(MediaTracking)
+}
+
 public struct CapabilityFact: Equatable, Sendable {
     public let state: CapabilityState
     public let evidence: CapabilityEvidence
@@ -370,9 +424,19 @@ public enum PrinterProfileError: Error, Equatable, Sendable {
     case unsupportedThermalMethod(ThermalMethod)
     case unsupportedFinishing(FinishingMode)
     case unsupportedPrintSpeed(Int)
-    case unavailableDarkness
+    /// The profile's capability record does not qualify darkness, and the
+    /// reason says which record produced the refusal. Never `.absent`: a
+    /// profile always stores a darkness fact, even an unknown one.
+    case unavailableDarkness(CapabilityRefusalReason)
     case unsupportedDarkness(Int)
-    case unavailableTracking(MediaTracking)
+    /// The profile's capability record does not qualify this tracking mode.
+    /// The mode says what was asked for; the reason says what the record
+    /// actually held, so "cannot" is never reported for "not determined".
+    case unavailableTracking(MediaTracking, CapabilityRefusalReason)
+    /// A statement about the profile record, not about the printer: this
+    /// schema version cannot express the control at all, so its capability
+    /// table has nothing to say about the device either way.
+    case controlRequiresSchemaVersion(SchemaGatedControl, required: Int, profileVersion: Int)
     case unavailableMediaGeometry
     /// An observation carrying `unobserved` evidence is not an observation.
     case invalidObservationEvidence
@@ -486,18 +550,31 @@ public extension PrinterProfile {
             }
         }
         if let darkness = request.darkness {
-            guard schemaVersion >= 4, capabilities.darkness.state == .supported,
-                  capabilities.darkness.evidence != .unobserved else {
-                throw PrinterProfileError.unavailableDarkness
+            // Two refusals, deliberately not one value. The schema gate is a
+            // statement about this profile record; the capability reason is a
+            // statement about what that record says of the device.
+            guard schemaVersion >= 4 else {
+                throw PrinterProfileError.controlRequiresSchemaVersion(
+                    .darkness, required: 4, profileVersion: schemaVersion)
+            }
+            if let reason = CapabilityRefusalReason.reason(for: capabilities.darkness) {
+                throw PrinterProfileError.unavailableDarkness(reason)
             }
             guard (0...30).contains(darkness) else {
                 throw PrinterProfileError.unsupportedDarkness(darkness)
             }
         }
         if let tracking = request.tracking {
-            guard schemaVersion >= 5, (tracking != .blackMark || schemaVersion >= 6),
-                  let fact = capabilities.tracking[tracking], fact.state == .supported,
-                  fact.evidence != .unobserved else { throw PrinterProfileError.unavailableTracking(tracking) }
+            // Black mark arrived one schema version after the other two modes,
+            // so which version is required is a property of the mode.
+            let requiredVersion = tracking == .blackMark ? 6 : 5
+            guard schemaVersion >= requiredVersion else {
+                throw PrinterProfileError.controlRequiresSchemaVersion(
+                    .tracking(tracking), required: requiredVersion, profileVersion: schemaVersion)
+            }
+            if let reason = CapabilityRefusalReason.reason(for: capabilities.tracking[tracking]) {
+                throw PrinterProfileError.unavailableTracking(tracking, reason)
+            }
             if tracking == .continuous && request.mediaGeometry?.lengthDots == nil {
                 throw PhysicalGeometryQualification.Error.continuousLengthRequired
             }
