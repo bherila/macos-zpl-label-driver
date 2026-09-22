@@ -107,8 +107,27 @@ swift test --package-path Packages/LabelCore    # before: Executed 346 tests, wi
 swift test --package-path Packages/LabelCore    # after:  Executed 354 tests, with 0 failures
 python3 scripts/check_repo.py
 python3 -m unittest discover -s scripts/tests
+python3 scripts/run-accelerator-checks.py
 python3 scripts/evidence_currency.py
 ```
+
+`scripts/run-accelerator-checks.py` is required before and after work that
+touches a supplied LabelCore source, and this slice adds a LabelCore test file.
+An earlier revision of this record omitted it; it was run in both states and
+passed in both, reported by the controller rather than the authoring lane:
+
+| State | Revision | Result |
+|---|---|---|
+| before | `main` at `19474bf` | `PASS: offline accelerator suite.` |
+| after | this branch at `f9073bf` | `PASS: offline accelerator suite.` |
+
+Both runs report the same case counts — 132 cross-language round-trips, 180
+compression, 12 encoding-benchmark CLI, 15 inert CUPS ABI, 14 inert CUPS filter
+ABI and 1 inert filter-to-discard pipeline. That equality is the point: this
+slice adds a test file and changes no encoder, oracle or fixture input, so the
+accelerator suite is expected to be unmoved, and it is. The suite's own closing
+line states its limit, which this record does not widen: macOS, scheduler and
+hardware qualification are separate and remain NOT RUN.
 
 Files mutated: `PrinterProfile.swift`, `PrinterControlResolution.swift`,
 `FinishingControlQualification.swift`, `ThermalControlQualification.swift`,
@@ -312,7 +331,7 @@ Three causes, not two:
 
 **Counts: A = 5, B1 = 4, B2 = 2, and M33 in both A and B1.**
 
-##### Why 2a and 2b do not line up, and three corrections that follow
+##### Why 2a and 2b do not line up, and four corrections that follow
 
 The two tables are about **different inputs**, so a guard can accept in 2a and
 be reached in 2b without contradiction. M42 and M46 are the clearest case: the
@@ -324,7 +343,7 @@ tried. M13 and M14 are the mirror image: reached on an input that carries a
 payload, where a policy copy still refuses identically (B2), but accepting on
 the payload-free input the new tests feed.
 
-Three claims in earlier revisions of this document were wrong and are corrected
+Four claims in earlier revisions of this document were wrong and are corrected
 here:
 
 1. "For all twelve, the assertions demanded only that something was thrown."

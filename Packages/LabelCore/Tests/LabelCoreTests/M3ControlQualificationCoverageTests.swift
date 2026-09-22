@@ -28,7 +28,10 @@ import XCTest
 /// exact-error assertion would have passed too: assertion strength was not the
 /// problem, and only a different input could have exposed the gap. Those two
 /// guards are among the eight above, because the payload-free input these tests
-/// feed reaches no copy at all.
+/// feed reaches no copy at all. That accounts for eleven; the twelfth, the
+/// output-limit bound, falls in two causes at once because its two inputs
+/// differ — the zero-limit input was supplied with the error unnamed, and no
+/// test ever supplied a limit above the bound.
 ///
 /// So these tests do both things. They name the exact error, because a guard
 /// whose removal merely changes the error is invisible to a bare
