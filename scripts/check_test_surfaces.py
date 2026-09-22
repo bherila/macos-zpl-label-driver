@@ -8,18 +8,26 @@ scheduler on a test Mac, or a named reference Mac holding a benchmark baseline.
 
 docs/test-surfaces.json records that second answer, and it keeps two questions
 apart that are easy to merge into one wrong number. A surface says WHERE a pass
-can be obtained. runsPerPullRequest says whether an ORDINARY pull request -- the
-one under review, with no extra apparatus -- reaches that surface. Two surfaces
-may share a location and differ in reach, which is why repository inspection is
-split into config and config-experiment: proving CI fails closed needs pull
-requests built for that purpose, not the pull request being reviewed.
+can be obtained. `reach` says which pull requests get there: every ordinary one,
+only the ones whose changed paths select the surface, or none, because the pass
+needs apparatus the pull request under review does not have. Two surfaces may
+share a location and differ in reach, which is why repository inspection is split
+into config and config-experiment: proving CI fails closed needs pull requests
+built for that purpose, not the pull request being reviewed.
 
 This checker keeps the map honest against docs/milestones.json: the same
 criterion identifiers, no orphans either way, a surface whose declared level
-matches the level the criterion actually prescribes, and a runsPerPullRequest
-that is genuinely true or false rather than something Python happens to find
-truthy. A surface implies a level, so changing one without the other is a
-contradiction this refuses rather than reports.
+matches the level the criterion actually prescribes, and a `reach` drawn from a
+closed set rather than something Python happens to find truthy. A surface implies
+a level, so changing one without the other is a contradiction this refuses rather
+than reports.
+
+It does NOT constrain reach by level. A level says what a pass establishes, not
+whether a pull request may obtain one, and a constraint of that shape -- no level
+H or R surface may be reached per pull request -- was the same conflation of the
+two questions this file exists to separate. The honest basis for such a rule is a
+declared effect, such as writing to a device or publishing an artifact, and this
+map declares no effects.
 
 It records where a criterion CAN be validated and nothing about whether it HAS
 been. That is docs/ACCEPTANCE-EVIDENCE.json, and a surface here never counts as
@@ -34,9 +42,12 @@ ROOT = Path(__file__).resolve().parent.parent
 MILESTONES = 'docs/milestones.json'
 SURFACES = 'docs/test-surfaces.json'
 LEVELS = {'A', 'C', 'I', 'H', 'R'}
-UNREACHABLE_LEVELS = {'H', 'R'}
 SUPPORTED_SCHEMA = 1
-REQUIRED_SURFACE_KEYS = {'level', 'runsOn', 'runsPerPullRequest', 'establishes', 'doesNotEstablish'}
+REACH_EVERY = 'every-pull-request'
+REACH_SELECTED = 'selected-pull-requests'
+REACH_SEPARATE = 'separate-session'
+REACH_VALUES = (REACH_EVERY, REACH_SELECTED, REACH_SEPARATE)
+REQUIRED_SURFACE_KEYS = {'level', 'runsOn', 'reach', 'establishes', 'doesNotEstablish'}
 
 
 class Unevaluable(Exception):
@@ -61,13 +72,37 @@ def prescribed_levels(milestones):
     return levels
 
 
+def _shape(surfaces):
+    """Refuse a document whose shape makes a verdict impossible, before reading any key.
+
+    A surface that is null, a string or a list has no keys to read. Reading them
+    anyway raised TypeError out of main(), which catches only Unevaluable, so a
+    malformed file exited 1 -- the code meaning the map and the milestones
+    disagree -- with a traceback, instead of 2, the code meaning no verdict is
+    possible.
+    """
+    if not isinstance(surfaces, dict):
+        raise Unevaluable(f'the document is {type(surfaces).__name__}, not a JSON object')
+    if surfaces.get('schemaVersion') != SUPPORTED_SCHEMA:
+        raise Unevaluable(f'unsupported schemaVersion {surfaces.get("schemaVersion")!r}')
+    definitions = surfaces.get('surfaces') or {}
+    if not isinstance(definitions, dict):
+        raise Unevaluable(f'"surfaces" is {type(definitions).__name__}, not a JSON object')
+    assigned = surfaces.get('criteria') or {}
+    if not isinstance(assigned, dict):
+        raise Unevaluable(f'"criteria" is {type(assigned).__name__}, not a JSON object')
+    for name, definition in sorted(definitions.items()):
+        if not isinstance(definition, dict):
+            raise Unevaluable(
+                f'surface {name!r} is {type(definition).__name__}, not a JSON object')
+    return definitions, assigned
+
+
 def findings(levels, surfaces):
     """Every disagreement between the prescribed levels and the surface map."""
     found = []
-    if surfaces.get('schemaVersion') != SUPPORTED_SCHEMA:
-        raise Unevaluable(f'unsupported schemaVersion {surfaces.get("schemaVersion")!r}')
+    definitions, assigned = _shape(surfaces)
 
-    definitions = surfaces.get('surfaces') or {}
     for name, definition in sorted(definitions.items()):
         missing = REQUIRED_SURFACE_KEYS - set(definition)
         if missing:
@@ -75,22 +110,21 @@ def findings(levels, surfaces):
             continue
         if definition['level'] not in LEVELS:
             found.append(f'surface {name!r} declares unknown level {definition["level"]!r}')
-        reach = definition['runsPerPullRequest']
-        if not isinstance(reach, bool):
-            # A JSON string "false" is truthy, so an unchecked flag would silently promote
-            # every criterion on this surface into the reachable count -- the one number this
-            # file exists to keep true. Refuse the definition, never Python truthiness.
-            found.append(
-                f'surface {name!r} declares runsPerPullRequest {reach!r}, which is not true or false')
-        elif reach and definition['level'] in UNREACHABLE_LEVELS:
-            # AGENTS.md: CI must never reach private printers, and publishing is separately
-            # authorized. A level H or R surface an ordinary pull request reached would be one
-            # of those things happening, so the claim is refused rather than counted.
-            found.append(
-                f'surface {name!r} is level {definition["level"]} but claims an ordinary pull request '
-                f'reaches it; CI reaches neither a private printer nor the release gate')
+        reach = definition['reach']
+        condition = definition.get('reachedWhen')
+        if reach not in REACH_VALUES:
+            # This field decides the reachable count, the one number the file exists to keep
+            # true. A JSON true, 1 or "yes" is truthy in Python, so the value is matched against
+            # a closed set and never against Python truthiness.
+            found.append(f'surface {name!r} declares reach {reach!r}, which is not one of '
+                         + ', '.join(REACH_VALUES))
+        elif reach == REACH_SELECTED and not (isinstance(condition, str) and condition.strip()):
+            found.append(f'surface {name!r} is reached by selected pull requests but its '
+                         f'reachedWhen names no condition')
+        elif reach != REACH_SELECTED and condition is not None:
+            found.append(f'surface {name!r} declares reach {reach} yet names the reachedWhen '
+                         f'condition {condition!r}')
 
-    assigned = surfaces.get('criteria') or {}
     for identifier in sorted(set(levels) - set(assigned)):
         found.append(f'{identifier} has no declared execution surface')
     for identifier in sorted(set(assigned) - set(levels)):
@@ -98,6 +132,9 @@ def findings(levels, surfaces):
 
     for identifier in sorted(set(levels) & set(assigned)):
         name = assigned[identifier]
+        if not isinstance(name, str):
+            found.append(f'{identifier} names {name!r}, which is not a surface name')
+            continue
         definition = definitions.get(name)
         if definition is None:
             found.append(f'{identifier} names undefined surface {name!r}')
@@ -110,14 +147,26 @@ def findings(levels, surfaces):
 
 
 def summarise(levels, surfaces):
-    """Counts per surface, plus how many criteria an ordinary pull request reaches."""
+    """Counts per surface, and the total sitting on each reach class."""
     definitions = surfaces['surfaces']
     assigned = surfaces['criteria']
     counts = {name: 0 for name in definitions}
     for identifier in levels:
         counts[assigned[identifier]] = counts.get(assigned[identifier], 0) + 1
-    reachable = sum(n for name, n in counts.items() if definitions[name]['runsPerPullRequest'])
-    return counts, reachable
+    reach = {value: 0 for value in REACH_VALUES}
+    for name, count in counts.items():
+        declared = definitions[name]['reach']
+        reach[declared] = reach.get(declared, 0) + count
+    return counts, reach
+
+
+def marker(definition):
+    """How the summary describes which pull requests reach this surface."""
+    if definition['reach'] == REACH_EVERY:
+        return 'every ordinary pull request'
+    if definition['reach'] == REACH_SELECTED:
+        return f'only when {definition["reachedWhen"]}'
+    return 'a separate named session'
 
 
 def load(path):
@@ -147,15 +196,17 @@ def main():
         return 1
 
     if not arguments.quiet:
-        counts, reachable = summarise(levels, surfaces)
+        counts, reach = summarise(levels, surfaces)
         definitions = surfaces['surfaces']
-        print(f'Execution surfaces agree with {MILESTONES} for all {len(levels)} criteria.')
+        total = len(levels)
+        print(f'Execution surfaces agree with {MILESTONES} for all {total} criteria.')
         for name in sorted(counts, key=lambda k: (-counts[k], k)):
-            marker = ('every ordinary pull request' if definitions[name]['runsPerPullRequest']
-                      else 'a separate named session')
-            print(f'  {name:<17} {counts[name]:>3}  level {definitions[name]["level"]}  {marker}')
-        print(f'{reachable} of {len(levels)} criteria sit on a surface an ordinary pull request reaches; '
-              f'{len(levels) - reachable} need a separate named session.')
+            print(f'  {name:<17} {counts[name]:>3}  level {definitions[name]["level"]}  '
+                  f'{marker(definitions[name])}')
+        print(f'{reach[REACH_EVERY]} of {total} criteria sit on a surface every ordinary pull '
+              f"request reaches, {reach[REACH_SELECTED]} of {total} only when the pull request's "
+              f'changed paths select that surface, and {reach[REACH_SEPARATE]} of {total} need a '
+              f'separate named session.')
         print('Reachable is not validated: a surface says where a pass could be obtained, never that one was.')
     return 0
 

@@ -4,90 +4,105 @@
     "classification": "docs/validation/M0-ACCEPTANCE-LEDGER-2026-09-18.md",
     "classificationCommit": "56fdc7b13fecdbbd6be3daf505d9c180cf4be136",
     "criteria": "docs/milestones.json",
-    "revisedAgainstSpecs": "The ledger classification was the starting point, not the authority. Every row was re-derived from the milestone spec, required experiments and validation matrix in docs/milestones.json and docs/milestones/*/VALIDATION.md, plus docs/VALIDATION-PLAN.md. Nine rows moved: M0-AC06 and M0-AC09 to config-experiment, M1-AC09 to installed, M2-AC12 and M6-AC09 to benchmark, M3-AC10 and M6-AC06 to accessory, M5-AC09 to gui, M6-AC11 to per-claim. The ledger is a dated account of one run and is not rewritten to match."
+    "revisedAgainstSpecs": "The ledger classification was the starting point, not the authority. Every row was re-derived from the milestone spec, required experiments and validation matrix in docs/milestones.json and docs/milestones/*/VALIDATION.md, plus docs/VALIDATION-PLAN.md, and then every row of every surface was swept a second time rather than only the rows a reviewer named. Eleven rows moved off the ledger's answer: M0-AC06 and M0-AC09 to config-experiment, M0-AC01 to bootstrap, M0-AC10 to repo-settings, M1-AC09 to installed, M2-AC12 and M6-AC09 to benchmark, M3-AC10 and M6-AC06 to accessory, M5-AC09 to gui, M6-AC11 to per-claim. The four rows left on config -- M0-AC02, M0-AC05, M1-AC12, M6-AC13 -- were each re-read against their matrix row and kept: every one of them is a claim about committed files or about the run of the pull request under review. The ledger is a dated account of one run and is not rewritten to match."
   },
-  "note": "Two questions, not one. A surface answers where a pass can be obtained; runsPerPullRequest answers whether an ordinary pull request -- the one under review, on this repository, with no extra apparatus -- reaches that surface. Conflating them was wrong in both directions: criteria whose evidence is repository and CI inspection but which need purpose-built pull requests were counted as reachable, and criteria at level I whose prescribed measurement is a named local machine were counted as hosted CI. Two surfaces may therefore share a location and differ in reach: config and config-experiment are both repository and CI inspection. This file records where a criterion CAN be validated and nothing about whether it HAS been. That is docs/ACCEPTANCE-EVIDENCE.json, and a surface here is never evidence there.",
+  "note": "Two questions, not one. A surface answers where a pass can be obtained; `reach` answers which pull requests get there. Conflating them was wrong in every direction. Criteria whose evidence is repository and CI inspection but which need purpose-built pull requests were counted as reachable; criteria at level I whose prescribed measurement is a named local machine were counted as hosted CI; and a boolean could not say that hosted macOS CI is reached by some ordinary pull requests and not others. So `reach` is one of three values, not a flag: every-pull-request, selected-pull-requests (which must name its condition in reachedWhen) and separate-session. Two surfaces may share a location and differ in reach: config and config-experiment are both repository and CI inspection. macos-native is the selected-pull-requests case: .github/workflows/ci.yml gates swift-macos-arm64 on scripts/ci_scope.py, so a documentation-only pull request never reaches it, while any pull request touching source, scripts or workflows does. automated is not conditional in the same way, because its portable tests run in the Linux container on any branch whatever the diff contains; hosted CI is an additional place those tests run, not the only one. Nothing here constrains reach by level. An earlier revision of scripts/check_test_surfaces.py refused any level H or R surface that claimed per-pull-request reach, on the reasoning that CI must reach no private printer and no release gate. That rule was removed. A level says what a pass establishes, not whether a pull request may obtain one -- level R describes an installation and distribution lifecycle, not the act of publishing, and a secret-free pull request could exercise an ad-hoc candidate's lifecycle without publishing anything. The rule was therefore the very conflation of the two questions this file exists to separate. The honest basis for such a constraint is a declared effect, such as writing to a device or publishing an artifact, and this map declares no effects. This file records where a criterion CAN be validated and nothing about whether it HAS been. That is docs/ACCEPTANCE-EVIDENCE.json, and a surface here is never evidence there.",
   "surfaces": {
     "automated": {
       "level": "A",
       "runsOn": "Linux container and hosted macos-26 CI",
-      "runsPerPullRequest": true,
       "establishes": "Pure functions, schemas, known fixtures, simulated faults, bit-exact encoding.",
-      "doesNotEstablish": "Native print dialog, installed scheduler behaviour or physical output."
+      "doesNotEstablish": "Native print dialog, installed scheduler behaviour or physical output.",
+      "reach": "every-pull-request"
     },
     "config": {
       "level": "C",
       "runsOn": "repository and CI inspection on the pull request under review",
-      "runsPerPullRequest": true,
       "establishes": "Actual repository settings, CI execution, action pins and policy inspection.",
-      "doesNotEstablish": "Product behaviour not covered by executed tests, or CI behaviour that only a purpose-built pull request can show."
+      "doesNotEstablish": "Product behaviour not covered by executed tests, CI behaviour that only a purpose-built pull request can show, a live repository setting that no committed file records, or anything that happened before the repository existed.",
+      "reach": "every-pull-request"
     },
     "macos-native": {
       "level": "I",
       "runsOn": "hosted macos-26 CI, noninteractive",
-      "runsPerPullRequest": true,
       "establishes": "Real Apple frameworks and executables on a recorded Apple Silicon runtime.",
-      "doesNotEstablish": "Application dialogs, an installed scheduler, a retail host, any device, a non-Apple-Silicon runtime, or a performance threshold: the plan treats shared hosted-runner timing as informational only."
+      "doesNotEstablish": "Application dialogs, an installed scheduler, a retail host, any device, a non-Apple-Silicon runtime, or a performance threshold: the plan treats shared hosted-runner timing as informational only. It also establishes nothing on a pull request that never ran it. swift-macos-arm64 is conditional on the repository-preflight job's swift_changed output, which scripts/ci_scope.py sets from the changed paths, so a pull request touching only Markdown, LICENSE, docs/PROGRESS.json, docs/milestones.json or docs/requirements.json skips this surface entirely. The classifier fails open to testing, so an uncertain diff runs it.",
+      "reach": "selected-pull-requests",
+      "reachedWhen": "the pull request changes a path scripts/ci_scope.py classifies as Swift-affecting"
     },
     "config-experiment": {
       "level": "C",
       "runsOn": "dedicated pull requests built for the experiment, including a contributor-like fork",
-      "runsPerPullRequest": false,
       "establishes": "CI behaviour that only a purpose-built pull request can show: an intentionally failing check blocking the aggregate, a documentation-only change not stranding required checks, and a fork pull request running the allowed checks without maintainer secrets.",
-      "doesNotEstablish": "Anything an ordinary pull request shows about itself. The experiment branches are temporary and only the intentional failure is removed afterwards; the observations are recorded, not the branches."
+      "doesNotEstablish": "Anything an ordinary pull request shows about itself. The experiment branches are temporary and only the intentional failure is removed afterwards; the observations are recorded, not the branches.",
+      "reach": "separate-session"
     },
     "gui": {
       "level": "I",
       "runsOn": "test Mac, interactive supervised session",
-      "runsPerPullRequest": false,
       "establishes": "Required applications, the system print dialog, the extraction editor, accessibility.",
-      "doesNotEstablish": "Physical output. Earlier attempts failed with cgWindowNotFound; the surface is uncertified."
+      "doesNotEstablish": "Physical output. Earlier attempts failed with cgWindowNotFound; the surface is uncertified.",
+      "reach": "separate-session"
     },
     "installed": {
       "level": "I",
       "runsOn": "test Mac with an installed scheduler or helper",
-      "runsPerPullRequest": false,
       "establishes": "Real CUPS queues, held jobs, ownership, the privileged boundary, install and uninstall lifecycle.",
-      "doesNotEstablish": "Physical output. Requires separate installation authorization."
+      "doesNotEstablish": "Physical output. Requires separate installation authorization.",
+      "reach": "separate-session"
     },
     "benchmark": {
       "level": "I",
       "runsOn": "the named reference Mac, release build, with a retained baseline commit",
-      "runsPerPullRequest": false,
       "establishes": "Latency, peak memory, output bytes and throughput measured repeatably on one recorded machine with the same fixtures and media, which is what a reviewed threshold can be set against.",
-      "doesNotEstablish": "Anything from shared hosted-runner timing, which the plan and the M2 and M6 specs treat as informational and not a precise performance SLA. Not a physical or mechanical speed."
+      "doesNotEstablish": "Anything from shared hosted-runner timing, which the plan and the M2 and M6 specs treat as informational and not a precise performance SLA. Not a physical or mechanical speed.",
+      "reach": "separate-session"
     },
     "per-claim": {
       "level": "I",
       "runsOn": "one session per advertised claim, in the environment that claim itself names",
-      "runsPerPullRequest": false,
       "establishes": "Exactly the one advertised claim whose own evidence was obtained: an Intel claim by execution on Intel, an IPP claim by exercising its integration path, an extra transport by a session on that transport.",
-      "doesNotEstablish": "Any claim from compilation, from a hosted Apple Silicon run, or from another claim's evidence. There is no single session for this surface. An unexercised claim is withdrawn or marked unavailable, never carried; where a claim additionally needs device observation, that H evidence is recorded separately."
+      "doesNotEstablish": "Any claim from compilation, from a hosted Apple Silicon run, or from another claim's evidence. There is no single session for this surface. An unexercised claim is withdrawn or marked unavailable, never carried; where a claim additionally needs device observation, that H evidence is recorded separately.",
+      "reach": "separate-session"
     },
     "physical": {
       "level": "H",
       "runsOn": "the named GC420d over USB",
-      "runsPerPullRequest": false,
       "establishes": "Observed output, status and finishing on a named device configuration.",
-      "doesNotEstablish": "Other resolutions, firmware, accessories or the model family; the S1 unit is tear-off with no cutter, so no cut or peel behaviour can be observed on it. Needs explicit consent naming the device and a finite label budget."
+      "doesNotEstablish": "Other resolutions, firmware, accessories or the model family; the S1 unit is tear-off with no cutter, so no cut or peel behaviour can be observed on it. Needs explicit consent naming the device and a finite label budget.",
+      "reach": "separate-session"
     },
     "accessory": {
       "level": "H",
       "runsOn": "an approved accessory target: a printer that actually has the cutter or peeler under test",
-      "runsPerPullRequest": false,
       "establishes": "Observed cut policy per label, per batch and at end of job, and peel wait and resume behaviour, on hardware that has the accessory.",
-      "doesNotEstablish": "Anything about the S1 tear-off GC420d, which has no cutter and disabled peel behaviour, and nothing the S1 baseline can supply. This is deferred S2 hardware; without it these behaviours stay explicitly unqualified and gate full parity closure."
+      "doesNotEstablish": "Anything about the S1 tear-off GC420d, which has no cutter and disabled peel behaviour, and nothing the S1 baseline can supply. This is deferred S2 hardware; without it these behaviours stay explicitly unqualified and gate full parity closure.",
+      "reach": "separate-session"
     },
     "release": {
       "level": "R",
       "runsOn": "the release gate",
-      "runsPerPullRequest": false,
       "establishes": "Exact candidate installation and distribution lifecycle, declared signing mode and provenance.",
-      "doesNotEstablish": "Untested configurations or all future releases. A clean user account is not a clean host."
+      "doesNotEstablish": "Untested configurations or all future releases. A clean user account is not a clean host.",
+      "reach": "separate-session"
+    },
+    "bootstrap": {
+      "level": "C",
+      "runsOn": "a fresh temporary checkout, plus a separate checkout against an existing repository",
+      "reach": "separate-session",
+      "establishes": "That the documented creation sequence was actually run: a recorded authenticated owner and target repository, and an existing repository's content preserved rather than reset, reinitialised or force-pushed, or its absence established before creation.",
+      "doesNotEstablish": "Anything an ordinary pull request shows about itself. The pull request under review is made against a repository that already exists, so it cannot observe what was established before creation; the M0 matrix asks for a bootstrap rehearsal in a fresh temporary checkout and a repository-collision check against an existing one, and neither is the pull request being reviewed. Kept separate from repo-settings because the apparatus differs: this is a checkout anyone can make, run once at creation, and observes files rather than settings."
+    },
+    "repo-settings": {
+      "level": "C",
+      "runsOn": "an authenticated maintainer inspection of the live repository settings",
+      "reach": "separate-session",
+      "establishes": "The settings the repository holds rather than the files it contains: whether private vulnerability reporting is available, what branch protection is configured, and which permission blocks apply.",
+      "doesNotEstablish": "Anything a committed file can show. SECURITY.md records the policy a maintainer intends; it is not the setting, and a checker reading it observes a document, not a configuration. Pull request jobs run with a read-only token and cannot read these settings at all, so this needs maintainer authority rather than repository inspection on the pull request under review. Kept separate from bootstrap because the apparatus differs: no checkout is involved, the observation can be repeated at any time, and it requires administrative access a contributor does not have."
     }
   },
   "criteria": {
-    "M0-AC01": "config",
+    "M0-AC01": "bootstrap",
     "M0-AC02": "config",
     "M0-AC03": "automated",
     "M0-AC04": "macos-native",
@@ -96,7 +111,7 @@
     "M0-AC07": "automated",
     "M0-AC08": "automated",
     "M0-AC09": "config-experiment",
-    "M0-AC10": "config",
+    "M0-AC10": "repo-settings",
     "M0-AC11": "automated",
     "M0-AC12": "macos-native",
     "M1-AC01": "installed",

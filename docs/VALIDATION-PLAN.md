@@ -20,43 +20,76 @@ supervised GUI session, an installed scheduler on a test Mac, or a named referen
 benchmark baseline. [`docs/test-surfaces.json`](test-surfaces.json) records that second answer for
 every criterion, and `python3 scripts/check_test_surfaces.py` keeps it honest against
 [`milestones.json`](milestones.json) -- the same identifiers, no orphans in either direction, a
-surface whose declared level matches the level the criterion prescribes, and a reach flag that is
-genuinely `true` or `false`. A surface implies a level, so changing one without the other is a
-contradiction the checker refuses rather than reports.
+surface whose declared level matches the level the criterion prescribes, and a `reach` drawn from a
+closed set rather than from Python truthiness. A surface implies a level, so changing one without
+the other is a contradiction the checker refuses rather than reports.
+
+The checker does **not** constrain reach by level. An earlier revision refused any level `H` or `R`
+surface that claimed per-pull-request reach, reasoning that CI must reach neither a private printer
+nor the release gate. That rule is gone: a level says what a pass establishes, not whether a pull
+request may obtain one. Level `R` describes an installation and distribution lifecycle rather than
+the act of publishing, and a secret-free pull request could exercise an ad-hoc candidate's lifecycle
+without publishing anything. The rule was the same conflation of the two questions this section
+exists to undo. The honest basis for such a constraint is a declared **effect** -- writing to a
+device, publishing an artifact -- and this map declares no effects.
 
 These are two questions and the table keeps them apart. **Where** a pass can be obtained is the
-surface. **Whether an ordinary pull request reaches it** -- the pull request under review, on this
-repository, with no extra apparatus -- is a separate column. Two surfaces may share a location and
-differ in reach: `config` and `config-experiment` are both repository and CI inspection, but proving
-that CI fails closed needs pull requests built for that purpose rather than the one being reviewed.
+surface. **Which pull requests reach it** is a separate column with three answers rather than two:
+every ordinary pull request, only those whose changed paths select the surface, or none at all
+because the pass needs apparatus the pull request under review does not have. Two surfaces may
+share a location and differ in reach: `config` and `config-experiment` are both repository and CI
+inspection, but proving that CI fails closed needs pull requests built for that purpose rather than
+the one being reviewed.
 
-| Surface | Level | Where a pass can be obtained | Ordinary PR reaches it | Criteria |
+| Surface | Level | Where a pass can be obtained | Which PRs reach it | Criteria |
 |---|---|---|---|---|
-| `automated` | A | Linux container and hosted `macos-26` CI | yes | 30 |
-| `macos-native` | I | hosted `macos-26` CI, noninteractive | yes | 7 |
-| `config` | C | repository and CI inspection on the PR under review | yes | 6 |
-| `installed` | I | test Mac with an installed scheduler or helper | no | 18 |
-| `gui` | I | test Mac, interactive supervised session | no | 11 |
-| `physical` | H | the named tear-off GC420d over USB | no | 8 |
-| `release` | R | the release gate | no | 3 |
-| `config-experiment` | C | dedicated pull requests, including a contributor-like fork | no | 2 |
-| `benchmark` | I | the named reference Mac, release build, retained baseline | no | 2 |
-| `accessory` | H | a printer that actually has the cutter or peeler under test | no | 2 |
-| `per-claim` | I | one session per advertised claim, in the environment it names | no | 1 |
+| `automated` | A | Linux container and hosted `macos-26` CI | every ordinary PR | 30 |
+| `installed` | I | test Mac with an installed scheduler or helper | none | 18 |
+| `gui` | I | test Mac, interactive supervised session | none | 11 |
+| `physical` | H | the named tear-off GC420d over USB | none | 8 |
+| `macos-native` | I | hosted `macos-26` CI, noninteractive | only Swift-affecting PRs | 7 |
+| `config` | C | repository and CI inspection on the PR under review | every ordinary PR | 4 |
+| `release` | R | the release gate | none | 3 |
+| `accessory` | H | a printer that actually has the cutter or peeler under test | none | 2 |
+| `benchmark` | I | the named reference Mac, release build, retained baseline | none | 2 |
+| `config-experiment` | C | dedicated pull requests, including a contributor-like fork | none | 2 |
+| `bootstrap` | C | a fresh temporary checkout, and one against an existing repository | none | 1 |
+| `per-claim` | I | one session per advertised claim, in the environment it names | none | 1 |
+| `repo-settings` | C | an authenticated maintainer inspection of live repository settings | none | 1 |
 
-Four of those exist because a single flag was carrying both questions. `config-experiment` holds
+`macos-native` is the whole reason the reach column has three answers. `.github/workflows/ci.yml`
+gates `swift-macos-arm64` on the `swift_changed` output that `scripts/ci_scope.py` derives from the
+changed paths, so a pull request touching only Markdown, `LICENSE`, `docs/PROGRESS.json`,
+`docs/milestones.json` or `docs/requirements.json` never compiles anything natively and reaches none
+of those seven criteria. The classifier fails open, so an uncertain diff still runs the job.
+`automated` is not conditional in the same way: its portable tests run in the Linux container on any
+branch whatever the diff contains, and hosted CI is an additional place they run rather than the
+only one.
+
+Seven surfaces exist because a single flag was carrying both questions. `config-experiment` holds
 M0-AC06 and M0-AC09, whose evidence is an intentionally failing pull request, a documentation-only
 pull request and a fork pull request -- repository inspection, but never of the pull request under
-review. `benchmark` holds M2-AC12 and M6-AC09, because shared hosted-runner timing is informational
-here and a reviewed threshold needs a named local setup. `accessory` holds M3-AC10 and M6-AC06,
-which need an approved accessory target; the S1 unit is tear-off with no cutter and establishes
-nothing about them. `per-claim` holds M6-AC11, which has no single session at all: an Intel claim
-needs execution on Intel, an IPP claim needs its integration path exercised, and neither follows
-from a hosted Apple Silicon run.
+review. `bootstrap` holds M0-AC01, whose "before creation" is a one-time event the pull request
+under review is made too late to observe, and which the M0 matrix reaches through a fresh-checkout
+rehearsal and an existing-repository collision check. `repo-settings` holds M0-AC10, which asks
+about private vulnerability reporting and branch protection -- settings the repository holds, not
+files it contains, unreadable by a read-only pull request token and observable only by an
+authenticated maintainer. Those two stay apart because their apparatus differs: a checkout anyone
+can make against files, versus administrative access to a configuration. `benchmark` holds M2-AC12
+and M6-AC09, because shared hosted-runner timing is informational here and a reviewed threshold
+needs a named local setup. `accessory` holds M3-AC10 and M6-AC06, which need an approved accessory
+target; the S1 unit is tear-off with no cutter and establishes nothing about them. `per-claim` holds
+M6-AC11, which has no single session at all: an Intel claim needs execution on Intel, an IPP claim
+needs its integration path exercised, and neither follows from a hosted Apple Silicon run.
+`macos-native` is the seventh, above.
 
 The map says where a criterion **can** be validated and nothing about whether it **has** been. That
 is [`ACCEPTANCE-EVIDENCE.json`](ACCEPTANCE-EVIDENCE.json), and a surface here is never evidence
-there. Reachable is not validated, and 43 of 90 reachable is not 43 of 90 done.
+there. Reachable is not validated: sitting on a surface a pull request reaches is not a pass, and
+the figures below count places, not results.
+
+34 of 90 criteria sit on a surface every ordinary pull request reaches, 7 of 90 only when the pull
+request's changed paths select that surface, and 49 of 90 need a separate named session.
 
 
 ## Required test layers
