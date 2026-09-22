@@ -27,8 +27,8 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
         case readRecord(String)
         case removeQueue(String)
         case removeFile(String)
-        case removeOwnershipRecord(String)
         case removeEmptyDirectory(String)
+        case removeProtectedRootWithJournal(String)
     }
 
     enum Failure: Error { case refused, notExclusive, notEmpty, staleJournal }
@@ -98,6 +98,21 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
     var createQueueDescription: SchedulerQueueDescriptionIdentity?
     /// The created queue's description cannot be read back out of it.
     var descriptionReadFails = false
+    /// Configures the created queue to run an executable other than the one the
+    /// description it was built from declares — a queue carrying the planned
+    /// description while running something else.
+    var createQueueFilterBinding: PrinterDescriptionFilterBinding?
+    /// What the created queue runs cannot be read back out of it.
+    var filterBindingReadFails = false
+    /// The queue is reconfigured to run a different executable in the window
+    /// between the observation that authorized the removal and the removal.
+    var queueRefilteredBeforeRemoval: PrinterDescriptionFilterBinding?
+    /// The combined journal-and-root teardown refuses. This is the crash point
+    /// the old two-step ordering had *between* removing the journal and
+    /// removing the root, reproduced at the one place the model still stops.
+    var removeProtectedRootWithJournalFails = false
+    /// That same teardown reports an outcome it cannot determine.
+    var removeProtectedRootWithJournalOutcomeUnknown = false
     /// The signature reported for a staged filter executable. A conformer that
     /// stages unsigned code still satisfies digest, ownership, mode and ACL.
     var filterCodeSignature: ObservedCodeSignature = .valid
@@ -129,7 +144,8 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
     var removalEvents: [Event] {
         log.filter {
             switch $0 {
-            case .removeQueue, .removeFile, .removeOwnershipRecord, .removeEmptyDirectory: true
+            case .removeQueue, .removeFile, .removeEmptyDirectory,
+                 .removeProtectedRootWithJournal: true
             default: false
             }
         }
@@ -250,6 +266,12 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
         return .present(state, contents)
     }
 
+    /// What the description this stand-in is asked to build a queue from
+    /// declares it invokes. A real scheduler learns this from the description
+    /// file; this holds it as a fixture value, because nothing in the model may
+    /// parse a description.
+    var filterBinding: PrinterDescriptionFilterBinding = Fixture.filterBinding()
+
     mutating func createQueue(
         _ queue: PlannedSchedulerQueue,
         describedBy description: PlannedFileArtifact,
@@ -259,14 +281,17 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
         log.append(.createQueue(queue.name))
         if createQueueFails { throw Failure.refused }
         // Contract: write the token into the queue's own configuration, point
-        // the queue at exactly the destination this call was given, and build
-        // it from exactly the description this call was given.
+        // the queue at exactly the destination this call was given, build it
+        // from exactly the description this call was given, and run exactly the
+        // executable that description declares.
         let described = try SchedulerQueueDescriptionIdentity(describedBy: description)
         queues[queue.name] = SchedulerQueueState(
             incarnation: incarnationWriteFails ? nil : incarnation,
             destination: destinationReadFails ? .unknown : .known(createQueueDestination ?? destination),
             printerDescription: descriptionReadFails
-                ? .unknown : .known(createQueueDescription ?? described)
+                ? .unknown : .known(createQueueDescription ?? described),
+            invokedFilter: filterBindingReadFails
+                ? .unknown : .known(createQueueFilterBinding ?? filterBinding)
         )
         return acquisition
     }
@@ -275,7 +300,8 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
         _ queue: PlannedSchedulerQueue,
         ifIncarnationMatches incarnation: SchedulerQueueIncarnation,
         andDestinationMatches destination: QueueDestination,
-        andDescriptionMatches description: SchedulerQueueDescriptionIdentity
+        andDescriptionMatches description: SchedulerQueueDescriptionIdentity,
+        andFilterBindingMatches filter: PrinterDescriptionFilterBinding
     ) throws -> SchedulerQueueRemoval {
         log.append(.removeQueue(queue.name))
         if removeQueueFails { throw Failure.refused }
@@ -284,24 +310,38 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
             queues[queue.name] = SchedulerQueueState(
                 incarnation: present.incarnation,
                 destination: .known(queueRepointedBeforeRemoval),
-                printerDescription: present.printerDescription
+                printerDescription: present.printerDescription,
+                invokedFilter: present.invokedFilter
             )
         }
         if let queueRebuiltBeforeRemoval, let present = queues[queue.name] {
             queues[queue.name] = SchedulerQueueState(
                 incarnation: present.incarnation,
                 destination: present.destination,
-                printerDescription: .known(queueRebuiltBeforeRemoval)
+                printerDescription: .known(queueRebuiltBeforeRemoval),
+                invokedFilter: present.invokedFilter
+            )
+        }
+        if let queueRefilteredBeforeRemoval, let present = queues[queue.name] {
+            queues[queue.name] = SchedulerQueueState(
+                incarnation: present.incarnation,
+                destination: present.destination,
+                printerDescription: present.printerDescription,
+                invokedFilter: .known(queueRefilteredBeforeRemoval)
             )
         }
         if queueRemovalOutcomeUnknown { return .unknown }
         // Contract: conditional on the queue's whole recorded identity. Delete
         // only while the name still carries this incarnation, still delivers
-        // here, and is still built from this description.
+        // here, is still built from this description, and still runs this
+        // executable.
         guard queues[queue.name]?.incarnation == incarnation else { return .incarnationChanged }
         guard queues[queue.name]?.destination == .known(destination) else { return .destinationChanged }
         guard queues[queue.name]?.printerDescription == .known(description) else {
             return .descriptionChanged
+        }
+        guard queues[queue.name]?.invokedFilter == .known(filter) else {
+            return .filterBindingChanged
         }
         if queueRemovalWithoutEffect { return .removed }
         queues.removeValue(forKey: queue.name)
@@ -324,24 +364,33 @@ private struct InertInstallationSink: QueueInstallationEffectSink {
         return .removed
     }
 
-    /// Contract: conditional on the journal's *bytes*, which is the one thing a
-    /// planned digest cannot pin for a file the transaction rewrites. Compared
-    /// as bytes for the same reason the compare-and-swap is.
-    mutating func removeOwnershipRecord(
-        _ artifact: PlannedFileArtifact, ifContentsMatch contents: String
+    /// Contract: `rmdir` semantics extended by exactly one permitted child.
+    /// Refuse unless the root's only entry is `journal` and `journal` holds
+    /// `contents` byte for byte, then unlink it and remove the root. A conformer
+    /// that removes anything else, or that removes recursively, does not
+    /// conform.
+    mutating func removeProtectedRootWithJournal(
+        _ root: PlannedFileArtifact,
+        journal: PlannedFileArtifact,
+        ifJournalContentsMatch contents: String
     ) throws -> FileArtifactRemoval {
-        let path = artifact.path.value
-        log.append(.removeOwnershipRecord(path))
-        if removeFileFailures.contains(path) { throw Failure.refused }
+        let path = root.path.value
+        log.append(.removeProtectedRootWithJournal(path))
+        if removeProtectedRootWithJournalFails { throw Failure.refused }
         if let journalReplacedBeforeRemoval { persistedRecord = journalReplacedBeforeRemoval }
-        if fileRemovalOutcomeUnknown.contains(path) { return .unknown }
+        let children = files.keys.filter { $0.hasPrefix(path + "/") }
+        guard children == [journal.path.value] else { throw Failure.notEmpty }
+        if removeProtectedRootWithJournalOutcomeUnknown { return .unknown }
         guard let durable = persistedRecord, Array(durable.utf8) == Array(contents.utf8) else {
             return .artifactChanged
         }
-        guard let observed = files[path], observed == (try? state(of: artifact)) else {
+        guard let observedJournal = files[journal.path.value],
+              observedJournal == (try? state(of: journal)) else { return .artifactChanged }
+        guard let observedRoot = files[path], observedRoot == (try? state(of: root)) else {
             return .artifactChanged
         }
         if removalsWithoutEffect.contains(path) { return .removed }
+        files.removeValue(forKey: journal.path.value)
         files.removeValue(forKey: path)
         persistedRecord = nil
         return .removed
@@ -380,11 +429,21 @@ private enum Fixture {
     /// device destination the easy default.
     static let destination = QueueDestination.inertDiscardSink
 
+    /// A synthetic per-unit identity. It is an opaque token invented here and
+    /// nothing else: no device was read, and `AGENTS.md` forbids a real serial
+    /// number, or any digest of one, from entering this repository. The model
+    /// only ever compares two of these for equality.
+    static func usbIdentity(_ token: String = "synthetic-unit-a") throws -> StableConnectionIdentity {
+        try StableConnectionIdentity(opaqueValue: token)
+    }
+
     /// A *different* destination, used only to prove that a queue pointed
     /// somewhere other than the plan said is detected. Naming a device model
     /// here is not consent to print to one; nothing in this file reaches a bus.
-    static func deviceDestination() throws -> QueueDestination {
-        .usbDevice(try USBDeviceDestination(vendorID: 0x0a5f, productID: 0x00a3))
+    static func deviceDestination(identity: String = "synthetic-unit-a") throws -> QueueDestination {
+        .usbDevice(try USBDeviceDestination(
+            vendorID: 0x0a5f, productID: 0x00a3, identity: usbIdentity(identity)
+        ))
     }
 
     static func digest(_ seed: String) -> String {
@@ -403,6 +462,27 @@ private enum Fixture {
         )
     }
 
+    /// What the printer description these tests plan declares it invokes: the
+    /// filter the same intent plans, which is the only binding the intent
+    /// admits.
+    static func filterBinding(rootPath: String = rootPath) -> PrinterDescriptionFilterBinding {
+        // Force-unwrapped through `try!` would obscure which fixture is wrong;
+        // these two values are fixed constants of this file.
+        try! PrinterDescriptionFilterBinding(
+            filterPath: AbsolutePath(rootPath + "/labelcapture-filter"),
+            filterSHA256: digest("b")
+        )
+    }
+
+    /// A binding naming some *other* executable. This is the description whose
+    /// digest is perfectly correct and whose filter entry points elsewhere.
+    static func foreignFilterBinding() -> PrinterDescriptionFilterBinding {
+        try! PrinterDescriptionFilterBinding(
+            filterPath: AbsolutePath("/Library/Printers/LabelDriverModel/other-filter"),
+            filterSHA256: digest("d")
+        )
+    }
+
     /// The staging allowlist these tests declare. Naming the real installation
     /// location is ADR 0005's decision; this is a test's declaration and
     /// nothing more.
@@ -417,11 +497,13 @@ private enum Fixture {
     static func queueState(
         _ seed: String = "1",
         destination: ObservedQueueDestination = .known(destination),
-        printerDescription: ObservedQueueDescriptionIdentity? = nil
+        printerDescription: ObservedQueueDescriptionIdentity? = nil,
+        invokedFilter: ObservedQueueFilterBinding? = nil
     ) throws -> SchedulerQueueState {
         SchedulerQueueState(
             incarnation: try incarnation(seed), destination: destination,
-            printerDescription: try printerDescription ?? .known(descriptionIdentity())
+            printerDescription: try printerDescription ?? .known(descriptionIdentity()),
+            invokedFilter: invokedFilter ?? .known(filterBinding())
         )
     }
 
@@ -429,6 +511,7 @@ private enum Fixture {
         rootPath: String = rootPath,
         queueName: String = queueName,
         destination: QueueDestination = destination,
+        descriptionInvokesFilter: PrinterDescriptionFilterBinding? = nil,
         stagingPolicy: QueueInstallationStagingPolicy? = nil
     ) throws -> QueueInstallationIntent {
         try QueueInstallationIntent(
@@ -450,6 +533,7 @@ private enum Fixture {
                 kind: .printerDescription, path: AbsolutePath(rootPath + "/capture.ppd"),
                 mode: POSIXMode(0o644), contentSHA256: digest("c")
             ),
+            descriptionInvokesFilter: descriptionInvokesFilter ?? filterBinding(rootPath: rootPath),
             stagingPolicy: try stagingPolicy ?? Fixture.stagingPolicy()
         )
     }
@@ -517,12 +601,20 @@ private enum Fixture {
     }
 
     /// The separately authorized recovery a human drives from the record.
+    ///
+    /// It goes through `load`, because that is now the only way to one. A
+    /// record-validated recovery cannot be assembled from a record a caller
+    /// holds and bytes it read separately: those two halves are only bound when
+    /// one call validates and reads the journal through one descriptor and
+    /// takes the record out of the bytes it read. See the initializers on
+    /// `QueueInstallationRecovery`.
     static func recordValidated(
-        _ transaction: QueueInstallationTransaction
-    ) -> QueueInstallationRecovery {
-        QueueInstallationRecovery(
-            resuming: transaction.record, authority: .recordValidated,
-            lastDurableText: transaction.lastDurableText
+        _ transaction: QueueInstallationTransaction,
+        _ sink: inout InertInstallationSink
+    ) throws -> QueueInstallationRecovery {
+        try QueueInstallationRecovery.load(
+            journalAt: transaction.record.journalArtifact,
+            authority: .recordValidated, using: &sink
         )
     }
 
@@ -619,6 +711,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
             protectedRoot: intent.protectedRoot,
             ownershipRecord: intent.ownershipRecord, filter: outside,
             printerDescription: intent.printerDescription,
+            descriptionInvokesFilter: try PrinterDescriptionFilterBinding(invoking: outside),
             stagingPolicy: intent.stagingPolicy
         )) { XCTAssertEqual($0 as? QueueInstallationError, .artifactOutsideProtectedRoot) }
         XCTAssertEqual(intent.stagingParent.value, Fixture.stagingParent)
@@ -687,15 +780,18 @@ final class QueueInstallationTransactionTests: XCTestCase {
         XCTAssertFalse(FileArtifactObservation.queryFailed.isConfirmedAbsent)
         let tokenless = SchedulerQueueObservation.present(
             SchedulerQueueState(
-                incarnation: nil, destination: .unknown, printerDescription: .unknown
+                incarnation: nil, destination: .unknown, printerDescription: .unknown,
+                invokedFilter: .unknown
             )
         )
         XCTAssertTrue(tokenless.isConfirmedPresent)
         XCTAssertNil(tokenless.incarnation)
         XCTAssertEqual(tokenless.destination, .unknown)
         XCTAssertEqual(tokenless.printerDescription, .unknown)
+        XCTAssertEqual(tokenless.invokedFilter, .unknown)
         XCTAssertEqual(SchedulerQueueObservation.queryFailed.destination, .unknown)
         XCTAssertEqual(SchedulerQueueObservation.queryFailed.printerDescription, .unknown)
+        XCTAssertEqual(SchedulerQueueObservation.queryFailed.invokedFilter, .unknown)
 
         var sink = try Fixture.cleanSink()
         sink.queueQueryFails = true
@@ -845,8 +941,8 @@ final class QueueInstallationTransactionTests: XCTestCase {
         )
         sink.queues[Fixture.queueName] = try Fixture.queueState()
         sink.persistedRecord = record.canonicalText
-        var recovery = QueueInstallationRecovery(
-            resuming: record, authority: .recordValidated, lastDurableText: record.canonicalText
+        var recovery = try QueueInstallationRecovery.load(
+            journalAt: record.journalArtifact, authority: .recordValidated, using: &sink
         )
         XCTAssertEqual(try recovery.recoveryPlan().steps.first, .removeQueue(plan.intent.queue))
         let outcome = recovery.recover(using: &sink)
@@ -875,9 +971,8 @@ final class QueueInstallationTransactionTests: XCTestCase {
         )
         identified.queues[Fixture.queueName] = try Fixture.queueState()
         identified.persistedRecord = withToken.canonicalText
-        var identifiedRecovery = QueueInstallationRecovery(
-            resuming: withToken, authority: .recordValidated,
-            lastDurableText: withToken.canonicalText
+        var identifiedRecovery = try QueueInstallationRecovery.load(
+            journalAt: withToken.journalArtifact, authority: .recordValidated, using: &identified
         )
         XCTAssertEqual(
             identifiedRecovery.recover(using: &identified),
@@ -1163,7 +1258,8 @@ final class QueueInstallationTransactionTests: XCTestCase {
         // The queue is present, but no longer carries our token.
         sink.queues[Fixture.queueName] = SchedulerQueueState(
             incarnation: nil, destination: .known(Fixture.destination),
-            printerDescription: .known(try Fixture.descriptionIdentity())
+            printerDescription: .known(try Fixture.descriptionIdentity()),
+            invokedFilter: .known(Fixture.filterBinding())
         )
         let outcome = try transaction.complete(using: &sink)
         XCTAssertFalse(outcome.isCompleted)
@@ -1208,7 +1304,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
     func testRecordValidatedRecoveryRemovesTheQueueBeforeTheFilter() throws {
         var sink = try Fixture.cleanSink()
         let (transaction, _) = try Fixture.installed(&sink)
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .rolledBack(recovery.record))
         XCTAssertFalse(outcome.isCompleted)
@@ -1218,10 +1314,11 @@ final class QueueInstallationTransactionTests: XCTestCase {
                 .removeQueue(Fixture.queueName),
                 .removeFile(Fixture.descriptionPath),
                 .removeFile(Fixture.filterPath),
-                // The journal goes through its own conditional removal, which
-                // carries the bytes it was authorized against.
-                .removeOwnershipRecord(Fixture.recordPath),
-                .removeEmptyDirectory(Fixture.rootPath),
+                // The journal and the root go together, through one conditional
+                // operation that carries the bytes it was authorized against.
+                // They used to be two steps, and an interruption between them
+                // left a root nothing could resume from.
+                .removeProtectedRootWithJournal(Fixture.rootPath),
             ]
         )
         XCTAssertTrue(sink.queues.isEmpty)
@@ -1231,7 +1328,9 @@ final class QueueInstallationTransactionTests: XCTestCase {
     }
 
     /// Finding N: the root is a directory and is removed with an operation whose
-    /// contract forbids recursion, so an unowned child stops recovery.
+    /// contract forbids recursion, so an unowned child stops recovery. That
+    /// operation now also carries the journal, and its contract admits exactly
+    /// that one child and no other.
     func testTheProtectedRootIsRemovedOnlyAsAnEmptyDirectory() throws {
         var sink = try Fixture.cleanSink()
         let (transaction, _) = try Fixture.installed(&sink)
@@ -1239,20 +1338,25 @@ final class QueueInstallationTransactionTests: XCTestCase {
         sink.files[Fixture.rootPath + "/stranger"] = try ObservedFileState(
             kind: .regularFile, uid: 0, gid: 0, modeBits: 0o644
         )
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .effectFailed))
-        XCTAssertEqual(sink.removalEvents.last, .removeEmptyDirectory(Fixture.rootPath))
-        // The root and the stranger both survive; nothing was swept away.
+        XCTAssertEqual(
+            sink.removalEvents.last, .removeProtectedRootWithJournal(Fixture.rootPath)
+        )
+        // The root, the journal and the stranger all survive; nothing was swept
+        // away, and the evidence a later pass would need is still there.
         XCTAssertNotNil(sink.files[Fixture.rootPath])
+        XCTAssertNotNil(sink.files[Fixture.recordPath])
         XCTAssertNotNil(sink.files[Fixture.rootPath + "/stranger"])
         XCTAssertFalse(sink.log.contains(.removeFile(Fixture.rootPath)))
+        XCTAssertFalse(sink.log.contains(.removeEmptyDirectory(Fixture.rootPath)))
     }
 
     func testRollbackRefusesAnEmptyRecoveryPlanInsteadOfClaimingSuccess() throws {
         var sink = try Fixture.cleanSink()
         let (transaction, _) = try Fixture.installed(&sink)
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let empty = try QueueInstallationRecoveryPlan(steps: [])
         XCTAssertThrowsError(try recovery.recover(following: empty, using: &sink)) {
             XCTAssertEqual($0 as? QueueInstallationError, .incompleteRecoveryPlan)
@@ -1266,7 +1370,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
     func testRollbackRefusesAPlanThatOmitsTheQueue() throws {
         var sink = try Fixture.cleanSink()
         let (transaction, _) = try Fixture.installed(&sink)
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let canonical = try recovery.recoveryPlan()
         let withoutQueue = try QueueInstallationRecoveryPlan(steps: Array(canonical.steps.dropFirst()))
         XCTAssertThrowsError(try recovery.recover(following: withoutQueue, using: &sink)) {
@@ -1286,8 +1390,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         let outcome = transaction.rollBack(using: &sink)
         XCTAssertEqual(outcome, .rolledBack(transaction.record))
         XCTAssertEqual(
-            sink.removalEvents,
-            [.removeOwnershipRecord(Fixture.recordPath), .removeEmptyDirectory(Fixture.rootPath)]
+            sink.removalEvents, [.removeProtectedRootWithJournal(Fixture.rootPath)]
         )
         XCTAssertFalse(sink.log.contains(.removeQueue(Fixture.queueName)))
         XCTAssertTrue(transaction.record.createdArtifacts.isEmpty)
@@ -1320,7 +1423,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         XCTAssertNotEqual(transaction.record.queueIncarnation, recreated.incarnation)
         sink.queues[Fixture.queueName] = recreated
 
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .queueIncarnationUnverified))
         XCTAssertFalse(sink.log.contains(.removeQueue(Fixture.queueName)))
@@ -1334,9 +1437,10 @@ final class QueueInstallationTransactionTests: XCTestCase {
         let (transaction, _) = try Fixture.installed(&sink)
         sink.queues[Fixture.queueName] = SchedulerQueueState(
             incarnation: nil, destination: .known(Fixture.destination),
-            printerDescription: .known(try Fixture.descriptionIdentity())
+            printerDescription: .known(try Fixture.descriptionIdentity()),
+            invokedFilter: .known(Fixture.filterBinding())
         )
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .queueIncarnationUnverified))
         XCTAssertFalse(sink.log.contains(.removeQueue(Fixture.queueName)))
@@ -1362,7 +1466,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
     func testRecoveryIsIdempotent() throws {
         var sink = try Fixture.cleanSink()
         let (transaction, _) = try Fixture.installed(&sink)
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         XCTAssertEqual(recovery.recover(using: &sink), .rolledBack(recovery.record))
         let afterFirstPass = sink.removalEvents
         XCTAssertEqual(recovery.recover(using: &sink), .rolledBack(recovery.record))
@@ -1374,7 +1478,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         var sink = try Fixture.cleanSink()
         let (transaction, _) = try Fixture.installed(&sink)
         sink.queueQueryFails = true
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .queueStateUnknown))
         XCTAssertTrue(outcome.requiresManualRecovery)
@@ -1387,7 +1491,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         var sink = try Fixture.cleanSink()
         let (transaction, _) = try Fixture.installed(&sink)
         sink.queueRemovalWithoutEffect = true
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .queueRemovalUnverified))
         XCTAssertEqual(sink.removalEvents, [.removeQueue(Fixture.queueName)])
@@ -1402,7 +1506,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
             kind: .regularFile, uid: 0, gid: 0, modeBits: 0o755, contentSHA256: Fixture.digest("9"),
             accessControl: .noWriteGrantsBeyondOwner
         )
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .unexpectedArtifactState))
         XCTAssertFalse(sink.log.contains(.removeFile(Fixture.filterPath)))
@@ -1414,7 +1518,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         var sink = try Fixture.cleanSink()
         let (transaction, _) = try Fixture.installed(&sink)
         sink.fileQueryFailures.insert(Fixture.descriptionPath)
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .fileStateUnknown))
         XCTAssertFalse(sink.log.contains(.removeFile(Fixture.descriptionPath)))
@@ -1424,7 +1528,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         var sink = try Fixture.cleanSink()
         let (transaction, _) = try Fixture.installed(&sink)
         sink.removalsWithoutEffect.insert(Fixture.descriptionPath)
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .fileRemovalUnverified))
         XCTAssertTrue(recovery.record.owns(.file(try AbsolutePath(Fixture.descriptionPath))))
@@ -1434,7 +1538,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         var sink = try Fixture.cleanSink()
         let (transaction, _) = try Fixture.installed(&sink)
         sink.removeFileFailures.insert(Fixture.filterPath)
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .effectFailed))
         XCTAssertFalse(outcome.isCompleted)
@@ -1453,9 +1557,12 @@ final class QueueInstallationTransactionTests: XCTestCase {
             createdArtifacts: []
         )
         XCTAssertEqual(sameIDDifferentQueue.transactionID, transaction.record.transactionID)
-        sink.journalOverrideOnRead = sameIDDifferentQueue.canonicalText
 
-        var recovery = Fixture.recordValidated(transaction)
+        // The recovery is loaded from the journal as it really was — that is
+        // now the only way to a record-validated one — and the substitution
+        // happens afterwards, which is the window this is about.
+        var recovery = try Fixture.recordValidated(transaction, &sink)
+        sink.journalOverrideOnRead = sameIDDifferentQueue.canonicalText
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .unexpectedArtifactState))
         XCTAssertFalse(sink.log.contains(.removeFile(Fixture.recordPath)))
@@ -1479,11 +1586,10 @@ final class QueueInstallationTransactionTests: XCTestCase {
             transactionID: QueueInstallationTransactionID(hex: String(repeating: "b", count: 32)),
             intent: transaction.record.intent, phase: .inProgress, createdArtifacts: []
         ).canonicalText
-        // Something replaced the journal behind our back, before recovery even
-        // begins.
+        var recovery = try Fixture.recordValidated(transaction, &sink)
+        // Something replaced the journal behind our back, after the record was
+        // loaded and before a single effect ran.
         sink.persistedRecord = foreign
-
-        var recovery = Fixture.recordValidated(transaction)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .journalConflict))
         // The foreign journal survives: the rewrite was refused, not applied.
@@ -1524,9 +1630,9 @@ final class QueueInstallationTransactionTests: XCTestCase {
         // canonical-equivalence compare would wave through.
         XCTAssertEqual(equivalent, ours)
         XCTAssertNotEqual(Array(equivalent.utf8), Array(ours.utf8))
-        sink.persistedRecord = equivalent
 
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
+        sink.persistedRecord = equivalent
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .journalConflict))
         XCTAssertEqual(Array(try XCTUnwrap(sink.persistedRecord).utf8), Array(equivalent.utf8))
@@ -1991,7 +2097,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         var recovering = try Fixture.cleanSink()
         let (installed, _) = try Fixture.installed(&recovering)
         recovering.journalDurability = .notSynchronized
-        var recovery = Fixture.recordValidated(installed)
+        var recovery = try Fixture.recordValidated(installed, &recovering)
         XCTAssertEqual(recovery.recover(using: &recovering), .residual(recovery.record, .journalNotDurable))
         XCTAssertTrue(recovering.removalEvents.isEmpty)
         XCTAssertNotNil(recovering.queues[Fixture.queueName])
@@ -2012,8 +2118,8 @@ final class QueueInstallationTransactionTests: XCTestCase {
 
         var conforming = try Fixture.cleanSink()
         let (transaction, _) = try Fixture.installed(&conforming)
+        var recovery = try Fixture.recordValidated(transaction, &conforming)
         conforming.journalExceedsReadLimit = true
-        var recovery = Fixture.recordValidated(transaction)
         XCTAssertEqual(recovery.recover(using: &conforming), .residual(recovery.record, .fileStateUnknown))
         XCTAssertFalse(conforming.log.contains(.removeFile(Fixture.recordPath)))
         XCTAssertNotNil(conforming.files[Fixture.recordPath])
@@ -2030,8 +2136,8 @@ final class QueueInstallationTransactionTests: XCTestCase {
         let (second, _) = try Fixture.installed(&unbounded)
         let padded = second.record.canonicalText + String(repeating: "#", count: limit) + "\n"
         XCTAssertGreaterThan(padded.utf8.count, limit)
+        var secondRecovery = try Fixture.recordValidated(second, &unbounded)
         unbounded.unboundedJournalOnRead = padded
-        var secondRecovery = Fixture.recordValidated(second)
         XCTAssertEqual(
             secondRecovery.recover(using: &unbounded), .residual(secondRecovery.record, .fileStateUnknown)
         )
@@ -2045,7 +2151,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         var ordinary = try Fixture.cleanSink()
         let (third, _) = try Fixture.installed(&ordinary)
         XCTAssertLessThanOrEqual(third.record.canonicalText.utf8.count, limit)
-        var third_recovery = Fixture.recordValidated(third)
+        var third_recovery = try Fixture.recordValidated(third, &ordinary)
         XCTAssertEqual(third_recovery.recover(using: &ordinary), .rolledBack(third_recovery.record))
     }
 
@@ -2207,14 +2313,25 @@ final class QueueInstallationTransactionTests: XCTestCase {
         let device = try Fixture.deviceDestination()
         XCTAssertNotEqual(QueueDestination.inertDiscardSink, device)
         XCTAssertEqual(QueueDestination.inertDiscardSink.canonicalText, "inert-discard-sink")
-        XCTAssertEqual(device.canonicalText, "usb-device|0a5f|00a3")
+        XCTAssertEqual(device.canonicalText, "usb-device|0a5f|00a3|synthetic-unit-a")
         XCTAssertEqual(try QueueDestination.decode("inert-discard-sink"), .inertDiscardSink)
-        XCTAssertEqual(try QueueDestination.decode("usb-device|0a5f|00a3"), device)
-        for rejected in ["", "usb-device", "usb-device|0a5f", "usb-device|0a5f|00a3|1", "usb-device|0A5F|00a3"] {
+        XCTAssertEqual(
+            try QueueDestination.decode("usb-device|0a5f|00a3|synthetic-unit-a"), device
+        )
+        for rejected in [
+            "", "usb-device", "usb-device|0a5f", "usb-device|0a5f|00a3",
+            "usb-device|0A5F|00a3|synthetic-unit-a",
+            // The model pair without a unit is no longer a destination, and
+            // neither is a unit named by nothing.
+            "usb-device|0a5f|00a3|", "usb-device|0a5f|00a3|a|b",
+        ] {
             XCTAssertThrowsError(try QueueDestination.decode(rejected), rejected) {
                 XCTAssertEqual($0 as? QueueInstallationError, .invalidDestination)
             }
         }
+        // Two units of the same model are two destinations, which is the whole
+        // point of carrying the identity.
+        XCTAssertNotEqual(try Fixture.deviceDestination(identity: "synthetic-unit-b"), device)
 
         // A queue created pointing somewhere the plan did not ask for is
         // refused, although it carries this transaction's own token.
@@ -2272,7 +2389,8 @@ final class QueueInstallationTransactionTests: XCTestCase {
             // The queue is re-pointed between creation and completion.
             sink.queues[Fixture.queueName] = SchedulerQueueState(
                 incarnation: try Fixture.incarnation(), destination: observed,
-                printerDescription: .known(try Fixture.descriptionIdentity())
+                printerDescription: .known(try Fixture.descriptionIdentity()),
+                invokedFilter: .known(Fixture.filterBinding())
             )
             let outcome = try transaction.complete(using: &sink)
             XCTAssertFalse(outcome.isCompleted)
@@ -2290,9 +2408,10 @@ final class QueueInstallationTransactionTests: XCTestCase {
         sink.queues[Fixture.queueName] = SchedulerQueueState(
             incarnation: try Fixture.incarnation(),
             destination: .known(try Fixture.deviceDestination()),
-            printerDescription: .known(try Fixture.descriptionIdentity())
+            printerDescription: .known(try Fixture.descriptionIdentity()),
+            invokedFilter: .known(Fixture.filterBinding())
         )
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .queueDestinationUnverified))
         XCTAssertTrue(sink.removalEvents.isEmpty)
@@ -2312,7 +2431,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         // Between the observation that authorized the deletion and the deletion
         // itself, somebody else recreates the name.
         sink.queueRecreatedBeforeRemoval = try Fixture.queueState("7")
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .queueIncarnationUnverified))
         // The replacement survives, and the queue is still recorded as ours to
@@ -2327,7 +2446,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         var ambiguous = try Fixture.cleanSink()
         let (second, _) = try Fixture.installed(&ambiguous)
         ambiguous.queueRemovalOutcomeUnknown = true
-        var secondRecovery = Fixture.recordValidated(second)
+        var secondRecovery = try Fixture.recordValidated(second, &ambiguous)
         XCTAssertEqual(
             secondRecovery.recover(using: &ambiguous),
             .residual(secondRecovery.record, .queueRemovalUnverified)
@@ -2346,7 +2465,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
             kind: .regularFile, uid: 0, gid: 0, modeBits: 0o644, contentSHA256: Fixture.digest("9"),
             accessControl: .noWriteGrantsBeyondOwner
         )
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         XCTAssertEqual(recovery.recover(using: &sink), .residual(recovery.record, .unexpectedArtifactState))
         XCTAssertNotNil(sink.files[Fixture.descriptionPath])
         XCTAssertNotNil(sink.files[Fixture.filterPath])
@@ -2355,7 +2474,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         var ambiguous = try Fixture.cleanSink()
         let (second, _) = try Fixture.installed(&ambiguous)
         ambiguous.fileRemovalOutcomeUnknown.insert(Fixture.descriptionPath)
-        var secondRecovery = Fixture.recordValidated(second)
+        var secondRecovery = try Fixture.recordValidated(second, &ambiguous)
         XCTAssertEqual(
             secondRecovery.recover(using: &ambiguous),
             .residual(secondRecovery.record, .fileRemovalUnverified)
@@ -2778,7 +2897,6 @@ final class QueueInstallationTransactionTests: XCTestCase {
         // does not even attempt a removal there.
         _ = transaction.rollBack(using: &sink)
         XCTAssertFalse(sink.removalEvents.contains(.removeFile(Fixture.filterPath)))
-        XCTAssertFalse(sink.removalEvents.contains(.removeOwnershipRecord(Fixture.filterPath)))
         XCTAssertEqual(sink.files[Fixture.filterPath], foreign)
 
         // `unknown` is the case this reasoning does not cover, and it keeps its
@@ -3019,7 +3137,8 @@ final class QueueInstallationTransactionTests: XCTestCase {
             sink.queues[Fixture.queueName] = SchedulerQueueState(
                 incarnation: try Fixture.incarnation(),
                 destination: .known(Fixture.destination),
-                printerDescription: observed
+                printerDescription: observed,
+                invokedFilter: .known(Fixture.filterBinding())
             )
             let outcome = try transaction.complete(using: &sink)
             XCTAssertFalse(outcome.isCompleted)
@@ -3039,7 +3158,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
                 path: AbsolutePath(Fixture.descriptionPath), contentSHA256: Fixture.digest("9")
             ))
         )
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .queueDescriptionUnverified))
         XCTAssertTrue(sink.removalEvents.isEmpty)
@@ -3061,7 +3180,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         // The queue passes every check, and is then re-pointed between the
         // observation that authorized the deletion and the deletion itself.
         sink.queueRepointedBeforeRemoval = try Fixture.deviceDestination()
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .queueDestinationUnverified))
         // The modified queue survives, and is still recorded as ours to account
@@ -3083,7 +3202,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
         sink.queueRebuiltBeforeRemoval = try SchedulerQueueDescriptionIdentity(
             path: AbsolutePath(Fixture.descriptionPath), contentSHA256: Fixture.digest("9")
         )
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .queueDescriptionUnverified))
         XCTAssertNotNil(sink.queues[Fixture.queueName])
@@ -3112,9 +3231,9 @@ final class QueueInstallationTransactionTests: XCTestCase {
             createdArtifacts: Array(Fixture.everyArtifact.dropLast())
         ).canonicalText
         XCTAssertNotEqual(foreign, transaction.record.canonicalText)
-        sink.journalReplacedBeforeRemoval = foreign
 
-        var recovery = Fixture.recordValidated(transaction)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
+        sink.journalReplacedBeforeRemoval = foreign
         let outcome = recovery.recover(using: &sink)
         XCTAssertEqual(outcome, .residual(recovery.record, .unexpectedArtifactState))
         // The queue and both payloads were removed first, as the plan orders
@@ -3125,7 +3244,7 @@ final class QueueInstallationTransactionTests: XCTestCase {
                 .removeQueue(Fixture.queueName),
                 .removeFile(Fixture.descriptionPath),
                 .removeFile(Fixture.filterPath),
-                .removeOwnershipRecord(Fixture.recordPath),
+                .removeProtectedRootWithJournal(Fixture.rootPath),
             ]
         )
         XCTAssertEqual(sink.persistedRecord, foreign)
@@ -3137,8 +3256,8 @@ final class QueueInstallationTransactionTests: XCTestCase {
         // replayed.
         var ambiguous = try Fixture.cleanSink()
         let (second, _) = try Fixture.installed(&ambiguous)
-        ambiguous.fileRemovalOutcomeUnknown.insert(Fixture.recordPath)
-        var secondRecovery = Fixture.recordValidated(second)
+        var secondRecovery = try Fixture.recordValidated(second, &ambiguous)
+        ambiguous.removeProtectedRootWithJournalOutcomeUnknown = true
         XCTAssertEqual(
             secondRecovery.recover(using: &ambiguous),
             .residual(secondRecovery.record, .fileRemovalUnverified)
@@ -3268,4 +3387,303 @@ final class QueueInstallationTransactionTests: XCTestCase {
         XCTAssertEqual(confirmed.queueIncarnation, token)
     }
 
+    // MARK: - Round 6: a record-validated recovery is bound to the bytes it read
+
+    /// Round 6 finding 4: `init(resuming:authority:lastDurableText:)` was public
+    /// and took all three independently, so a caller could pair the **real
+    /// current bytes** of one journal with a record it built itself. The
+    /// compare-and-swap that guards every destructive effect is no defence
+    /// against that: it only refuses when the expected bytes are wrong, and
+    /// these are right. It succeeds, replaces the journal with the supplied
+    /// record, and recovery then deletes what that record names.
+    ///
+    /// The fix is structural rather than another check: the resume path is no
+    /// longer public and cannot carry `recordValidated` at all, so `load` — the
+    /// one call that validates and reads a journal through a single descriptor
+    /// and takes the record **out of** those bytes — is the only way to one.
+    func testRecordValidatedRecoveryComesOnlyFromTheJournalItRead() throws {
+        var sink = try Fixture.cleanSink()
+        let (transaction, _) = try Fixture.installed(&sink)
+        let realBytes = try XCTUnwrap(sink.persistedRecord)
+
+        // Somebody else's queue, which this journal has nothing to do with. The
+        // attacker reads its token, target, description and filter first — all
+        // of which a present queue publishes.
+        let victimName = "SomeoneElses-Queue"
+        sink.queues[victimName] = try Fixture.queueState("9")
+
+        // The forged record: a different queue, but the *same* journal path, so
+        // that the real bytes above are the ones its first write asserts.
+        let forged = try QueueInstallationOwnershipRecord(
+            transactionID: transaction.record.transactionID,
+            intent: Fixture.intent(queueName: victimName),
+            queueIncarnation: Fixture.incarnation("9"),
+            queueAcquisition: .exclusiveCreation,
+            phase: .inProgress,
+            createdArtifacts: Fixture.everyArtifact
+        )
+        XCTAssertEqual(forged.journalArtifact, transaction.record.journalArtifact)
+        XCTAssertNotEqual(forged, transaction.record)
+
+        // `load` cannot be given a record. It produces the one the journal
+        // actually holds, together with exactly those bytes.
+        let loaded = try QueueInstallationRecovery.load(
+            journalAt: transaction.record.journalArtifact,
+            authority: .recordValidated, using: &sink
+        )
+        XCTAssertEqual(loaded.record, transaction.record)
+        XCTAssertNotEqual(loaded.record, forged)
+        XCTAssertEqual(loaded.lastDurableText, realBytes)
+
+        // And the surviving resume path cannot be record-validated, whatever it
+        // is handed. There is no other producer of that authority.
+        var attack = QueueInstallationRecovery(resumingOwn: forged, lastDurableText: realBytes)
+        XCTAssertEqual(attack.authority, .automatic)
+        let outcome = attack.recover(using: &sink)
+        XCTAssertEqual(outcome, .residual(attack.record, .queueOwnershipAmbiguous))
+        // The queue the forged record named is still there, and nothing at all
+        // was removed.
+        XCTAssertNotNil(sink.queues[victimName])
+        XCTAssertTrue(sink.removalEvents.isEmpty)
+    }
+
+    // MARK: - Round 6: teardown keeps its evidence until the root is committed
+
+    /// Round 6 finding 5: recovery removed the journal and then, as a separate
+    /// step, the protected root. A process that died between the two left the
+    /// root standing with the only thing `load` could resume from already
+    /// deleted — and `QueueInstallationPreconditions.refusal` refuses every
+    /// later installation while that root exists. An ordinary interrupted
+    /// uninstall therefore needed a human.
+    ///
+    /// The two are now committed by one operation, so the model has no step
+    /// boundary there. Stopping at the last boundary it does have leaves the
+    /// journal intact and a later `load` resumes and finishes.
+    func testTeardownStoppedAtTheRootStillLeavesAJournalToResumeFrom() throws {
+        var sink = try Fixture.cleanSink()
+        let (transaction, _) = try Fixture.installed(&sink)
+        var recovery = try Fixture.recordValidated(transaction, &sink)
+        // The process dies at the root's removal, however that removal is
+        // spelled — which is exactly where the old ordering put its window:
+        // everything else is gone and only the journal and the root are left.
+        sink.removeProtectedRootWithJournalFails = true
+        sink.removeEmptyDirectoryFails = true
+        XCTAssertEqual(
+            recovery.recover(using: &sink), .residual(recovery.record, .effectFailed)
+        )
+        XCTAssertNil(sink.queues[Fixture.queueName])
+        XCTAssertNil(sink.files[Fixture.filterPath])
+        XCTAssertNil(sink.files[Fixture.descriptionPath])
+        // The evidence survives: the root is still there, and so is the journal
+        // inside it.
+        XCTAssertNotNil(sink.files[Fixture.rootPath])
+        XCTAssertNotNil(sink.files[Fixture.recordPath])
+        XCTAssertNotNil(sink.persistedRecord)
+
+        // A restart loads that journal and still knows both are outstanding.
+        var restarted = try QueueInstallationRecovery.load(
+            journalAt: transaction.record.journalArtifact,
+            authority: .recordValidated, using: &sink
+        )
+        XCTAssertEqual(
+            try restarted.recoveryPlan().steps,
+            [
+                .removeFile(transaction.record.intent.ownershipRecord),
+                .removeFile(transaction.record.intent.protectedRoot),
+            ]
+        )
+        // And finishes the job once the world lets it.
+        sink.removeProtectedRootWithJournalFails = false
+        sink.removeEmptyDirectoryFails = false
+        XCTAssertEqual(restarted.recover(using: &sink), .rolledBack(restarted.record))
+        XCTAssertNil(sink.files[Fixture.rootPath])
+        XCTAssertNil(sink.files[Fixture.recordPath])
+        XCTAssertNil(sink.persistedRecord)
+        XCTAssertNotNil(sink.files[Fixture.stagingParent])
+    }
+
+    // MARK: - Round 6: a USB destination names a unit, not a model
+
+    /// Round 6 finding 6: a vendor and product pair names a model. Two GC420d
+    /// units on one desk publish the same pair, so a conformer could point the
+    /// queue at either and still hand back a destination that compared exactly
+    /// equal to the one asked for. The destination now carries the unit's
+    /// opaque `StableConnectionIdentity` as well.
+    func testTwoUnitsOfOneModelAreDifferentDestinations() throws {
+        let unitA = try Fixture.deviceDestination(identity: "synthetic-unit-a")
+        let unitB = try Fixture.deviceDestination(identity: "synthetic-unit-b")
+        XCTAssertNotEqual(unitA, unitB)
+        XCTAssertNotEqual(unitA.canonicalText, unitB.canonicalText)
+        XCTAssertEqual(try QueueDestination.decode(unitB.canonicalText), unitB)
+        // The identity stays opaque in diagnostics, in both directions.
+        guard case let .usbDevice(device) = unitA else { return XCTFail("not a device") }
+        XCTAssertEqual(String(describing: device), "USBDeviceDestination(redacted)")
+        XCTAssertEqual(String(describing: device.identity), "StableConnectionIdentity(redacted)")
+        XCTAssertFalse(String(reflecting: device).contains("synthetic-unit-a"))
+
+        // A queue planned for one unit and pointed at its twin is refused at
+        // creation, although the model identifiers match exactly.
+        var sink = try Fixture.cleanSink()
+        sink.createQueueDestination = unitB
+        let plan = try Fixture.plan(with: &sink, intent: Fixture.intent(destination: unitA))
+        var transaction = try QueueInstallationTransaction(plan: plan)
+        let staged = try transaction.stage(using: &sink)
+        let validated = try transaction.validateStagedArtifacts(staged, using: &sink)
+        XCTAssertThrowsError(try transaction.createQueue(authorizedBy: validated, using: &sink)) {
+            XCTAssertEqual($0 as? QueueInstallationError, .queueDestinationUnconfirmed)
+        }
+
+        // And a queue re-pointed at the twin between creation and completion is
+        // residual rather than complete.
+        var second = try Fixture.cleanSink()
+        let secondPlan = try Fixture.plan(with: &second, intent: Fixture.intent(destination: unitA))
+        var live = try QueueInstallationTransaction(plan: secondPlan)
+        let secondStaged = try live.stage(using: &second)
+        let secondValidated = try live.validateStagedArtifacts(secondStaged, using: &second)
+        try live.createQueue(authorizedBy: secondValidated, using: &second)
+        second.queues[Fixture.queueName] = try Fixture.queueState(destination: .known(unitB))
+        XCTAssertEqual(
+            try live.complete(using: &second), .residual(live.record, .queueDestinationUnverified)
+        )
+    }
+
+    /// The identity is written verbatim into a `|`-separated field of a record
+    /// whose whole discipline is a byte-exact canonical round trip, and
+    /// `StableConnectionIdentity` on its own admits a wider alphabet than that.
+    func testAUSBDestinationRefusesAnIdentityTheRecordEncodingCannotCarry() throws {
+        for rejected in ["has|pipe", "hasö"] {
+            // `StableConnectionIdentity` itself admits both: they carry no
+            // whitespace and no control character. It is this encoding that
+            // cannot.
+            let identity = try StableConnectionIdentity(opaqueValue: rejected)
+            XCTAssertThrowsError(
+                try USBDeviceDestination(vendorID: 0x0a5f, productID: 0x00a3, identity: identity),
+                rejected
+            ) { XCTAssertEqual($0 as? QueueInstallationError, .invalidDestination) }
+        }
+        // The length bound from both sides. The widest identity this encoding
+        // takes is the widest one `StableConnectionIdentity` makes, so the
+        // refusal above it comes from that type and the acceptance at it from
+        // this one; neither side is assumed.
+        let widest = String(repeating: "a", count: USBDeviceDestination.maximumIdentityByteCount)
+        XCTAssertNoThrow(try USBDeviceDestination(
+            vendorID: 0x0a5f, productID: 0x00a3,
+            identity: StableConnectionIdentity(opaqueValue: widest)
+        ))
+        XCTAssertThrowsError(try StableConnectionIdentity(opaqueValue: widest + "a")) {
+            XCTAssertEqual(
+                $0 as? StableConnectionIdentity.ValidationError, .invalidIdentifier
+            )
+        }
+        // The round trip the refusal protects, pinned against a fixed spelling
+        // rather than against whatever the encoder produces.
+        let destination = try Fixture.deviceDestination(identity: "usb-sha256-0123abcd")
+        XCTAssertEqual(destination.canonicalText, "usb-device|0a5f|00a3|usb-sha256-0123abcd")
+        XCTAssertEqual(try QueueDestination.decode(destination.canonicalText), destination)
+    }
+
+    // MARK: - Round 6: the description is bound to the executable it invokes
+
+    /// Round 6 finding 7: the intent validated the filter and the description
+    /// as two independent artifact kinds, and nothing anywhere typed the
+    /// description's reference to a filter. A description whose declared digest
+    /// was perfectly correct, but whose filter entry named some other
+    /// executable, staged cleanly, read back cleanly and completed — while the
+    /// planned signed filter was never run by anything.
+    func testAnIntentRefusesADescriptionThatInvokesAnotherExecutable() throws {
+        let intent = try Fixture.intent()
+        XCTAssertThrowsError(try QueueInstallationIntent(
+            queue: intent.queue, destination: intent.destination,
+            protectedRoot: intent.protectedRoot, ownershipRecord: intent.ownershipRecord,
+            filter: intent.filter, printerDescription: intent.printerDescription,
+            descriptionInvokesFilter: Fixture.foreignFilterBinding(),
+            stagingPolicy: intent.stagingPolicy
+        )) { XCTAssertEqual($0 as? QueueInstallationError, .descriptionFilterBindingMismatch) }
+
+        // Same path, different planned bytes, is a different binding too: a
+        // reference is to a program, not to a name.
+        let sameNameOtherBytes = try PrinterDescriptionFilterBinding(
+            filterPath: intent.filter.path, filterSHA256: Fixture.digest("e")
+        )
+        XCTAssertThrowsError(try QueueInstallationIntent(
+            queue: intent.queue, destination: intent.destination,
+            protectedRoot: intent.protectedRoot, ownershipRecord: intent.ownershipRecord,
+            filter: intent.filter, printerDescription: intent.printerDescription,
+            descriptionInvokesFilter: sameNameOtherBytes,
+            stagingPolicy: intent.stagingPolicy
+        )) { XCTAssertEqual($0 as? QueueInstallationError, .descriptionFilterBindingMismatch) }
+
+        // The declaration that agrees is admitted, so the refusals above are
+        // about disagreement and not about the parameter existing.
+        XCTAssertNoThrow(try Fixture.intent(descriptionInvokesFilter: Fixture.filterBinding()))
+    }
+
+    /// The other half: which description a queue was built from does not settle
+    /// what that queue runs, so the executable is read back as its own fact and
+    /// refused with its own reason.
+    func testAQueueRunningAnotherExecutableIsNeverConfirmedOrCompleted() throws {
+        for (label, sinkSetup) in [
+            ("a different executable", { (s: inout InertInstallationSink) in
+                s.createQueueFilterBinding = Fixture.foreignFilterBinding()
+            }),
+            ("an unreadable one", { (s: inout InertInstallationSink) in
+                s.filterBindingReadFails = true
+            }),
+        ] {
+            var sink = try Fixture.cleanSink()
+            sinkSetup(&sink)
+            let plan = try Fixture.plan(with: &sink)
+            var transaction = try QueueInstallationTransaction(plan: plan)
+            let staged = try transaction.stage(using: &sink)
+            let validated = try transaction.validateStagedArtifacts(staged, using: &sink)
+            XCTAssertThrowsError(
+                try transaction.createQueue(authorizedBy: validated, using: &sink), label
+            ) {
+                XCTAssertEqual($0 as? QueueInstallationError, .queueFilterBindingUnconfirmed, label)
+            }
+            // The description readback is not what refused: the queue really is
+            // built from the planned description.
+            XCTAssertEqual(
+                sink.queues[Fixture.queueName]?.printerDescription,
+                .known(try Fixture.descriptionIdentity()), label
+            )
+        }
+
+        // Reconfigured between creation and completion: residual, not complete.
+        var late = try Fixture.cleanSink()
+        var transaction = try Fixture.queueCreated(&late)
+        late.queues[Fixture.queueName] = try Fixture.queueState(
+            invokedFilter: .known(Fixture.foreignFilterBinding())
+        )
+        XCTAssertEqual(
+            try transaction.complete(using: &late),
+            .residual(transaction.record, .queueFilterBindingUnverified)
+        )
+
+        // And a recovery will not delete a queue that is running something
+        // else, nor believe one that is reconfigured under the removal itself.
+        var retained = try Fixture.cleanSink()
+        let (installed, _) = try Fixture.installed(&retained)
+        retained.queues[Fixture.queueName] = try Fixture.queueState(
+            invokedFilter: .known(Fixture.foreignFilterBinding())
+        )
+        var recovery = try Fixture.recordValidated(installed, &retained)
+        XCTAssertEqual(
+            recovery.recover(using: &retained),
+            .residual(recovery.record, .queueFilterBindingUnverified)
+        )
+        XCTAssertNotNil(retained.queues[Fixture.queueName])
+        XCTAssertTrue(retained.removalEvents.isEmpty)
+
+        var raced = try Fixture.cleanSink()
+        let (second, _) = try Fixture.installed(&raced)
+        var racedRecovery = try Fixture.recordValidated(second, &raced)
+        raced.queueRefilteredBeforeRemoval = Fixture.foreignFilterBinding()
+        XCTAssertEqual(
+            racedRecovery.recover(using: &raced),
+            .residual(racedRecovery.record, .queueFilterBindingUnverified)
+        )
+        XCTAssertNotNil(raced.queues[Fixture.queueName])
+        XCTAssertNotNil(raced.files[Fixture.filterPath])
+    }
 }

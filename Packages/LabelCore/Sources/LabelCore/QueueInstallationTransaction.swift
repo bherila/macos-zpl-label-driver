@@ -39,6 +39,64 @@ import Foundation
 ///   completed; it is residual with the ambiguity named.
 /// - An unverified or unobserved outcome is its own case. Unknown is never
 ///   false, zero, supported or completed.
+///
+/// # Unheld claims: one open gap, four places it shows
+///
+/// **This is the single description of that gap.** Four sites in this model
+/// point here rather than arguing it again; nothing pins it, because a test
+/// that fixed it in place would be worse than saying it plainly.
+///
+/// Every primitive this model has binds **one operation** to a state that
+/// operation carries: the journal's compare-and-swap, the parent identity
+/// carried into the root reservation, the incarnation, destination, description
+/// and filter binding carried into queue creation and removal, the artifact
+/// carried into each file removal. Not one of them can keep a state true *while
+/// several operations run*. So wherever the model needs "this stayed mine for
+/// the length of the pass", it has nothing to say it with, and the four sites
+/// below are the same missing thing seen from four angles:
+///
+/// 1. **Staging is not a reservation that lasts.** `createProtectedRoot` binds
+///    the reservation to the directory object preconditions validated, and that
+///    binding ends when it returns. `persistOwnershipRecord` and `createFile`
+///    then receive absolute paths and nothing else, so nothing carries "still
+///    inside the root I reserved" into the calls that fill it.
+/// 2. **Record-validated removal cannot prove authorship.** After a restart,
+///    all a recovery can compare is kind, ownership, mode, digest and
+///    signature. Those say the object matches the plan. They do not say *this
+///    transaction created it*, and for a path a foreign file can occupy, the
+///    plan is exactly what that file would match.
+/// 3. **Completion observes before it is durable.** `complete` re-observes the
+///    queue and re-validates every staged artifact, and only then writes the
+///    journal entry that makes `.completed` durable. The observation is true
+///    when it is made and is not held until the write lands.
+/// 4. **Teardown walks away from the namespace.** Once the queue is confirmed
+///    absent and dropped, the pass removes the description, the filter and the
+///    journal without looking at the scheduler namespace again. An
+///    administrator who recreates that name in the interval is left with a live
+///    queue whose payloads are being removed underneath it.
+///
+/// **Another sequential re-observation is not a fix.** Re-checking the queue
+/// before each payload removal, or re-observing the root before each child
+/// effect, narrows the window and closes nothing: the second observation has
+/// exactly the same lifetime as the first, so the interval simply moves. Doing
+/// it and calling the gap closed would be worse than the gap, because it would
+/// read as covered.
+///
+/// **What would actually close it** is a *held* claim over the queue name and
+/// the protected root, spanning the pass — acquired before the first effect,
+/// released after the last, and enforced against other processes rather than
+/// within this one. `AGENTS.md` asks for the same thing from the other
+/// direction: "All product queues and maintenance actions share one physical
+/// device coordination domain", and "A Swift actor is not a cross-process
+/// device lock".
+///
+/// **Whether such a claim can exist is a property of the installation
+/// mechanism**, not of this model: a guided installer package, a privileged
+/// helper and a one-shot privileged tool do not offer the same primitives, and
+/// nothing portable can conjure one. ADR 0005 is still *proposed* and has
+/// chosen no mechanism. This is therefore a decision for that ADR and for the
+/// maintainer, and it is recorded as an open gap rather than papered over
+/// inside a review round.
 
 // MARK: - Refusals and residual reasons
 
@@ -78,6 +136,12 @@ public enum QueueInstallationResidualReason: Equatable, Sendable {
     /// seam could not read which one it is built from. Either way it is not the
     /// queue that was planned, and it is retained rather than removed.
     case queueDescriptionUnverified
+    /// A queue of the right name, incarnation and description is present, but
+    /// it is not configured to run the executable this transaction's
+    /// description declares — or the seam could not read which one it runs.
+    /// Which description a queue was built from does not settle what it runs,
+    /// so this is its own answer and its own refusal.
+    case queueFilterBindingUnverified
     /// The queue is present and this transaction cannot prove it acquired the
     /// name rather than modifying a queue that appeared first. Automatic
     /// recovery never removes a present queue for this reason.
@@ -228,12 +292,14 @@ public enum QueueInstallationOutcome: Equatable, Sendable {
 ///   the state it expects and must be performed only while that state still
 ///   holds, as one operation: `removeQueue` deletes only a queue still carrying
 ///   `incarnation` *and* still delivering to `destination` *and* still built
-///   from `description` — all three, because an administrator who re-points or
-///   rebuilds a queue without disturbing its token has a queue this transaction
-///   may not delete; `removeOwnershipRecord` deletes only a journal whose bytes
-///   are still exactly the ones it was authorized against, which is the one
-///   condition a planned digest cannot express for a file the transaction
-///   rewrites as it runs; and `removeFile`/`removeEmptyDirectory` delete only a
+///   from `description` *and* still running `filter` — all four, because an
+///   administrator who re-points a queue, rebuilds it or reconfigures what it
+///   runs without disturbing its token has a queue this transaction may not
+///   delete; `removeProtectedRootWithJournal` removes the journal and the root
+///   together, and only while the journal's bytes are still exactly the ones it
+///   was authorized against — the one condition a planned digest cannot express
+///   for a file the transaction rewrites as it runs; and
+///   `removeFile`/`removeEmptyDirectory` delete only a
 ///   path still holding exactly the artifact described, opened without
 ///   following symbolic links. Re-checking and then deleting unconditionally
 ///   leaves a window in which another administrator recreates the name, and the
@@ -272,18 +338,46 @@ public protocol QueueInstallationEffectSink {
         _ queue: PlannedSchedulerQueue,
         ifIncarnationMatches incarnation: SchedulerQueueIncarnation,
         andDestinationMatches destination: QueueDestination,
-        andDescriptionMatches description: SchedulerQueueDescriptionIdentity
+        andDescriptionMatches description: SchedulerQueueDescriptionIdentity,
+        andFilterBindingMatches filter: PrinterDescriptionFilterBinding
     ) throws -> SchedulerQueueRemoval
     mutating func removeFile(_ artifact: PlannedFileArtifact) throws -> FileArtifactRemoval
-    /// Removes the journal only while it still holds exactly `contents`,
-    /// compared as bytes, as one operation on one descriptor. The journal is
-    /// the artifact no planned digest can pin — the transaction rewrites it —
-    /// so this is the only conditional removal that can carry what is actually
-    /// at stake.
-    mutating func removeOwnershipRecord(
-        _ artifact: PlannedFileArtifact, ifContentsMatch contents: String
-    ) throws -> FileArtifactRemoval
     mutating func removeEmptyDirectory(_ artifact: PlannedFileArtifact) throws -> FileArtifactRemoval
+    /// Removes the journal **and** the protected root that contains it, as one
+    /// operation, and only while the journal still holds exactly `contents`.
+    ///
+    /// This exists because the two cannot be ordered safely as separate model
+    /// steps. The journal lives one component inside the root, so `rmdir`
+    /// forces the journal to go first; but the journal is the only thing a
+    /// restart can load, so a model that removed it and then took a second step
+    /// to remove the root left an interval in which the root still stood and
+    /// nothing could resume. Every later installation refuses that root
+    /// (`protectedRootAlreadyPresent`), so an interrupted uninstall — an
+    /// ordinary event, not a hostile one — needed a human.
+    ///
+    /// The conformer's contract is `rmdir` semantics extended by exactly one
+    /// permitted child: refuse unless the root's only entry is `journal` and
+    /// `journal` holds `contents` byte for byte, then unlink it and remove the
+    /// root. A conformer that removes anything else, or that removes
+    /// recursively, must not conform.
+    ///
+    /// **The remaining window, stated rather than claimed away.** No filesystem
+    /// offers unlink-and-rmdir as one atomic act, so an interruption *inside*
+    /// this call can still leave the root present and empty with no journal.
+    /// What that leaves is an empty, fixed-name, root-owned directory and
+    /// nothing else — byte for byte the residue the root reservation window at
+    /// the other end of `stage` already allows for, and covered by the same
+    /// manual check in `docs/validation/M1-TRANSACTION-RECOVERY.md`. What is
+    /// gone is the model-level window: there is no longer a point at which this
+    /// model has committed to destroying its own evidence and still needs it,
+    /// and no interval between two model steps for a restart to land in.
+    /// Removing the residue entirely needs a claim held across the pass, which
+    /// is the gap `removeQueueStep` documents.
+    mutating func removeProtectedRootWithJournal(
+        _ root: PlannedFileArtifact,
+        journal: PlannedFileArtifact,
+        ifJournalContentsMatch contents: String
+    ) throws -> FileArtifactRemoval
 }
 
 // MARK: - Intent
@@ -319,6 +413,12 @@ public struct QueueInstallationIntent: Equatable, Sendable {
     /// trees outright, so no allowlist can re-admit one.
     public let stagingPolicy: QueueInstallationStagingPolicy
 
+    /// - Parameter descriptionInvokesFilter: which executable the supplied
+    ///   printer description declares it runs, stated by whoever produced that
+    ///   description. It is a proof obligation rather than a stored field: the
+    ///   initializer refuses unless it is exactly the filter this intent plans,
+    ///   after which it is `filter` and there is nothing left to keep. See
+    ///   `PrinterDescriptionFilterBinding`.
     public init(
         queue: PlannedSchedulerQueue,
         destination: QueueDestination,
@@ -326,6 +426,7 @@ public struct QueueInstallationIntent: Equatable, Sendable {
         ownershipRecord: PlannedFileArtifact,
         filter: PlannedFileArtifact,
         printerDescription: PlannedFileArtifact,
+        descriptionInvokesFilter: PrinterDescriptionFilterBinding,
         stagingPolicy: QueueInstallationStagingPolicy
     ) throws {
         guard protectedRoot.kind == .protectedRoot,
@@ -333,6 +434,18 @@ public struct QueueInstallationIntent: Equatable, Sendable {
               filter.kind == .filterExecutable,
               printerDescription.kind == .printerDescription else {
             throw QueueInstallationError.artifactKindMismatch
+        }
+        // The description and the filter are not two independent artifacts that
+        // happen to be staged together: one names the other, and until this
+        // check existed nothing in the model or anywhere else asked which
+        // executable the description named. A description with a correct digest
+        // and a filter entry pointing at something else staged cleanly, read
+        // back cleanly and completed, while the planned signed filter was never
+        // run. The model cannot read the description's bytes to find out — and
+        // must not — so the declaration is typed and checked here, before a
+        // plan, a staging step or a queue can exist.
+        guard descriptionInvokesFilter == (try PrinterDescriptionFilterBinding(invoking: filter)) else {
+            throw QueueInstallationError.descriptionFilterBindingMismatch
         }
         guard let parent = protectedRoot.path.parent else { throw QueueInstallationError.invalidPath }
         // Exactly one of the declared locations, not "somewhere beneath one":
@@ -671,7 +784,10 @@ public struct QueueInstallationTransaction {
     ///
     /// The reservation is bound to the directory object the preconditions
     /// validated, not to the path that named it, so a parent replaced in between
-    /// declines the reservation instead of redirecting it. The two refusals that
+    /// declines the reservation instead of redirecting it — but only for the
+    /// duration of that one call. The child effects below take absolute paths
+    /// and carry no such binding, which is site 1 of the open gap described
+    /// under *Unheld claims* at the top of this file. The two refusals that
     /// can still follow a *non-conforming* seam leave the same single empty
     /// directory that window already allows for, and the model does not remove
     /// it: it has just been told it cannot say what that directory is under.
@@ -885,6 +1001,17 @@ public struct QueueInstallationTransaction {
               description == expectedDescription else {
             throw QueueInstallationError.queueDescriptionUnconfirmed
         }
+        // And the description the queue was built from does not say what the
+        // queue runs. A scheduler configuration can name a filter of its own,
+        // so the executable is read back as its own fact and required to be the
+        // one the description declared — which the intent has already required
+        // to be this transaction's planned, staged, signed filter. Unreadable
+        // is unknown, and unknown is not a match.
+        guard let expectedFilter = try? PrinterDescriptionFilterBinding(invoking: plan.intent.filter),
+              case let .known(filterBinding) = observed.invokedFilter,
+              filterBinding == expectedFilter else {
+            throw QueueInstallationError.queueFilterBindingUnconfirmed
+        }
         record = try record.confirmingPending(
             queueIncarnation: plan.queueIncarnation, queueAcquisition: acquisition
         )
@@ -920,15 +1047,27 @@ public struct QueueInstallationTransaction {
                   description == expectedDescription else {
                 return enterResidual(.queueDescriptionUnverified, using: &sink)
             }
+            guard let expectedFilter = try? PrinterDescriptionFilterBinding(
+                invoking: plan.intent.filter
+            ), case let .known(filterBinding) = observed.invokedFilter,
+                  filterBinding == expectedFilter else {
+                return enterResidual(.queueFilterBindingUnverified, using: &sink)
+            }
             guard record.queueAcquisition == .exclusiveCreation else {
                 return enterResidual(.queueOwnershipAmbiguous, using: &sink)
             }
             // The queue is live from the moment `createQueue` returned, and what
             // it points at can be removed or replaced in the window before this
-            // call. Checking the queue's own token says nothing about the filter
-            // it runs, so the staged artifacts are re-observed here too: a
-            // transaction must not report success over a live queue pointing at
-            // a payload that is no longer the one that was validated.
+            // call. Checking the queue's own token says nothing about the state
+            // of the files it runs, so the staged artifacts are re-observed here
+            // too: a transaction must not report success over a live queue
+            // pointing at a payload that is no longer the one that was
+            // validated.
+            //
+            // These observations are still made before the journal write below
+            // that makes `.completed` durable, and nothing holds them until it
+            // lands. That is site 3 of the open gap described under *Unheld
+            // claims* at the top of this file.
             do {
                 try revalidateStagedArtifacts(using: &sink)
             } catch {
@@ -976,9 +1115,7 @@ public struct QueueInstallationTransaction {
     }
 
     private func recoveryExecutor() -> QueueInstallationRecovery {
-        QueueInstallationRecovery(
-            resuming: record, authority: .automatic, lastDurableText: lastDurableText
-        )
+        QueueInstallationRecovery(resumingOwn: record, lastDurableText: lastDurableText)
     }
 
     private mutating func adopt(

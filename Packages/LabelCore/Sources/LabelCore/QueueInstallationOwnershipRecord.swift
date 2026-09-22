@@ -95,6 +95,19 @@ public enum QueueInstallationError: Error, Equatable, Sendable {
     /// seam could not say which directory it acted inside, or named a different
     /// one. The root may or may not exist, and where it would be is unknown.
     case protectedRootParentUnconfirmed
+    /// The printer description a caller staged declares that it invokes some
+    /// executable other than the filter the same intent plans. The description
+    /// and the filter are not two independent artifacts that happen to be
+    /// staged together: one names the other, and an intent in which they
+    /// disagree would stage a signed filter, point a queue at a description,
+    /// and run something else.
+    case descriptionFilterBindingMismatch
+    /// A queue was created but its configuration did not hand back the exact
+    /// executable this transaction's description declares it invokes. Which
+    /// description file a queue is built from and which executable that queue
+    /// is configured to run are two facts, and a queue may carry the planned
+    /// description while running a different filter.
+    case queueFilterBindingUnconfirmed
 }
 
 // MARK: - Bounded primitive values
@@ -322,24 +335,84 @@ public struct QueueInstallationStagingPolicy: Equatable, Hashable, Sendable {
     }
 }
 
-/// One USB device a queue may deliver to, named by the two identifiers that
-/// describe a *model*, never an individual unit.
+/// One USB device a queue may deliver to: a vendor and product pair, which
+/// names a *model*, together with the opaque identity that names the *unit*.
 ///
-/// There is deliberately no serial-number field. `AGENTS.md` forbids a serial
-/// number, or any digest of one, from entering the repository, an issue, a pull
-/// request or a log, and this value is written verbatim into a durable journal,
-/// which is a log. Telling two units of the same model apart is the stable
-/// identity question, and it is not answered here.
-public struct USBDeviceDestination: Equatable, Hashable, Sendable {
+/// The pair alone was the whole of this value and that was a defect. Two
+/// GC420d units on the same desk publish the same vendor and product
+/// identifiers, so with both attached a conformer could point the queue at
+/// either one and still hand back a destination that compares exactly equal to
+/// the one that was asked for. Neither the creation readback nor recovery could
+/// see the difference, and `AGENTS.md` requires that all product queues and
+/// maintenance actions share one physical-device coordination domain — a domain
+/// a model number cannot pick out.
+///
+/// `identity` is therefore required, not optional: a USB destination this model
+/// will point a queue at is a unit, and a unit that cannot be told apart from
+/// its twin is not one. A device whose registry metadata yields no qualifying
+/// identity produces a `USBIdentityQualification.Failure`, which is a reported
+/// refusal with a reason, not a destination with an unknown field.
+///
+/// **On the serial-number rule.** `AGENTS.md` forbids a serial number, or any
+/// digest of one, from entering the repository, an issue, a pull request or a
+/// log. That rule is satisfied here, and not by avoiding the question. This
+/// reuses `StableConnectionIdentity` exactly as `ConnectionConfiguration`
+/// already does, and `USBIdentityQualification` derives it as a
+/// domain-separated SHA-256 over a canonical preimage, never storing the
+/// serial. `docs/validation/M1-USB-IDENTITY-QUALIFICATION-2026-09-19.md` states
+/// the consequence this depends on: the profile, its encoding, the diagnostic
+/// surfaces and any log can hold the identity without holding the serial. An
+/// earlier version of this comment claimed the opposite conclusion from the
+/// same rule and declined to answer the identity question at all; the rule
+/// constrains what an identity may *be*, and this one already satisfies it.
+///
+/// What still must not happen is a *real* unit's identity being committed.
+/// Fixtures and tests use synthetic opaque values, and nothing in this model
+/// reads a device.
+public struct USBDeviceDestination: Equatable, Hashable, Sendable, RedactedDiagnosticValue {
     public let vendorID: Int
     public let productID: Int
+    /// The opaque per-unit identity, carried verbatim into the durable record
+    /// so that a queue's destination can be required to read back as the same
+    /// physical unit rather than the same model.
+    public let identity: StableConnectionIdentity
 
-    public init(vendorID: Int, productID: Int) throws {
+    public init(vendorID: Int, productID: Int, identity: StableConnectionIdentity) throws {
         guard (0...0xffff).contains(vendorID), (0...0xffff).contains(productID) else {
+            throw QueueInstallationError.invalidDestination
+        }
+        // `StableConnectionIdentity` admits any non-empty, non-whitespace,
+        // non-control string up to 512 bytes, which is wider than this
+        // encoding. The record is a fixed canonical line sequence whose
+        // destination field is `|`-separated, so an identity containing `|`
+        // would decode as a different destination than the one encoded and
+        // break the byte-exact round trip every journal comparison rests on.
+        // Non-ASCII would do the same to the byte accounting in
+        // `maximumCanonicalByteCount`. Both are refused here rather than
+        // quoted: a quoting scheme is one more thing that can disagree with
+        // itself.
+        let bytes = Array(identity.privateProfileValue.utf8)
+        guard !bytes.isEmpty, bytes.count <= Self.maximumIdentityByteCount,
+              bytes.allSatisfy({ $0 > 0x20 && $0 < 0x7f && $0 != 0x7c }) else {
             throw QueueInstallationError.invalidDestination
         }
         self.vendorID = vendorID
         self.productID = productID
+        self.identity = identity
+    }
+
+    /// The widest opaque identity this encoding accepts, which is also
+    /// `StableConnectionIdentity`'s own bound.
+    public static let maximumIdentityByteCount = 512
+
+    /// `StableConnectionIdentity` is `Equatable` but not `Hashable`, and the
+    /// raw value it wraps stays inside `LabelCore`, so the hash is written out
+    /// here rather than synthesized. It hashes exactly the fields `==`
+    /// compares.
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(vendorID)
+        hasher.combine(productID)
+        hasher.combine(identity.privateProfileValue)
     }
 
     static func hex4(_ value: Int) -> String {
@@ -383,9 +456,10 @@ public enum QueueDestination: Equatable, Hashable, Sendable {
     /// Everything accepted is discarded. This is a sink, not a printer, and it
     /// names no device.
     case inertDiscardSink
-    /// A USB device model. Naming a device here is not consent to print to one:
-    /// it is what makes a queue aimed at a device distinguishable from a queue
-    /// aimed at the sink.
+    /// One USB device *unit*. Naming a device here is not consent to print to
+    /// one: it is what makes a queue aimed at a device distinguishable from a
+    /// queue aimed at the sink, and — since the unit's opaque identity travels
+    /// with it — from a queue aimed at the identical model sitting beside it.
     case usbDevice(USBDeviceDestination)
 
     public var canonicalText: String {
@@ -395,18 +469,22 @@ public enum QueueDestination: Equatable, Hashable, Sendable {
         case let .usbDevice(device):
             return "usb-device|" + USBDeviceDestination.hex4(device.vendorID)
                 + "|" + USBDeviceDestination.hex4(device.productID)
+                + "|" + device.identity.privateProfileValue
         }
     }
 
     public static func decode(_ text: String) throws -> QueueDestination {
         if text == "inert-discard-sink" { return .inertDiscardSink }
         let parts = text.split(separator: "|", omittingEmptySubsequences: false)
-        guard parts.count == 3, parts[0] == "usb-device",
+        guard parts.count == 4, parts[0] == "usb-device",
               let vendor = USBDeviceDestination.decodeHex4(parts[1]),
-              let product = USBDeviceDestination.decodeHex4(parts[2]) else {
+              let product = USBDeviceDestination.decodeHex4(parts[2]),
+              let identity = try? StableConnectionIdentity(opaqueValue: String(parts[3])) else {
             throw QueueInstallationError.invalidDestination
         }
-        return .usbDevice(try USBDeviceDestination(vendorID: vendor, productID: product))
+        return .usbDevice(
+            try USBDeviceDestination(vendorID: vendor, productID: product, identity: identity)
+        )
     }
 }
 
@@ -463,6 +541,64 @@ public enum ObservedQueueDescriptionIdentity: Equatable, Sendable {
     case unknown
 }
 
+/// Which executable a printer description invokes, and which executable a queue
+/// is configured to run — the same typed fact on both sides of the seam.
+///
+/// A printer description is not a leaf artifact: its bytes name the filter the
+/// scheduler runs for that queue. Nothing in this model parses those bytes, and
+/// nothing may: `AGENTS.md` forbids inserting arbitrary profile strings into
+/// commands, and turning a description into strings to compare would be the
+/// same move in the other direction. So the reference is carried as a *typed
+/// declaration* instead. Whoever produced the description states, as this
+/// value, which executable it invokes, and `QueueInstallationIntent` refuses
+/// unless that is the filter the same intent plans and signs.
+///
+/// Without it, the intent validated the filter and the description as two
+/// unrelated artifact kinds. A description whose declared digest was perfectly
+/// correct, but whose filter entry named some other executable, passed staging,
+/// passed every readback and reached `completed`, while the planned signed
+/// filter was never run by anything.
+///
+/// The binding is the executable's path *and* the digest of its planned bytes,
+/// so "the same name, different bytes" is a different binding rather than the
+/// same one.
+public struct PrinterDescriptionFilterBinding: Equatable, Hashable, Sendable {
+    public let filterPath: AbsolutePath
+    public let filterSHA256: String
+
+    public init(filterPath: AbsolutePath, filterSHA256: String) throws {
+        guard isLowercaseSHA256(filterSHA256) else { throw QueueInstallationError.invalidDigest }
+        self.filterPath = filterPath
+        self.filterSHA256 = filterSHA256
+    }
+
+    /// The binding a planned filter executable *is*. Only that kind of artifact
+    /// has one, and one without planned bytes is not a binding: a reference to
+    /// an executable whose contents are unpinned names a path, not a program.
+    public init(invoking filter: PlannedFileArtifact) throws {
+        guard filter.kind == .filterExecutable else {
+            throw QueueInstallationError.artifactKindMismatch
+        }
+        guard let digest = filter.contentSHA256 else { throw QueueInstallationError.invalidDigest }
+        try self.init(filterPath: filter.path, filterSHA256: digest)
+    }
+}
+
+/// What the seam could read back about the executable a present queue is
+/// configured to run.
+///
+/// This is deliberately a second question from `ObservedQueueDescriptionIdentity`
+/// and gets its own refusal. That identity answers *which description file the
+/// queue was built from*; this answers *what the queue actually runs*. A
+/// scheduler configuration can carry a filter of its own alongside the
+/// description it was built from, so the two can disagree, and a queue carrying
+/// the planned description while running something else is exactly the case
+/// that used to pass. `unknown` is its own case and never reads as a match.
+public enum ObservedQueueFilterBinding: Equatable, Sendable {
+    case known(PrinterDescriptionFilterBinding)
+    case unknown
+}
+
 /// What a conformer proves it did to make a journal write survive a power loss.
 ///
 /// The journal's whole purpose is that a step is named *before* its effect runs.
@@ -503,6 +639,9 @@ public enum SchedulerQueueRemoval: String, Equatable, Sendable, CaseIterable {
     /// Not deleted: the queue still carries the expected incarnation but is no
     /// longer built from the printer description it was recorded with.
     case descriptionChanged = "description-changed"
+    /// Not deleted: the queue still carries the expected incarnation and
+    /// description but no longer runs the executable it was recorded with.
+    case filterBindingChanged = "filter-binding-changed"
     /// The operation may or may not have taken effect. Never replayed blindly.
     case unknown
 }
@@ -878,15 +1017,21 @@ public struct SchedulerQueueState: Equatable, Sendable {
     /// no default: a conformer that cannot read it says `unknown`, and unknown
     /// never matches.
     public let printerDescription: ObservedQueueDescriptionIdentity
+    /// Which executable the queue is configured to run. Same rule, and for the
+    /// same reason it is a separate field: the description a queue was built
+    /// from does not settle what that queue runs.
+    public let invokedFilter: ObservedQueueFilterBinding
 
     public init(
         incarnation: SchedulerQueueIncarnation?,
         destination: ObservedQueueDestination,
-        printerDescription: ObservedQueueDescriptionIdentity
+        printerDescription: ObservedQueueDescriptionIdentity,
+        invokedFilter: ObservedQueueFilterBinding
     ) {
         self.incarnation = incarnation
         self.destination = destination
         self.printerDescription = printerDescription
+        self.invokedFilter = invokedFilter
     }
 }
 
@@ -919,6 +1064,11 @@ public enum SchedulerQueueObservation: Equatable, Sendable {
 
     public var printerDescription: ObservedQueueDescriptionIdentity {
         if case let .present(state) = self { return state.printerDescription }
+        return .unknown
+    }
+
+    public var invokedFilter: ObservedQueueFilterBinding {
+        if case let .present(state) = self { return state.invokedFilter }
         return .unknown
     }
 }
@@ -1087,6 +1237,21 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
     /// cannot drift from the artifact the transaction staged.
     public var queueDescriptionIdentity: SchedulerQueueDescriptionIdentity? {
         try? SchedulerQueueDescriptionIdentity(describedBy: intent.printerDescription)
+    }
+    /// Which executable this transaction's queue was asked to run.
+    ///
+    /// Derived from the intent's filter rather than encoded separately, because
+    /// the intent cannot exist unless its description declared exactly that
+    /// filter — so a second copy in the journal could only ever agree, or be a
+    /// second answer to a settled question.
+    ///
+    /// That the declaration was truthful is an obligation discharged by
+    /// whoever built the intent, and a decoded journal has no declarant to
+    /// discharge it again. This is sound in the direction a record is used: a
+    /// record-validated recovery only ever *removes*, and removing is refused
+    /// unless the live queue matches this value as well.
+    public var queueFilterBinding: PrinterDescriptionFilterBinding? {
+        try? PrinterDescriptionFilterBinding(invoking: intent.filter)
     }
     /// Every planned file artifact, in the order the transaction would create them.
     public var files: [PlannedFileArtifact] { intent.creationOrderedFiles }
@@ -1588,10 +1753,17 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
               files[2].kind == .filterExecutable, files[3].kind == .printerDescription else {
             throw QueueInstallationError.recordInventoryMismatch
         }
+        // The binding is derived from the decoded filter rather than read from
+        // the journal, because it is not separately encoded: see
+        // `queueFilterBinding`. A decoded record therefore satisfies the
+        // intent's check by construction, which is the honest outcome — there
+        // is no declarant on this side to hold to a declaration, and a journal
+        // asserting one would only be asserting about itself.
         let intent = try QueueInstallationIntent(
             queue: queue, destination: destination,
             protectedRoot: files[0], ownershipRecord: files[1],
             filter: files[2], printerDescription: files[3],
+            descriptionInvokesFilter: try PrinterDescriptionFilterBinding(invoking: files[2]),
             stagingPolicy: stagingPolicy
         )
         let record = try Self(
