@@ -364,7 +364,10 @@ class TraceabilityReportTests(unittest.TestCase):
             for block in re.split(r'(?m)^\s+- uses: actions/checkout@', text)[1:]:
                 found = re.search(r'(?m)^\s+fetch-depth: (\d+)\s*$', block)
                 settings.append((workflow, int(found.group(1)) if found else 1))
-        self.assertEqual(len(settings), 4)  # Preflight, native CI and both compatibility candidates.
+        # Preflight, portable, native CI and both compatibility candidates. The count is
+        # asserted so that a new job's checkout cannot be added without its fetch-depth being
+        # run through the ancestry check below.
+        self.assertEqual(len(settings), 5)
         with tempfile.TemporaryDirectory() as checkouts:
             def clone(name, depth):
                 destination = Path(checkouts) / name
