@@ -5,20 +5,32 @@ import XCTest
 /// Closes the M3-AC01 and M3-AC02 clauses that a mutation sweep of the control
 /// qualification sources found unguarded by any existing test.
 ///
-/// Of the twelve guards the sweep found uncovered, removing eight lets an
-/// invalid input succeed outright — a tracking mode authorised from a fact
-/// nothing evidenced, a continuous or black-mark mode resolved with no length
-/// or offset at all, `peelPrepeelNotApplicable` returned for an unobserved
-/// mechanism, a schema-4 profile holding a schema-5 declaration. The other four
-/// still refuse, but with a different error, or with the same error from a
-/// redundant copy. Two separate causes kept the existing suite quiet: for five
-/// guards no test ever supplied an input the guard would refuse, and for the
-/// rest the input was supplied but the assertion never named the error. The
-/// first cause is why assertion strength alone was not the whole story, and it
-/// is why these tests are as much about *which inputs* they feed as about how
-/// tightly they assert.
+/// Two different things were measured about the twelve gaps, and because they
+/// concern *different inputs* they are kept apart here as they are in the
+/// record.
 ///
-/// So the tests here do two things. They name the exact error, because a guard
+/// What removing a guard does, for the inputs these tests feed: eight of the
+/// twelve let the invalid input succeed outright — a tracking mode authorised
+/// from a fact nothing evidenced, a continuous or black-mark mode resolved with
+/// no length or offset at all, `peelPrepeelNotApplicable` returned for an
+/// unobserved mechanism, a schema-4 profile holding a schema-5 declaration.
+/// Three still refuse but with a different error, and one does both depending
+/// on the input.
+///
+/// Why the pre-existing suite stayed quiet, for the inputs *it* fed: three
+/// causes, not one. For five guards no test ever supplied anything the guard
+/// would refuse, so no assertion of any strength could have caught the removal.
+/// For four the input was supplied and only the identity of the error went
+/// unchecked, so naming it would have sufficed. For the last two — the
+/// profile-layer continuous-length and black-mark-offset guards — the input the
+/// suite fed carries a geometry or offsets payload, which makes a policy-type
+/// copy of the same rule apply and throw the *identical* error case. There an
+/// exact-error assertion would have passed too: assertion strength was not the
+/// problem, and only a different input could have exposed the gap. Those two
+/// guards are among the eight above, because the payload-free input these tests
+/// feed reaches no copy at all.
+///
+/// So these tests do both things. They name the exact error, because a guard
 /// whose removal merely changes the error is invisible to a bare
 /// `XCTAssertThrowsError`. And they feed inputs the suite did not have: a
 /// supported-looking fact with no evidence, an unknown or unsupported fact that

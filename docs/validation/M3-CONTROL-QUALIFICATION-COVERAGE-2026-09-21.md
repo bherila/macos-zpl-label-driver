@@ -291,11 +291,11 @@ Three causes, not two:
 
 | # | Cause | How established |
 |---|---|---|
-| M05 | **A** | `fatalError` at the backfeed state guard: suite completed `Executed 346 tests, with 0 failures`. Feed speed is validated before backfeed, and the one existing request that reaches the backfeed block (`.init(backfeedSpeedIps: 4)` in `MotorSpeedIntegrationTests.testUnknownUnsupportedAndIncompleteRemainDistinct`) has backfeed **supported**, so the state guard passes and the membership check refuses instead. No existing test pairs an unavailable backfeed with a usable feed. |
-| M11 | **A** | Tracking guard split per clause; `fatalError` on the evidence clause never reached, suite completed 346/0. Every existing tracking request is either schema 1 or 2 (`PrinterProfileTests` ×2, `ConfiguredPrinterDefaultsTests`, `ZPLDocumentedControlEncoderTests`), refused by the `schemaVersion >= 5` clause, or schema 5/6 against a fully documented, supported fact (`GeometryControlIntegrationTests` ×3, `OffsetControlIntegrationTests`). |
-| M12 | **A** | Same probe, `fatalError` on the state clause never reached, suite completed 346/0. Same input inventory. |
-| M85 | **A** | `fatalError` at the schema-5 declaration gate never reached, suite completed 346/0. The JSON tests that set `schemaVersion` to 1–4 on a schema-5 fixture (`GeometryControlIntegrationTests.testProfileFiveCanonicalDefaultsAndAllMalformedFields`) are refused by the codec before `PrinterProfile.init` runs, so they never reach this gate; no test calls the initialiser directly with that combination. |
-| M86 | **A** | Same, for the schema-6 offset declaration gate: never reached, suite completed 346/0. |
+| M05 | **A** | `fatalError` at the backfeed state guard never fired, suite completed `Executed 346 tests, with 0 failures`. Instrumenting the backfeed block to print on every *entry* rather than only on refusal shows why: it is entered 33 times, at speeds 2, 3, 4 and 12, and the backfeed capability is `state: .supported` on **every** one of them, so the state guard is always satisfied and any refusal comes from the membership check instead. No existing test pairs a non-supported backfeed capability with a request that reaches this block. |
+| M11 | **A** | Tracking guard split per clause; `fatalError` on the evidence clause never fired, suite completed 346/0. **Reached is not the same as refused, and an earlier revision of this row explained the silence with a false inventory** — it said every pre-existing tracking request is schema 1–2 or schema 5–6, omitting the schema-7 (`ThermalControlTestFixture.profile`) and schema-8 (`FinishingProfilePersistenceTests`) paths. Instrumenting the clauses to print on every *evaluation* rather than only on refusal settles it: they are evaluated **177 times, at schemas 5, 6, 7 and 8**, for continuous, black-mark and gap, and every one of those requests passes both clauses because every fact reaching them is `state: .supported` carrying `documentedModel` evidence. So the schema-7 and schema-8 requests do reach these clauses and satisfy them — including the black-mark request in `testOfflineFinishingResolutionSharesEffectiveControlValidationAndKeepsOrdinaryGate`, which necessarily passes them before reaching the M14 refusal. What no existing test ever supplies is the *refusing* combination: a non-supported or unevidenced fact at a schema that admits tracking at all. |
+| M12 | **A** | Same probe and same instrumentation: the state clause is evaluated on all 177 of those requests and satisfied by every one, so it never refuses. |
+| M85 | **A** | `fatalError` at the schema-5 declaration gate never fired, suite completed 346/0. Instrumented to print schema and whether a declaration is present on every evaluation, the gate is evaluated 488 times: `PrinterProfile.init` **is** reached with schemas 1–4, 320 times, but always with no geometry declaration, and a declaration first appears at schema 5. So the initialiser is never reached with the refusing combination. (An earlier revision attributed that to the codec rejecting the schema-mutated JSON first. That mechanism was not measured and is not claimed here; what is measured is that the pair never arrives.) |
+| M86 | **A** | Same instrumentation for the schema-6 offset declaration gate: 488 evaluations, declarations present only at schemas 6, 7 and 8, never below, so it too is never reached with the refusing combination. |
 | M33 | **A + B1** | `fatalError` at the limit bound **was** reached, by `FinishingControlQualificationTests.testModesRemainOfflineAndDoNotSelectCutIntervalsCopiesOrDestructiveCommands` — the `maximumOutputBytes: 0` case, asserted with a bare `XCTAssertThrowsError`; replayed under the mutation it becomes `outputLimit` instead of `invalidOutputLimit`, so that half is **B1**. The above-bound half is **A**: no existing test passes a limit greater than 64 KiB. |
 | M16 | **B1** | `fatalError` reached in `OffsetControlIntegrationTests.testBlackMarkMappingRequiresQualifiedOffsetAndRejectsIncompatibleLength`. Replayed: `invalidProfileVersion` → `unavailable(.shiftLeft, .unknown)`. |
 | M41 | **B1** | `fatalError` reached in `FinishingProfilePersistenceTests.testEveryQualifiedFinishingModeResolvesWithoutAdmittingMechanicalEncoding`. Replayed: `unavailable(.rfid, .unknown)` → `missingModelEvidence(.rfid)`. |
@@ -336,6 +336,15 @@ here:
    policy types hold tested copies. Measured, they are reached: the copies do
    apply to the inputs the existing suite feeds, and throw the same error case,
    which is why removal was invisible there.
+4. The cause-A rows for M05, M11, M12 and M85 supported a true measurement with
+   an untrue or unmeasured explanation of it. M11/M12 claimed an inventory of
+   pre-existing tracking requests that omitted the schema-7 and schema-8 paths;
+   M05 called a single request the only one reaching the backfeed block, where
+   there are 33; M85 asserted a codec mechanism nobody had measured. All four
+   are now instrumented counts. A false supporting claim under a sound
+   measurement is worse than none, because it invites a reader to trust the
+   reasoning instead of the probe — which is exactly the failure mode the note
+   at the head of Part 2 is about.
 
 ### Part 3 — the twelve gaps, closed and re-proved
 
