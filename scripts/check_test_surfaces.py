@@ -15,8 +15,9 @@ share a location and differ in reach, which is why repository inspection is spli
 into config and config-experiment: proving CI fails closed needs pull requests
 built for that purpose, not the pull request being reviewed. The level A rows
 are split the same way and for the same reason, by which job actually runs them:
-the always-running preflight job runs the Python checkers and scripts/tests,
-while the Swift suite and the accelerator checks are reached only through
+the always-running preflight job runs the Python checkers and scripts/tests, the
+unconditional portable job runs the LabelCore suite and the accelerator checks,
+and the LabelMac suite and the Darwin-gated scripts are reached only through
 scripts/ci-swift.sh in the gated macOS job.
 
 This checker keeps the map honest against docs/milestones.json: the same

@@ -43,7 +43,7 @@ the one being reviewed.
 
 | Surface | Level | Where a pass can be obtained | Which PRs reach it | Criteria |
 |---|---|---|---|---|
-| `automated-swift` | A | the LabelCore Swift suite and `run-accelerator-checks.py` | only Swift-affecting PRs | 23 |
+| `automated-swift` | A | the LabelCore Swift suite and `run-accelerator-checks.py` | every ordinary PR | 23 |
 | `installed` | I | test Mac with an installed scheduler or helper | none | 18 |
 | `gui` | I | test Mac, interactive supervised session | none | 11 |
 | `physical` | H | the named GC420d over USB | none | 8 |
@@ -65,15 +65,15 @@ changed paths, so a pull request touching only Markdown, `LICENSE`, `docs/PROGRE
 `docs/milestones.json` or `docs/requirements.json` never compiles anything natively and reaches none
 of those seven criteria. The classifier fails open, so an uncertain diff still runs the job.
 
-The same gate decides most of the level `A` rows, and an earlier revision of this section denied it.
-It kept one `automated` surface at every-ordinary-PR reach, reasoning that the portable tests run in
-the Linux container on any branch whatever the diff contains. That is true of a local run and false
-of CI, and CI is what a map of which pull requests reach a surface publishes. The always-running
-`repository-preflight` job runs `check_repo.py`, `python3 -m unittest discover -s scripts/tests`,
-`evidence_currency.py`, `manifest_audit.py` and `ci_scope.py` -- and no Swift. `swift test
---package-path Packages/LabelCore` and `run-accelerator-checks.py` are reached only through
-`scripts/ci-swift.sh`, which only the gated `swift-macos-arm64` job runs. A Markdown-only pull
-request therefore exercised no Swift-backed `A` row at all while this table said it exercised
+The same gate used to decide most of the level `A` rows, and an earlier revision of this section
+denied it. It kept one `automated` surface at every-ordinary-PR reach, reasoning that the portable
+tests run in the Linux container on any branch whatever the diff contains. That was true of a local
+run and false of CI, and CI is what a map of which pull requests reach a surface publishes. The
+always-running `repository-preflight` job ran `check_repo.py`, `python3 -m unittest discover -s
+scripts/tests`, `evidence_currency.py`, `manifest_audit.py` and `ci_scope.py` -- and no Swift.
+`swift test --package-path Packages/LabelCore` and `run-accelerator-checks.py` were reached only
+through `scripts/ci-swift.sh`, which only the gated `swift-macos-arm64` job runs. A Markdown-only
+pull request therefore exercised no Swift-backed `A` row at all while this table said it exercised
 thirty.
 
 So `automated` is split by executor, into three surfaces rather than two. `automated-preflight`
@@ -87,10 +87,15 @@ M0-AC03, eight M2 rows, six M3 rows and the eight M4 rows -- whose evidence is p
 portable `LabelCore` suite or by `run-accelerator-checks.py`. A row citing both executors, as
 M2-AC13 does, takes `automated-swift`: the claim a Python test cannot make on its own decides the
 row. Neither level moved, because a level says what a pass establishes and this split changes only
-which pull requests obtain one. **This is a gap in CI coverage that the map surfaced, not a
-labelling error.** Running the portable `LabelCore` suite in an unconditional Linux job -- it builds
-there with `libcups2-dev` -- would make the original claim true and is very likely the better
-long-term answer, but that is a change to `.github/workflows/ci.yml` and belongs in its own slice.
+which pull requests obtain one. **This was a gap in CI coverage that the map surfaced, not a
+labelling error**, and it has since been closed in its own slice: `.github/workflows/ci.yml` now
+runs `swift test --package-path Packages/LabelCore` and `run-accelerator-checks.py` in
+`portable-ubuntu-arm64`, a Linux job with no `if:`, no `needs:` and no scope gate, and
+`ci-required` accepts only `success` from it. `automated-swift` therefore reaches every ordinary
+pull request. Its rows and its level did not move. That job runs the **debug** configuration only:
+the release-configuration pass stays inside `scripts/ci-swift.sh` in the gated macOS job, so a pull
+request that does not select that job obtains no release-configuration result for these rows. The
+split by executor still stands, because the executors of the other two surfaces did not move.
 
 `automated-macos` is the third, and it exists because naming a *language* is not naming an
 **executor**. It holds the three level `A` rows no portable session can obtain at all. M2-AC05 binds
@@ -107,8 +112,9 @@ grep across `Packages/*/Sources` and `Packages/*/Tests` for a Swift implementati
 returns nothing, which is a correct answer to the wrong question: the executor is bash. All three
 share one surface because they give one answer to the question a surface asks -- the pass is
 obtained by `scripts/ci-swift.sh` on an Apple Silicon macOS host, in CI only in `swift-macos-arm64`
--- and they carry the same `reachedWhen` as `macos-native` and `automated-swift`, because the same
-`swift_changed` output gates all three. `automated-macos` is not `macos-native`, which is level `I`:
+-- and they carry the same `reachedWhen` as `macos-native`, because the same `swift_changed` output
+gates both. The unconditional Linux job does not reach them: it cannot build `Packages/LabelMac` or
+run a Darwin-gated script. `automated-macos` is not `macos-native`, which is level `I`:
 a surface must declare the level its criteria prescribe, so two surfaces may share a host and differ
 in level exactly as `config` and `config-experiment` share a location and differ in reach.
 
@@ -135,7 +141,7 @@ is [`ACCEPTANCE-EVIDENCE.json`](ACCEPTANCE-EVIDENCE.json), and a surface here is
 there. Reachable is not validated: sitting on a surface a pull request reaches is not a pass, and
 the figures below count places, not results.
 
-8 of 90 criteria sit on a surface every ordinary pull request reaches, 33 of 90 only when the pull
+31 of 90 criteria sit on a surface every ordinary pull request reaches, 10 of 90 only when the pull
 request's changed paths select that surface, and 49 of 90 need a separate named session.
 
 

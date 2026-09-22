@@ -73,6 +73,24 @@ def published_plan():
     return (surfaces.ROOT / PLAN).read_text(encoding='utf-8')
 
 
+def workflow_job(workflow, job):
+    """The text of one top-level job in ci.yml, from its key to the next job's key.
+
+    Splitting on a single later job's key used to be enough, when the preflight job was
+    the only one before macOS; a job inserted between them would then have been read as
+    part of the preflight job. This finds the job by its own two-space-indented key and
+    stops at the next line indented two spaces or fewer -- the next job's key, or the
+    comment block that introduces it -- so each assertion is about the job it names and
+    never about the prose describing its neighbour.
+    """
+    lines = workflow.split('\n')
+    start = lines.index(f'  {job}:')
+    end = next((index for index in range(start + 1, len(lines))
+                if lines[index].strip() and len(lines[index]) - len(lines[index].lstrip(' ')) <= 2),
+               len(lines))
+    return '\n'.join(lines[start:end])
+
+
 def published_totals(text, total):
     """The reach figures the plan states in prose, read out of the plan itself.
 
@@ -662,7 +680,12 @@ class CommittedClassificationTests(unittest.TestCase):
         `swift test --package-path Packages/LabelCore` and run-accelerator-checks.py are
         reached only through scripts/ci-swift.sh in the gated macOS job, so a Markdown-only
         pull request exercised no Swift-backed A row while the map said it exercised thirty.
-        The assertion is on the workflow, not on the map restating itself.
+
+        The workflow has since gained portable-ubuntu-arm64, which runs both of those on
+        every pull request, so automated-swift is now every-pull-request -- and it is
+        every-pull-request because of that job, which is what this asserts. The assertion
+        is on the workflow, not on the map restating itself: gate the job on scope, give
+        it a `needs:`, or move either command out of it, and this fails.
         """
         self.assertNotIn('automated', self.definitions)
         preflight = self.definitions['automated-preflight']
@@ -670,15 +693,27 @@ class CommittedClassificationTests(unittest.TestCase):
         self.assertEqual(preflight['level'], 'A')
         self.assertEqual(swift['level'], 'A')
         self.assertEqual(preflight['reach'], surfaces.REACH_EVERY)
-        self.assertEqual(swift['reach'], surfaces.REACH_SELECTED)
-        # The same swift_changed output gates both, so the same condition must describe both.
-        self.assertEqual(swift['reachedWhen'], self.definitions['macos-native']['reachedWhen'])
+        self.assertEqual(swift['reach'], surfaces.REACH_EVERY)
+        self.assertNotIn('reachedWhen', swift)
 
         workflow = (surfaces.ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
         script = (surfaces.ROOT / 'scripts/ci-swift.sh').read_text(encoding='utf-8')
-        self.assertNotIn('swift test', workflow)
-        self.assertNotIn('run-accelerator-checks', workflow)
-        self.assertIn('bash scripts/ci-swift.sh', workflow)
+        portable = workflow_job(workflow, 'portable')
+        self.assertIn('name: portable-ubuntu-arm64', portable)
+        self.assertNotIn('\n    if:', portable)
+        self.assertNotIn('\n    needs:', portable)
+        self.assertIn('run: swift test --package-path Packages/LabelCore', portable)
+        self.assertIn('run: python3 scripts/run-accelerator-checks.py', portable)
+        # The aggregate gate waits on it and accepts nothing but success from it.
+        required = workflow_job(workflow, 'required')
+        self.assertIn('needs: [repository, portable, macos]', required)
+        self.assertIn('if [[ "$PORTABLE_RESULT" != "success" ]]', required)
+        # Neither command runs in the preflight job, and the macOS job still reaches them
+        # only through ci-swift.sh: that is where the release-configuration pass lives.
+        for command in ('swift test', 'run-accelerator-checks'):
+            self.assertNotIn(command, workflow_job(workflow, 'repository'))
+            self.assertNotIn(command, workflow_job(workflow, 'macos'))
+        self.assertIn('bash scripts/ci-swift.sh', workflow_job(workflow, 'macos'))
         self.assertIn('run-accelerator-checks.py', script)
         self.assertIn('swift test', script)
         self.assertIn('"swift","test","--package-path","Packages/LabelCore"', ''.join(
@@ -707,7 +742,7 @@ class CommittedClassificationTests(unittest.TestCase):
         # The preflight job's own step list: these four are reachable because the always-running
         # job runs these programs, and it runs no Darwin-gated script at all.
         workflow = (surfaces.ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
-        preflight = workflow.split('  macos:')[0]
+        preflight = workflow_job(workflow, 'repository')
         self.assertIn('python3 scripts/check_repo.py', preflight)
         self.assertIn('python3 -m unittest discover -s scripts/tests', preflight)
         for darwin_only in ('scripts/build-local-app.sh', 'scripts/host-preflight.sh',
