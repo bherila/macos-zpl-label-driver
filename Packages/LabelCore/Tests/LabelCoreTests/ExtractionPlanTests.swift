@@ -239,4 +239,25 @@ final class ExtractionPlanTests: XCTestCase {
             profile: try profile(schemaVersion: 3, margins: admitted))
         XCTAssertEqual(plan.outputLabels[0].outputMargins, admitted)
     }
+
+    /// `outputOrder` is the sort key the planner emits labels by, so a
+    /// negative order is refused at construction. The identifier is held
+    /// safe throughout, which is what separates this refusal from the
+    /// `isSafeIdentifier` clause that shares `invalidProfile`.
+    func testNegativeOutputOrderIsRefusedWhileTheIdentifierStaysSafe() throws {
+        let rect = try NormalizedRect(x: 0, y: 0, width: 1, height: 1)
+        for order in [0, 1, Int.max] {
+            XCTAssertEqual(
+                try ExtractionRegion(id: "ordered", normalizedRect: rect, outputOrder: order).outputOrder,
+                order
+            )
+        }
+        for order in [-1, -2, Int.min] {
+            XCTAssertThrowsError(
+                try ExtractionRegion(id: "ordered", normalizedRect: rect, outputOrder: order), "\(order)"
+            ) {
+                XCTAssertEqual($0 as? ExtractionPlanError, .invalidProfile, "\(order)")
+            }
+        }
+    }
 }
