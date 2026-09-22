@@ -3,13 +3,22 @@
 
 The prescribed A/C/I/H/R level says what a pass establishes. It does not say what
 session is needed to obtain one, and that is the question an agent actually has:
-three criteria at level I can need three different sessions -- hosted CI, a
-supervised GUI session, and an installed scheduler on a test Mac.
+criteria at level I can need hosted CI, a supervised GUI session, an installed
+scheduler on a test Mac, or a named reference Mac holding a benchmark baseline.
 
-docs/test-surfaces.json records that second answer. This checker keeps it honest
-against docs/milestones.json: the same criterion identifiers, no orphans either
-way, and a surface whose declared level matches the level the criterion actually
-prescribes. A surface implies a level, so changing one without the other is a
+docs/test-surfaces.json records that second answer, and it keeps two questions
+apart that are easy to merge into one wrong number. A surface says WHERE a pass
+can be obtained. runsPerPullRequest says whether an ORDINARY pull request -- the
+one under review, with no extra apparatus -- reaches that surface. Two surfaces
+may share a location and differ in reach, which is why repository inspection is
+split into config and config-experiment: proving CI fails closed needs pull
+requests built for that purpose, not the pull request being reviewed.
+
+This checker keeps the map honest against docs/milestones.json: the same
+criterion identifiers, no orphans either way, a surface whose declared level
+matches the level the criterion actually prescribes, and a runsPerPullRequest
+that is genuinely true or false rather than something Python happens to find
+truthy. A surface implies a level, so changing one without the other is a
 contradiction this refuses rather than reports.
 
 It records where a criterion CAN be validated and nothing about whether it HAS
@@ -25,6 +34,7 @@ ROOT = Path(__file__).resolve().parent.parent
 MILESTONES = 'docs/milestones.json'
 SURFACES = 'docs/test-surfaces.json'
 LEVELS = {'A', 'C', 'I', 'H', 'R'}
+UNREACHABLE_LEVELS = {'H', 'R'}
 SUPPORTED_SCHEMA = 1
 REQUIRED_SURFACE_KEYS = {'level', 'runsOn', 'runsPerPullRequest', 'establishes', 'doesNotEstablish'}
 
@@ -62,8 +72,23 @@ def findings(levels, surfaces):
         missing = REQUIRED_SURFACE_KEYS - set(definition)
         if missing:
             found.append(f'surface {name!r} omits {", ".join(sorted(missing))}')
-        elif definition['level'] not in LEVELS:
+            continue
+        if definition['level'] not in LEVELS:
             found.append(f'surface {name!r} declares unknown level {definition["level"]!r}')
+        reach = definition['runsPerPullRequest']
+        if not isinstance(reach, bool):
+            # A JSON string "false" is truthy, so an unchecked flag would silently promote
+            # every criterion on this surface into the reachable count -- the one number this
+            # file exists to keep true. Refuse the definition, never Python truthiness.
+            found.append(
+                f'surface {name!r} declares runsPerPullRequest {reach!r}, which is not true or false')
+        elif reach and definition['level'] in UNREACHABLE_LEVELS:
+            # AGENTS.md: CI must never reach private printers, and publishing is separately
+            # authorized. A level H or R surface an ordinary pull request reached would be one
+            # of those things happening, so the claim is refused rather than counted.
+            found.append(
+                f'surface {name!r} is level {definition["level"]} but claims an ordinary pull request '
+                f'reaches it; CI reaches neither a private printer nor the release gate')
 
     assigned = surfaces.get('criteria') or {}
     for identifier in sorted(set(levels) - set(assigned)):
@@ -85,7 +110,7 @@ def findings(levels, surfaces):
 
 
 def summarise(levels, surfaces):
-    """Counts per surface, plus how many criteria a pull request can reach at all."""
+    """Counts per surface, plus how many criteria an ordinary pull request reaches."""
     definitions = surfaces['surfaces']
     assigned = surfaces['criteria']
     counts = {name: 0 for name in definitions}
@@ -126,9 +151,11 @@ def main():
         definitions = surfaces['surfaces']
         print(f'Execution surfaces agree with {MILESTONES} for all {len(levels)} criteria.')
         for name in sorted(counts, key=lambda k: (-counts[k], k)):
-            marker = 'every pull request' if definitions[name]['runsPerPullRequest'] else 'a separate session'
-            print(f'  {name:<13} {counts[name]:>3}  level {definitions[name]["level"]}  {marker}')
-        print(f'{reachable} of {len(levels)} criteria sit on a surface a pull request can reach.')
+            marker = ('every ordinary pull request' if definitions[name]['runsPerPullRequest']
+                      else 'a separate named session')
+            print(f'  {name:<17} {counts[name]:>3}  level {definitions[name]["level"]}  {marker}')
+        print(f'{reachable} of {len(levels)} criteria sit on a surface an ordinary pull request reaches; '
+              f'{len(levels) - reachable} need a separate named session.')
         print('Reachable is not validated: a surface says where a pass could be obtained, never that one was.')
     return 0
 

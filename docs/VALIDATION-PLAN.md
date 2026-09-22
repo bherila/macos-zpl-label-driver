@@ -15,26 +15,48 @@ Hosted macOS can validate many noninteractive I tests. Application dialog, retai
 ### Which session a criterion needs
 
 The level says what a pass establishes. It does not say where one can be obtained, and that is the
-question in front of an agent deciding what to work on: three criteria at level `I` can need three
-different sessions. [`docs/test-surfaces.json`](test-surfaces.json) records that second answer for
+question in front of an agent deciding what to work on: criteria at level `I` can need hosted CI, a
+supervised GUI session, an installed scheduler on a test Mac, or a named reference Mac holding a
+benchmark baseline. [`docs/test-surfaces.json`](test-surfaces.json) records that second answer for
 every criterion, and `python3 scripts/check_test_surfaces.py` keeps it honest against
-[`milestones.json`](milestones.json) -- the same identifiers, no orphans in either direction, and a
-surface whose declared level matches the level the criterion prescribes. A surface implies a level,
-so changing one without the other is a contradiction the checker refuses rather than reports.
+[`milestones.json`](milestones.json) -- the same identifiers, no orphans in either direction, a
+surface whose declared level matches the level the criterion prescribes, and a reach flag that is
+genuinely `true` or `false`. A surface implies a level, so changing one without the other is a
+contradiction the checker refuses rather than reports.
 
-| Surface | Level | Where a pass can be obtained | Runs on every pull request |
-|---|---|---|---|
-| `automated` | A | Linux container and hosted `macos-26` CI | yes |
-| `config` | C | repository and CI inspection | yes |
-| `macos-native` | I | hosted `macos-26` CI, noninteractive | yes |
-| `gui` | I | test Mac, interactive supervised session | no |
-| `installed` | I | test Mac with an installed scheduler or helper | no |
-| `physical` | H | the named GC420d over USB | no |
-| `release` | R | the release gate | no |
+These are two questions and the table keeps them apart. **Where** a pass can be obtained is the
+surface. **Whether an ordinary pull request reaches it** -- the pull request under review, on this
+repository, with no extra apparatus -- is a separate column. Two surfaces may share a location and
+differ in reach: `config` and `config-experiment` are both repository and CI inspection, but proving
+that CI fails closed needs pull requests built for that purpose rather than the one being reviewed.
+
+| Surface | Level | Where a pass can be obtained | Ordinary PR reaches it | Criteria |
+|---|---|---|---|---|
+| `automated` | A | Linux container and hosted `macos-26` CI | yes | 30 |
+| `macos-native` | I | hosted `macos-26` CI, noninteractive | yes | 7 |
+| `config` | C | repository and CI inspection on the PR under review | yes | 6 |
+| `installed` | I | test Mac with an installed scheduler or helper | no | 18 |
+| `gui` | I | test Mac, interactive supervised session | no | 11 |
+| `physical` | H | the named tear-off GC420d over USB | no | 8 |
+| `release` | R | the release gate | no | 3 |
+| `config-experiment` | C | dedicated pull requests, including a contributor-like fork | no | 2 |
+| `benchmark` | I | the named reference Mac, release build, retained baseline | no | 2 |
+| `accessory` | H | a printer that actually has the cutter or peeler under test | no | 2 |
+| `per-claim` | I | one session per advertised claim, in the environment it names | no | 1 |
+
+Four of those exist because a single flag was carrying both questions. `config-experiment` holds
+M0-AC06 and M0-AC09, whose evidence is an intentionally failing pull request, a documentation-only
+pull request and a fork pull request -- repository inspection, but never of the pull request under
+review. `benchmark` holds M2-AC12 and M6-AC09, because shared hosted-runner timing is informational
+here and a reviewed threshold needs a named local setup. `accessory` holds M3-AC10 and M6-AC06,
+which need an approved accessory target; the S1 unit is tear-off with no cutter and establishes
+nothing about them. `per-claim` holds M6-AC11, which has no single session at all: an Intel claim
+needs execution on Intel, an IPP claim needs its integration path exercised, and neither follows
+from a hosted Apple Silicon run.
 
 The map says where a criterion **can** be validated and nothing about whether it **has** been. That
 is [`ACCEPTANCE-EVIDENCE.json`](ACCEPTANCE-EVIDENCE.json), and a surface here is never evidence
-there. Reachable is not validated, and 50 of 90 reachable is not 50 of 90 done.
+there. Reachable is not validated, and 43 of 90 reachable is not 43 of 90 done.
 
 
 ## Required test layers
