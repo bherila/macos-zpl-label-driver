@@ -1,6 +1,8 @@
 import contextlib
 import importlib.util
 import io
+import json
+import re
 import sys
 import tempfile
 import unittest
@@ -91,8 +93,34 @@ def published_totals(text, total):
     return stated
 
 
+# Words too ordinary to carry a location claim. Every other word of the plan's "Where a pass
+# can be obtained" cell must appear in the map's runsOn for that surface, which is what makes
+# the published cell an abbreviation of the map rather than a second, independent claim.
+LOCATION_STOPWORDS = frozenset('a an the and or of on in with that it its is to for by as'.split())
+
+
+def location_words(cell):
+    """The claim-carrying words of a location cell, for comparison against the map.
+
+    Lowercased and split on every non-alphanumeric character, so `macos-26`, backticks and
+    `scripts/run-accelerator-checks.py` all reduce to the words they are built from and the
+    plan's typography never decides the verdict.
+    """
+    return {word for word in re.split(r'[^0-9a-z]+', cell.lower())
+            if word and word not in LOCATION_STOPWORDS}
+
+
 def published_rows(text):
-    """The plan's per-surface table rows: name -> (level, reach column, stated count).
+    """The plan's per-surface table rows: name -> (level, location, reach column, stated count).
+
+    Every one of the five content cells is returned, because every one of them is a published
+    claim and the caller compares all five. The location cell was read into `_where` and
+    dropped, so retyping `macos-native`'s location as the named GC420d left the regression
+    green while the plan and the map contradicted each other about where a pass can be
+    obtained -- the same defect as the duplicate row below, a field the parser touches and
+    then does not check. The two cells outside the pipes are asserted empty rather than
+    returned, and the header and separator lines carry no backticked name or digit count, so
+    they are skipped as non-rows rather than compared.
 
     A repeated surface name is a failure, not an overwrite. `rows[name] = ...`
     kept the last of two rows for the same surface, so duplicating a row left a
@@ -105,13 +133,13 @@ def published_rows(text):
         cells = [cell.strip() for cell in line.strip().split('|')]
         if len(cells) != 7 or cells[0] or cells[-1]:
             continue
-        name, level, _where, reach_column, count = cells[1:6]
+        name, level, where, reach_column, count = cells[1:6]
         if not (name.startswith('`') and name.endswith('`')) or not count.isdigit():
             continue
         name = name.strip('`')
         if name in rows:
             raise AssertionError(f'{PLAN} publishes more than one table row for {name!r}')
-        rows[name] = (level, reach_column, int(count))
+        rows[name] = (level, where, reach_column, int(count))
     return rows
 
 
@@ -173,6 +201,30 @@ class MalformedDocumentTests(unittest.TestCase):
         levels = surfaces.prescribed_levels(milestones('A'))
         with self.assertRaises(surfaces.Unevaluable):
             surfaces.findings(levels, document({'M0-AC01': 'automated'}, schema=2))
+
+    def test_a_schema_version_equal_to_one_but_not_an_integer_is_refused(self):
+        """`!= SUPPORTED_SCHEMA` accepted every value Python calls equal to 1.
+
+        `True == 1` and `1.0 == 1`, so a hand-edited "schemaVersion": true declared no
+        schema version at all and still produced no finding and exit 0 -- the document
+        was read under a schema it never claimed. The bool exclusion was already on `n`
+        in prescribed_levels() while this stayed a bare `!=`. Each value is named so the
+        fix cannot be a single `is not True`, and the message must quote what was found
+        rather than the version the checker supports.
+        """
+        levels = surfaces.prescribed_levels(milestones('A'))
+        for version in (True, 1.0):
+            with self.subTest(version=version):
+                with self.assertRaises(surfaces.Unevaluable) as caught:
+                    surfaces.findings(levels, document({'M0-AC01': 'automated'}, schema=version))
+                self.assertIn('schemaVersion', str(caught.exception))
+                self.assertIn(repr(version), str(caught.exception))
+
+    def test_the_integer_one_is_still_accepted(self):
+        """The bound from the other side: the real version must not become a refusal."""
+        levels = surfaces.prescribed_levels(milestones('A'))
+        self.assertEqual(
+            surfaces.findings(levels, document({'M0-AC01': 'automated'}, schema=1)), [])
 
     def test_a_falsey_surfaces_map_is_refused_rather_than_defaulted_away(self):
         """`surfaces.get("surfaces") or {}` replaced every falsey value before the shape
@@ -571,13 +623,35 @@ class CommittedClassificationTests(unittest.TestCase):
 
         rows = published_rows(plan)
         self.assertEqual(sorted(rows), sorted(counts))
-        for name, (level, column, stated) in sorted(rows.items()):
+        for name, (level, _where, column, stated) in sorted(rows.items()):
             self.assertEqual(stated, counts[name],
                              f'{PLAN} publishes {stated} criteria on {name}, the map has {counts[name]}')
             self.assertEqual(level, self.definitions[name]['level'])
             self.assertEqual(REACH_COLUMN[column], self.definitions[name]['reach'],
                              f'{PLAN} describes {name} as {column!r}')
-        self.assertEqual(sum(stated for _, _, stated in rows.values()), len(levels))
+        self.assertEqual(sum(stated for *_, stated in rows.values()), len(levels))
+
+    def test_the_published_where_column_agrees_with_the_map(self):
+        """The location cell is a claim, so it is compared rather than parsed and dropped.
+
+        published_rows() read the central "Where a pass can be obtained" cell into `_where`
+        and discarded it, so the level, the reach column and the count were checked while the
+        one column the surface exists to answer was not. Retyping `macos-native`'s location
+        as the named GC420d over USB therefore left this suite green with the plan telling an
+        agent to reach for a printer that the map says obtains nothing here.
+
+        The published cell is an abbreviation of the map, not a second claim, so every
+        claim-carrying word of it must appear in that surface's runsOn. Comparing the two
+        strings outright would only force the table to carry the map's full prose.
+        """
+        rows = published_rows(published_plan())
+        self.assertEqual(sorted(rows), sorted(self.definitions))
+        for name, (_level, where, _column, _stated) in sorted(rows.items()):
+            self.assertTrue(location_words(where), f'{PLAN} gives {name} an empty location')
+            stray = location_words(where) - location_words(self.definitions[name]['runsOn'])
+            self.assertEqual(
+                stray, set(),
+                f'{PLAN} locates {name} with {sorted(stray)}, which its runsOn does not say')
 
     def test_the_a_level_rows_are_split_by_the_job_that_actually_runs_them(self):
         """The correction this revision exists for, and the claim it replaces.
@@ -613,15 +687,92 @@ class CommittedClassificationTests(unittest.TestCase):
         self.assertFalse(ci_scope.needs_swift(['docs/VALIDATION-PLAN.md']))
 
     def test_the_preflight_rows_are_the_ones_the_python_checkers_decide(self):
-        """Named individually: a row moved back without its evidence moving fails here."""
+        """Named individually: a row moved back without its evidence moving fails here.
+
+        Each of these four was re-derived by naming the program that produces its evidence,
+        not by grepping for a language. M0-AC07 and M0-AC08 are check_repo.py; M0-AC11 is
+        check_reference_target.py plus the Package.swift assertions check_repo.py makes by
+        reading the manifest as text; M6-AC01 is traceability_report.py and
+        evidence_currency.py. None is produced by a Darwin-gated shell script, which is the
+        property that moved M5-AC12 off this surface.
+        """
         self.assertEqual(
             sorted(k for k, v in self.assigned.items() if v == 'automated-preflight'),
-            ['M0-AC07', 'M0-AC08', 'M0-AC11', 'M5-AC12', 'M6-AC01'])
+            ['M0-AC07', 'M0-AC08', 'M0-AC11', 'M6-AC01'])
         swift_backed = sorted(k for k, v in self.assigned.items() if v == 'automated-swift')
-        self.assertEqual(len(swift_backed), 25)
+        self.assertEqual(len(swift_backed), 23)
         self.assertIn('M0-AC03', swift_backed)
         self.assertIn('M2-AC13', swift_backed)
         self.assertNotIn('automated', set(self.assigned.values()))
+        # The preflight job's own step list: these four are reachable because the always-running
+        # job runs these programs, and it runs no Darwin-gated script at all.
+        workflow = (surfaces.ROOT / '.github/workflows/ci.yml').read_text(encoding='utf-8')
+        preflight = workflow.split('  macos:')[0]
+        self.assertIn('python3 scripts/check_repo.py', preflight)
+        self.assertIn('python3 -m unittest discover -s scripts/tests', preflight)
+        for darwin_only in ('scripts/build-local-app.sh', 'scripts/host-preflight.sh',
+                            'scripts/sign-local-diagnostic.sh'):
+            self.assertNotIn(darwin_only, preflight)
+
+    def test_the_macos_only_a_level_rows_are_not_on_a_portable_surface(self):
+        """M5-AC12, M2-AC05 and M3-AC03: level A evidence no Linux session can produce.
+
+        Two different mistakes put them on portable surfaces and both came from naming
+        something other than the executor. M5-AC12 was on automated-preflight because
+        check_native_artifacts.py carries signing-mode rules in Python -- but that module
+        validates captures, its unit tests feed it synthetic ones, and the default and the
+        Developer-ID refusal are decided by scripts/build-local-app.sh, which exits unless
+        `uname -s` is Darwin and which only scripts/ci-swift.sh invokes. A grep across
+        Packages/*/Sources and Packages/*/Tests for a Swift implementation returns nothing,
+        which is a correct answer to the wrong question. M2-AC05 and M3-AC03 were on
+        automated-swift, a surface whose runsOn offers a portable Linux session, while the
+        four test files they actually bind are under Packages/LabelMac, which does not build
+        on Linux.
+
+        The assertions are on the scripts and on docs/ACCEPTANCE-EVIDENCE.json, not on the
+        map restating itself.
+        """
+        macos_only = sorted(k for k, v in self.assigned.items() if v == 'automated-macos')
+        self.assertEqual(macos_only, ['M2-AC05', 'M3-AC03', 'M5-AC12'])
+        surface = self.definitions['automated-macos']
+        self.assertEqual(surface['level'], 'A')
+        self.assertEqual(surface['reach'], surfaces.REACH_SELECTED)
+        self.assertEqual(surface['reachedWhen'], self.definitions['macos-native']['reachedWhen'])
+        # Same host, different prescribed level, so they cannot be one surface.
+        self.assertNotEqual(surface['runsOn'], self.definitions['macos-native']['runsOn'])
+
+        # M5-AC12's executor: bash, Darwin-gated, called from one place.
+        app = (surfaces.ROOT / 'scripts/build-local-app.sh').read_text(encoding='utf-8')
+        self.assertIn('signing_mode="local-adhoc"', app)
+        self.assertIn('Developer-ID signing is not configured', app)
+        self.assertIn('[[ "$(uname -s)" == "Darwin" ]]', app)
+        ci_swift = (surfaces.ROOT / 'scripts/ci-swift.sh').read_text(encoding='utf-8')
+        self.assertIn('bash scripts/build-local-app.sh', ci_swift)
+        callers = sorted(
+            path.relative_to(surfaces.ROOT).as_posix()
+            for path in (surfaces.ROOT / 'scripts').iterdir()
+            if path.is_file() and 'build-local-app.sh' in path.read_text(
+                encoding='utf-8', errors='ignore') and path.name != 'build-local-app.sh')
+        self.assertEqual(callers, ['scripts/ci-swift.sh'])
+
+        # M2-AC05 and M3-AC03: the evidence the ledger actually binds is under LabelMac, and
+        # only ci-swift.sh runs that package's suite.
+        self.assertIn('swift test --package-path Packages/LabelMac', ci_swift)
+        ledger = json.loads(
+            (surfaces.ROOT / 'docs/ACCEPTANCE-EVIDENCE.json').read_text(encoding='utf-8'))
+        bound = {record['acceptanceID']: [item['path'] for item in record.get('evidence', [])]
+                 for record in ledger['records']}
+        for identifier in ('M2-AC05', 'M3-AC03'):
+            with self.subTest(identifier=identifier):
+                self.assertTrue(
+                    any(path.startswith('Packages/LabelMac/') for path in bound[identifier]),
+                    f'{identifier} binds no Packages/LabelMac evidence')
+        # Every live record was swept, not only the two named: a record citing LabelMac must
+        # not be sitting on the portable surface.
+        for identifier, paths in sorted(bound.items()):
+            if any(path.startswith('Packages/LabelMac/') for path in paths):
+                with self.subTest(identifier=identifier):
+                    self.assertNotEqual(self.assigned[identifier], 'automated-swift')
 
     def test_no_surface_is_defined_without_a_criterion_using_it(self):
         self.assertEqual(sorted(self.definitions), sorted(set(self.assigned.values())))
@@ -643,9 +794,25 @@ class PublishedTableParsingTests(unittest.TestCase):
 
     def test_each_row_is_read_once(self):
         self.assertEqual(published_rows(self.TABLE), {
-            'alpha': ('A', 'every ordinary PR', 4),
-            'beta': ('I', 'none', 6),
+            'alpha': ('A', 'somewhere', 'every ordinary PR', 4),
+            'beta': ('I', 'elsewhere', 'none', 6),
         })
+
+    def test_the_location_cell_is_preserved_rather_than_discarded(self):
+        """The cell the parser used to read into `_where` and throw away.
+
+        Named on its own so that a later parser cannot quietly drop it again while the
+        row count, the level and the reach column all still line up.
+        """
+        self.assertEqual([row[1] for row in published_rows(self.TABLE).values()],
+                         ['somewhere', 'elsewhere'])
+
+    def test_location_words_ignore_typography_but_keep_the_claim(self):
+        """Backticks, hyphens and paths must not decide a location comparison."""
+        self.assertEqual(location_words('hosted `macos-26` CI'), {'hosted', 'macos', '26', 'ci'})
+        self.assertEqual(location_words('the release gate'), {'release', 'gate'})
+        self.assertTrue(
+            location_words('hosted `macos-26` CI') - location_words('the named GC420d over USB'))
 
     def test_a_repeated_surface_row_fails_instead_of_overwriting(self):
         duplicated = self.TABLE + '| `alpha` | A | somewhere | every ordinary PR | 30 |\n'

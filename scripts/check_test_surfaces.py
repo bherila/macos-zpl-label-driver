@@ -126,8 +126,14 @@ def _shape(surfaces):
     """
     if not isinstance(surfaces, dict):
         raise Unevaluable(f'the document is {type(surfaces).__name__}, not a JSON object')
-    if surfaces.get('schemaVersion') != SUPPORTED_SCHEMA:
-        raise Unevaluable(f'unsupported schemaVersion {surfaces.get("schemaVersion")!r}')
+    version = surfaces.get('schemaVersion')
+    # `!=` alone accepted anything Python calls equal to 1. `True == 1` and `1.0 == 1` are
+    # both true, so `"schemaVersion": true` declared no schema version at all yet produced
+    # no finding and exit 0. The declared version is an integer literal, so the type is
+    # judged before the value. The same hole was already closed for `n` in
+    # prescribed_levels(); this was the other side of it, left on a bare `!=`.
+    if type(version) is not int or version != SUPPORTED_SCHEMA:
+        raise Unevaluable(f'unsupported schemaVersion {version!r}')
     definitions = _object(surfaces, 'surfaces')
     assigned = _object(surfaces, 'criteria')
     for name, definition in sorted(definitions.items()):
