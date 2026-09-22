@@ -5,7 +5,7 @@
       "acceptanceID": "M2-AC04",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "1471eda37aa4f03415a8f89097bd362464efcc84",
+      "sourceSHA": "55a67f89dba5c2024a22639a362200f46daeeb04",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/BitmapLayout.swift",
@@ -34,8 +34,8 @@
           "sha256": "d4a4d440352af1d41681f929dccab411588a5f8a5327c11c8c837cb685f696a1"
         },
         {
-          "path": "docs/validation/M2-RESEAL-AFTER-SEVEN-SLICES-2026-09-20.md",
-          "sha256": "c7632e02e2940839b211a2b4f898633d233ae37bd6b8b634664c99c01cb78564"
+          "path": "docs/validation/EVIDENCE-RESEAL-AFTER-FOURTEEN-SLICES-2026-09-22.md",
+          "sha256": "2d6b20775c0b73bcc72f25aab8e48aec74e61db0a6baa982d1a0127aafcd6fd6"
         }
       ]
     },
@@ -43,7 +43,7 @@
       "acceptanceID": "M2-AC13",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "1471eda37aa4f03415a8f89097bd362464efcc84",
+      "sourceSHA": "55a67f89dba5c2024a22639a362200f46daeeb04",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometry.swift",
@@ -124,8 +124,8 @@
           "sha256": "d4a4d440352af1d41681f929dccab411588a5f8a5327c11c8c837cb685f696a1"
         },
         {
-          "path": "docs/validation/M2-RESEAL-AFTER-SEVEN-SLICES-2026-09-20.md",
-          "sha256": "c7632e02e2940839b211a2b4f898633d233ae37bd6b8b634664c99c01cb78564"
+          "path": "docs/validation/EVIDENCE-RESEAL-AFTER-FOURTEEN-SLICES-2026-09-22.md",
+          "sha256": "2d6b20775c0b73bcc72f25aab8e48aec74e61db0a6baa982d1a0127aafcd6fd6"
         }
       ]
     },
@@ -133,7 +133,7 @@
       "acceptanceID": "M3-AC03",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "1471eda37aa4f03415a8f89097bd362464efcc84",
+      "sourceSHA": "55a67f89dba5c2024a22639a362200f46daeeb04",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/ZPLControlProtocolCoverage.swift",
@@ -180,6 +180,10 @@
         {
           "path": "docs/validation/M3-HOSTED-MACOS-CONTROL-COVERAGE-2026-09-20.md",
           "sha256": "3445d1f5366ccfe3e5a6ea5a51bf1a39661da65df72e43d81154db25ca6dc4a2"
+        },
+        {
+          "path": "docs/validation/EVIDENCE-RESEAL-AFTER-FOURTEEN-SLICES-2026-09-22.md",
+          "sha256": "2d6b20775c0b73bcc72f25aab8e48aec74e61db0a6baa982d1a0127aafcd6fd6"
         }
       ]
     },
@@ -187,7 +191,7 @@
       "acceptanceID": "M2-AC05",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "1471eda37aa4f03415a8f89097bd362464efcc84",
+      "sourceSHA": "55a67f89dba5c2024a22639a362200f46daeeb04",
       "implementation": [
         {
           "path": "Packages/LabelMac/Sources/LabelMac/WorkerBitmapBinding.swift",
@@ -234,6 +238,10 @@
         {
           "path": "docs/validation/M3-HOSTED-MACOS-CONTROL-COVERAGE-2026-09-20.md",
           "sha256": "3445d1f5366ccfe3e5a6ea5a51bf1a39661da65df72e43d81154db25ca6dc4a2"
+        },
+        {
+          "path": "docs/validation/EVIDENCE-RESEAL-AFTER-FOURTEEN-SLICES-2026-09-22.md",
+          "sha256": "2d6b20775c0b73bcc72f25aab8e48aec74e61db0a6baa982d1a0127aafcd6fd6"
         }
       ]
     }
