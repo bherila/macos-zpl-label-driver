@@ -24,8 +24,12 @@ import Foundation
 ///   and must be proved durable before the step they precede may run.
 /// - The queue's destination is a closed typed value carried by the intent and
 ///   the durable record, passed to the create operation and required to read
-///   back exactly. Where a queue delivers is therefore a property of the plan,
-///   not of whatever ambient state a conformer consulted.
+///   back exactly; so is the identity of the printer description it is built
+///   from. What a queue delivers to and what it runs are therefore properties
+///   of the plan, not of whatever ambient state a conformer consulted.
+/// - Where staging may happen is a policy the caller declares and this model
+///   checks, and the system-critical trees are refused whatever that policy
+///   says. Naming the real location stays ADR 0005's decision.
 /// - Recovery is queue-first, finite, idempotent and ownership-conservative, and
 ///   it can be loaded back from the journal alone — see
 ///   `QueueInstallationRecovery`. Its destructive effects are conditional on the
@@ -69,6 +73,11 @@ public enum QueueInstallationResidualReason: Equatable, Sendable {
     /// deliver where this transaction asked it to. Something modified it, so it
     /// is retained for a human rather than removed or called complete.
     case queueDestinationUnverified
+    /// A queue of the right name and incarnation is present, but it is not
+    /// built from the printer description this transaction asked for — or the
+    /// seam could not read which one it is built from. Either way it is not the
+    /// queue that was planned, and it is retained rather than removed.
+    case queueDescriptionUnverified
     /// The queue is present and this transaction cannot prove it acquired the
     /// name rather than modifying a queue that appeared first. Automatic
     /// recovery never removes a present queue for this reason.
@@ -145,8 +154,19 @@ public enum QueueInstallationOutcome: Equatable, Sendable {
 /// a contract nothing can observe is a contract nothing keeps.
 ///
 /// - `createProtectedRoot` must fail if anything already exists at the path —
-///   `mkdir` semantics, not create-or-replace. This is the transaction's only
-///   exclusive namespace reservation.
+///   `mkdir` semantics, not create-or-replace. It is the reservation the
+///   transaction cannot journal in advance, because the journal has nowhere to
+///   live until the root exists.
+/// - `createFile` is **create-if-absent** and must open without following
+///   symbolic links: a path that is already occupied refuses the step and
+///   nothing at that path is written, truncated, replaced or followed. It is
+///   not a lesser operation than the root's reservation. If it were allowed to
+///   replace, a conformer could overwrite a file already sitting at the filter
+///   or description path, and the validation that runs afterwards would see
+///   exactly the bytes the plan asked for and be unable to tell that anything
+///   had been there. The refusal is a returned `FileArtifactCreation` rather
+///   than a throw, so the model handles it as a value; `alreadyPresent`
+///   guarantees no modification, and `unknown` guarantees nothing at all.
 /// - `persistOwnershipRecord` must replace the journal's bytes in one step, and
 ///   only if its current contents are exactly `previous` **compared as bytes**
 ///   (`nil` meaning it must not exist at all). Without that condition an
@@ -163,30 +183,56 @@ public enum QueueInstallationOutcome: Equatable, Sendable {
 ///   report `exceededMaximumByteCount` rather than materializing more, so a
 ///   corrupt or redirected journal cannot cause an unbounded read and
 ///   allocation inside a privileged process before the decoder's own cap is
-///   reached. It must open the artifact without following symbolic links.
+///   reached. It **opens the artifact once**, without following symbolic links,
+///   and both stats and reads *through that one descriptor*, returning the
+///   state it stat'd alongside the bytes it read. Validating the journal and
+///   reading it are therefore one operation and not two: a separate
+///   `observeFile` followed by a read leaves a window in which the file that
+///   passed validation is replaced before the bytes are taken, and those bytes
+///   go on to authorize a record-validated recovery that deletes things. The
+///   model validates the returned state against the planned artifact before it
+///   looks at the bytes, so a conformer that returns a state belonging to some
+///   other file — or no real state at all — is caught here rather than trusted.
 /// - `removeEmptyDirectory` must fail when the directory is not empty —
 ///   `rmdir` semantics. A recursive delete would sweep away an unowned child
 ///   that appeared beneath the protected root.
 /// - `createQueue` must write `incarnation` into the queue's own configuration
 ///   so a later read can return it, must point the queue at exactly
 ///   `destination` and nowhere else — it takes the destination as an argument
-///   precisely so that it cannot be sourced from ambient state — and must report
+///   precisely so that it cannot be sourced from ambient state — must build the
+///   queue from exactly the description in `describedBy`, and must report
 ///   `exclusiveCreation` only if it can prove it created the name rather than
 ///   modifying a queue that appeared first. An `lpadmin`-style create-or-modify
 ///   operation cannot prove that and must report `ambiguousCreateOrModify`.
-/// - `observeQueue` must report the destination it could read back out of a
-///   present queue's configuration, and `ObservedQueueDestination.unknown` when
-///   it could not. The model requires an exact match before a queue counts as
-///   created or complete, so a queue aimed somewhere other than the plan said is
-///   detected rather than assumed.
-/// - The two removals are **conditional**, not "observe, then delete". Each
-///   carries the state it expects and must be performed only while that state
-///   still holds, as one operation: `removeQueue` deletes only a queue still
-///   carrying `incarnation`, and `removeFile`/`removeEmptyDirectory` delete only
-///   a path still holding exactly the artifact described, opened without
+/// - `observeQueue` must report the destination **and the printer description**
+///   it could read back out of a present queue's configuration, and the
+///   matching `unknown` case when it could not. The model requires an exact
+///   match on both before a queue counts as created or complete. The
+///   description is read back for the same reason the destination is: it is an
+///   argument to the create operation, and an argument nothing reads back is an
+///   argument a conformer can ignore or misapply — leaving a queue that carries
+///   this transaction's token, delivers where the plan said, and runs a filter
+///   nobody planned.
+/// - The removals are **conditional**, not "observe, then delete". Each carries
+///   the state it expects and must be performed only while that state still
+///   holds, as one operation: `removeQueue` deletes only a queue still carrying
+///   `incarnation` *and* still delivering to `destination` *and* still built
+///   from `description` — all three, because an administrator who re-points or
+///   rebuilds a queue without disturbing its token has a queue this transaction
+///   may not delete; `removeOwnershipRecord` deletes only a journal whose bytes
+///   are still exactly the ones it was authorized against, which is the one
+///   condition a planned digest cannot express for a file the transaction
+///   rewrites as it runs; and `removeFile`/`removeEmptyDirectory` delete only a
+///   path still holding exactly the artifact described, opened without
 ///   following symbolic links. Re-checking and then deleting unconditionally
 ///   leaves a window in which another administrator recreates the name, and the
 ///   deletion lands on their object instead.
+/// - `observeFile` must report whether an executable artifact carries a valid
+///   code signature over the bytes it holds, in `ObservedCodeSignature`. The
+///   planned digest already fixes those bytes, so this is not a substitution
+///   window; it is the difference between bytes that are the planned ones and
+///   bytes that are the planned ones *and* signed, which is what `AGENTS.md`'s
+///   local ad-hoc signing default requires of anything installed as a filter.
 /// - `observeFile` must report effective access control, including inherited
 ///   entries, in `ObservedAccessControl`. POSIX mode bits alone do not say
 ///   whether another principal can write.
@@ -194,7 +240,7 @@ public protocol QueueInstallationEffectSink {
     mutating func observeQueue(_ queue: PlannedSchedulerQueue) -> SchedulerQueueObservation
     mutating func observeFile(at path: AbsolutePath) -> FileArtifactObservation
     mutating func createProtectedRoot(_ artifact: PlannedFileArtifact) throws
-    mutating func createFile(_ artifact: PlannedFileArtifact) throws
+    mutating func createFile(_ artifact: PlannedFileArtifact) throws -> FileArtifactCreation
     mutating func persistOwnershipRecord(
         _ text: String, replacing previous: String?, at artifact: PlannedFileArtifact
     ) throws -> JournalDurability
@@ -208,9 +254,20 @@ public protocol QueueInstallationEffectSink {
         incarnation: SchedulerQueueIncarnation
     ) throws -> SchedulerQueueAcquisition
     mutating func removeQueue(
-        _ queue: PlannedSchedulerQueue, ifIncarnationMatches incarnation: SchedulerQueueIncarnation
+        _ queue: PlannedSchedulerQueue,
+        ifIncarnationMatches incarnation: SchedulerQueueIncarnation,
+        andDestinationMatches destination: QueueDestination,
+        andDescriptionMatches description: SchedulerQueueDescriptionIdentity
     ) throws -> SchedulerQueueRemoval
     mutating func removeFile(_ artifact: PlannedFileArtifact) throws -> FileArtifactRemoval
+    /// Removes the journal only while it still holds exactly `contents`,
+    /// compared as bytes, as one operation on one descriptor. The journal is
+    /// the artifact no planned digest can pin — the transaction rewrites it —
+    /// so this is the only conditional removal that can carry what is actually
+    /// at stake.
+    mutating func removeOwnershipRecord(
+        _ artifact: PlannedFileArtifact, ifContentsMatch contents: String
+    ) throws -> FileArtifactRemoval
     mutating func removeEmptyDirectory(_ artifact: PlannedFileArtifact) throws -> FileArtifactRemoval
 }
 
@@ -234,6 +291,18 @@ public struct QueueInstallationIntent: Equatable, Sendable {
     public let printerDescription: PlannedFileArtifact
     /// The fixed directory the protected root is created inside.
     public let stagingParent: AbsolutePath
+    /// Where staging is permitted to happen at all, as the caller declared it.
+    ///
+    /// **Which directory an installation really stages in is ADR 0005's
+    /// decision, and ADR 0005 is still *proposed*.** Nothing here names one, and
+    /// there is no default: the caller declares the allowlist and this
+    /// initializer checks the plan against it. All this changes is that the
+    /// location is a stated, checked policy rather than "any absolute path that
+    /// has a parent", which is what this type used to accept — a plan rooted
+    /// under `/System` was constructible, and `AGENTS.md` forbids writing
+    /// there. `QueueInstallationStagingPolicy` refuses the system-critical
+    /// trees outright, so no allowlist can re-admit one.
+    public let stagingPolicy: QueueInstallationStagingPolicy
 
     public init(
         queue: PlannedSchedulerQueue,
@@ -241,7 +310,8 @@ public struct QueueInstallationIntent: Equatable, Sendable {
         protectedRoot: PlannedFileArtifact,
         ownershipRecord: PlannedFileArtifact,
         filter: PlannedFileArtifact,
-        printerDescription: PlannedFileArtifact
+        printerDescription: PlannedFileArtifact,
+        stagingPolicy: QueueInstallationStagingPolicy
     ) throws {
         guard protectedRoot.kind == .protectedRoot,
               ownershipRecord.kind == .ownershipRecord,
@@ -250,6 +320,12 @@ public struct QueueInstallationIntent: Equatable, Sendable {
             throw QueueInstallationError.artifactKindMismatch
         }
         guard let parent = protectedRoot.path.parent else { throw QueueInstallationError.invalidPath }
+        // Exactly one of the declared locations, not "somewhere beneath one":
+        // a region is not a staging location. The policy has already refused
+        // every system-critical tree, so nothing admitted here can be one.
+        guard stagingPolicy.admits(parent) else {
+            throw QueueInstallationError.stagingLocationNotPermitted
+        }
         for artifact in [ownershipRecord, filter, printerDescription] {
             guard artifact.path.isImmediateChild(of: protectedRoot.path) else {
                 throw QueueInstallationError.artifactOutsideProtectedRoot
@@ -265,6 +341,7 @@ public struct QueueInstallationIntent: Equatable, Sendable {
         self.ownershipRecord = ownershipRecord
         self.filter = filter
         self.printerDescription = printerDescription
+        self.stagingPolicy = stagingPolicy
         stagingParent = parent
     }
 
@@ -510,21 +587,28 @@ public struct QueueInstallationTransaction {
     private mutating func revalidateStagedArtifacts<Sink: QueueInstallationEffectSink>(
         using sink: inout Sink
     ) throws {
-        for artifact in plan.intent.creationOrderedFiles {
+        for artifact in plan.intent.creationOrderedFiles where artifact.kind != .ownershipRecord {
             let observation = sink.observeFile(at: artifact.path)
             if let failure = artifact.validationFailure(against: observation) {
                 throw QueueInstallationError.stagedArtifactInvalid(artifact.kind, failure)
             }
         }
+        // The journal is validated by the same call that reads it, through the
+        // same descriptor, so the bytes compared below are the bytes of the
+        // file that passed validation.
         let limit = QueueInstallationOwnershipRecord.maximumEncodedByteCount
-        switch sink.readOwnershipRecord(at: plan.intent.ownershipRecord, maximumByteCount: limit) {
+        let journal = plan.intent.ownershipRecord
+        switch sink.readOwnershipRecord(at: journal, maximumByteCount: limit) {
         case .queryFailed:
             throw QueueInstallationError.stagedArtifactInvalid(.ownershipRecord, .observationFailed)
         case .confirmedAbsent:
             throw QueueInstallationError.stagedArtifactInvalid(.ownershipRecord, .absent)
         case .exceededMaximumByteCount:
             throw QueueInstallationError.stagedArtifactInvalid(.ownershipRecord, .exceededSizeLimit)
-        case let .present(text):
+        case let .present(state, text):
+            if let failure = journal.validationFailure(against: .present(state)) {
+                throw QueueInstallationError.stagedArtifactInvalid(.ownershipRecord, failure)
+            }
             // A conformer that returned more than the cap it was given has not
             // honoured the bounded read, and its contents are refused rather
             // than decoded: believing them here is what would make the cap
@@ -570,10 +654,25 @@ public struct QueueInstallationTransaction {
         for artifact in plan.intent.stagedPayloadFiles {
             record = try record.markingPending(.file(artifact.path))
             try writeJournal(using: &sink)
+            let creation: FileArtifactCreation
             do {
-                try sink.createFile(artifact)
+                creation = try sink.createFile(artifact)
             } catch {
                 throw QueueInstallationError.effectFailed
+            }
+            switch creation {
+            case .created:
+                break
+            case .alreadyPresent:
+                // Something else is at a path this transaction planned to
+                // create. It was not replaced, and this transaction will not
+                // adopt it: validating it afterwards would find the planned
+                // bytes and say nothing about where they came from. The step
+                // stays named in the journal, because a refusal here is still a
+                // path recovery must probe rather than assume.
+                throw QueueInstallationError.stagedArtifactAlreadyPresent(artifact.kind)
+            case .unknown:
+                throw QueueInstallationError.stagedArtifactCreationUnverified(artifact.kind)
             }
             record = try record.confirmingPending()
             try writeJournal(using: &sink)
@@ -630,7 +729,16 @@ public struct QueueInstallationTransaction {
         case .queryFailed: throw QueueInstallationError.refused(.queueStateUnknown)
         case .confirmedAbsent: break
         }
-        record = try record.markingPending(.schedulerQueue)
+        // The token is journalled *with* the pending queue step, before the
+        // effect that writes it into a queue. A crash between that effect and
+        // its confirmation used to leave a live queue no conditional removal
+        // could match — the record named a pending queue and nothing that could
+        // pick it out — so the queue and every payload beneath it were residual
+        // for good. The intended token is not a claim that the queue exists,
+        // and `queueAcquisition` stays nil until the readback below.
+        record = try record.markingPending(
+            .schedulerQueue, intendedQueueIncarnation: plan.queueIncarnation
+        )
         try writeJournal(using: &sink)
         let acquisition: SchedulerQueueAcquisition
         do {
@@ -658,6 +766,17 @@ public struct QueueInstallationTransaction {
         guard case let .known(destination) = observed.destination,
               destination == plan.intent.destination else {
             throw QueueInstallationError.queueDestinationUnconfirmed
+        }
+        // And neither token nor destination says which description the queue
+        // was built from. A conformer that ignored `describedBy` would produce
+        // a queue carrying our token, delivering where we asked, and running a
+        // filter we never planned; an unreadable description is unknown, and
+        // unknown is not a match.
+        guard let expectedDescription = try? SchedulerQueueDescriptionIdentity(
+            describedBy: plan.intent.printerDescription
+        ), case let .known(description) = observed.printerDescription,
+              description == expectedDescription else {
+            throw QueueInstallationError.queueDescriptionUnconfirmed
         }
         record = try record.confirmingPending(
             queueIncarnation: plan.queueIncarnation, queueAcquisition: acquisition
@@ -687,6 +806,12 @@ public struct QueueInstallationTransaction {
             guard case let .known(destination) = observed.destination,
                   destination == plan.intent.destination else {
                 return enterResidual(.queueDestinationUnverified, using: &sink)
+            }
+            guard let expectedDescription = try? SchedulerQueueDescriptionIdentity(
+                describedBy: plan.intent.printerDescription
+            ), case let .known(description) = observed.printerDescription,
+                  description == expectedDescription else {
+                return enterResidual(.queueDescriptionUnverified, using: &sink)
             }
             guard record.queueAcquisition == .exclusiveCreation else {
                 return enterResidual(.queueOwnershipAmbiguous, using: &sink)

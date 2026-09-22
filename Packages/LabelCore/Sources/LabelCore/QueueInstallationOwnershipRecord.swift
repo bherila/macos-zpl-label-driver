@@ -67,6 +67,26 @@ public enum QueueInstallationError: Error, Equatable, Sendable {
     /// claim to have created, so cleaning up would report success while leaving
     /// that journal behind.
     case journalNotOwnedByRecord
+    /// A staging allowlist naming nowhere admits nothing, and an intent checked
+    /// against it would be an intent nobody declared a location for.
+    case emptyStagingAllowlist
+    /// A staging location inside a tree this project must never write to. This
+    /// refusal does not consult the allowlist; it is what an allowlist may not
+    /// override.
+    case stagingLocationRefused
+    /// The protected root's parent is not one of the locations the caller
+    /// declared. Where installation may stage is a policy the caller states and
+    /// this model checks, not "anywhere that parses".
+    case stagingLocationNotPermitted
+    /// A payload path was already occupied, so the create step refused without
+    /// modifying whatever is there.
+    case stagedArtifactAlreadyPresent(QueueInstallationArtifactKind)
+    /// A create step could not say whether it took effect. Unknown is not
+    /// created, and it is not absent either.
+    case stagedArtifactCreationUnverified(QueueInstallationArtifactKind)
+    /// A queue was created but its configuration did not hand back the exact
+    /// printer description this transaction asked it to be built from.
+    case queueDescriptionUnconfirmed
 }
 
 // MARK: - Bounded primitive values
@@ -194,6 +214,68 @@ public struct PlannedSchedulerQueue: Equatable, Hashable, Sendable {
     }
 }
 
+/// Where an installation is allowed to stage, as a value the caller declares
+/// and this model checks.
+///
+/// **Naming the real location is ADR 0005's decision, not this type's.** ADR
+/// 0005 remains *proposed*, so nothing here blesses a particular directory and
+/// no default is supplied: the allowlist is supplied by whoever builds an
+/// intent. What this type changes is that the location is a *declared, checked*
+/// policy rather than "any absolute path with a parent", which is what an
+/// intent previously accepted — and an intent under `/System` is exactly what
+/// `AGENTS.md` forbids writing to.
+///
+/// Two rules, in this order:
+///
+/// - `refusedTrees` is refused whatever the allowlist says. A policy naming one
+///   of them cannot be constructed at all, so no intent can be checked against
+///   one.
+/// - The protected root's parent must be one of the permitted parents
+///   *exactly*. Containment is deliberately not accepted: "somewhere under
+///   /Library" is not a staging location, it is a region.
+public struct QueueInstallationStagingPolicy: Equatable, Hashable, Sendable {
+    public static let maximumPermittedParents = 8
+
+    /// Trees no installation staging location may lie in or under. `AGENTS.md`
+    /// forbids writing to `/System` outright; the rest are the directories a
+    /// macOS system would be unbootable or unusable without. The filesystem
+    /// root is absent from this list because `AbsolutePath` cannot spell it and
+    /// a single-component root has no parent, so an intent staged at `/` is
+    /// refused as `invalidPath` before any policy is consulted.
+    public static let refusedTrees = [
+        "/System", "/bin", "/sbin", "/usr/bin", "/usr/sbin", "/usr/lib",
+        "/private/var/db", "/dev",
+    ]
+
+    /// Sorted and deduplicated, so one policy has one canonical spelling in the
+    /// durable record.
+    public let permittedStagingParents: [AbsolutePath]
+
+    public init(permittedStagingParents parents: [AbsolutePath]) throws {
+        guard !parents.isEmpty else { throw QueueInstallationError.emptyStagingAllowlist }
+        guard parents.count <= Self.maximumPermittedParents else {
+            throw QueueInstallationError.tooManyArtifacts
+        }
+        let unique = Array(Set(parents)).sorted { $0.value < $1.value }
+        for parent in unique {
+            guard !Self.isSystemCritical(parent) else {
+                throw QueueInstallationError.stagingLocationRefused
+            }
+        }
+        permittedStagingParents = unique
+    }
+
+    /// True when the path *is* one of the refused trees or lies under one. The
+    /// comparison is component-wise, so `/usr/libexec` is not `/usr/lib`.
+    public static func isSystemCritical(_ path: AbsolutePath) -> Bool {
+        refusedTrees.contains { path.value == $0 || path.value.hasPrefix($0 + "/") }
+    }
+
+    public func admits(_ parent: AbsolutePath) -> Bool {
+        permittedStagingParents.contains(parent)
+    }
+}
+
 /// One USB device a queue may deliver to, named by the two identifiers that
 /// describe a *model*, never an individual unit.
 ///
@@ -293,6 +375,48 @@ public enum ObservedQueueDestination: Equatable, Sendable {
     case unknown
 }
 
+/// Which printer description a queue was built from, as a value that can be
+/// required to read back.
+///
+/// The create operation takes the description as an argument, and until now
+/// nothing read it back. A conformer that ignored `describedBy`, or applied a
+/// different file, would produce a queue carrying this transaction's token,
+/// delivering to this transaction's destination and running an unintended
+/// filter — and no observation in the model could tell. That is the same
+/// argument the destination already won: an argument nothing reads back is an
+/// argument nothing keeps.
+///
+/// The identity is the description's path together with the digest of the bytes
+/// that were planned for it, so "the same file, replaced" is a different
+/// identity and not merely the same name.
+public struct SchedulerQueueDescriptionIdentity: Equatable, Hashable, Sendable {
+    public let path: AbsolutePath
+    public let contentSHA256: String
+
+    public init(path: AbsolutePath, contentSHA256: String) throws {
+        guard isLowercaseSHA256(contentSHA256) else { throw QueueInstallationError.invalidDigest }
+        self.path = path
+        self.contentSHA256 = contentSHA256
+    }
+
+    /// The identity of the planned printer description a queue is to be built
+    /// from. Only that kind of artifact has one.
+    public init(describedBy artifact: PlannedFileArtifact) throws {
+        guard artifact.kind == .printerDescription else {
+            throw QueueInstallationError.artifactKindMismatch
+        }
+        guard let digest = artifact.contentSHA256 else { throw QueueInstallationError.invalidDigest }
+        try self.init(path: artifact.path, contentSHA256: digest)
+    }
+}
+
+/// What the seam could read back about the description a present queue is built
+/// from. `unknown` is its own case and is never read as a match.
+public enum ObservedQueueDescriptionIdentity: Equatable, Sendable {
+    case known(SchedulerQueueDescriptionIdentity)
+    case unknown
+}
+
 /// What a conformer proves it did to make a journal write survive a power loss.
 ///
 /// The journal's whole purpose is that a step is named *before* its effect runs.
@@ -315,14 +439,43 @@ public enum JournalDurability: String, Equatable, Sendable, CaseIterable {
 
 /// The outcome of a *conditional* queue removal, which is one operation rather
 /// than an observation followed by an unconditional delete.
+///
+/// The condition is the queue's whole recorded identity, not its token alone.
+/// An administrator who re-pointed the queue, or rebuilt it from a different
+/// printer description, while its incarnation survived has a queue this
+/// transaction may no longer delete: it is not the object that was checked.
 public enum SchedulerQueueRemoval: String, Equatable, Sendable, CaseIterable {
-    /// Deleted, with the expected incarnation still bound at the moment of
+    /// Deleted, with every expected property still bound at the moment of
     /// deletion.
     case removed
     /// Not deleted: the name no longer carried the expected incarnation, so what
     /// is there now is somebody else's queue.
     case incarnationChanged
+    /// Not deleted: the queue still carries the expected incarnation but no
+    /// longer delivers where it was recorded as delivering.
+    case destinationChanged = "destination-changed"
+    /// Not deleted: the queue still carries the expected incarnation but is no
+    /// longer built from the printer description it was recorded with.
+    case descriptionChanged = "description-changed"
     /// The operation may or may not have taken effect. Never replayed blindly.
+    case unknown
+}
+
+/// The outcome of a *create-if-absent* file placement.
+///
+/// Placing a payload is not a namespace reservation the transaction may skip:
+/// an operation that silently replaces whatever is at the path would leave
+/// validation afterwards looking at exactly the bytes it expected, unable to
+/// tell that something else had been there. So the refusal is a value the
+/// model handles, and `alreadyPresent` guarantees nothing at the path was
+/// modified.
+public enum FileArtifactCreation: String, Equatable, Sendable, CaseIterable {
+    /// The path did not exist and now holds this artifact.
+    case created
+    /// The path was already occupied. Nothing was written, truncated, replaced
+    /// or followed.
+    case alreadyPresent = "already-present"
+    /// The operation may or may not have taken effect.
     case unknown
 }
 
@@ -512,6 +665,31 @@ public enum ObservedAccessControl: String, Equatable, Hashable, Sendable, CaseIt
     case unknown
 }
 
+/// Whether an executable artifact carries a valid code signature.
+///
+/// `AGENTS.md` makes local ad-hoc signing the default and forbids weakening
+/// signing to compensate for having no Developer ID, so "is this filter signed
+/// at all" is a question the model has to be able to ask. It could not: digest,
+/// ownership, mode, ACL and kind were the whole of validation, and a conformer
+/// could satisfy every one of them while staging an unsigned executable.
+///
+/// This is **not** a substitution window. The planned digest already pins the
+/// exact bytes, and a Mach-O's signature lives inside those bytes, so bytes
+/// that hash as planned carry whatever signature was planned. The gap is that
+/// nothing ever asked whether the planned bytes were signed. Hence a tri-state
+/// observation, required to be affirmative for an executable: `unknown` —
+/// including an observer that never looked — is not a valid signature.
+public enum ObservedCodeSignature: String, Equatable, Hashable, Sendable, CaseIterable {
+    /// The observer verified a signature over these bytes and it was valid. An
+    /// ad-hoc signature counts; this model requires no Team ID and no
+    /// notarization, which `AGENTS.md` also forbids depending on.
+    case valid
+    /// Verified and not valid, or not signed at all.
+    case invalidOrAbsent = "invalid-or-absent"
+    /// Not verified, or not verifiable. Unknown is not valid.
+    case unknown
+}
+
 /// What a query reported about one path. Every field is optional because a
 /// partially readable answer is *unknown for that field*, never a default.
 public struct ObservedFileState: Equatable, Sendable {
@@ -523,6 +701,9 @@ public struct ObservedFileState: Equatable, Sendable {
     /// Defaults to `unknown`, so an observation that did not look at access
     /// control fails validation rather than passing on its mode bits.
     public let accessControl: ObservedAccessControl
+    /// Defaults to `unknown` for the same reason: an executable whose signature
+    /// nobody checked is not an executable with a valid signature.
+    public let codeSignature: ObservedCodeSignature
 
     public init(
         kind: ObservedFileKind,
@@ -530,7 +711,8 @@ public struct ObservedFileState: Equatable, Sendable {
         gid: Int? = nil,
         modeBits: Int? = nil,
         contentSHA256: String? = nil,
-        accessControl: ObservedAccessControl = .unknown
+        accessControl: ObservedAccessControl = .unknown,
+        codeSignature: ObservedCodeSignature = .unknown
     ) throws {
         if let uid {
             guard (0...Int(Int32.max)).contains(uid) else { throw QueueInstallationError.invalidObservation }
@@ -550,6 +732,7 @@ public struct ObservedFileState: Equatable, Sendable {
         self.modeBits = modeBits
         self.contentSHA256 = contentSHA256
         self.accessControl = accessControl
+        self.codeSignature = codeSignature
     }
 }
 
@@ -574,10 +757,19 @@ public enum FileArtifactObservation: Equatable, Sendable {
 public struct SchedulerQueueState: Equatable, Sendable {
     public let incarnation: SchedulerQueueIncarnation?
     public let destination: ObservedQueueDestination
+    /// Which printer description the queue is built from. There is deliberately
+    /// no default: a conformer that cannot read it says `unknown`, and unknown
+    /// never matches.
+    public let printerDescription: ObservedQueueDescriptionIdentity
 
-    public init(incarnation: SchedulerQueueIncarnation?, destination: ObservedQueueDestination) {
+    public init(
+        incarnation: SchedulerQueueIncarnation?,
+        destination: ObservedQueueDestination,
+        printerDescription: ObservedQueueDescriptionIdentity
+    ) {
         self.incarnation = incarnation
         self.destination = destination
+        self.printerDescription = printerDescription
     }
 }
 
@@ -607,12 +799,25 @@ public enum SchedulerQueueObservation: Equatable, Sendable {
         if case let .present(state) = self { return state.destination }
         return .unknown
     }
+
+    public var printerDescription: ObservedQueueDescriptionIdentity {
+        if case let .present(state) = self { return state.printerDescription }
+        return .unknown
+    }
 }
 
-/// The durable ownership record as it was read back, as text. A record the seam
-/// could not read is not an empty record.
+/// The durable ownership record as it was read back: the artifact's state *and*
+/// its bytes, from one open descriptor. A record the seam could not read is not
+/// an empty record.
+///
+/// The state travels with the bytes because validating the journal and reading
+/// it used to be two seam calls, and a replacement between them would hand a
+/// record-validated recovery attacker-chosen bytes that had passed nobody's
+/// validation. The state is the one the descriptor the bytes came out of
+/// reports, so checking it is checking the file that was read — not a file that
+/// merely had the same name a moment earlier.
 public enum OwnershipRecordObservation: Equatable, Sendable {
-    case present(String)
+    case present(ObservedFileState, String)
     case confirmedAbsent
     case queryFailed
     /// The file on the other side of the seam was larger than the maximum byte
@@ -637,6 +842,11 @@ public enum ArtifactValidationFailure: Equatable, Sendable {
     /// An effective access control entry grants write access to a principal
     /// other than the POSIX owner.
     case accessControlGrantsOtherPrincipals
+    /// The artifact is executable and no valid code signature was observed over
+    /// its bytes.
+    case codeSignatureInvalid
+    /// The artifact is executable and its signature was never verified.
+    case codeSignatureUnknown
     case contentUnknown
     case contentMismatch
     /// The artifact's bytes exceeded the bounded read they were given.
@@ -669,6 +879,18 @@ public extension PlannedFileArtifact {
                 guard let observed = state.contentSHA256 else { return .contentUnknown }
                 guard observed == expected else { return .contentMismatch }
             }
+            // An executable is the one artifact whose *contents* are code this
+            // machine will run, so the local ad-hoc signing policy has to be a
+            // property something checks rather than a claim about the build.
+            // The digest above already fixes the bytes; this asks whether those
+            // bytes are signed at all.
+            if kind == .filterExecutable {
+                switch state.codeSignature {
+                case .valid: break
+                case .invalidOrAbsent: return .codeSignatureInvalid
+                case .unknown: return .codeSignatureUnknown
+                }
+            }
             return nil
         }
     }
@@ -698,7 +920,7 @@ public enum QueueInstallationRecordedPhase: String, Equatable, Sendable, CaseIte
 /// phase that contradicts the artifact list, or any input whose re-encoding
 /// differs by a single byte fails closed rather than being partly believed.
 public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
-    public static let schemaVersion = 3
+    public static let schemaVersion = 4
     public static let maximumFileArtifacts = 8
     public static let maximumCreatedArtifacts = 16
     public static let maximumEncodedByteCount = 16 * 1024
@@ -717,6 +939,20 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
     /// The incarnation token confirmed for this transaction's own queue.
     /// Removal requires an exact match against it.
     public let queueIncarnation: SchedulerQueueIncarnation?
+    /// The token this transaction is *about to* write into a queue it is
+    /// creating, recorded with the pending queue step and therefore before the
+    /// create effect runs.
+    ///
+    /// Without it, a crash between `createQueue` returning and the confirming
+    /// journal write left a live queue no conditional removal could ever match,
+    /// so the queue and every payload beneath it stayed residual for good. With
+    /// it, recovery has the one value that identifies that queue.
+    ///
+    /// It says nothing else. It does not mean the queue exists, and it is not
+    /// an acquisition: `queueAcquisition` stays `nil` until a readback confirms
+    /// the queue, and `exclusiveCreation` remains the only thing that can make
+    /// a record complete.
+    public let pendingQueueIncarnation: SchedulerQueueIncarnation?
     /// What the create operation could prove about acquiring the name.
     public let queueAcquisition: SchedulerQueueAcquisition?
     public let phase: QueueInstallationRecordedPhase
@@ -729,6 +965,12 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
     /// Where this transaction's queue was asked to deliver. Bound here so that a
     /// later observation can be required to match it exactly.
     public var destination: QueueDestination { intent.destination }
+    /// Which printer description this transaction's queue was asked to be built
+    /// from. Derived from the intent, so it needs no separate encoding and
+    /// cannot drift from the artifact the transaction staged.
+    public var queueDescriptionIdentity: SchedulerQueueDescriptionIdentity? {
+        try? SchedulerQueueDescriptionIdentity(describedBy: intent.printerDescription)
+    }
     /// Every planned file artifact, in the order the transaction would create them.
     public var files: [PlannedFileArtifact] { intent.creationOrderedFiles }
     /// Every artifact this transaction may ever own, in creation order.
@@ -740,6 +982,7 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         validated transactionID: QueueInstallationTransactionID,
         intent: QueueInstallationIntent,
         queueIncarnation: SchedulerQueueIncarnation?,
+        pendingQueueIncarnation: SchedulerQueueIncarnation?,
         queueAcquisition: SchedulerQueueAcquisition?,
         phase: QueueInstallationRecordedPhase,
         pendingArtifact: QueueInstallationArtifactID?,
@@ -748,6 +991,7 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         self.transactionID = transactionID
         self.intent = intent
         self.queueIncarnation = queueIncarnation
+        self.pendingQueueIncarnation = pendingQueueIncarnation
         self.queueAcquisition = queueAcquisition
         self.phase = phase
         self.pendingArtifact = pendingArtifact
@@ -758,6 +1002,7 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         transactionID: QueueInstallationTransactionID,
         intent: QueueInstallationIntent,
         queueIncarnation: SchedulerQueueIncarnation? = nil,
+        pendingQueueIncarnation: SchedulerQueueIncarnation? = nil,
         queueAcquisition: SchedulerQueueAcquisition? = nil,
         phase: QueueInstallationRecordedPhase,
         pendingArtifact: QueueInstallationArtifactID? = nil,
@@ -814,6 +1059,18 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         guard queueIncarnation == nil || createdQueue else {
             throw QueueInstallationError.inconsistentRecordPhase
         }
+        // An *intended* incarnation describes the queue step that is in flight
+        // and nothing else. It belongs to a pending queue, never to a created
+        // one, and it never stands in for the confirmed token: a record cannot
+        // hold both, so nothing can read an intention as a confirmation.
+        if pendingQueueIncarnation != nil {
+            guard pendingArtifact == .schedulerQueue else {
+                throw QueueInstallationError.inconsistentRecordPhase
+            }
+            guard queueIncarnation == nil, queueAcquisition == nil else {
+                throw QueueInstallationError.inconsistentRecordPhase
+            }
+        }
         switch phase {
         case .completed:
             // Completion means every planned artifact exists, in the order it
@@ -836,10 +1093,23 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         self.transactionID = transactionID
         self.intent = intent
         self.queueIncarnation = queueIncarnation
+        self.pendingQueueIncarnation = pendingQueueIncarnation
         self.queueAcquisition = queueAcquisition
         self.phase = phase
         self.pendingArtifact = pendingArtifact
         self.createdArtifacts = createdArtifacts
+    }
+
+    /// The token that identifies this transaction's queue object, whether it
+    /// was confirmed or only intended. Recovery needs one value to match a
+    /// present queue against; it must not need to know which of the two moments
+    /// the transaction died in.
+    ///
+    /// Reading this is never permission to remove anything. Authority,
+    /// destination and description are all checked separately, and an intended
+    /// token still says nothing about who acquired the name.
+    public var identifyingQueueIncarnation: SchedulerQueueIncarnation? {
+        queueIncarnation ?? pendingQueueIncarnation
     }
 
     public func artifact(for id: QueueInstallationArtifactID) -> PlannedFileArtifact? {
@@ -868,7 +1138,9 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
     public func replacingPhase(_ phase: QueueInstallationRecordedPhase) throws -> Self {
         try Self(
             transactionID: transactionID, intent: intent,
-            queueIncarnation: queueIncarnation, queueAcquisition: queueAcquisition,
+            queueIncarnation: queueIncarnation,
+            pendingQueueIncarnation: pendingQueueIncarnation,
+            queueAcquisition: queueAcquisition,
             phase: phase, pendingArtifact: pendingArtifact,
             createdArtifacts: createdArtifacts
         )
@@ -880,7 +1152,9 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
     public func markingResidual() -> Self {
         Self(
             validated: transactionID, intent: intent,
-            queueIncarnation: queueIncarnation, queueAcquisition: queueAcquisition,
+            queueIncarnation: queueIncarnation,
+            pendingQueueIncarnation: pendingQueueIncarnation,
+            queueAcquisition: queueAcquisition,
             phase: .residual, pendingArtifact: pendingArtifact,
             createdArtifacts: createdArtifacts
         )
@@ -888,10 +1162,22 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
 
     /// Names the step whose effect is about to run. Written durably *before* the
     /// effect, so an interruption cannot hide it.
-    public func markingPending(_ id: QueueInstallationArtifactID) throws -> Self {
+    ///
+    /// For the queue step that is not enough on its own: the name of a queue is
+    /// not an identity, so a record that names a pending queue without the
+    /// token it is about to write describes an object nothing can later pick
+    /// out. `intendedQueueIncarnation` is that token, and it is recorded with
+    /// the pending mark — before the effect — for exactly the reason the mark
+    /// itself is.
+    public func markingPending(
+        _ id: QueueInstallationArtifactID,
+        intendedQueueIncarnation intended: SchedulerQueueIncarnation? = nil
+    ) throws -> Self {
         try Self(
             transactionID: transactionID, intent: intent,
-            queueIncarnation: queueIncarnation, queueAcquisition: queueAcquisition,
+            queueIncarnation: queueIncarnation,
+            pendingQueueIncarnation: intended,
+            queueAcquisition: queueAcquisition,
             phase: phase, pendingArtifact: id,
             createdArtifacts: createdArtifacts
         )
@@ -903,9 +1189,13 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         queueAcquisition acquisition: SchedulerQueueAcquisition? = nil
     ) throws -> Self {
         guard let pendingArtifact else { throw QueueInstallationError.invalidPhase }
+        // Nothing is pending afterwards, so neither is an intended token: from
+        // here the queue is identified by the one that was read back, or by
+        // nothing at all.
         return try Self(
             transactionID: transactionID, intent: intent,
             queueIncarnation: incarnation ?? queueIncarnation,
+            pendingQueueIncarnation: nil,
             queueAcquisition: acquisition ?? queueAcquisition,
             phase: phase, pendingArtifact: nil,
             createdArtifacts: createdArtifacts + [pendingArtifact]
@@ -925,6 +1215,7 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         return Self(
             validated: transactionID, intent: intent,
             queueIncarnation: droppedQueue ? nil : queueIncarnation,
+            pendingQueueIncarnation: pendingArtifact == id ? nil : pendingQueueIncarnation,
             queueAcquisition: droppedQueue ? nil : queueAcquisition,
             phase: phase == .completed ? .inProgress : phase,
             pendingArtifact: pendingArtifact == id ? nil : pendingArtifact,
@@ -942,6 +1233,10 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         lines.append("queueAcquisition=\(queueAcquisition?.rawValue ?? "-")")
         lines.append("phase=\(phase.rawValue)")
         lines.append("pending=\(pendingArtifact.map(Self.encode(artifact:)) ?? "-")")
+        lines.append("pendingQueueIncarnation=\(pendingQueueIncarnation?.token ?? "-")")
+        for parent in intent.stagingPolicy.permittedStagingParents {
+            lines.append("permittedStagingParent=\(parent.value)")
+        }
         for file in files {
             let fields = [
                 file.kind.rawValue,
@@ -977,7 +1272,9 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         var lines = text.split(separator: "\n", omittingEmptySubsequences: false)
         guard lines.last == "" else { throw QueueInstallationError.invalidRecord }
         lines.removeLast()
-        guard lines.count >= 9 else { throw QueueInstallationError.invalidRecord }
+        // Nine fixed lines, at least one permitted staging parent, and the four
+        // files an intent is made of.
+        guard lines.count >= 14 else { throw QueueInstallationError.invalidRecord }
 
         func field(_ line: Substring, _ key: String) throws -> String {
             let prefix = key + "="
@@ -1007,8 +1304,25 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         }
         let pendingField = try field(lines[7], "pending")
         let pending = pendingField == "-" ? nil : try decode(artifact: pendingField)
+        let intendedField = try field(lines[8], "pendingQueueIncarnation")
+        let intended = intendedField == "-"
+            ? nil : try SchedulerQueueIncarnation(token: intendedField)
 
-        var index = 8
+        var index = 9
+        var permittedParents: [AbsolutePath] = []
+        while index < lines.count, lines[index].hasPrefix("permittedStagingParent=") {
+            guard permittedParents.count < QueueInstallationStagingPolicy.maximumPermittedParents else {
+                throw QueueInstallationError.tooManyArtifacts
+            }
+            permittedParents.append(try AbsolutePath(field(lines[index], "permittedStagingParent")))
+            index += 1
+        }
+        // The policy's own initializer refuses an empty allowlist and every
+        // system-critical tree, so a journal arriving from outside this process
+        // cannot declare one either.
+        let stagingPolicy = try QueueInstallationStagingPolicy(
+            permittedStagingParents: permittedParents
+        )
         var files: [PlannedFileArtifact] = []
         while index < lines.count, lines[index].hasPrefix("file=") {
             guard files.count < maximumFileArtifacts else { throw QueueInstallationError.tooManyArtifacts }
@@ -1039,11 +1353,13 @@ public struct QueueInstallationOwnershipRecord: Equatable, Sendable {
         let intent = try QueueInstallationIntent(
             queue: queue, destination: destination,
             protectedRoot: files[0], ownershipRecord: files[1],
-            filter: files[2], printerDescription: files[3]
+            filter: files[2], printerDescription: files[3],
+            stagingPolicy: stagingPolicy
         )
         let record = try Self(
             transactionID: transactionID, intent: intent,
-            queueIncarnation: incarnation, queueAcquisition: acquisition,
+            queueIncarnation: incarnation, pendingQueueIncarnation: intended,
+            queueAcquisition: acquisition,
             phase: phase, pendingArtifact: pending,
             createdArtifacts: created
         )

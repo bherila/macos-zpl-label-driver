@@ -50,12 +50,15 @@ public struct QueueInstallationRecovery {
 
     /// Hydrates recovery state from the journal on the other side of the seam.
     ///
-    /// The artifact is **validated before it is read**: kind, ownership, mode,
-    /// symlink and effective access control are checked against the planned
-    /// journal artifact first, because the read operation hands back bytes and
-    /// nothing else. Without that, a symbolic link or a wrong-owner file holding
-    /// a copied canonical record could hydrate a record-validated recovery and
-    /// so authorize destructive cleanup from contents anybody could place.
+    /// The artifact is **validated by the very call that reads it**: the seam
+    /// opens the journal once, stats and reads through that one descriptor, and
+    /// hands back both, so kind, ownership, mode, symlink status and effective
+    /// access control are checked against the planned journal artifact *for the
+    /// file the bytes came out of*. A separate observation followed by a read
+    /// would not do: between the two, a symbolic link or a wrong-owner file
+    /// holding a copied canonical record can take the path, and those bytes
+    /// would hydrate a record-validated recovery — which then deletes what they
+    /// name. Validation that the bytes can outrun is validation of nothing.
     ///
     /// The bytes are then read under a byte cap, decoded strictly, and must
     /// describe a record that both lives in the very artifact they were read
@@ -69,20 +72,21 @@ public struct QueueInstallationRecovery {
         using sink: inout Sink
     ) throws -> Self {
         guard journal.kind == .ownershipRecord else { throw QueueInstallationError.artifactKindMismatch }
-        let observation = sink.observeFile(at: journal.path)
-        if let failure = journal.validationFailure(against: observation) {
-            throw QueueInstallationError.stagedArtifactInvalid(.ownershipRecord, failure)
-        }
         let limit = QueueInstallationOwnershipRecord.maximumEncodedByteCount
         switch sink.readOwnershipRecord(at: journal, maximumByteCount: limit) {
         case .queryFailed:
             // Unreadable is not absent and is certainly not "nothing to do".
             throw QueueInstallationError.effectFailed
         case .confirmedAbsent:
-            throw QueueInstallationError.invalidRecord
+            throw QueueInstallationError.stagedArtifactInvalid(.ownershipRecord, .absent)
         case .exceededMaximumByteCount:
             throw QueueInstallationError.ownershipRecordTooLarge
-        case let .present(text):
+        case let .present(state, text):
+            // The state and the bytes came through one descriptor, so refusing
+            // here refuses the file that was actually read.
+            if let failure = journal.validationFailure(against: .present(state)) {
+                throw QueueInstallationError.stagedArtifactInvalid(.ownershipRecord, failure)
+            }
             guard text.utf8.count <= limit else { throw QueueInstallationError.ownershipRecordTooLarge }
             let record = try QueueInstallationOwnershipRecord.decode(text)
             guard record.journalArtifact == journal else { throw QueueInstallationError.recordHasNoJournal }
@@ -169,7 +173,13 @@ public struct QueueInstallationRecovery {
             // is not either: another administrator recreating the same name with
             // the same target and description would match it. Only the
             // unrepeatable incarnation token this transaction wrote will do.
-            guard let observed = state.incarnation, let recorded = record.queueIncarnation,
+            // The recorded token is the confirmed one when the transaction got
+            // that far, and the *intended* one when it died between writing the
+            // queue and confirming it. Both identify the same object; neither
+            // says the name was acquired, which is what the authority check
+            // above is for.
+            guard let observed = state.incarnation,
+                  let recorded = record.identifyingQueueIncarnation,
                   observed == recorded else {
                 return enterResidual(.queueIncarnationUnverified, using: &sink)
             }
@@ -181,6 +191,16 @@ public struct QueueInstallationRecovery {
                   destination == record.destination else {
                 return enterResidual(.queueDestinationUnverified, using: &sink)
             }
+            // And it has to still be built from the description the record
+            // names. A queue rebuilt from a different one runs something else,
+            // whatever its token says.
+            guard let expectedDescription = record.queueDescriptionIdentity else {
+                return enterResidual(.queueDescriptionUnverified, using: &sink)
+            }
+            guard case let .known(description) = state.printerDescription,
+                  description == expectedDescription else {
+                return enterResidual(.queueDescriptionUnverified, using: &sink)
+            }
             if let residual = journalStillOurs(using: &sink) { return residual }
             // The observation above and the deletion below are two moments. If
             // the checked queue were deleted and the name recreated in between,
@@ -190,13 +210,25 @@ public struct QueueInstallationRecovery {
             // longer does, nothing is deleted and this stops.
             let removal: SchedulerQueueRemoval
             do {
-                removal = try sink.removeQueue(queue, ifIncarnationMatches: recorded)
+                removal = try sink.removeQueue(
+                    queue,
+                    ifIncarnationMatches: recorded,
+                    andDestinationMatches: record.destination,
+                    andDescriptionMatches: expectedDescription
+                )
             } catch {
                 return enterResidual(.effectFailed, using: &sink)
             }
             switch removal {
             case .incarnationChanged:
                 return enterResidual(.queueIncarnationUnverified, using: &sink)
+            case .destinationChanged:
+                // The token survived but the queue was re-pointed in the window
+                // between the check above and this call, so it is somebody's
+                // modified queue and not the one that was authorized.
+                return enterResidual(.queueDestinationUnverified, using: &sink)
+            case .descriptionChanged:
+                return enterResidual(.queueDescriptionUnverified, using: &sink)
             case .unknown:
                 // Ambiguous, so it is never replayed: a second attempt could
                 // delete a queue that appeared in the meantime.
@@ -220,41 +252,52 @@ public struct QueueInstallationRecovery {
     private mutating func removeFileStep<Sink: QueueInstallationEffectSink>(
         _ artifact: PlannedFileArtifact, using sink: inout Sink
     ) -> QueueInstallationOutcome? {
-        let observation = sink.observeFile(at: artifact.path)
-        if observation.isConfirmedAbsent {
-            // A pending step whose effect never ran lands here, which is why a
-            // pending artifact is probed rather than assumed absent.
-            return dropping(.file(artifact.path), using: &sink)
-        }
-        if let failure = artifact.validationFailure(against: observation) {
-            // Something other than what this transaction created now occupies
-            // the path, or the query failed. Either way it is retained for a
-            // human, not deleted on a guess.
-            return enterResidual(
-                failure == .observationFailed ? .fileStateUnknown : .unexpectedArtifactState, using: &sink
-            )
-        }
         if artifact.kind == .ownershipRecord {
             // The journal is the one artifact whose bytes no planned digest can
             // pin, because it is rewritten as the transaction runs. Metadata
-            // alone would let a replaced journal be deleted, so read it back and
-            // require that it is this record in full — not merely a canonical
-            // record reusing the same caller-supplied transaction identifier
-            // with a different queue, intent or inventory.
+            // alone would let a replaced journal be deleted, so it is validated
+            // and read by one call through one descriptor, and must be this
+            // record in full — not merely a canonical record reusing the same
+            // caller-supplied transaction identifier with a different queue,
+            // intent or inventory.
             let limit = QueueInstallationOwnershipRecord.maximumEncodedByteCount
             switch sink.readOwnershipRecord(at: artifact, maximumByteCount: limit) {
             case .queryFailed:
                 return enterResidual(.fileStateUnknown, using: &sink)
             case .confirmedAbsent:
-                return enterResidual(.unexpectedArtifactState, using: &sink)
+                // A pending step whose effect never ran lands here, which is why
+                // a pending artifact is probed rather than assumed absent.
+                return dropping(.file(artifact.path), using: &sink)
             case .exceededMaximumByteCount:
                 return enterResidual(.fileStateUnknown, using: &sink)
-            case let .present(text):
+            case let .present(state, text):
+                if let failure = artifact.validationFailure(against: .present(state)) {
+                    return enterResidual(
+                        failure == .observationFailed ? .fileStateUnknown : .unexpectedArtifactState,
+                        using: &sink
+                    )
+                }
                 guard text.utf8.count <= limit else { return enterResidual(.fileStateUnknown, using: &sink) }
                 guard let durable = try? QueueInstallationOwnershipRecord.decode(text),
                       durable == record else {
                     return enterResidual(.unexpectedArtifactState, using: &sink)
                 }
+            }
+        } else {
+            let observation = sink.observeFile(at: artifact.path)
+            if observation.isConfirmedAbsent {
+                // A pending step whose effect never ran lands here, which is why
+                // a pending artifact is probed rather than assumed absent.
+                return dropping(.file(artifact.path), using: &sink)
+            }
+            if let failure = artifact.validationFailure(against: observation) {
+                // Something other than what this transaction created now
+                // occupies the path, or the query failed. Either way it is
+                // retained for a human, not deleted on a guess.
+                return enterResidual(
+                    failure == .observationFailed ? .fileStateUnknown : .unexpectedArtifactState,
+                    using: &sink
+                )
             }
         }
         if artifact.kind == .protectedRoot {
@@ -273,9 +316,23 @@ public struct QueueInstallationRecovery {
         if let residual = journalStillOurs(using: &sink) { return residual }
         let removal: FileArtifactRemoval
         do {
-            if artifact.kind == .protectedRoot {
+            switch artifact.kind {
+            case .protectedRoot:
                 removal = try sink.removeEmptyDirectory(artifact)
-            } else {
+            case .ownershipRecord:
+                // The read above proved the bytes, and the compare-and-swap
+                // just above re-asserted them, but neither binds the deletion:
+                // a planned journal artifact deliberately carries no content
+                // digest, so a conformer honouring every field in `removeFile`
+                // would still delete a journal replaced in between. The
+                // deletion therefore carries the bytes it was authorized
+                // against — the ones this recovery last wrote durably, which is
+                // what the compare-and-swap asserted a moment ago.
+                guard let expected = lastDurableText else {
+                    return enterResidual(.journalConflict, using: &sink)
+                }
+                removal = try sink.removeOwnershipRecord(artifact, ifContentsMatch: expected)
+            case .filterExecutable, .printerDescription:
                 removal = try sink.removeFile(artifact)
             }
         } catch {
