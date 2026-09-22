@@ -57,8 +57,28 @@ bash scripts/ci-swift.sh
 This is exactly what the `swift-macos-arm64` job runs, and takes about eleven minutes. In order: host
 preflight; the accelerator suite in debug and release; the inert CUPS capture filter's validation;
 `LabelMac` tests in debug and release; a release build; the inert Core Graphics diagnostic; architecture
-checks on the built executables; local ad-hoc signing of the diagnostic; a check that Developer-ID mode
-**refuses** rather than silently falling back; and finally the setup app build.
+and minimum-runtime checks on the built executables; local ad-hoc signing of the diagnostic; a check that
+Developer-ID mode **refuses** rather than silently falling back; the setup app build; and finally the
+signature, architecture, minimum-runtime and bundle-metadata checks on the app that was just built.
+
+Those last checks are assertions, not printed output. `scripts/ci-swift.sh` only captures tool output —
+`lipo -archs`, `vtool -show-build`, `codesign -dv --verbose=4`, `plutil -convert json` — and hands each
+capture to `scripts/check_native_artifacts.py`, which decides pass or fail:
+
+```sh
+python3 scripts/check_native_artifacts.py architecture release-label-driver <capture>
+```
+
+It exits 0 on a pass, 1 on a failed assertion, and 2 when it cannot judge the input at all. Every
+parsing and accept/reject rule lives in that Python file so it can be unit-tested on Linux, where none
+of those tools exist; the cases are in `scripts/tests/test_native_artifacts.py` and run with the rest of
+`python3 -m unittest discover -s scripts/tests`. The expected minimum macOS is a fixed constant in the
+checker, deliberately not read from `MACOSX_DEPLOYMENT_TARGET`: the environment variable is the build's
+input, and the `LC_BUILD_VERSION` load command is the evidence.
+
+Wall-clock timing, throughput and peak memory are **not** asserted there. A shared hosted runner's
+timing is not a baseline, so those stay on a repeatable local reference run as
+[VALIDATION-PLAN.md](VALIDATION-PLAN.md) describes.
 
 ### One test, one suite
 

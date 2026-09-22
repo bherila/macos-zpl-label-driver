@@ -53,6 +53,31 @@ public struct OfflineConversionTicket: Equatable, Sendable {
         }
     }
 
+    /// Re-reads the ticket bytes as a dictionary, so the *presence* of a key can
+    /// be told from its absence -- something `Decodable` alone cannot express.
+    ///
+    /// `JSONSerialization` is a second parser run over bytes a first parser has
+    /// already accepted, and the two are not guaranteed to agree: it throws
+    /// `NSError` in `NSCocoaErrorDomain`, which is not part of this type's
+    /// documented failure surface. Both of its failure modes -- a throw and a
+    /// top level that is not an object -- become `malformedJSON` here, matching
+    /// how `init(jsonData:)` already treats bytes the first parser rejects. The
+    /// closure of the surface is then a property of this function rather than of
+    /// an unstated argument that two JSON parsers behave identically.
+    ///
+    /// Internal rather than `private` so the error-surface test can pin the
+    /// mapping directly, on bytes every JSON parser rejects.
+    static func rootObject(from jsonData: Data) throws -> [String: Any] {
+        let parsed: Any
+        do {
+            parsed = try JSONSerialization.jsonObject(with: jsonData)
+        } catch {
+            throw TicketError.malformedJSON
+        }
+        guard let root = parsed as? [String: Any] else { throw TicketError.malformedJSON }
+        return root
+    }
+
     public enum Conversion: Equatable, Sendable {
         case textAndBarcodeThreshold(cutoff: UInt8)
         case photographicOrderedDither4x4
@@ -127,9 +152,13 @@ public struct OfflineConversionTicket: Equatable, Sendable {
     /// Version 3 adds required explicit output margins; older versions reject that field.
     ///
     /// - Throws: `TicketError`, and nothing else. Component domains are wrapped
-    ///   by `admitting(_:)` rather than propagated, so the documented type is
-    ///   the whole failure surface. `OfflineConversionTicketErrorSurfaceTests`
-    ///   pins that set; widening it is a visible test change, not a silent one.
+    ///   by `admitting(_:)` rather than propagated, and the second parse of the
+    ///   same bytes goes through `rootObject(from:)`, so every call that can
+    ///   fail here is inside one of the two. The documented type is therefore
+    ///   the whole failure surface by construction, not by an argument about
+    ///   which inputs reach which parser.
+    ///   `OfflineConversionTicketErrorSurfaceTests` pins that set; widening it
+    ///   is a visible test change, not a silent one.
     public init(jsonData: Data) throws {
         let wire: WireTicket
         do {
@@ -140,9 +169,7 @@ public struct OfflineConversionTicket: Equatable, Sendable {
         guard (1...3).contains(wire.schemaVersion) else {
             throw TicketError.unsupportedSchemaVersion(wire.schemaVersion)
         }
-        guard let root = try JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
-            throw TicketError.malformedJSON
-        }
+        let root = try Self.rootObject(from: jsonData)
         let margins: OutputMargins
         if wire.schemaVersion == 3 {
             guard let fields = root["outputMargins"] as? [String: Any],

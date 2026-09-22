@@ -84,8 +84,14 @@ final class GeometryControlIntegrationTests: XCTestCase {
         XCTAssertThrowsError(try p.resolveControls(job: .init(tracking: .gap))) {
             XCTAssertEqual($0 as? PhysicalGeometryQualification.Error, .continuousModeRequired)
         }
+        // This fixture is schema 5 and its black-mark capability fact is
+        // supported and documented, so the refusal is about the record's
+        // version and must not be reported as a limitation of the printer.
+        XCTAssertEqual(p.schemaVersion, 5)
+        XCTAssertEqual(p.capabilities.tracking[.blackMark]?.state, .supported)
         XCTAssertThrowsError(try p.resolveControls(job: .init(tracking: .blackMark))) {
-            XCTAssertEqual($0 as? PrinterProfileError, .unavailableTracking(.blackMark))
+            XCTAssertEqual($0 as? PrinterProfileError,
+                           .controlRequiresSchemaVersion(.tracking(.blackMark), required: 6, profileVersion: 5))
         }
         let gap = try GeometryControlTestFixture.profile(defaults: .init(tracking: .gap,
             mediaGeometry: MediaGeometryRequest(widthDots: 20, originXDot: 1, originYDot: 1)))
