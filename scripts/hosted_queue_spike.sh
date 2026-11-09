@@ -87,6 +87,10 @@ snapshot() {
   # Which queue names each scheduler file still mentions: hashes alone cannot say what a difference is.
   sudo -n grep -H -E '^<(Default)?Printer ' /private/etc/cups/printers.conf /private/etc/cups/printers.conf.O \
     2>/dev/null | sort >"$dir/printers-conf-queues.txt"
+  # On this throwaway VM these files hold only the spike queue, so their non-comment text is safe to keep.
+  for file in printers.conf printers.conf.O; do
+    sudo -n grep -v '^#' "/private/etc/cups/$file" >"$dir/$file.content" 2>/dev/null || true
+  done
 }
 
 # cupsd writes printers.conf lazily, so a snapshot taken right after lpadmin -x can see the
