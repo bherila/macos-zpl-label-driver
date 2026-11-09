@@ -5,7 +5,7 @@
       "acceptanceID": "M2-AC04",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "041afb5e09bd87ea89f12d17b9742c3e92700abb",
+      "sourceSHA": "37d24316224dd91d49d387f0052b7350acbd4c74",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/BitmapLayout.swift",
@@ -34,8 +34,8 @@
           "sha256": "d4a4d440352af1d41681f929dccab411588a5f8a5327c11c8c837cb685f696a1"
         },
         {
-          "path": "docs/validation/EVIDENCE-RESEAL-AFTER-SPIKE-AND-UNINSTALL-SLICES-2026-11-09.md",
-          "sha256": "a0d564f1f615e527c69cd2446ea724e7ca41f6c694449345b5a183aa14ad5f03"
+          "path": "docs/validation/EVIDENCE-RESEAL-AFTER-RELOAD-ADMISSION-2026-11-09.md",
+          "sha256": "c8fa471efded04b83c6bd66c6aa5106736deeb6df3fff09932fd7fbe0c382425"
         }
       ]
     },
@@ -43,7 +43,7 @@
       "acceptanceID": "M2-AC13",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "041afb5e09bd87ea89f12d17b9742c3e92700abb",
+      "sourceSHA": "37d24316224dd91d49d387f0052b7350acbd4c74",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/PhysicalGeometry.swift",
@@ -124,8 +124,8 @@
           "sha256": "d4a4d440352af1d41681f929dccab411588a5f8a5327c11c8c837cb685f696a1"
         },
         {
-          "path": "docs/validation/EVIDENCE-RESEAL-AFTER-SPIKE-AND-UNINSTALL-SLICES-2026-11-09.md",
-          "sha256": "a0d564f1f615e527c69cd2446ea724e7ca41f6c694449345b5a183aa14ad5f03"
+          "path": "docs/validation/EVIDENCE-RESEAL-AFTER-RELOAD-ADMISSION-2026-11-09.md",
+          "sha256": "c8fa471efded04b83c6bd66c6aa5106736deeb6df3fff09932fd7fbe0c382425"
         }
       ]
     },
@@ -133,7 +133,7 @@
       "acceptanceID": "M3-AC03",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "041afb5e09bd87ea89f12d17b9742c3e92700abb",
+      "sourceSHA": "37d24316224dd91d49d387f0052b7350acbd4c74",
       "implementation": [
         {
           "path": "Packages/LabelCore/Sources/LabelCore/ZPLControlProtocolCoverage.swift",
@@ -182,8 +182,8 @@
           "sha256": "3445d1f5366ccfe3e5a6ea5a51bf1a39661da65df72e43d81154db25ca6dc4a2"
         },
         {
-          "path": "docs/validation/EVIDENCE-RESEAL-AFTER-SPIKE-AND-UNINSTALL-SLICES-2026-11-09.md",
-          "sha256": "a0d564f1f615e527c69cd2446ea724e7ca41f6c694449345b5a183aa14ad5f03"
+          "path": "docs/validation/EVIDENCE-RESEAL-AFTER-RELOAD-ADMISSION-2026-11-09.md",
+          "sha256": "c8fa471efded04b83c6bd66c6aa5106736deeb6df3fff09932fd7fbe0c382425"
         }
       ]
     },
@@ -191,7 +191,7 @@
       "acceptanceID": "M2-AC05",
       "level": "A",
       "state": "pass",
-      "sourceSHA": "041afb5e09bd87ea89f12d17b9742c3e92700abb",
+      "sourceSHA": "37d24316224dd91d49d387f0052b7350acbd4c74",
       "implementation": [
         {
           "path": "Packages/LabelMac/Sources/LabelMac/WorkerBitmapBinding.swift",
@@ -240,8 +240,8 @@
           "sha256": "3445d1f5366ccfe3e5a6ea5a51bf1a39661da65df72e43d81154db25ca6dc4a2"
         },
         {
-          "path": "docs/validation/EVIDENCE-RESEAL-AFTER-SPIKE-AND-UNINSTALL-SLICES-2026-11-09.md",
-          "sha256": "a0d564f1f615e527c69cd2446ea724e7ca41f6c694449345b5a183aa14ad5f03"
+          "path": "docs/validation/EVIDENCE-RESEAL-AFTER-RELOAD-ADMISSION-2026-11-09.md",
+          "sha256": "c8fa471efded04b83c6bd66c6aa5106736deeb6df3fff09932fd7fbe0c382425"
         }
       ]
     }
