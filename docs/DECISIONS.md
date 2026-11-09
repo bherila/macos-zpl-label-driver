@@ -44,9 +44,9 @@ anything works; each names what still has to be shown.
 
 | ID | Decision | Status / gate |
 |---|---|---|
-| D15 | Hosted `macos-26` runners may run `sudo lpadmin` on their own throwaway VM, against a file or discard backend only, never a printer | **Spike first**: a manual-dispatch workflow records runner facts (SIP state, `cupsd`, `sudo`, whether a file-backend queue can be created and deleted) before any per-PR use. A hosted VM is a new, separately declared surface in `docs/test-surfaces.json`, not a relabelled "test Mac"; if SIP is disabled there, `M1-AC01` cannot pass on it |
+| D15 | Hosted `macos-26` runners may run `sudo lpadmin` on their own throwaway VM, against a file or discard backend only, never a printer | **Spike first**: a manual-dispatch workflow records runner facts (SIP state, `cupsd`, `sudo`, whether a file-backend queue can be created and deleted) before any per-PR use. A hosted VM is a new, separately declared surface in `docs/test-surfaces.json`, not a relabelled "test Mac". **Spike run 2026-11-09: SIP is disabled on the runner, so `M1-AC01` cannot pass there** ([record](validation/M1-HOSTED-QUEUE-SPIKE-2026-11-09.md)) |
 | D16 | Privileged installation is an **unsigned `.pkg`** run by Installer.app, which owns the admin prompt; the app never collects credentials | Feasibility without Developer ID still to be proven in M1 (#129); Gatekeeper first-open friction is documented, never bypassed |
-| D17 | Delivery reuses the built-in **`usb://` backend**; the product ships a filter, placed under `/Library/Printers/` | **Provisional.** In CUPS the filter can exit while the backend is still writing, so a filter-held lock does not by itself cover actual device delivery as `AGENTS.md` requires. The spike must show how the lock spans delivery; if it cannot, revert to a product backend, subject to SIP-protected paths |
+| D17 | Delivery reuses the built-in **`usb://` backend**; the product ships a filter, placed under `/Library/Printers/` | **Provisional.** In CUPS the filter can exit while the backend is still writing, so a filter-held lock does not by itself cover actual device delivery as `AGENTS.md` requires. **Spike run 2026-11-09: backend delivery outlived the filter by 4 s in 3 of 3 runs**, so a filter-held lock does not cover delivery and D17 cannot stand as written; awaiting a maintainer decision ([record](validation/M1-HOSTED-QUEUE-SPIKE-2026-11-09.md)) |
 | D18 | The single physical-device and installation coordination domain is **one lock file held with `flock(2)`** in a protected root-owned directory, across the whole interval, by every product queue's job path and every install, uninstall and maintenance action | Answers the held-claim gap in #162 for cooperating processes; kernel releases it on crash. Does not stop uncooperative writers, which stays a recorded residual. ADR 0005 to be updated accordingly |
 | D19 | **Clean uninstall is a requirement**, not a convenience: run from the setup app through the standard macOS admin prompt (Authorization Services), removing only what the install receipt recorded | See the uninstall requirements below |
 | D20 | `schemaVersion` must change for new **fields**, not for new enum cases | Closed enumerations already make older readers fail closed on an unknown case. Closes #146 with #145's reasoning recorded |
@@ -67,3 +67,8 @@ anything works; each names what still has to be shown.
 - **Verified by a before/after snapshot**, not by the uninstaller's own exit status: the installed file
   set, `lpstat -v`/`lpstat -d` and `pkgutil --pkgs` after uninstall must equal the baseline taken before
   install. This is a hosted-spike test (D15) first, then a test-Mac check.
+- **Spike run 2026-11-09:** after cupsd's lazy rewrite (about 28 s), the only residue was scheduler
+  bookkeeping (`NextPrinterId` in `printers.conf`) and cupsd's `printers.conf.O` backup, which keeps
+  the removed queue's whole definition, `DeviceURI` included. "Equal to the baseline" needs a stated
+  allowance for the first and a maintainer decision on the second
+  ([record](validation/M1-HOSTED-QUEUE-SPIKE-2026-11-09.md)).
