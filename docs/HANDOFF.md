@@ -1,3 +1,31 @@
+# Spike, uninstall verifier and a security fix merged; four records re-sealed — 2026-11-09 (later)
+
+Merged on the maintainer's instruction to merge and continue. **No byte was sent to any printer.**
+
+| PR | Slice | Reviewed head | Squashed to |
+|---|---|---|---|
+| #169 | decisions D15–D22 and the manual hosted queue spike | `1239de2` | `1e61bfa` |
+| #170 | spike snapshot fixes, findings, D23 and D24 | `f2923d9` | `303d3fe` |
+| #171 | `UninstallVerification` (D19) | `781afa2` | `b43dd02` |
+| #172 | renderer full-page bound applied at planned-label admission | `3803639` | `041afb5` |
+
+- **Spike** (`docs/validation/M1-HOSTED-QUEUE-SPIKE-2026-11-09.md`):
+  - SIP is **disabled** on hosted runners.
+  - Backend delivery outlived the filter by 4 s in 3 of 3 runs. That led to D23: one queue per printer.
+  - cupsd's `printers.conf.O` keeps the removed queue's `DeviceURI`. That led to D24: no serial in the URI.
+- **#101 agent security review:**
+  - Finding 1 is fixed by #172.
+  - Finding 2 is **open with the maintainer**: the app's only reopen path always uses `.offlineCandidate`.
+  - Finding 3 is a record correction: the default policy is stricter than the old guard, not byte-identical.
+- **Re-seal:** `EVIDENCE-RESEAL-AFTER-SPIKE-AND-UNINSTALL-SLICES-2026-11-09.md` rebinds all four records to
+  `041afb5`. 51 of 51 cited paths match.
+
+**Still owed:**
+- #130 per-row ledger work.
+- ADR 0005 updated for D18 and D23.
+- Closing #146 with the D20 rule.
+- Restating `M3-AC07` and `M5-AC05` for the one-queue model. This needs maintainer review and is not edited yet.
+
 # Dependency bump merged and four records re-sealed after #166 and #167 — 2026-11-09
 
 On the maintainer's request to fix forward and merge dependency updates. Nothing was printed, installed
