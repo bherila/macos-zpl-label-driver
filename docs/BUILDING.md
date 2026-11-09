@@ -158,6 +158,19 @@ ioreg -a -l -r -c IOUSBHostDevice | python3 scripts/usb_identity_probe.py
 It reads the host I/O Registry only and never prints a serial number. Never post a serial or the
 `--fingerprint` value; compare fingerprints locally and report only same or different.
 
+## Hosted queue spike (manual)
+
+`.github/workflows/hosted-queue-spike.yml` runs only on `workflow_dispatch` (Actions → *Hosted queue
+spike* → *Run workflow*). It runs `scripts/hosted_queue_spike.sh` on a throwaway `macos-26` VM, which
+records runner facts (SIP, Gatekeeper, `sudo`, the scheduler, protected CUPS paths), installs a
+throwaway filter, PPD and queue whose device is a slow loopback listener on the same VM, measures how
+long backend delivery outlives the filter (decision D17), uninstalls, and diffs the system state against
+a baseline taken before install (D19). The step summary and a three-day artifact hold the record.
+
+The script refuses to run anywhere except a GitHub-hosted macOS runner (`GITHUB_ACTIONS=true`,
+`RUNNER_ENVIRONMENT=github-hosted`, Darwin); `scripts/tests/test_hosted_queue_spike.py` covers that
+guard. Never run it on your own Mac. It is diagnostic and qualifies no acceptance criterion.
+
 ## Before you commit
 
 `MANIFEST.sha256` covers every tracked file and CI enforces it. Stage your files first — the refresh reads
