@@ -1,0 +1,42 @@
+name: Hosted queue spike
+
+# Manual only (DECISIONS.md D15). Runs scripts/hosted_queue_spike.sh on a throwaway GitHub-hosted
+# macos-26 VM: it records runner facts, installs and removes a throwaway CUPS queue whose device
+# is a loopback listener on the same VM, and diffs the system state before and after.
+# It never reaches a printer, uses no secrets and qualifies no acceptance criterion.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hosted-queue-spike-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spike:
+    name: hosted-queue-spike-macos-26
+    runs-on: macos-26
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run the spike
+        run: bash scripts/hosted_queue_spike.sh "$RUNNER_TEMP/spike"
+      - name: Publish the summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/spike/SUMMARY.md" ]; then
+            cat "$RUNNER_TEMP/spike/SUMMARY.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Retain the spike record
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: hosted-queue-spike-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/spike
+          retention-days: 3
+          if-no-files-found: warn
