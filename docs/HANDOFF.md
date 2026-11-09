@@ -1,3 +1,27 @@
+# Dependency bump merged and four records re-sealed after #166 and #167 — 2026-11-09
+
+On the maintainer's request to fix forward and merge dependency updates. Nothing was printed, installed
+or authorized, and **no byte was sent to any printer**.
+
+| PR | Slice | Reviewed head | Squashed to |
+|---|---|---|---|
+| #167 | `actions/upload-artifact` 7.0.1 → 7.0.2, with its manifest digest refreshed | `579da37` | `9dd834e` |
+
+- **Dependabot #165** failed `repository-preflight` with `STALE-DIGEST .github/workflows/ci.yml`:
+  dependabot cannot refresh `MANIFEST.sha256`. Its commit was cherry-picked unchanged into #167 with the
+  refresh, the pin was checked with `git ls-remote` to be `refs/tags/v7.0.2`, and #165 was closed as
+  superseded. #167's run 42683401956 was green with `swift-macos-arm64` executed. Every other pinned
+  action is at its latest tag and there are no remote SwiftPM dependencies.
+- **Scheduled `Evidence staleness` was red on `main` from 2026-11-07** (runs 48–50), because #166
+  removed `CLAUDE.md`, a source path, staling `M2-AC04`, `M2-AC05`, `M2-AC13` and `M3-AC03`. Main's `CI`
+  workflow itself stayed green. `docs/validation/EVIDENCE-RESEAL-AFTER-CLAUDE-MD-AND-UPLOAD-ARTIFACT-2026-11-09.md`
+  rebinds all four to `9dd834e`: 51 of 51 cited paths re-hashed identical, and the new receipt replaces
+  the previous one in each record rather than being appended.
+
+**Still owed, unchanged:** the eleven checked rows with no ledger record (#130), and everything blocked
+on a test Mac, a supervised GUI session or the GC420d (#89, #90, #133, #136). Open design issues #129,
+#146 and #162 are untouched.
+
 # Five slices merged, four records re-sealed, and the portable suite runs on every PR — 2026-09-22
 
 All five merged on the maintainer's explicit authorization. Nothing was printed, installed or authorized,
