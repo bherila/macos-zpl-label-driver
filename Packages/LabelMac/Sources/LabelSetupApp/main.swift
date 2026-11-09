@@ -127,6 +127,8 @@ struct SetupDocumentView: View {
     @State private var openingMode: WorkflowOpeningMode = .assisted
     @State private var selectedSavedWorkflow: String?
     @State private var reopeningProfile: WorkflowProfileStore.CatalogEntry?
+    /// True only for the explicit, separately labelled action that skips the configured-stock guard.
+    @State private var reopeningOffline = false
 
     var body: some View {
         VStack {
@@ -138,10 +140,10 @@ struct SetupDocumentView: View {
             } else {
                 Text("Open a local PDF to create an offline label workflow.")
             }
-            Button("Open PDF…") { reopeningProfile = nil; openingMode = .assisted; importing = true }
+            Button("Open PDF…") { reopeningProfile = nil; reopeningOffline = false; openingMode = .assisted; importing = true }
                 .keyboardShortcut("o", modifiers: [.command])
                 .disabled(!canOpen || documents.isOpening)
-            Button("Open PDF for Manual Extraction…") { reopeningProfile = nil; openingMode = .manual; importing = true }
+            Button("Open PDF for Manual Extraction…") { reopeningProfile = nil; reopeningOffline = false; openingMode = .manual; importing = true }
                 .keyboardShortcut("o", modifiers: [.command, .shift])
                 .disabled(!canOpen || documents.isOpening)
             GroupBox("Saved workflow revisions") {
@@ -153,9 +155,17 @@ struct SetupDocumentView: View {
                                 .tag(Optional(entry.id))
                         }
                     }
-                    Text("Reopens for offline correction. Configured printer stock is unchanged.").font(.caption)
+                    Text("Reopens a revision for correction on the configured printer stock. A revision saved for different stock is refused here.").font(.caption)
                     Button("Reopen Saved Workflow with PDF…") {
                         reopeningProfile = documents.savedWorkflows.first { $0.id == selectedSavedWorkflow }
+                        reopeningOffline = false
+                        if reopeningProfile != nil { importing = true }
+                    }.disabled(!canOpen || documents.isOpening ||
+                        !documents.savedWorkflows.contains { $0.id == selectedSavedWorkflow })
+                    Text("Offline correction does not assert that the revision's stock matches the configured printer. Store verification, layout admission and a new visual review still apply.").font(.caption)
+                    Button("Reopen for Offline Correction (any stock)…") {
+                        reopeningProfile = documents.savedWorkflows.first { $0.id == selectedSavedWorkflow }
+                        reopeningOffline = true
                         if reopeningProfile != nil { importing = true }
                     }.disabled(!canOpen || documents.isOpening ||
                         !documents.savedWorkflows.contains { $0.id == selectedSavedWorkflow })
@@ -173,8 +183,13 @@ struct SetupDocumentView: View {
         }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.pdf]) { result in
             if case let .success(url) = result {
-                if let reopeningProfile { documents.openSavedWorkflowForOfflineEditing(url, profile: reopeningProfile.profile) }
-                else { documents.open(url, mode: openingMode) }
+                if let reopeningProfile {
+                    if reopeningOffline {
+                        documents.openSavedWorkflowForOfflineEditing(url, profile: reopeningProfile.profile)
+                    } else {
+                        documents.openSavedWorkflow(url, profile: reopeningProfile.profile)
+                    }
+                } else { documents.open(url, mode: openingMode) }
             }
             if case .failure = result { documents.reportImportFailure() }
         }
