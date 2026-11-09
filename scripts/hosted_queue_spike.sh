@@ -84,6 +84,27 @@ snapshot() {
   sudo -n find /private/etc/cups -type f 2>/dev/null | sort | while read -r file; do
     printf '%s %s\n' "$(sudo -n grep -v '^#' "$file" | shasum -a 256 | awk '{print $1}')" "$file"
   done >"$dir/etc-cups.txt"
+  # Which queue names each scheduler file still mentions: hashes alone cannot say what a difference is.
+  sudo -n grep -H -E '^<(Default)?Printer ' /private/etc/cups/printers.conf /private/etc/cups/printers.conf.O \
+    2>/dev/null | sort >"$dir/printers-conf-queues.txt"
+  # On this throwaway VM these files hold only the spike queue, so their non-comment text is safe to keep.
+  for file in printers.conf printers.conf.O; do
+    sudo -n grep -v '^#' "/private/etc/cups/$file" >"$dir/$file.content" 2>/dev/null || true
+  done
+}
+
+# cupsd writes printers.conf lazily, so a snapshot taken right after lpadmin -x can see the
+# pre-removal file. Wait, bounded, until no scheduler file names the spike queue as current.
+wait_for_scheduler_flush() {
+  local deadline=$(( $(date +%s) + 120 ))
+  while sudo -n grep -q -E "^<(Default)?Printer ${queue}>" /private/etc/cups/printers.conf 2>/dev/null; do
+    if [[ "$(date +%s)" -ge "$deadline" ]]; then
+      note '- printers.conf still named the spike queue 120 s after removal.'
+      return 1
+    fi
+    sleep 2
+  done
+  note "- printers.conf no longer names the spike queue ($(date +%s))."
 }
 
 note '## 2. Baseline snapshot'
@@ -215,6 +236,15 @@ if [[ "$installed" == 1 ]]; then
   run_fact 'lpadmin remove' sudo -n /usr/sbin/lpadmin -x "$queue"
   run_fact 'remove files' sudo -n /bin/rm -rf -- "$root"
   installed=0
+  removed="$(date +%s)"
+  note "- removed: $removed"
+  wait_for_scheduler_flush
+  if sudo -n grep -q "$queue" /private/etc/cups/printers.conf.O 2>/dev/null; then
+    note "- **printers.conf.O, cupsd's own backup, still names the spike queue** after uninstall."
+  else
+    note '- printers.conf.O does not name the spike queue.'
+  fi
+  note ''
 fi
 snapshot "$out/after"
 if diff -ru "$out/before" "$out/after" >"$out/snapshot.diff"; then
@@ -224,7 +254,7 @@ else
   note '**Snapshot: DIFFERS.** See `snapshot.diff`:'
   note ''
   note '```'
-  cat "$out/snapshot.diff" >>"$summary"
+  tee -a "$summary" <"$out/snapshot.diff"
   note '```'
   verdict=1
 fi
