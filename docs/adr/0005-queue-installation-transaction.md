@@ -1,6 +1,6 @@
 # ADR 0005 — Queue installation transaction and privileged boundary
 
-Status: **proposed**; decides no installation and authorizes none
+Status: **proposed**, amended 2026-11-09 with the maintainer's decisions D15–D24; decides no installation and authorizes none
 Date: 2026-09-19
 Decision owner: maintainer
 Related requirements / acceptance IDs: M1-AC01, M1-AC06–AC08, M1-AC10, M1-AC11, M1-AC13,
@@ -92,7 +92,7 @@ rule that unknown capability or status is not false, zero, supported or complete
 **5. Uninstall is a first-class inverse, not a cleanup script.** Reversibility is a property of the design,
 and it is the thing that makes an installation experiment safe to authorize at all.
 
-**6. One physical-device coordination domain.** The lock is held by the delivery boundary — the
+**6. One physical-device coordination domain.** *(Superseded in part by amendment A2 below: the 2026-11-09 spike showed a lock held by the filter, or any lock released before the backend finishes, does not cover delivery, so delivery is serialized by one queue per printer instead.)* The lock is held by the delivery boundary — the
 backend/coordinator that owns device lifetime — and not by the filter or the app. It is keyed to the
 qualified stable identity from [#123], which is what makes "the same physical printer" nameable across two
 queue names or connection aliases. Every product queue **and every maintenance action** joins that one
@@ -127,6 +127,62 @@ whole question to "which identity".
 It does not select an adapter — [ADR 0003](0003-m1-adapter-admission-gate.md) still holds. It does not decide
 that a helper will ever be built. It qualifies no acceptance criterion, and it authorizes no installation,
 no queue change, no privileged operation and no device access.
+
+## Amendment 2026-11-09 — maintainer decisions and spike findings
+
+The maintainer answered the questions below in conversation on 2026-11-09. They are recorded as D15–D24 in
+[DECISIONS.md](../DECISIONS.md). The spike evidence is in
+[M1-HOSTED-QUEUE-SPIKE-2026-11-09.md](../validation/M1-HOSTED-QUEUE-SPIKE-2026-11-09.md): three manual runs
+on throwaway hosted `macos-26` VMs, no printer. None of this authorizes an installation, and the status
+above is unchanged.
+
+**A1. Option B is the first installation path (D16).** An unsigned `.pkg` run by Installer.app, which owns
+the administrator prompt, so the app never handles credentials and no persistent privileged service exists.
+Decision 2 above stands. Whether Tahoe admits it without a Developer ID is still to be proven in M1, and
+Gatekeeper's first-open friction is documented, never bypassed.
+
+**A2. Delivery is serialized by one CUPS queue per physical printer (D23, supersedes D17).** The spike's
+backend kept writing about 4 s after the filter exited in 3 of 3 runs, so no lock held by the filter can
+cover delivery. Instead:
+
+- one queue per physical printer; workflows are presets or options on it, not separate queues;
+- cupsd's own per-queue serialization covers device delivery, and maintenance actions enter as jobs on the
+  same queue;
+- the built-in `usb` backend is reused and the product ships only a filter (D17's choice of backend stands;
+  its reliance on a filter-held lock does not).
+
+`M3-AC07` and `M5-AC05` are worded for several virtual queues and need restating against this model. That is
+a separate, reviewed change to their wording and is not made here.
+
+**A3. One `flock(2)` lock guards installation, uninstall and queue changes (D18).** It is one root-owned lock
+file in a protected directory, held across the whole interval by every install, uninstall and queue
+modification. That answers the held-claim gap in [#162] for cooperating processes: the kernel releases it on
+crash, and it can express "the queue stayed absent while payloads were removed", which no per-operation
+condition can. It does not stop an uncooperative writer, which remains a recorded residual. `LabelMac`
+already has an `flock`-based `PhysicalDeviceLease`; whether the install lock reuses it or a root-owned
+sibling is a design question for the slice that builds it.
+
+**A4. The device URI omits the printer serial number (D24).** The spike showed cupsd keeps the removed
+queue's whole definition, `DeviceURI` included, in `printers.conf.O` after uninstall. A serial-less URI keeps
+that backup free of the serial. The trade-off is that two identical printers on one Mac cannot be told apart
+by URI. Whether the macOS `usb` backend matches a serial-less URI to the attached GC420d is **unverified**
+and needs the test Mac. Qualified identity from [#123] is unaffected.
+
+**A5. Clean uninstall is a requirement (D19).** In-app through the standard administrator prompt, driven by
+the install receipt, removing only what the install recorded; it takes the A3 lock; refuses while a job is
+held or printing; works with the app deleted; is idempotent and finishes an interrupted run. It is verified by
+a before/after snapshot, not by its own exit status. `UninstallVerification` in `LabelCore` encodes that
+judgement and tolerates exactly two scheduler-owned changes the spike showed any add-then-remove produces:
+`NextPrinterId` advancing, and cupsd's `printers.conf.O` backup being rewritten with no serial in it.
+
+**A6. What the hosted runner cannot show.** SIP is **disabled** on hosted runners, so `M1-AC01`
+("without … an altered security policy") cannot pass there, and the runner cannot say whether SIP would
+refuse a product file in a system CUPS path. Both need a Mac with SIP on. A hosted VM is a separately
+declared surface in `docs/test-surfaces.json`, not a relabelled test Mac. `lpadmin -P` also warns that PPD
+drivers are deprecated and "will stop working in a future version of CUPS", a long-term risk to the CUPS/PPD
+approach (D09) that is recorded here and not decided.
+
+[#162]: https://github.com/bherila/macos-zpl-label-driver/issues/162
 
 [#80]: https://github.com/bherila/macos-zpl-label-driver/issues/80
 [#89]: https://github.com/bherila/macos-zpl-label-driver/issues/89
