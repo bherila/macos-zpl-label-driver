@@ -156,6 +156,39 @@ final class WorkflowEditorBootstrapTests: XCTestCase {
         }
     }
 
+    /// The planner scales a tiny region back up to fill the canvas, so placement alone
+    /// admits it; `render` then divides the target by the region and refuses a full-page
+    /// target beyond its 1e9 bound. Admission must apply that same bound. On 4x6 stock a
+    /// Letter page's square region plans to an 813x1052-dot target, so the full height is
+    /// 1052 / side and the threshold is near side 1.05e-6. Bracketed from both sides: 2e-6
+    /// gives about 4.1e8 x 5.3e8 and renders; 5e-7 gives about 1.6e9 x 2.1e9 and does not.
+    /// The refusal asserted is the renderer's, not the planner's, which would be a
+    /// PagePlacementError. Target sizes measured with LabelCore's planner on Linux.
+    func testPlannedLabelAdmissionAppliesTheRenderersFullPageTargetBound() throws {
+        let stock = PhysicalSize(width: try Millimeters(101.6), height: try Millimeters(152.4))
+        let canvas = try DotCanvas(physicalSize: stock,
+            resolution: try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        let box = try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792)
+        let analyzed = [try AnalyzedSourcePage(pageBox: box, anchors: nil)]
+        func plan(regionSide: Double) throws -> ExtractionPlan {
+            try ExtractionPlanner.plan(analyzedPages: analyzed, profile: try WorkflowProfile(
+                id: "tiny-region", revision: 1, outputStockID: "four-by-six", outputStock: stock,
+                pageRules: [try WorkflowPageRule(sourcePage: 1,
+                    expectedInput: ExpectedInputPage(uprightPhysicalSize: try box.effectivePhysicalSize()),
+                    disposition: .extract([try ExtractionRegion(id: "region",
+                        normalizedRect: try NormalizedRect(x: 0, y: 0, width: regionSide, height: regionSide),
+                        outputOrder: 0)]))]))
+        }
+        XCTAssertNoThrow(try QuartzPDFRenderer.admitPlannedLabels(try plan(regionSide: 2e-6),
+            analyzedPages: analyzed, canvas: canvas))
+        for side in [5e-7, 1e-10, 1e-300] {
+            XCTAssertThrowsError(try QuartzPDFRenderer.admitPlannedLabels(try plan(regionSide: side),
+                analyzedPages: analyzed, canvas: canvas), "\(side)") {
+                XCTAssertEqual($0 as? QuartzPDFRenderer.Error, .invalidPageGeometry, "\(side)")
+            }
+        }
+    }
+
     /// Per-edit admission validates only the regions present at that moment, so
     /// a later crop can invalidate an already admitted canvas. save() is the
     /// boundary that persists a revision, so the invariant is enforced there:

@@ -122,9 +122,25 @@ public enum QuartzPDFRenderer {
             if label.rotation == .degrees90 || label.rotation == .degrees270 {
                 source = PhysicalSize(width: source.height, height: source.width)
             }
-            _ = try PagePlacementPlanner.plan(source: source, canvas: canvas,
+            let placement = try PagePlacementPlanner.plan(source: source, canvas: canvas,
                 policy: policy, margins: label.outputMargins)
+            // The planner scales a tiny region back up to fill the canvas, so it admits
+            // regions whose full-page drawing target `render` then refuses. Apply the
+            // renderer's own bound to the target it will derive, not a copy of it.
+            _ = try fullPageTarget(for: region,
+                selectedTarget: unrotatedTarget(for: drawingTarget(for: placement, canvas: canvas),
+                                                rotation: label.rotation))
         }
+    }
+
+    /// The planner owns top-down dot coordinates; Quartz draws bottom-up.
+    private static func drawingTarget(for placement: PagePlacement, canvas: DotCanvas) -> CGRect {
+        CGRect(
+            x: placement.target.x,
+            y: canvas.height - placement.target.y - placement.target.height,
+            width: placement.target.width,
+            height: placement.target.height
+        )
     }
 
     /// Top-to-bottom grayscale pixels: 0 is black and 255 is white.
@@ -240,13 +256,7 @@ public enum QuartzPDFRenderer {
         } catch {
             throw Error.invalidPageGeometry
         }
-        let target = CGRect(
-            x: placement.target.x,
-            // The planner owns top-down dot coordinates; Quartz draws bottom-up.
-            y: request.canvas.height - placement.target.y - placement.target.height,
-            width: placement.target.width,
-            height: placement.target.height
-        )
+        let target = drawingTarget(for: placement, canvas: request.canvas)
         let unrotatedTarget = unrotatedTarget(for: target, rotation: request.regionRotation)
         let fullTarget: CGRect
         do {
