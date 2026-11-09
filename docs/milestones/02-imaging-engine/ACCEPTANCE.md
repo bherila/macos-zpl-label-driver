@@ -10,7 +10,7 @@ Evidence levels: **A** automated; **C** repository/CI/configuration inspection; 
 | Done | ID | Area | Minimum evidence | Acceptance criterion |
 |---|---|---|---|---|
 | [ ] | M2-AC01 | Geometry | A | All box/origin/rotation/unit/rounding vectors pass; physical transform quantization is at most one dot under the documented policy. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
-| [x] | M2-AC02 | Original-source rendering | A | Output rendering uses the original PDF or qualified input raster, never a detection/UI thumbnail. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
+| [ ] | M2-AC02 | Original-source rendering | A | Output rendering uses the original PDF or qualified input raster, never a detection/UI thumbnail. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md). |
 | [ ] | M2-AC03 | PDF semantics | I | Transparency, mixed page sizes, embedded images and documented annotation/form behavior match the supported visual contract. |
 | [x] | M2-AC04 | One-bit layout | A | MSB-first top-down 1=black layout, stride and white tail bits pass adversarial widths including 1,7,8,9,811,812,813 dots. Evidence: [2026-09-20 re-seal after seven slices](../../validation/M2-RESEAL-AFTER-SEVEN-SLICES-2026-09-20.md). |
 | [x] | M2-AC05 | Exact preview | A | Preview reconstruction matches the complete encoder input byte-for-byte after unpack/repack. Evidence: [2026-09-15 automated core](../../validation/M2-AUTOMATED-CORE-2026-09-15.md), [2026-09-20 hosted macOS control coverage](../../validation/M3-HOSTED-MACOS-CONTROL-COVERAGE-2026-09-20.md). |

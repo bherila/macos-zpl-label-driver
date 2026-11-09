@@ -244,6 +244,120 @@
           "sha256": "c8fa471efded04b83c6bd66c6aa5106736deeb6df3fff09932fd7fbe0c382425"
         }
       ]
+    },
+    {
+      "acceptanceID": "M4-AC03",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "3d5f3458555d7baded51740a3a3628b26f62c8ca",
+      "implementation": [
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/LabelOrderPlan.swift",
+          "sha256": "dadabc4ad8f9eeeecf25205faf410d70ce1aca1c0150480e4f2e83bf4ccdb1c4"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ExtractionPlan.swift",
+          "sha256": "9970aff3b25c640eac190d31fa6230019d14dfdcadd3c2a6e6bc869635a73093"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/WorkflowProfileDraft.swift",
+          "sha256": "0763d6b3ebc870f2cf18b36ee59812bc49ba855e3871f303128c36815f5188a6"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/LabelOrderPlanTests.swift",
+          "sha256": "497828cdb92ea38261847dfc04ccb26faad70be8b8fb6b9c07cce86c1dbc8ec0"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ExtractionPlanTests.swift",
+          "sha256": "ee5dc1d7721675afc32609df984b61b7ce82989e09fa7541c66c7f29f2758f63"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/WorkflowProfileDraftTests.swift",
+          "sha256": "ef50cf24407fb277c069e387da5ba18da2bf1dcf2330615ee9fcb535e6f8f42b"
+        },
+        {
+          "path": "docs/validation/M4-DRAFT-ORDER-ACCOUNTING-2026-09-15.md",
+          "sha256": "9b32ca1f68c08639695687412ad62931557795b574fccb98cb913f222a40df2e"
+        },
+        {
+          "path": "docs/validation/M4-LEDGER-RECORDS-AND-UNCHECKS-2026-11-09.md",
+          "sha256": "197dbee5a598c211323efa537e755611e38a2094741b213f571aaf3e29feb0ab"
+        }
+      ]
+    },
+    {
+      "acceptanceID": "M4-AC04",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "3d5f3458555d7baded51740a3a3628b26f62c8ca",
+      "implementation": [
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ExtractionPlan.swift",
+          "sha256": "9970aff3b25c640eac190d31fa6230019d14dfdcadd3c2a6e6bc869635a73093"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/StructuralAnchorAnalyzer.swift",
+          "sha256": "9a2bb958faa530b4942c2348cdc5a4fe8317fa9c2aba48e141875d3acda84365"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/StructuralMatchingTests.swift",
+          "sha256": "fe603ddcb2038f0db6e8d4baa81b5d5d2d0eb3756c1a432108a6c22b62428c05"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/StructuralAnchorAnalyzerTests.swift",
+          "sha256": "11bee7ded9973dd9b33470a8e46b9551b09642858fa011834ae889ea4215e56b"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ExtractionPlanTests.swift",
+          "sha256": "ee5dc1d7721675afc32609df984b61b7ce82989e09fa7541c66c7f29f2758f63"
+        },
+        {
+          "path": "docs/validation/M4-STRUCTURAL-ANALYSIS-2026-09-15.md",
+          "sha256": "cca7ab4dcba95d862d8c2f211136a321af3b3329431335a284524ce33ee8e83c"
+        },
+        {
+          "path": "docs/validation/M4-LEDGER-RECORDS-AND-UNCHECKS-2026-11-09.md",
+          "sha256": "197dbee5a598c211323efa537e755611e38a2094741b213f571aaf3e29feb0ab"
+        }
+      ]
+    },
+    {
+      "acceptanceID": "M4-AC05",
+      "level": "A",
+      "state": "pass",
+      "sourceSHA": "3d5f3458555d7baded51740a3a3628b26f62c8ca",
+      "implementation": [
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/ExtractionPlan.swift",
+          "sha256": "9970aff3b25c640eac190d31fa6230019d14dfdcadd3c2a6e6bc869635a73093"
+        },
+        {
+          "path": "Packages/LabelCore/Sources/LabelCore/WorkflowProfileDraft.swift",
+          "sha256": "0763d6b3ebc870f2cf18b36ee59812bc49ba855e3871f303128c36815f5188a6"
+        }
+      ],
+      "evidence": [
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/ExtractionPlanTests.swift",
+          "sha256": "ee5dc1d7721675afc32609df984b61b7ce82989e09fa7541c66c7f29f2758f63"
+        },
+        {
+          "path": "Packages/LabelCore/Tests/LabelCoreTests/WorkflowProfileDraftTests.swift",
+          "sha256": "ef50cf24407fb277c069e387da5ba18da2bf1dcf2330615ee9fcb535e6f8f42b"
+        },
+        {
+          "path": "docs/validation/M4-DRAFT-ORDER-ACCOUNTING-2026-09-15.md",
+          "sha256": "9b32ca1f68c08639695687412ad62931557795b574fccb98cb913f222a40df2e"
+        },
+        {
+          "path": "docs/validation/M4-LEDGER-RECORDS-AND-UNCHECKS-2026-11-09.md",
+          "sha256": "197dbee5a598c211323efa537e755611e38a2094741b213f571aaf3e29feb0ab"
+        }
+      ]
     }
   ]
 }

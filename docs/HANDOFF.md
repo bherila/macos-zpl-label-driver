@@ -1,3 +1,16 @@
+# #130 ledger work, first slice — 2026-11-09 (latest)
+
+- **Recorded (level A, mutation-proven):** `M4-AC03`, `M4-AC04`, `M4-AC05`, bound to `3d5f345`.
+- **Unchecked (evidence does not support the wording):** `M2-AC02`, `M4-AC07`, `M4-AC08`, `M5-AC12`.
+- **Still checked with no record:** `M2-AC09`, `M4-AC02`, `M4-AC13` (need hosted macOS evidence) and
+  `M2-AC12`. **#130 stays open.**
+- **Correction to D21:** it said `M2-AC12` was expected to be unchecked. That was wrong. Its baseline names the
+  machine and records all four measurements; it just cannot be bound to the current tip without a rerun.
+- Receipt: `docs/validation/M4-LEDGER-RECORDS-AND-UNCHECKS-2026-11-09.md`. The per-row analysis was an
+  agent's, with every claim re-verified against the tree.
+- The mutation for the unaccounted-page guard **crashes** the test process (`preconditionFailure`) instead of
+  failing an assertion; a first sweep misread that as "no failure".
+
 # Review fixes merged and records re-sealed again — 2026-11-09 (latest)
 
 | PR | Slice | Reviewed head | Squashed to |
