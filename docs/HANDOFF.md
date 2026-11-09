@@ -1,3 +1,15 @@
+# Review fixes merged and records re-sealed again — 2026-11-09 (latest)
+
+| PR | Slice | Reviewed head | Squashed to |
+|---|---|---|---|
+| #173 | re-seal after #169–#172 | `f8898b3` | `c9368da` |
+| #174 | reloadForCorrection admits the stored revision's planned labels | `b389a63` | `37d2431` |
+
+- #172 (merged earlier) fixed finding 1 of the agent review of #101. #174 fixes its minor finding. Both are source slices and both compiled and passed on hosted macos-26, but **neither was mutation-tested** (needs a macOS host).
+- #101 stays open for finding 2, a maintainer decision: the app's only reopen button always uses `.offlineCandidate`.
+- #146 is closed with D20.
+- `EVIDENCE-RESEAL-AFTER-RELOAD-ADMISSION-2026-11-09.md` rebinds all four records to `37d2431`; 51 of 51 cited paths match.
+
 # Spike, uninstall verifier and a security fix merged; four records re-sealed — 2026-11-09 (later)
 
 Merged on the maintainer's instruction to merge and continue. **No byte was sent to any printer.**
