@@ -189,6 +189,42 @@ final class WorkflowEditorBootstrapTests: XCTestCase {
         }
     }
 
+    /// reloadForCorrection installs a stored revision that no editor admitted: the
+    /// store persists what it is given. A revision whose region cannot be placed on
+    /// its canvas must be refused before the draft or canvas changes, with the
+    /// placement refusal rather than a later preview failure. The same stock with a
+    /// full-page region reloads, so it is the region, not the canvas, being refused.
+    func testReloadForCorrectionAdmitsTheStoredRevisionsPlannedLabels() throws {
+        let box = try PDFPageBox(originX: 0, originY: 0, width: 612, height: 792)
+        let analyzed = [try AnalyzedSourcePage(pageBox: box, anchors: nil)]
+        let stock = PhysicalSize(width: try Millimeters(1000), height: try Millimeters(0.1))
+        let canvas = try DotCanvas(physicalSize: stock,
+            resolution: try DotResolution(xDotsPerMillimeter: 8, yDotsPerMillimeter: 8))
+        func profile(id: String, regionWidth: Double) throws -> WorkflowProfile {
+            try WorkflowProfile(id: id, revision: 1,
+                outputStockID: "long-thin-stock", outputStock: stock,
+                pageRules: [try WorkflowPageRule(sourcePage: 1,
+                    expectedInput: ExpectedInputPage(uprightPhysicalSize: try box.effectivePhysicalSize()),
+                    disposition: .extract([try ExtractionRegion(id: "region",
+                        normalizedRect: try NormalizedRect(x: 0, y: 0, width: regionWidth, height: 1),
+                        outputOrder: 0)]))])
+        }
+        let store = try store()
+        let whole = try profile(id: "open-whole", regionWidth: 1)
+        try store.save(try profile(id: "stored-whole", regionWidth: 1))
+        try store.save(try profile(id: "stored-narrow", regionWidth: 0.1))
+        let model = WorkflowEditorModel(draft: WorkflowProfileDraft(profile: whole),
+            originalPDF: Data(), analyzedPages: analyzed, canvas: canvas, store: store)
+
+        XCTAssertThrowsError(try model.reloadForCorrection(profileID: "stored-narrow", revision: 1)) {
+            XCTAssertEqual($0 as? PagePlacementError, .placementExceedsLimit)
+        }
+        XCTAssertEqual(model.profile, whole)
+
+        XCTAssertNoThrow(try model.reloadForCorrection(profileID: "stored-whole", revision: 1))
+        XCTAssertEqual(model.profile.id, "stored-whole")
+    }
+
     /// Per-edit admission validates only the regions present at that moment, so
     /// a later crop can invalidate an already admitted canvas. save() is the
     /// boundary that persists a revision, so the invariant is enforced there:

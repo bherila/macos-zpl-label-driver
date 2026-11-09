@@ -506,6 +506,13 @@ public final class WorkflowEditorModel: ObservableObject {
         // encoder bounds. Reject before committing the draft, so a reload
         // cannot install a canvas whose every exact preview fails.
         try QuartzPDFRenderer.admitRenderableCanvas(nextCanvas)
+        // The canvas alone is not the precondition for an exact preview: the
+        // stored regions must also place on it, as save() and opening require.
+        // A revision written by another editor or imported directly is not
+        // known to satisfy that, so admit it here rather than at the next save.
+        try QuartzPDFRenderer.admitPlannedLabels(
+            try ExtractionPlanner.plan(analyzedPages: analyzedPages, profile: stored),
+            analyzedPages: analyzedPages, canvas: nextCanvas)
         try replaceDraft(store.correctionDraft(for: stored))
         canvas = nextCanvas
         cancelPreview()
