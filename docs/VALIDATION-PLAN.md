@@ -43,14 +43,14 @@ the one being reviewed.
 
 | Surface | Level | Where a pass can be obtained | Which PRs reach it | Criteria |
 |---|---|---|---|---|
-| `automated-swift` | A | the LabelCore Swift suite and `run-accelerator-checks.py` | every ordinary PR | 23 |
+| `automated-swift` | A | the LabelCore Swift suite and `run-accelerator-checks.py` | every ordinary PR | 20 |
 | `installed` | I | test Mac with an installed scheduler or helper | none | 18 |
 | `gui` | I | test Mac, interactive supervised session | none | 11 |
 | `physical` | H | the named GC420d over USB | none | 8 |
 | `macos-native` | I | hosted `macos-26` CI, noninteractive | only Swift-affecting PRs | 7 |
 | `automated-preflight` | A | the always-running repository-preflight job: `check_repo.py` and `scripts/tests` | every ordinary PR | 4 |
 | `config` | C | repository and CI inspection on the pull request under review | every ordinary PR | 4 |
-| `automated-macos` | A | `scripts/ci-swift.sh` on an Apple Silicon macOS host | only Swift-affecting PRs | 3 |
+| `automated-macos` | A | `scripts/ci-swift.sh` on an Apple Silicon macOS host | only Swift-affecting PRs | 6 |
 | `release` | R | the release gate | none | 3 |
 | `accessory` | H | a printer that actually has the cutter or peeler under test | none | 2 |
 | `benchmark` | I | the named reference Mac, release build, retained baseline commit | none | 2 |
@@ -118,6 +118,9 @@ run a Darwin-gated script. `automated-macos` is not `macos-native`, which is lev
 a surface must declare the level its criteria prescribe, so two surfaces may share a host and differ
 in level exactly as `config` and `config-experiment` share a location and differ in reach.
 
+**Reclassified 2026-11-10 (issue #130).** M2-AC09, M4-AC02 and M4-AC13 moved from `automated-swift` to `automated-macos`: the tests that establish their claims (the renderer's refusals, the planned-extraction rotation and bound tests, the three-reference pipeline) are under `Packages/LabelMac`, which does not build on Linux, so a portable session reaches only the LabelCore half of each row. `automated-swift` now holds twenty and `automated-macos` six. The guard test that refuses a ledger record citing a LabelMac path on `automated-swift` exposed it.
+
+
 Nine surfaces exist because a single flag was carrying both questions. `config-experiment` holds
 M0-AC06 and M0-AC09, whose evidence is an intentionally failing pull request, a documentation-only
 pull request and a fork pull request -- repository inspection, but never of the pull request under
@@ -141,7 +144,7 @@ is [`ACCEPTANCE-EVIDENCE.json`](ACCEPTANCE-EVIDENCE.json), and a surface here is
 there. Reachable is not validated: sitting on a surface a pull request reaches is not a pass, and
 the figures below count places, not results.
 
-31 of 90 criteria sit on a surface every ordinary pull request reaches, 10 of 90 only when the pull
+28 of 90 criteria sit on a surface every ordinary pull request reaches, 13 of 90 only when the pull
 request's changed paths select that surface, and 49 of 90 need a separate named session.
 
 
