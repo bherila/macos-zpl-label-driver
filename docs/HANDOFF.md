@@ -1,3 +1,20 @@
+# #130 second slice, two coverage gaps closed, strict reopen — 2026-11-10
+
+| PR | Slice | Squashed to |
+|---|---|---|
+| #178 | strict-by-default saved-workflow reopen (the maintainer's decision on #101 finding 2) | `2d196cf` |
+| #179 | test: off-origin, non-square region through every page rotation | `358ed07` |
+| #180 | test: the renderer's own input-size bound at all three entry points | `36cb890` |
+| #181 | map correction: M2-AC09, M4-AC02 and M4-AC13 move to `automated-macos` (a guard test exposed it) | `3287cc0` |
+
+- Merged under the maintainer's standing authorization for green slices, with risk-posture changes still held for them.
+- **Two real coverage gaps found by mutation and closed before recording:** swapping the rotation axes passed all of LabelCore (every rotation test used a region at the origin), and removing the renderer's input-size guard passed all of LabelMac.
+- **Hosted-runner mutation technique:** dispatch the manual `Compatibility candidates` workflow on a throwaway commit pushed to the session branch while no PR is open, then restore the branch. Three runs: 42720591733, 42724264541, 42727883606.
+- **Recorded (level A):** `M2-AC09`, `M4-AC02`, `M4-AC13`, bound to `3287cc0` (Swift-identical to `36cb890`, the run's commit). Seven records were qualified before; ten now.
+- **Still open under #130:** `M2-AC12` (a rerun on the Mac at the tip would qualify it; D21's wording about it is wrong and needs a source-slice correction). #130 can close after that, or once the maintainer decides it stays reported.
+- **Unchecked rows to re-tick by adding tests, not wording** (maintainer's decision): `M2-AC02`, `M4-AC07`, `M4-AC08`, `M5-AC12`.
+- Receipts: `docs/validation/M2-M4-HOSTED-MACOS-EVIDENCE-2026-11-10.md` and `EVIDENCE-RESEAL-AFTER-HOSTED-MACOS-SLICES-2026-11-10.md`.
+
 # #130 ledger work, first slice — 2026-11-09 (latest)
 
 - **Recorded (level A, mutation-proven):** `M4-AC03`, `M4-AC04`, `M4-AC05`, bound to `3d5f345`.
