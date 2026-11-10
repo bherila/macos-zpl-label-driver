@@ -735,7 +735,10 @@ class CommittedClassificationTests(unittest.TestCase):
             sorted(k for k, v in self.assigned.items() if v == 'automated-preflight'),
             ['M0-AC07', 'M0-AC08', 'M0-AC11', 'M6-AC01'])
         swift_backed = sorted(k for k, v in self.assigned.items() if v == 'automated-swift')
-        self.assertEqual(len(swift_backed), 23)
+        self.assertEqual(len(swift_backed), 20)
+        # M2-AC09, M4-AC02 and M4-AC13 left this surface on 2026-11-10: their evidence is under LabelMac.
+        for moved in ("M2-AC09", "M4-AC02", "M4-AC13"):
+            self.assertNotIn(moved, swift_backed)
         self.assertIn('M0-AC03', swift_backed)
         self.assertIn('M2-AC13', swift_backed)
         self.assertNotIn('automated', set(self.assigned.values()))
@@ -750,7 +753,7 @@ class CommittedClassificationTests(unittest.TestCase):
             self.assertNotIn(darwin_only, preflight)
 
     def test_the_macos_only_a_level_rows_are_not_on_a_portable_surface(self):
-        """M5-AC12, M2-AC05 and M3-AC03: level A evidence no Linux session can produce.
+        """M5-AC12, M2-AC05, M3-AC03, M2-AC09, M4-AC02 and M4-AC13: level A evidence no Linux session can produce.
 
         Two different mistakes put them on portable surfaces and both came from naming
         something other than the executor. M5-AC12 was on automated-preflight because
@@ -768,7 +771,7 @@ class CommittedClassificationTests(unittest.TestCase):
         map restating itself.
         """
         macos_only = sorted(k for k, v in self.assigned.items() if v == 'automated-macos')
-        self.assertEqual(macos_only, ['M2-AC05', 'M3-AC03', 'M5-AC12'])
+        self.assertEqual(macos_only, ['M2-AC05', 'M2-AC09', 'M3-AC03', 'M4-AC02', 'M4-AC13', 'M5-AC12'])
         surface = self.definitions['automated-macos']
         self.assertEqual(surface['level'], 'A')
         self.assertEqual(surface['reach'], surfaces.REACH_SELECTED)
