@@ -1,3 +1,15 @@
+# #130 recorded and re-sealed; D21 corrected — 2026-11-10 (latest)
+
+| PR | Slice | Squashed to |
+|---|---|---|
+| #182 | records for M2-AC09, M4-AC02, M4-AC13 and a seven-record re-seal | `69a944a` |
+| #183 | correct D21: M2-AC12 is supported, not expected to be unchecked | `d623126` |
+
+- The evidence gate reads **10 qualified**; `M2-AC12` is the only checked row with no record (needs a benchmark rerun on the Mac at the tip).
+- Issues #130, #101 and #162 have progress comments. #101 stays open: the review was an agent's, and it asks for a human pass.
+- **Open for the maintainer or a later session:** re-tick the four unchecked rows by adding tests (`M2-AC02`, `M4-AC07`, `M4-AC08`, `M5-AC12`); restate `M3-AC07` and `M5-AC05` for the one-queue model (needs review of the exact text); build the D18 install lock and receipt (#129); a supervised look at the two reopen buttons (#133).
+- Receipt: `docs/validation/EVIDENCE-RESEAL-AFTER-D21-CORRECTION-2026-11-10.md`.
+
 # #130 second slice, two coverage gaps closed, strict reopen — 2026-11-10
 
 | PR | Slice | Squashed to |
